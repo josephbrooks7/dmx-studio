@@ -3,6 +3,8 @@ on:
   push:
     branches: [main]
   workflow_dispatch:
+permissions:
+  contents: write
 jobs:
   build:
     runs-on: macos-latest
@@ -15,8 +17,25 @@ jobs:
       - name: Check architectures and minimum macOS
         run: |
           lipo -info "build/DMX Studio.app/Contents/MacOS/DMXStudio"
-          otool -l "build/DMX Studio.app/Contents/MacOS/DMXStudio" | grep -A4 -E "LC_BUILD_VERSION|LC_VERSION_MIN" | head -20
+          otool -l "build/DMX Studio.app/Contents/MacOS/DMXStudio" | grep -A4 LC_BUILD_VERSION | head -10
       - uses: actions/upload-artifact@v4
         with:
           name: DMX-Studio-dmg
           path: build/*.dmg
+      - name: Publish GitHub Release
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          TAG="v1.0.${{ github.run_number }}"
+          gh release create "$TAG" build/*.dmg --title "DMX Studio $TAG" \
+            --notes "Download the .dmg, open it, and drag DMX Studio into Applications. First launch: right-click the app → Open." --latest
+      - name: Copy DMG to dist branch
+        run: |
+          mkdir -p /tmp/dist && cp build/*.dmg /tmp/dist/DMX-Studio.dmg
+          git config user.name "dmx-studio-ci"; git config user.email "ci@users.noreply.github.com"
+          git checkout --orphan dist
+          git rm -rf . >/dev/null
+          cp /tmp/dist/DMX-Studio.dmg .
+          git add DMX-Studio.dmg
+          git commit -m "DMG build ${{ github.run_number }}"
+          git push -f origin dist
