@@ -1,0 +1,888 @@
+import SwiftUI
+import AppKit
+
+// MARK: - Bindings by id (safe when items are deleted)
+
+extension AppModel {
+    func songBinding(_ id: UUID) -> Binding<Song> {
+        Binding(get: { self.songs.first { $0.id == id } ?? Song(title: "", path: "") },
+                set: { new in if let i = self.index(of: id) { self.songs[i] = new } })
+    }
+
+    func lineupBinding(_ id: UUID) -> Binding<Lineup> {
+        Binding(get: { self.lineups.first { $0.id == id } ?? Lineup(name: "") },
+                set: { new in if let i = self.lineupIndex(id) { self.lineups[i] = new } })
+    }
+
+    func fixtureBinding(_ id: UUID) -> Binding<Fixture> {
+        Binding(get: { self.fixtures.first { $0.id == id } ?? Fixture(name: "", address: 1, profileName: "", layout: "") },
+                set: { new in if let i = self.fixtures.firstIndex(where: { $0.id == id }) { self.fixtures[i] = new } })
+    }
+}
+
+struct Card<Content: View>: View {
+    let content: Content
+    init(@ViewBuilder _ content: () -> Content) { self.content = content() }
+    var body: some View {
+        content
+            .padding(14)
+            .frame(maxWidth: .infinity, alignment: .leading)
+            .background(RoundedRectangle(cornerRadius: 10).fill(Color.white.opacity(0.05)))
+            .overlay(RoundedRectangle(cornerRadius: 10).stroke(Color.white.opacity(0.08)))
+    }
+}
+
+struct PageHeader: View {
+    let title: String
+    let subtitle: String
+    var body: some View {
+        VStack(alignment: .leading, spacing: 4) {
+            Text(title).font(.largeTitle.bold())
+            Text(subtitle).foregroundColor(.secondary)
+        }
+    }
+}
+
+// MARK: - Song: Learn, create shows, edit sections
+
+struct SongView: View {
+    @EnvironmentObject var model: AppModel
+    let songID: UUID
+    @State private var renaming: UUID?
+    @State private var renameText = ""
+
+    var body: some View {
+        let binding = model.songBinding(songID)
+        let song = binding.wrappedValue
+        ScrollView {
+            VStack(alignment: .leading, spacing: 16) {
+                header(song)
+                if let a = song.analysis {
+                    showsBar(binding, a)
+                    if let si = song.activeShowIndex {
+                        TimelineView(song: song, show: song.shows[si], analysis: a)
+                            .frame(height: 150)
+                        StagePreview()
+                        sectionEditor(binding, si)
+                    }
+                } else {
+                    learnPrompt(song)
+                }
+            }
+            .padding(24)
+        }
+    }
+
+    // Header with Learn + genre
+    @ViewBuilder func header(_ song: Song) -> some View {
+        HStack(alignment: .top) {
+            VStack(alignment: .leading, spacing: 6) {
+                Text(song.title).font(.largeTitle.bold()).lineLimit(1)
+                if let a = song.analysis {
+                    HStack(spacing: 14) {
+                        Label("\(Int(a.bpm.rounded())) BPM", systemImage: "metronome")
+                        Label(formatTime(a.duration), systemImage: "clock")
+                        Label("\(a.detectedSections.count) sections", systemImage: "rectangle.split.3x1")
+                        Label("\(a.kicks.count) kicks", systemImage: "circle.fill")
+                    }
+                    .font(.callout).foregroundColor(.secondary)
+                }
+            }
+            Spacer()
+            VStack(alignment: .trailing, spacing: 8) {
+                HStack {
+                    if let p = model.learning[song.id] {
+                        ProgressView(value: p).frame(width: 120)
+                        Text("Learning…").foregroundColor(.secondary)
+                    } else {
+                        Button {
+                            model.learn(song.id)
+                        } label: {
+                            Label(song.isLearned ? "Learn Again" : "Learn", systemImage: "waveform.badge.magnifyingglass")
+                        }
+                        .controlSize(.large)
+                    }
+                    Button {
+                        if model.playingSongID == song.id && model.isPlaying { model.pause() }
+                        else if model.playingSongID == song.id { model.togglePlay() }
+                        else { model.play(song.id, from: 0) }
+                    } label: {
+                        Label(model.playingSongID == song.id && model.isPlaying ? "Pause" : "Play",
+                              systemImage: model.playingSongID == song.id && model.isPlaying ? "pause.fill" : "play.fill")
+                    }
+                    .controlSize(.large)
+                }
+                HStack {
+                    Text("Genre:").foregroundColor(.secondary)
+                    Picker("", selection: model.songBinding(song.id).genre) {
+                        if let s = song.analysis?.suggestedStyle {
+                            Text("Auto (sounds like \(s.rawValue))").tag(ShowStyle?.none)
+                        } else {
+                            Text("Auto").tag(ShowStyle?.none)
+                        }
+                        Divider()
+                        ForEach(ShowStyle.allCases) { s in Text(s.rawValue).tag(ShowStyle?.some(s)) }
+                    }
+                    .labelsHidden()
+                    .frame(width: 260)
+                }
+            }
+        }
+    }
+
+    @ViewBuilder func learnPrompt(_ song: Song) -> some View {
+        Card {
+            VStack(alignment: .leading, spacing: 8) {
+                Text("Press Learn to let DMX Studio listen to this song.").font(.headline)
+                Text("It finds the tempo, every beat, kick, snare and hi-hat, the quiet and loud parts, and where the song changes (intro, verse, build, chorus, drop). Then it builds a light show for you automatically. It takes a few seconds.")
+                    .foregroundColor(.secondary)
+            }
+        }
+    }
+
+    // Shows for this song
+    @ViewBuilder func showsBar(_ binding: Binding<Song>, _ a: SongAnalysis) -> some View {
+        let song = binding.wrappedValue
+        Card {
+            VStack(alignment: .leading, spacing: 10) {
+                HStack {
+                    Text("Light Shows").font(.headline)
+                    Text("saved automatically").font(.caption).foregroundColor(.secondary)
+                    Spacer()
+                    Menu {
+                        Button("New show in \(song.effectiveGenre.rawValue) (this song's genre)") {
+                            model.createShow(for: song.id)
+                        }
+                        Divider()
+                        ForEach(ShowStyle.allCases) { s in
+                            Button("New \(s.rawValue) show") { model.createShow(for: song.id, style: s) }
+                        }
+                    } label: {
+                        Label("Create Show", systemImage: "wand.and.stars")
+                    }
+                    .menuStyle(.borderlessButton)
+                    .fixedSize()
+                    Menu {
+                        ForEach(model.lineups) { l in
+                            Button(l.name) { model.addToLineup(l.id, songID: song.id, showID: song.activeShow?.id) }
+                        }
+                        Divider()
+                        Button("New Lineup…") {
+                            let id = model.newLineup()
+                            model.addToLineup(id, songID: song.id, showID: song.activeShow?.id)
+                        }
+                    } label: {
+                        Label("Add to Lineup", systemImage: "text.badge.plus")
+                    }
+                    .menuStyle(.borderlessButton)
+                    .fixedSize()
+                    .disabled(song.shows.isEmpty)
+                }
+                ScrollView(.horizontal, showsIndicators: false) {
+                    HStack {
+                        ForEach(song.shows) { show in
+                            let active = show.id == song.activeShow?.id
+                            Button {
+                                binding.wrappedValue.activeShowID = show.id
+                                if model.playingSongID == song.id { model.playingShowID = show.id }
+                            } label: {
+                                HStack(spacing: 6) {
+                                    Circle().fill(Palette.named(show.sections.first?.palette ?? "").color(0).color).frame(width: 10, height: 10)
+                                    Text(show.name)
+                                }
+                                .padding(.horizontal, 12).padding(.vertical, 6)
+                                .background(Capsule().fill(active ? Color.pink.opacity(0.35) : Color.white.opacity(0.07)))
+                            }
+                            .buttonStyle(.plain)
+                            .contextMenu {
+                                Button("Rename…") { renaming = show.id; renameText = show.name }
+                                Button("Duplicate") { model.duplicateShow(songID: song.id, showID: show.id) }
+                                Button("Delete", role: .destructive) { model.deleteShow(songID: song.id, showID: show.id) }
+                            }
+                        }
+                    }
+                }
+                if let rid = renaming {
+                    HStack {
+                        TextField("Show name", text: $renameText).frame(width: 260)
+                        Button("Save") {
+                            if let i = binding.wrappedValue.shows.firstIndex(where: { $0.id == rid }) {
+                                binding.wrappedValue.shows[i].name = renameText
+                            }
+                            renaming = nil
+                        }
+                        Button("Cancel") { renaming = nil }
+                    }
+                }
+                HStack {
+                    Text("Sync nudge").foregroundColor(.secondary)
+                    Slider(value: binding.syncOffsetMs, in: -300...300, step: 10).frame(width: 220)
+                    Text("\(Int(song.syncOffsetMs)) ms").monospacedDigit().frame(width: 60, alignment: .leading)
+                    Text("Only if this song's lights feel early or late.").font(.caption).foregroundColor(.secondary)
+                }
+            }
+        }
+    }
+
+    // Per-section editor
+    @ViewBuilder func sectionEditor(_ binding: Binding<Song>, _ si: Int) -> some View {
+        Card {
+            VStack(alignment: .leading, spacing: 8) {
+                HStack {
+                    Text("Sections").font(.headline)
+                    Text("Tweak any part. Click a time to jump there.").font(.caption).foregroundColor(.secondary)
+                }
+                ForEach(binding.shows[si].sections) { $sec in
+                    SectionRow(section: $sec, songID: binding.wrappedValue.id)
+                    Divider()
+                }
+            }
+        }
+    }
+}
+
+struct SectionRow: View {
+    @EnvironmentObject var model: AppModel
+    @Binding var section: ShowSection
+    let songID: UUID
+
+    var levelColor: Color {
+        switch section.level {
+        case .low: return .blue
+        case .medium: return .yellow
+        case .high: return .orange
+        case .drop: return .red
+        }
+    }
+
+    var body: some View {
+        HStack(spacing: 10) {
+            Button {
+                if model.playingSongID == songID { model.seek(to: section.start) }
+                else { model.play(songID, from: section.start) }
+            } label: {
+                Text(formatTime(section.start)).monospacedDigit().frame(width: 44, alignment: .leading)
+            }
+            .buttonStyle(.plain)
+            .foregroundColor(.accentColor)
+
+            TextField("", text: $section.name).frame(width: 110)
+            Text(section.level.rawValue).font(.caption.bold())
+                .padding(.horizontal, 6).padding(.vertical, 2)
+                .background(Capsule().fill(levelColor.opacity(0.3)))
+                .frame(width: 64)
+
+            Picker("", selection: $section.effect) {
+                ForEach(LightEffect.allCases) { Text($0.rawValue).tag($0) }
+            }.labelsHidden().frame(width: 140)
+
+            Picker("", selection: $section.palette) {
+                ForEach(Palette.all) { p in
+                    Text(p.id).tag(p.id)
+                }
+            }.labelsHidden().frame(width: 120)
+            HStack(spacing: 2) {
+                ForEach(0..<min(4, Palette.named(section.palette).colors.count), id: \.self) { i in
+                    RoundedRectangle(cornerRadius: 2).fill(Palette.named(section.palette).color(i).color).frame(width: 8, height: 16)
+                }
+            }
+
+            Picker("", selection: $section.movement) {
+                ForEach(MoveEffect.allCases) { Text($0.rawValue).tag($0) }
+            }.labelsHidden().frame(width: 96)
+
+            Picker("", selection: $section.rate) {
+                Text("½ speed").tag(0.5)
+                Text("Normal").tag(1.0)
+                Text("2× speed").tag(2.0)
+            }.labelsHidden().frame(width: 90)
+
+            Slider(value: $section.intensity, in: 0.1...1).frame(width: 80)
+            Toggle("Hit", isOn: $section.accentStrobe).help("Strobe hit on the first bar")
+        }
+        .font(.callout)
+    }
+}
+
+// MARK: - Timeline
+
+struct TimelineView: View {
+    @EnvironmentObject var model: AppModel
+    let song: Song
+    let show: LightShow
+    let analysis: SongAnalysis
+
+    var body: some View {
+        GeometryReader { geo in
+            let w = geo.size.width, h = geo.size.height
+            let dur = max(analysis.duration, 1)
+            ZStack(alignment: .topLeading) {
+                Canvas { ctx, size in
+                    // Section bands
+                    for s in show.sections {
+                        let x0 = CGFloat(s.start / dur) * size.width
+                        let x1 = CGFloat(s.end / dur) * size.width
+                        let rect = CGRect(x: x0, y: 0, width: max(1, x1 - x0 - 1), height: size.height)
+                        ctx.fill(Path(roundedRect: rect, cornerRadius: 4),
+                                 with: .color(Palette.named(s.palette).color(0).color.opacity(0.28)))
+                        ctx.draw(Text(s.name).font(.caption.bold()).foregroundColor(.white),
+                                 at: CGPoint(x: x0 + 6, y: 10), anchor: .leading)
+                        ctx.draw(Text(s.effect.rawValue).font(.caption2).foregroundColor(.white.opacity(0.7)),
+                                 at: CGPoint(x: x0 + 6, y: 24), anchor: .leading)
+                    }
+                    // Silences
+                    for s in analysis.silences ?? [] {
+                        let x0 = CGFloat(s.start / dur) * size.width
+                        let x1 = CGFloat(s.end / dur) * size.width
+                        ctx.fill(Path(CGRect(x: x0, y: size.height - 6, width: max(1, x1 - x0), height: 6)),
+                                 with: .color(.gray.opacity(0.6)))
+                    }
+                    // Bar lines
+                    var bi = analysis.downbeatOffset
+                    while bi < analysis.beats.count {
+                        let x = CGFloat(analysis.beats[bi] / dur) * size.width
+                        ctx.fill(Path(CGRect(x: x, y: size.height - 18, width: 1, height: 10)), with: .color(.white.opacity(0.25)))
+                        bi += 4
+                    }
+                    // Energy curve
+                    if !analysis.energy.isEmpty {
+                        var path = Path()
+                        let n = analysis.energy.count
+                        let step = max(1, n / Int(size.width))
+                        path.move(to: CGPoint(x: 0, y: size.height))
+                        var i = 0
+                        while i < n {
+                            let x = CGFloat(i) / CGFloat(n) * size.width
+                            let y = size.height - CGFloat(analysis.energy[i]) * (size.height - 40) - 4
+                            path.addLine(to: CGPoint(x: x, y: y))
+                            i += step
+                        }
+                        path.addLine(to: CGPoint(x: size.width, y: size.height))
+                        path.closeSubpath()
+                        ctx.fill(path, with: .color(.white.opacity(0.16)))
+                    }
+                    // Kicks
+                    for k in analysis.kicks {
+                        let x = CGFloat(k / dur) * size.width
+                        ctx.fill(Path(CGRect(x: x, y: size.height - 4, width: 1, height: 4)), with: .color(.pink.opacity(0.8)))
+                    }
+                }
+                if model.playingSongID == song.id {
+                    Rectangle().fill(Color.white).frame(width: 2, height: h)
+                        .offset(x: CGFloat(model.currentTime / dur) * w)
+                }
+            }
+            .contentShape(Rectangle())
+            .gesture(DragGesture(minimumDistance: 0).onEnded { v in
+                let t = Double(v.location.x / w) * dur
+                if model.playingSongID == song.id { model.seek(to: t) } else { model.play(song.id, from: t) }
+            })
+            .background(RoundedRectangle(cornerRadius: 8).fill(Color.black.opacity(0.4)))
+        }
+    }
+}
+
+// MARK: - Stage preview (what your lights are doing right now)
+
+struct StagePreview: View {
+    @EnvironmentObject var model: AppModel
+
+    var body: some View {
+        Card {
+            VStack(alignment: .leading, spacing: 10) {
+                Text("Live Preview").font(.headline)
+                if model.fixtures.isEmpty {
+                    Text("No lights added yet — go to My Lights.").foregroundColor(.secondary)
+                } else {
+                    ScrollView(.horizontal, showsIndicators: false) {
+                        HStack(spacing: 24) {
+                            ForEach(Array(model.fixtures.enumerated()), id: \.element.id) { idx, fx in
+                                let rf = idx < model.preview.count ? model.preview[idx] : nil
+                                VStack(spacing: 6) {
+                                    HStack(spacing: 4) {
+                                        ForEach(0..<fx.headCount, id: \.self) { h in
+                                            let st = rf.flatMap { h < $0.heads.count ? $0.heads[h] : nil } ?? .off
+                                            let lit = st.intensity * (model.blackout ? 0 : model.master)
+                                            Circle()
+                                                .fill(st.color.color.opacity(max(0.05, lit)))
+                                                .frame(width: 20, height: 20)
+                                                .shadow(color: st.color.color.opacity(lit), radius: 8 * lit)
+                                                .overlay(Circle().stroke(Color.white.opacity(0.15)))
+                                        }
+                                    }
+                                    .padding(8)
+                                    .background(RoundedRectangle(cornerRadius: 6).fill(Color.black))
+                                    .rotation3DEffect(.degrees(((rf?.tilt ?? 0.5) - 0.5) * 120), axis: (x: 1, y: 0, z: 0))
+                                    Text(fx.name).font(.caption).foregroundColor(.secondary)
+                                }
+                            }
+                        }
+                        .padding(.vertical, 8)
+                    }
+                }
+            }
+        }
+    }
+}
+
+// MARK: - Lineup
+
+struct LineupView: View {
+    @EnvironmentObject var model: AppModel
+    let lineupID: UUID
+
+    var body: some View {
+        let binding = model.lineupBinding(lineupID)
+        let lineup = binding.wrappedValue
+        VStack(alignment: .leading, spacing: 16) {
+            HStack(alignment: .firstTextBaseline) {
+                TextField("Lineup name", text: binding.name)
+                    .font(.largeTitle.bold())
+                    .textFieldStyle(.plain)
+                Spacer()
+                Button {
+                    if model.playingLineupID == lineupID && model.isPlaying { model.pause() }
+                    else if model.playingLineupID == lineupID { model.togglePlay() }
+                    else { model.playLineup(lineupID, from: 0) }
+                } label: {
+                    Label(model.playingLineupID == lineupID && model.isPlaying ? "Pause" : "Play Lineup",
+                          systemImage: model.playingLineupID == lineupID && model.isPlaying ? "pause.fill" : "play.fill")
+                        .frame(minWidth: 120)
+                }
+                .controlSize(.large)
+                .disabled(lineup.entries.isEmpty)
+            }
+            HStack {
+                Text("Gap between songs").foregroundColor(.secondary)
+                Stepper("\(Int(lineup.gapSeconds)) s", value: binding.gapSeconds, in: 0...30, step: 1)
+                Text("The idle look shows during the gap.").font(.caption).foregroundColor(.secondary)
+            }
+
+            if lineup.entries.isEmpty {
+                Card {
+                    Text("Add songs here from a song's page (Add to Lineup) or right-click a song in the sidebar. Each entry remembers which light show to run.")
+                        .foregroundColor(.secondary)
+                }
+                Spacer()
+            } else {
+                List {
+                    ForEach(Array(lineup.entries.enumerated()), id: \.element.id) { idx, entry in
+                        LineupRow(lineupID: lineupID, index: idx, entry: entry)
+                    }
+                    .onMove { from, to in binding.wrappedValue.entries.move(fromOffsets: from, toOffset: to) }
+                    .onDelete { set in binding.wrappedValue.entries.remove(atOffsets: set) }
+                }
+                .listStyle(.inset(alternatesRowBackgrounds: true))
+                Text("Drag to reorder. Select and press Delete to remove.").font(.caption).foregroundColor(.secondary)
+            }
+        }
+        .padding(24)
+    }
+}
+
+struct LineupRow: View {
+    @EnvironmentObject var model: AppModel
+    let lineupID: UUID
+    let index: Int
+    let entry: LineupEntry
+
+    var body: some View {
+        let song = model.song(entry.songID)
+        let isNow = model.playingLineupID == lineupID && model.playingEntryIndex == index
+        HStack(spacing: 12) {
+            Text("\(index + 1)").monospacedDigit().foregroundColor(.secondary).frame(width: 24)
+            Image(systemName: isNow ? (model.inGap ? "hourglass" : "speaker.wave.2.fill") : "music.note")
+                .foregroundColor(isNow ? .pink : .secondary)
+            VStack(alignment: .leading) {
+                Text(song?.title ?? "Missing song").font(.headline)
+                if let a = song?.analysis {
+                    Text("\(Int(a.bpm.rounded())) BPM · \(formatTime(a.duration))").font(.caption).foregroundColor(.secondary)
+                } else {
+                    Text("Not learned yet: lights will use the idle look").font(.caption).foregroundColor(.orange)
+                }
+            }
+            Spacer()
+            if let song, !song.shows.isEmpty {
+                Picker("Show", selection: Binding(
+                    get: { entry.showID ?? song.activeShow?.id },
+                    set: { new in
+                        if let li = model.lineupIndex(lineupID), li < model.lineups.count, index < model.lineups[li].entries.count {
+                            model.lineups[li].entries[index].showID = new
+                        }
+                    })) {
+                    ForEach(song.shows) { s in Text(s.name).tag(UUID?.some(s.id)) }
+                }
+                .frame(width: 220)
+            }
+            Button { model.playLineup(lineupID, from: index) } label: { Image(systemName: "play.circle") }
+                .buttonStyle(.borderless)
+                .help("Start the lineup from here")
+        }
+        .padding(.vertical, 4)
+    }
+}
+
+// MARK: - Lights (fixtures)
+
+struct LightsView: View {
+    @EnvironmentObject var model: AppModel
+    @State private var showAdvanced: UUID?
+
+    var body: some View {
+        ScrollView {
+            VStack(alignment: .leading, spacing: 16) {
+                HStack {
+                    PageHeader(title: "My Lights", subtitle: "Pick your light model. Addresses are filled in for you.")
+                    Spacer()
+                    Menu {
+                        ForEach(FixtureProfile.all) { p in
+                            Button(p.name) { model.addFixture(profile: p) }
+                        }
+                    } label: { Label("Add Light", systemImage: "plus") }
+                    .menuStyle(.borderlessButton).fixedSize()
+                    .controlSize(.large)
+                }
+                ForEach(model.fixtures) { fx in
+                    FixtureCard(fixtureID: fx.id, showAdvanced: $showAdvanced)
+                }
+                Card {
+                    VStack(alignment: .leading, spacing: 6) {
+                        Text("Testing").font(.headline)
+                        HStack {
+                            ForEach([TestMode.white, .rainbow]) { m in
+                                Button(m.rawValue) { model.stop(); model.testMode = m }
+                            }
+                            Button("Test Off") { model.testMode = .off }
+                        }
+                        Text("Use these to check that every light responds. Starting a song turns testing off.")
+                            .font(.caption).foregroundColor(.secondary)
+                    }
+                }
+            }
+            .padding(24)
+        }
+    }
+}
+
+struct FixtureCard: View {
+    @EnvironmentObject var model: AppModel
+    let fixtureID: UUID
+    @Binding var showAdvanced: UUID?
+
+    var body: some View {
+        let b = model.fixtureBinding(fixtureID)
+        let fx = b.wrappedValue
+        let conflicts = model.addressConflicts(for: fx)
+        Card {
+            VStack(alignment: .leading, spacing: 10) {
+                HStack {
+                    Image(systemName: "light.beacon.max").font(.title2).foregroundColor(.pink)
+                    TextField("Name", text: b.name).font(.title3.bold()).textFieldStyle(.plain).frame(width: 200)
+                    Spacer()
+                    Button {
+                        model.stop()
+                        model.identifyFixtureID = fx.id
+                        model.testMode = model.testMode == .identify ? .off : .identify
+                    } label: { Label("Identify", systemImage: "flashlight.on.fill") }
+                    .help("Flashes just this light so you can find it")
+                    Button(role: .destructive) {
+                        model.fixtures.removeAll { $0.id == fx.id }
+                    } label: { Image(systemName: "trash") }
+                    .buttonStyle(.borderless)
+                }
+                HStack(spacing: 16) {
+                    Picker("Model", selection: Binding(get: { fx.profileName }, set: { name in
+                        b.wrappedValue.profileName = name
+                        if let p = FixtureProfile.named(name) { b.wrappedValue.layout = p.layout }
+                    })) {
+                        ForEach(FixtureProfile.all) { p in Text(p.name).tag(p.name) }
+                        if fx.profile == nil { Text("Custom").tag(fx.profileName) }
+                    }
+                    .frame(width: 420)
+                    Stepper("Start address: \(fx.address)", value: b.address, in: 1...512)
+                    Text("Uses \(fx.address)–\(fx.lastAddress) · \(fx.channelCount) ch · \(fx.headCount) head\(fx.headCount == 1 ? "" : "s")")
+                        .foregroundColor(.secondary)
+                }
+                if let tip = fx.profile?.setupTip, !tip.isEmpty {
+                    HStack(alignment: .top) {
+                        Image(systemName: "info.circle")
+                        Text(tip.replacingOccurrences(of: "the start address shown here", with: "address \(String(format: "%03d", fx.address))"))
+                    }
+                    .font(.callout).foregroundColor(.secondary)
+                }
+                if !conflicts.isEmpty {
+                    Label("Overlaps with \(conflicts.map(\.name).joined(separator: ", ")). Change the start address.", systemImage: "exclamationmark.triangle.fill")
+                        .foregroundColor(.orange)
+                }
+                if fx.lastAddress > 512 {
+                    Label("Goes past channel 512. Lower the start address.", systemImage: "exclamationmark.triangle.fill")
+                        .foregroundColor(.orange)
+                }
+                DisclosureGroup("Advanced: channel layout", isExpanded: Binding(
+                    get: { showAdvanced == fx.id }, set: { showAdvanced = $0 ? fx.id : nil })) {
+                    VStack(alignment: .leading, spacing: 4) {
+                        TextField("Channel layout", text: Binding(get: { fx.layout }, set: { v in
+                            b.wrappedValue.layout = v
+                            b.wrappedValue.profileName = FixtureProfile.all.first { $0.layout == v }?.name ?? "Custom"
+                        }))
+                        .font(.system(.body, design: .monospaced))
+                        Text("Letters per channel, in order: D dimmer · R G B W A UV colors (add a number for each head, like R1 G1 B1 W1) · S strobe · P/T pan/tilt · PF/TF fine · SPD speed · a plain number holds that channel at a fixed value.")
+                            .font(.caption).foregroundColor(.secondary)
+                    }
+                    .padding(.top, 4)
+                }
+            }
+        }
+    }
+}
+
+// MARK: - Wireless DMX (Bluetooth-style)
+
+struct WirelessView: View {
+    @EnvironmentObject var model: AppModel
+    @State private var manualIP = ""
+    @State private var showUSB = false
+
+    var body: some View {
+        ScrollView {
+            VStack(alignment: .leading, spacing: 16) {
+                PageHeader(title: "Wireless DMX",
+                           subtitle: "Finds wireless DMX boxes (like your PKnight) on your Wi-Fi, like pairing a Bluetooth speaker.")
+
+                Card {
+                    HStack {
+                        Circle().fill(model.connected ? Color.green : Color.gray).frame(width: 12, height: 12)
+                        Text(model.connected ? "Connected" : "Not connected").font(.headline)
+                        Text(model.statusMessage).foregroundColor(.secondary).lineLimit(1)
+                        Spacer()
+                        if model.connected {
+                            Button("Disconnect") { model.disconnect() }
+                        }
+                    }
+                }
+
+                Card {
+                    VStack(alignment: .leading, spacing: 12) {
+                        HStack {
+                            Text("Devices").font(.headline)
+                            if model.searchingNodes { ProgressView().controlSize(.small) }
+                            Spacer()
+                            Toggle("Keep scanning", isOn: $model.output.autoScan)
+                            Button {
+                                model.findNodes()
+                            } label: { Label("Scan Now", systemImage: "antenna.radiowaves.left.and.right") }
+                        }
+                        if model.discoveredNodes.isEmpty {
+                            VStack(alignment: .leading, spacing: 6) {
+                                Text(model.searchingNodes ? "Looking for devices…" : "No wireless DMX devices found yet.")
+                                Text("• Make sure the PKnight is powered on and its screen shows an IP address.\n• Your MacBook must be on the same Wi-Fi/router as the PKnight.\n• If your PKnight uses Ethernet, plug it into the same router your Mac uses.")
+                                    .font(.callout).foregroundColor(.secondary)
+                            }
+                        }
+                        ForEach(model.discoveredNodes) { node in
+                            HStack(spacing: 12) {
+                                Image(systemName: "dot.radiowaves.left.and.right")
+                                    .font(.title2)
+                                    .foregroundColor(model.isOnline(node) ? .green : .gray)
+                                VStack(alignment: .leading) {
+                                    HStack {
+                                        Text(node.name).font(.headline)
+                                        if model.output.rememberedDevice?.id == node.id {
+                                            Text("Remembered").font(.caption).padding(.horizontal, 6)
+                                                .background(Capsule().fill(Color.pink.opacity(0.3)))
+                                        }
+                                    }
+                                    Text("\(node.ip)\(node.longName.isEmpty || node.longName == node.name ? "" : " · " + node.longName) · \(model.isOnline(node) ? "online" : "offline")")
+                                        .font(.caption).foregroundColor(.secondary)
+                                }
+                                Spacer()
+                                if model.isCurrentDevice(node) {
+                                    Label("Connected", systemImage: "checkmark.circle.fill").foregroundColor(.green)
+                                    Button("Forget") { model.forgetDevice() }
+                                } else {
+                                    Button("Connect") { model.useNode(node) }.disabled(!model.isOnline(node))
+                                }
+                            }
+                            .padding(.vertical, 4)
+                        }
+                    }
+                }
+
+                Card {
+                    VStack(alignment: .leading, spacing: 10) {
+                        Text("Can't find it? Enter it manually").font(.headline)
+                        HStack {
+                            TextField("IP address shown on the PKnight screen (e.g. 192.168.1.50)", text: $manualIP)
+                                .frame(width: 360)
+                            Stepper("Universe \(model.output.artNetUniverse)", value: $model.output.artNetUniverse, in: 0...32767)
+                            Button("Connect") {
+                                model.output.kind = .artNet
+                                model.output.artNetIP = manualIP.trimmingCharacters(in: .whitespaces)
+                                model.connect()
+                            }
+                            .disabled(manualIP.isEmpty)
+                        }
+                        Text("Universe 0 is right for a PKnight with factory settings.")
+                            .font(.caption).foregroundColor(.secondary)
+                    }
+                }
+
+                Card {
+                    VStack(alignment: .leading, spacing: 10) {
+                        Text("Timing").font(.headline)
+                        HStack {
+                            Text("Light delay correction")
+                            Slider(value: $model.globalLatencyMs, in: -200...400, step: 10).frame(width: 260)
+                            Text("\(Int(model.globalLatencyMs)) ms").monospacedDigit()
+                        }
+                        Text("If every song's lights land a little after the beat (common with Bluetooth speakers or busy Wi-Fi), slide this right until they hit together.")
+                            .font(.caption).foregroundColor(.secondary)
+                    }
+                }
+
+                DisclosureGroup("USB DMX interfaces (not needed for PKnight)", isExpanded: $showUSB) {
+                    HStack {
+                        Picker("Type", selection: $model.output.kind) {
+                            ForEach(OutputKind.allCases) { Text($0.rawValue).tag($0) }
+                        }.frame(width: 340)
+                        Picker("Port", selection: $model.output.serialPath) {
+                            Text("Choose…").tag("")
+                            ForEach(SerialPort.availablePorts(), id: \.self) { Text($0).tag($0) }
+                        }.frame(width: 300)
+                        Button("Connect") { model.connect() }
+                    }
+                    .padding(.top, 6)
+                }
+            }
+            .padding(24)
+        }
+    }
+}
+
+// MARK: - Idle look
+
+struct IdleView: View {
+    @EnvironmentObject var model: AppModel
+    @State private var previewing = false
+
+    var body: some View {
+        ScrollView {
+            VStack(alignment: .leading, spacing: 16) {
+                PageHeader(title: "Idle Look",
+                           subtitle: "What the lights do when there's no music: before you press Play, between songs, and during silent parts.")
+                Card {
+                    VStack(alignment: .leading, spacing: 14) {
+                        Picker("Mode", selection: $model.idle.mode) {
+                            ForEach(IdleMode.allCases) { Text($0.rawValue).tag($0) }
+                        }
+                        .pickerStyle(.segmented)
+
+                        if model.idle.mode == .solid || model.idle.mode == .breathe {
+                            ColorPicker("Color", selection: Binding(
+                                get: { model.idle.color.color },
+                                set: { c in
+                                    if let ns = NSColor(c).usingColorSpace(.deviceRGB) {
+                                        model.idle.color = RGB(r: Double(ns.redComponent), g: Double(ns.greenComponent), b: Double(ns.blueComponent))
+                                    }
+                                }), supportsOpacity: false)
+                            HStack {
+                                ForEach(["Red Velvet", "Purple Haze", "Ocean", "Warm White"], id: \.self) { name in
+                                    Button {
+                                        model.idle.color = Palette.named(name).color(0)
+                                    } label: {
+                                        Circle().fill(Palette.named(name).color(0).color).frame(width: 22, height: 22)
+                                    }
+                                    .buttonStyle(.plain)
+                                    .help(name)
+                                }
+                            }
+                        }
+                        if model.idle.mode == .colorFade {
+                            Picker("Colors", selection: $model.idle.palette) {
+                                ForEach(Palette.all) { Text($0.id).tag($0.id) }
+                            }.frame(width: 300)
+                        }
+                        if model.idle.mode != .off {
+                            HStack {
+                                Text("Brightness")
+                                Slider(value: $model.idle.brightness, in: 0.05...1).frame(width: 260)
+                                Text("\(Int(model.idle.brightness * 100))%").monospacedDigit()
+                            }
+                            HStack {
+                                Text("Beam position")
+                                Slider(value: $model.idle.tilt, in: 0...1).frame(width: 260)
+                            }
+                        }
+                    }
+                }
+                Text("The lights fade into this look about half a second into any silence, and snap back right as the music returns.")
+                    .font(.callout).foregroundColor(.secondary)
+                StagePreview()
+            }
+            .padding(24)
+        }
+    }
+}
+
+// MARK: - Transport bar (always visible)
+
+struct TransportBar: View {
+    @EnvironmentObject var model: AppModel
+
+    var nowPlaying: String {
+        if model.inGap { return "Next song starting…" }
+        if let id = model.playingSongID, let s = model.song(id) { return s.title }
+        return "Nothing playing · idle look on"
+    }
+
+    var body: some View {
+        HStack(spacing: 16) {
+            HStack(spacing: 6) {
+                Button { model.previousInLineup() } label: { Image(systemName: "backward.fill") }
+                    .disabled(model.playingLineupID == nil)
+                Button { model.togglePlay() } label: {
+                    Image(systemName: model.isPlaying ? "pause.fill" : "play.fill").frame(width: 24)
+                }
+                .help("Play / Pause (Space)")
+                Button { model.stop() } label: { Image(systemName: "stop.fill") }
+                Button { model.nextInLineup() } label: { Image(systemName: "forward.fill") }
+                    .disabled(model.playingLineupID == nil)
+            }
+            .buttonStyle(.borderless)
+            .font(.title3)
+
+            VStack(alignment: .leading, spacing: 2) {
+                Text(nowPlaying).font(.headline).lineLimit(1)
+                if let id = model.playingSongID, let a = model.song(id)?.analysis {
+                    Text("\(formatTime(model.currentTime)) / \(formatTime(a.duration))").font(.caption).monospacedDigit().foregroundColor(.secondary)
+                } else if let lid = model.playingLineupID, let l = model.lineups.first(where: { $0.id == lid }) {
+                    Text(l.name).font(.caption).foregroundColor(.secondary)
+                }
+            }
+            .frame(width: 260, alignment: .leading)
+
+            Spacer()
+
+            HStack(spacing: 6) {
+                Circle().fill(model.connected ? Color.green : Color.red).frame(width: 8, height: 8)
+                Text(model.connected ? "Lights connected" : "Lights not connected").font(.caption).foregroundColor(.secondary)
+            }
+
+            HStack {
+                Image(systemName: "sun.max")
+                Slider(value: $model.master, in: 0...1).frame(width: 140)
+            }
+            .help("Master brightness")
+
+            Toggle(isOn: $model.blackout) {
+                Text("BLACKOUT").font(.caption.bold())
+            }
+            .toggleStyle(.button)
+            .tint(.red)
+            .help("⌘B")
+        }
+        .padding(.horizontal, 16)
+        .padding(.vertical, 10)
+        .background(Color.black.opacity(0.35))
+    }
+}

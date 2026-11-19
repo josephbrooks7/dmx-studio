@@ -1,0 +1,329 @@
+import Foundation
+import Darwin
+
+enum DMXError: LocalizedError {
+    case openFailed(String)
+    case configFailed(String)
+    case socketFailed(String)
+
+    var errorDescription: String? {
+        switch self {
+        case .openFailed(let s): return "Couldn't open port: \(s)"
+        case .configFailed(let s): return "Couldn't configure port: \(s)"
+        case .socketFailed(let s): return "Network error: \(s)"
+        }
+    }
+}
+
+protocol DMXOutput: AnyObject {
+    /// Sends one full universe (512 channel values).
+    func send(_ frame: [UInt8]) throws
+    func close()
+}
+
+// MARK: - Serial helper
+
+final class SerialPort {
+    let fd: Int32
+
+    // ioctl request codes (C macros aren't imported into Swift)
+    private static let IOSSIOSPEED: UInt = 0x8008_5402   // _IOW('T', 2, speed_t)
+    private static let TIOCSBRK: UInt = 0x2000_747B      // _IO('t', 123)
+    private static let TIOCCBRK: UInt = 0x2000_747A      // _IO('t', 122)
+
+    init(path: String, baud: Int, twoStopBits: Bool) throws {
+        let f = Darwin.open(path, O_RDWR | O_NOCTTY | O_NONBLOCK)
+        guard f >= 0 else { throw DMXError.openFailed("\(path) — \(String(cString: strerror(errno)))") }
+        fd = f
+        // back to blocking writes
+        _ = fcntl(fd, F_SETFL, 0)
+
+        var t = termios()
+        guard tcgetattr(fd, &t) == 0 else { Darwin.close(fd); throw DMXError.configFailed("tcgetattr") }
+        cfmakeraw(&t)
+        t.c_cflag |= tcflag_t(CLOCAL | CREAD)
+        t.c_cflag &= ~tcflag_t(PARENB)
+        t.c_cflag &= ~tcflag_t(0x0003_0000) // CRTSCTS: no hardware flow control
+        if twoStopBits { t.c_cflag |= tcflag_t(CSTOPB) } else { t.c_cflag &= ~tcflag_t(CSTOPB) }
+        cfsetspeed(&t, speed_t(B57600))
+        guard tcsetattr(fd, TCSANOW, &t) == 0 else { Darwin.close(fd); throw DMXError.configFailed("tcsetattr") }
+
+        if baud != 57600 {
+            var speed = speed_t(baud)
+            if ioctl(fd, SerialPort.IOSSIOSPEED, &speed) != 0 {
+                Darwin.close(fd)
+                throw DMXError.configFailed("baud \(baud) not supported")
+            }
+        }
+        tcflush(fd, TCIOFLUSH)
+    }
+
+    func write(_ bytes: [UInt8]) throws {
+        var offset = 0
+        while offset < bytes.count {
+            let n = bytes.withUnsafeBytes { buf in
+                Darwin.write(fd, buf.baseAddress! + offset, bytes.count - offset)
+            }
+            if n < 0 {
+                if errno == EINTR || errno == EAGAIN { continue }
+                throw DMXError.configFailed("write failed: \(String(cString: strerror(errno)))")
+            }
+            offset += n
+        }
+    }
+
+    func setBreak(_ on: Bool) {
+        _ = ioctl(fd, on ? SerialPort.TIOCSBRK : SerialPort.TIOCCBRK)
+    }
+
+    func drain() { tcdrain(fd) }
+
+    func close() { Darwin.close(fd) }
+
+    static func availablePorts() -> [String] {
+        let items = (try? FileManager.default.contentsOfDirectory(atPath: "/dev")) ?? []
+        return items.filter { $0.hasPrefix("cu.") && !$0.contains("Bluetooth") && !$0.contains("debug-console") }
+            .sorted()
+            .map { "/dev/" + $0 }
+    }
+}
+
+// MARK: - Enttec DMX USB Pro (and compatibles: DMXking ultraDMX, etc.)
+
+final class EnttecProOutput: DMXOutput {
+    private let port: SerialPort
+
+    init(path: String) throws {
+        port = try SerialPort(path: path, baud: 57600, twoStopBits: false)
+    }
+
+    func send(_ frame: [UInt8]) throws {
+        // Label 6 = "Output Only Send DMX Packet Request"
+        let dataLen = 513 // start code + 512 channels
+        var packet: [UInt8] = [0x7E, 6, UInt8(dataLen & 0xFF), UInt8(dataLen >> 8), 0x00]
+        packet.append(contentsOf: frame.prefix(512))
+        if frame.count < 512 { packet.append(contentsOf: [UInt8](repeating: 0, count: 512 - frame.count)) }
+        packet.append(0xE7)
+        try port.write(packet)
+    }
+
+    func close() { port.close() }
+}
+
+// MARK: - Open DMX (raw FTDI, software-generated DMX timing)
+
+final class OpenDMXOutput: DMXOutput {
+    private let port: SerialPort
+
+    init(path: String) throws {
+        port = try SerialPort(path: path, baud: 250_000, twoStopBits: true)
+    }
+
+    func send(_ frame: [UInt8]) throws {
+        port.setBreak(true)
+        usleep(110)               // break >= 88µs
+        port.setBreak(false)
+        usleep(16)                // mark-after-break >= 8µs
+        var packet: [UInt8] = [0x00]
+        packet.append(contentsOf: frame.prefix(512))
+        if frame.count < 512 { packet.append(contentsOf: [UInt8](repeating: 0, count: 512 - frame.count)) }
+        try port.write(packet)
+        port.drain()
+    }
+
+    func close() { port.close() }
+}
+
+// MARK: - Art-Net
+
+final class ArtNetOutput: DMXOutput {
+    private let sock: Int32
+    private var addr = sockaddr_in()
+    private let universe: Int
+    private var sequence: UInt8 = 1
+
+    init(ip: String, universe: Int) throws {
+        sock = socket(AF_INET, SOCK_DGRAM, IPPROTO_UDP)
+        guard sock >= 0 else { throw DMXError.socketFailed("socket()") }
+        var yes: Int32 = 1
+        setsockopt(sock, SOL_SOCKET, SO_BROADCAST, &yes, socklen_t(MemoryLayout<Int32>.size))
+
+        addr.sin_len = UInt8(MemoryLayout<sockaddr_in>.size)
+        addr.sin_family = sa_family_t(AF_INET)
+        addr.sin_port = in_port_t(6454).bigEndian
+        guard inet_pton(AF_INET, ip, &addr.sin_addr) == 1 else {
+            Darwin.close(sock)
+            throw DMXError.socketFailed("bad IP address \(ip)")
+        }
+        self.universe = universe
+    }
+
+    func send(_ frame: [UInt8]) throws {
+        var p: [UInt8] = Array("Art-Net".utf8) + [0]
+        p += [0x00, 0x50]                              // OpOutput / ArtDmx (little endian 0x5000)
+        p += [0x00, 14]                                // protocol version 14
+        p += [sequence, 0]                             // sequence, physical
+        p += [UInt8(universe & 0xFF), UInt8((universe >> 8) & 0x7F)] // SubUni, Net
+        p += [0x02, 0x00]                              // length 512 (big endian)
+        p += frame.prefix(512)
+        if frame.count < 512 { p += [UInt8](repeating: 0, count: 512 - frame.count) }
+        sequence = sequence == 255 ? 1 : sequence + 1
+
+        let sent = p.withUnsafeBytes { buf -> Int in
+            withUnsafePointer(to: &addr) { ap in
+                ap.withMemoryRebound(to: sockaddr.self, capacity: 1) { sa in
+                    sendto(sock, buf.baseAddress, buf.count, 0, sa, socklen_t(MemoryLayout<sockaddr_in>.size))
+                }
+            }
+        }
+        if sent < 0 { throw DMXError.socketFailed(String(cString: strerror(errno))) }
+    }
+
+    func close() { Darwin.close(sock) }
+}
+
+// MARK: - Engine: sends the current frame ~40 times a second on its own thread
+
+final class DMXEngine {
+    private let lock = NSLock()
+    private var frame = [UInt8](repeating: 0, count: 512)
+    private var output: DMXOutput?
+    private var thread: Thread?
+    private var running = false
+    var onError: ((String) -> Void)?
+
+    var isConnected: Bool { lock.lock(); defer { lock.unlock() }; return output != nil }
+
+    func connect(_ settings: OutputSettings) throws {
+        disconnect()
+        let out: DMXOutput
+        switch settings.kind {
+        case .enttecPro: out = try EnttecProOutput(path: settings.serialPath)
+        case .openDMX: out = try OpenDMXOutput(path: settings.serialPath)
+        case .artNet: out = try ArtNetOutput(ip: settings.artNetIP, universe: settings.artNetUniverse)
+        }
+        lock.lock(); output = out; running = true; lock.unlock()
+
+        let t = Thread { [weak self] in self?.loop() }
+        t.qualityOfService = .userInteractive
+        t.name = "DMX output"
+        thread = t
+        t.start()
+    }
+
+    func disconnect() {
+        lock.lock()
+        running = false
+        let out = output
+        output = nil
+        lock.unlock()
+        if let out {
+            try? out.send([UInt8](repeating: 0, count: 512))
+            out.close()
+        }
+        thread = nil
+    }
+
+    func setFrame(_ f: [UInt8]) {
+        lock.lock(); frame = f; lock.unlock()
+    }
+
+    private func loop() {
+        let interval = 1.0 / 40.0
+        var next = Date().timeIntervalSinceReferenceDate
+        var failures = 0
+        while true {
+            lock.lock()
+            guard running, let out = output else { lock.unlock(); return }
+            let f = frame
+            lock.unlock()
+            do {
+                try out.send(f)
+                failures = 0
+            } catch {
+                failures += 1
+                if failures == 20 {
+                    let msg = error.localizedDescription
+                    DispatchQueue.main.async { self.onError?(msg) }
+                }
+            }
+            next += interval
+            let wait = next - Date().timeIntervalSinceReferenceDate
+            if wait > 0 { Thread.sleep(forTimeInterval: wait) } else { next = Date().timeIntervalSinceReferenceDate }
+        }
+    }
+}
+
+// MARK: - Art-Net discovery (finds PKnight and other nodes on the network)
+
+struct ArtNetNode: Identifiable, Hashable, Codable {
+    var id: String { mac.isEmpty ? ip : mac }
+    var ip: String
+    var name: String
+    var longName: String = ""
+    var mac: String = ""
+    var lastSeen = Date()
+}
+
+enum ArtNetDiscovery {
+    /// Broadcasts an ArtPoll and collects ArtPollReply packets for `timeout` seconds. Blocking — call off the main thread.
+    static func discover(timeout: Double = 2.0) -> [ArtNetNode] {
+        let sock = socket(AF_INET, SOCK_DGRAM, IPPROTO_UDP)
+        guard sock >= 0 else { return [] }
+        defer { Darwin.close(sock) }
+
+        var yes: Int32 = 1
+        setsockopt(sock, SOL_SOCKET, SO_BROADCAST, &yes, socklen_t(MemoryLayout<Int32>.size))
+        setsockopt(sock, SOL_SOCKET, SO_REUSEADDR, &yes, socklen_t(MemoryLayout<Int32>.size))
+        setsockopt(sock, SOL_SOCKET, SO_REUSEPORT, &yes, socklen_t(MemoryLayout<Int32>.size))
+        var tv = timeval(tv_sec: 0, tv_usec: 250_000)
+        setsockopt(sock, SOL_SOCKET, SO_RCVTIMEO, &tv, socklen_t(MemoryLayout<timeval>.size))
+
+        var local = sockaddr_in()
+        local.sin_len = UInt8(MemoryLayout<sockaddr_in>.size)
+        local.sin_family = sa_family_t(AF_INET)
+        local.sin_port = in_port_t(6454).bigEndian
+        local.sin_addr.s_addr = INADDR_ANY
+        _ = withUnsafePointer(to: &local) { p in
+            p.withMemoryRebound(to: sockaddr.self, capacity: 1) { bind(sock, $0, socklen_t(MemoryLayout<sockaddr_in>.size)) }
+        }
+
+        // ArtPoll packet
+        let poll: [UInt8] = Array("Art-Net".utf8) + [0, 0x00, 0x20, 0x00, 14, 0x06, 0x00]
+        for target in ["255.255.255.255", "2.255.255.255", "10.255.255.255"] {
+            var dest = sockaddr_in()
+            dest.sin_len = UInt8(MemoryLayout<sockaddr_in>.size)
+            dest.sin_family = sa_family_t(AF_INET)
+            dest.sin_port = in_port_t(6454).bigEndian
+            inet_pton(AF_INET, target, &dest.sin_addr)
+            _ = poll.withUnsafeBytes { buf in
+                withUnsafePointer(to: &dest) { p in
+                    p.withMemoryRebound(to: sockaddr.self, capacity: 1) {
+                        sendto(sock, buf.baseAddress, buf.count, 0, $0, socklen_t(MemoryLayout<sockaddr_in>.size))
+                    }
+                }
+            }
+        }
+
+        var found: [String: ArtNetNode] = [:]
+        let deadline = Date().addingTimeInterval(timeout)
+        var buf = [UInt8](repeating: 0, count: 1024)
+        while Date() < deadline {
+            let n = buf.withUnsafeMutableBytes { recv(sock, $0.baseAddress, $0.count, 0) }
+            guard n >= 26 + 18 else { continue }
+            // "Art-Net\0" + OpPollReply (0x2100 little endian)
+            guard Array(buf[0..<8]) == Array("Art-Net".utf8) + [0], buf[8] == 0x00, buf[9] == 0x21 else { continue }
+            let ip = "\(buf[10]).\(buf[11]).\(buf[12]).\(buf[13])"
+            let nameBytes = buf[26..<44].prefix { $0 != 0 }
+            let name = String(decoding: nameBytes, as: UTF8.self)
+            var longName = ""
+            if n >= 108 { longName = String(decoding: buf[44..<108].prefix { $0 != 0 }, as: UTF8.self) }
+            var mac = ""
+            if n >= 207 { mac = buf[201..<207].map { String(format: "%02X", $0) }.joined(separator: ":") }
+            if mac == "00:00:00:00:00:00" { mac = "" }
+            let node = ArtNetNode(ip: ip, name: name.isEmpty ? "Art-Net device" : name, longName: longName, mac: mac)
+            found[node.id] = node
+        }
+        return found.values.sorted { $0.ip < $1.ip }
+    }
+}
