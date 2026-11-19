@@ -225,7 +225,7 @@ final class AppModel: ObservableObject {
 
     func addFixture(profile: FixtureProfile) {
         let count = fixtures.filter { $0.profileName == profile.name }.count
-        let base = profile.name.hasPrefix("SHEHDS") ? "Beam Bar" : "Light"
+        let base = profile.name.hasPrefix("SHEHDS") ? "Beam Bar" : (profile.name.contains("Followspot") ? "Followspot" : "Light")
         fixtures.append(Fixture(name: "\(base) \(count + 1)", address: min(nextFreeAddress, 512),
                                 profileName: profile.name, layout: profile.layout))
     }

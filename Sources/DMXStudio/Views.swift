@@ -610,6 +610,11 @@ struct FixtureCard: View {
                     }
                     .font(.callout).foregroundColor(.secondary)
                 }
+                if fx.colorWheel != nil {
+                    Toggle("Use show colors on the color wheel (off = always white, like a classic followspot)",
+                           isOn: Binding(get: { fx.wheelFollowsShow ?? true },
+                                         set: { b.wrappedValue.wheelFollowsShow = $0 }))
+                }
                 if !conflicts.isEmpty {
                     Label("Overlaps with \(conflicts.map(\.name).joined(separator: ", ")). Change the start address.", systemImage: "exclamationmark.triangle.fill")
                         .foregroundColor(.orange)

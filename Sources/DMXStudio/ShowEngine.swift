@@ -294,6 +294,12 @@ struct ShowRenderer {
                 heads.append(st)
                 p += 1
             }
+            if fx.colorWheel != nil {
+                // A color wheel is mechanical: hold one color per section instead of changing every beat.
+                let follow = fx.wheelFollowsShow ?? true
+                let col: RGB = (accentOn || !follow) ? .white : pal.color(0)
+                for h in heads.indices { heads[h].color = col }
+            }
             var rf = RenderedFixture(heads: heads)
             if accentOn || s.effect == .strobe { rf.strobe = 0.5 + 0.5 * c.energy }
             if fx.isMover {
@@ -417,6 +423,15 @@ enum DMXMapper {
                 switch spec {
                 case .constant(let v):
                     out[addr] = v
+                case .strobeRange(let open, let slow, let fast):
+                    if rf.strobe > 0 && !blackout {
+                        out[addr] = UInt8(clamping: Int(Double(slow) + (Double(fast) - Double(slow)) * min(1, rf.strobe)))
+                    } else {
+                        out[addr] = open
+                    }
+                case .colorWheel(let name):
+                    let head = rf.heads.first ?? .off
+                    out[addr] = ColorWheel.wheels[name]?.nearest(head.color).value ?? 0
                 case .role(let role, let h):
                     let head = rf.heads.indices.contains(h) ? rf.heads[h] : (rf.heads.first ?? .off)
                     let scale = useDimmerForIntensity ? 1.0 : head.intensity

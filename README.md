@@ -7,7 +7,7 @@ Mac app by Red Velvet Studios that **learns a song** and builds a synced DMX lig
 - **Lineups**: press Play, and music + lights run together, song after song
 - **Idle Look**: what the lights do before play, between songs, and during silences
 - **Wireless DMX**: Bluetooth-style scanning/pairing for Art-Net boxes like PKnight
-- Built-in profile: **SHEHDS LED Beam 8x12W RGBW** (38ch per-head and 9ch modes)
+- Built-in profiles: **SHEHDS LED Beam 8x12W RGBW** (38ch per-head and 9ch modes), **Chauvet DJ LED Followspot 75ST** (3ch, color wheel)
 
 Requires macOS 12 Monterey or newer (Intel or Apple Silicon).
 

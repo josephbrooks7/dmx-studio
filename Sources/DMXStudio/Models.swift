@@ -95,9 +95,43 @@ enum ChannelRole: String, CaseIterable, Codable {
     }
 }
 
+/// A fixed color wheel: each slot is a color and the DMX value that selects it.
+struct ColorWheel {
+    let slots: [(color: RGB, value: UInt8)]
+
+    static let wheels: [String: ColorWheel] = [
+        // Chauvet DJ LED Followspot 75ST, channel 2 (from the user manual)
+        "CHAUVET-FS75": ColorWheel(slots: [
+            (RGB(hex: 0xFFFFFF), 16),   // 000-031 White
+            (RGB(hex: 0x0020FF), 48),   // 032-063 Dark blue
+            (RGB(hex: 0xFFE000), 80),   // 064-095 Yellow
+            (RGB(hex: 0x8000FF), 112),  // 096-127 Purple
+            (RGB(hex: 0x00FF30), 144),  // 128-159 Green
+            (RGB(hex: 0xFF0000), 176),  // 160-191 Red
+            (RGB(hex: 0x40C8FF), 208),  // 192-223 Light blue
+            (RGB(hex: 0xFF8000), 240),  // 224-255 Orange
+        ]),
+    ]
+
+    /// Closest wheel slot to a color (compares hue/saturation, ignoring brightness).
+    func nearest(_ c: RGB) -> (color: RGB, value: UInt8) {
+        let m = max(c.r, c.g, c.b)
+        guard m > 0.001 else { return slots[0] }
+        let n = RGB(r: c.r / m, g: c.g / m, b: c.b / m)
+        return slots.min { a, b in dist(a.color, n) < dist(b.color, n) } ?? slots[0]
+    }
+
+    private func dist(_ a: RGB, _ b: RGB) -> Double {
+        let dr = a.r - b.r, dg = a.g - b.g, db = a.b - b.b
+        return dr * dr + dg * dg + db * db
+    }
+}
+
 enum ChannelSpec: Equatable {
     case role(ChannelRole, head: Int)   // head is 0-based; single-head fixtures use 0
     case constant(UInt8)
+    case strobeRange(open: UInt8, slow: UInt8, fast: UInt8)   // e.g. "S:5:8:215"
+    case colorWheel(String)                                    // e.g. "CW:CHAUVET-FS75"
 
     /// Parses a layout string like "D,R,G,B,W,S" or "T,SPD,0,0,D,S,R1,G1,B1,W1,...".
     /// A number after a color letter (R1, G1 …) picks which head/pixel it belongs to.
@@ -107,6 +141,13 @@ enum ChannelSpec: Equatable {
             .map { $0.trimmingCharacters(in: .whitespaces).uppercased() }
             .filter { !$0.isEmpty }
             .map { token in
+                if token.hasPrefix("S:") {
+                    let n = token.dropFirst(2).split(separator: ":").compactMap { Int($0) }
+                    if n.count == 3 {
+                        return .strobeRange(open: UInt8(clamping: n[0]), slow: UInt8(clamping: n[1]), fast: UInt8(clamping: n[2]))
+                    }
+                }
+                if token.hasPrefix("CW:") { return .colorWheel(String(token.dropFirst(3))) }
                 if let v = Int(token) { return .constant(UInt8(clamping: v)) }
                 if let r = ChannelRole(rawValue: token) { return .role(r, head: 0) }
                 // split trailing digits: "R12" -> ("R", 12)
@@ -151,9 +192,15 @@ struct FixtureProfile: Identifiable, Hashable {
         layout: "T,SPD,0,0,D,R,G,B,W",
         setupTip: "On the light's menu choose \"addr\" (9-channel mode) and set it to the start address shown here. This mode has no strobe channel, so the app strobes it in software.")
 
+    static let chauvetFollowspot75ST = FixtureProfile(
+        name: "Chauvet DJ LED Followspot 75ST — 3ch",
+        layout: "D,CW:CHAUVET-FS75,S:5:8:215",
+        setupTip: "On the followspot's menu choose DMX mode and set the starting address shown here. The color wheel follows each section's main color (or stays white if you turn that off below).")
+
     static let all: [FixtureProfile] = [
         shehdsBeam38,
         shehdsBeam9,
+        chauvetFollowspot75ST,
         FixtureProfile(name: "Generic RGB Par (3ch)", layout: "R,G,B", setupTip: ""),
         FixtureProfile(name: "Generic Dimmer + RGB (4ch)", layout: "D,R,G,B", setupTip: ""),
         FixtureProfile(name: "Generic RGBW Par (4ch)", layout: "R,G,B,W", setupTip: ""),
@@ -171,13 +218,24 @@ struct Fixture: Identifiable, Codable, Hashable {
     var address: Int          // 1...512
     var profileName: String
     var layout: String        // channel layout, see ChannelSpec.parse
+    var wheelFollowsShow: Bool? = nil   // color-wheel lights: follow show colors (default) or stay white
 
     var channels: [ChannelSpec] { ChannelSpec.parse(layout) }
+    var colorWheel: ColorWheel? {
+        for c in channels { if case .colorWheel(let name) = c { return ColorWheel.wheels[name] } }
+        return nil
+    }
     var channelCount: Int { channels.count }
     var headCount: Int { ChannelSpec.headCount(channels) }
     var lastAddress: Int { address + max(channelCount, 1) - 1 }
     var isMover: Bool { channels.contains { if case .role(let r, _) = $0 { return r == .pan || r == .tilt }; return false } }
-    var hasStrobeChannel: Bool { channels.contains { if case .role(.strobe, _) = $0 { return true }; return false } }
+    var hasStrobeChannel: Bool {
+        channels.contains {
+            if case .role(.strobe, _) = $0 { return true }
+            if case .strobeRange = $0 { return true }
+            return false
+        }
+    }
     var profile: FixtureProfile? { FixtureProfile.named(profileName) }
 }
 
