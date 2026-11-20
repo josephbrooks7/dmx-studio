@@ -1408,68 +1408,81 @@ struct BlockRow: View {
     let entry: LineupEntry
 
     var body: some View {
+        let l = model.lineups.first { $0.id == lineupID }
         let isNow = model.playingLineupID == lineupID && model.playingEntryIndex == index
         let isCued = isNow && model.cuedEntry == index
         let isSilence = entry.block == .silence
-        VStack(alignment: .leading, spacing: 4) {
-        HStack(spacing: 12) {
-            Text("").frame(width: 24)
-            Image(systemName: isSilence ? "speaker.slash.fill" : (entry.transition ?? .colorWash).icon)
-                .foregroundColor(isNow ? .pink : .purple)
-                .frame(width: 18)
-            VStack(alignment: .leading, spacing: 2) {
-                Text((isSilence ? "Silence" : "Transition") + (isCued ? "  · READY (Space / →)" : "")).font(.headline)
-                Text(isSilence ? ((entry.transition == .blackout) ? "Lights dark" : "Idle look") : (entry.transition ?? .colorWash).blurb)
-                    .font(.caption).foregroundColor(.secondary)
-            }
-            Spacer()
-            if isSilence {
-                Picker("Lights", selection: Binding(get: { entry.transition == .blackout ? TransitionStyle.blackout : .idle },
-                                                    set: { v in model.updateEntry(lineupID, entry.id) { $0.transition = v } })) {
-                    Text("Idle look").tag(TransitionStyle.idle)
-                    Text("Dark").tag(TransitionStyle.blackout)
+        let style = entry.transition ?? .colorWash
+        let cross = l.flatMap { model.crossTiming(index, in: $0) }
+        let length = l.map { model.blockLength(index, in: $0) } ?? entry.blockSeconds
+        VStack(alignment: .leading, spacing: 6) {
+            HStack(spacing: 10) {
+                Image(systemName: isSilence ? "speaker.slash.fill" : style.icon)
+                    .foregroundColor(isNow ? .pink : .purple).frame(width: 24)
+                Text(isSilence ? "Silence" : style.rawValue).font(.headline).lineLimit(1).fixedSize()
+                if isCued { Text("READY · Space / →").font(.system(size: 10, weight: .heavy)).foregroundColor(.pink).fixedSize() }
+                if let cross {
+                    Text("blends \(secs(cross.lead)) over the outro · \(secs(cross.leadIn)) over the next intro")
+                        .font(.caption).foregroundColor(.secondary).lineLimit(1)
+                } else {
+                    Text(isSilence ? "" : style.blurb).font(.caption).foregroundColor(.secondary).lineLimit(1)
                 }
-                .labelsHidden().frame(width: 110)
-            } else {
-                Picker("Transition", selection: Binding(get: { entry.transition ?? .colorWash }, set: { v in
-                    model.updateEntry(lineupID, entry.id) { $0.transition = v; if v.usesPalette && $0.palette == nil { $0.palette = v.defaultPalette } }
-                })) {
-                    ForEach(TransitionStyle.allCases) { t in Text(t.rawValue).tag(t) }
-                }
-                .labelsHidden().frame(width: 160)
-                if (entry.transition ?? .colorWash).usesPalette {
-                    Picker("Colors", selection: Binding(get: { entry.palette ?? "Neon" },
-                                                        set: { v in model.updateEntry(lineupID, entry.id) { $0.palette = v } })) {
-                        ForEach(Palette.all) { Text($0.id).tag($0.id) }
-                    }
-                    .labelsHidden().frame(width: 120)
-                }
-                Toggle("Fade music", isOn: Binding(get: { entry.fadeMusic ?? false },
-                                                   set: { v in model.updateEntry(lineupID, entry.id) { $0.fadeMusic = v } }))
-                    .help("Fade the song before out during this transition, and the next song in")
-            }
-            VStack(spacing: 2) {
+                Spacer(minLength: 8)
                 Button { model.moveEntry(lineupID: lineupID, from: index, by: -1) } label: { Image(systemName: "chevron.up") }
-                    .disabled(index == 0)
+                    .buttonStyle(.borderless).disabled(index == 0)
                 Button { model.moveEntry(lineupID: lineupID, from: index, by: 1) } label: { Image(systemName: "chevron.down") }
-                    .disabled(index >= (model.lineups.first { $0.id == lineupID }?.entries.count ?? 1) - 1)
+                    .buttonStyle(.borderless).disabled(index >= (l?.entries.count ?? 1) - 1)
+                Button { model.removeEntry(lineupID: lineupID, entryID: entry.id) } label: { Image(systemName: "xmark.circle") }
+                    .buttonStyle(.borderless).help("Remove this block")
             }
-            .buttonStyle(.borderless)
-            Button { model.removeEntry(lineupID: lineupID, entryID: entry.id) } label: { Image(systemName: "xmark.circle") }
-                .buttonStyle(.borderless).help("Remove this block")
+            HStack(spacing: 10) {
+                Spacer().frame(width: 24)
+                if isSilence {
+                    Picker("Lights", selection: Binding(get: { entry.transition == .blackout ? TransitionStyle.blackout : .idle },
+                                                        set: { v in model.updateEntry(lineupID, entry.id) { $0.transition = v } })) {
+                        Text("Idle look").tag(TransitionStyle.idle)
+                        Text("Dark").tag(TransitionStyle.blackout)
+                    }
+                    .labelsHidden().fixedSize()
+                } else {
+                    Picker("Transition", selection: Binding(get: { style }, set: { v in
+                        model.updateEntry(lineupID, entry.id) { $0.transition = v; if v.usesPalette && $0.palette == nil { $0.palette = v.defaultPalette } }
+                    })) {
+                        ForEach(TransitionStyle.allCases) { t in Text(t.rawValue).tag(t) }
+                    }
+                    .labelsHidden().fixedSize()
+                    if style.usesPalette {
+                        Picker("Colors", selection: Binding(get: { entry.palette ?? "Neon" },
+                                                            set: { v in model.updateEntry(lineupID, entry.id) { $0.palette = v } })) {
+                            ForEach(Palette.all) { Text($0.id).tag($0.id) }
+                        }
+                        .labelsHidden().fixedSize()
+                    }
+                    Toggle("Blend songs", isOn: Binding(get: { entry.fadeMusic ?? false },
+                                                        set: { v in model.updateEntry(lineupID, entry.id) { $0.fadeMusic = v; if v && $0.autoFit == nil { $0.autoFit = true } } }))
+                        .fixedSize()
+                        .help("Cross over the songs: the one before fades out under the transition and the next comes in")
+                    if entry.fadeMusic ?? false {
+                        Toggle("Auto-sync", isOn: Binding(get: { entry.autoFit ?? false },
+                                                          set: { v in model.updateEntry(lineupID, entry.id) { $0.autoFit = v; if !v { $0.seconds = length } } }))
+                            .fixedSize()
+                            .help("Line it up over the outro of the song before and the intro of the next one, on the beat")
+                    }
+                }
+                Spacer(minLength: 0)
+            }
+            LiveReader(model.live) {
+                DurationBar(seconds: length, colors: entry.blockColors,
+                            label: isSilence ? "Silence" : style.rawValue,
+                            progress: isNow && !isCued ? model.activeBlock.map { b in
+                                min(1, (Date().timeIntervalSinceReferenceDate - b.start) / max(0.5, b.length)) } : nil) { v in
+                    // dragging sets the length by hand
+                    model.updateEntry(lineupID, entry.id) { $0.seconds = v; $0.autoFit = false }
+                }
+            }
+            .padding(.leading, 34)
         }
-        .padding(.vertical, 4)
-        LiveReader(model.live) {
-        DurationBar(seconds: entry.blockSeconds, colors: entry.blockColors,
-                    label: isSilence ? "Silence" : (entry.transition ?? .colorWash).rawValue,
-                    progress: isNow && !isCued ? model.activeBlock.map { b in
-                        min(1, (Date().timeIntervalSinceReferenceDate - b.start) / max(0.5, b.entry.blockSeconds)) } : nil) { v in
-            model.updateEntry(lineupID, entry.id) { $0.seconds = v }
-        }
-        }
-        .padding(.leading, 36)
-        .padding(.bottom, 4)
-        }
+        .padding(.vertical, 6)
         .padding(.horizontal, 6)
         .background(RoundedRectangle(cornerRadius: 8).fill(Color.purple.opacity(isNow ? 0.25 : 0.10)))
         .contextMenu {
@@ -1479,6 +1492,8 @@ struct BlockRow: View {
             Button("Remove Block", role: .destructive) { model.removeEntry(lineupID: lineupID, entryID: entry.id) }
         }
     }
+
+    private func secs(_ v: Double) -> String { v < 10 ? String(format: "%.1f s", v) : "\(Int(v.rounded())) s" }
 }
 
 
@@ -1619,19 +1634,27 @@ struct SetTimeline: View {
 
     @ViewBuilder
     private func block(_ e: LineupEntry, index i: Int, in l: Lineup, start: Double, pps: Double) -> some View {
-        let dur = model.entryDuration(e, in: l)
+        let dur = e.isBlock ? model.blockLength(i, in: l) : model.entryDuration(e, in: l)
+        let cross = model.crossTiming(i, in: l)
         let isNow = model.playingLineupID == lineupID && model.playingEntryIndex == i
         let isCued = isNow && model.cuedEntry == i
         if e.isBlock {
             TimelineBlock(title: e.block == .silence ? "Silence" : (e.transition ?? .colorWash).rawValue,
                           subtitle: e.block == .silence ? (e.transition == .blackout ? "Lights dark" : "Idle look")
-                                                        : ((e.fadeMusic ?? false) ? "Fades the music" : (e.transition ?? .colorWash).blurb),
+                                                        : (cross != nil ? ((e.autoFit ?? false) ? "Synced over outro + intro" : "Blends the songs")
+                                                                        : (e.transition ?? .colorWash).blurb),
                           icon: e.block == .silence ? "speaker.slash.fill" : (e.transition ?? .colorWash).icon,
                           colors: e.blockColors, start: start, duration: dur, pps: pps,
                           isNow: isNow, isCued: isCued, isSelected: selected == e.id, progressFor: isNow && !isCued ? .block : nil,
-                          onResize: { v in model.updateEntry(lineupID, e.id) { $0.seconds = v } })
+                          onResize: { v in model.updateEntry(lineupID, e.id) { $0.seconds = v; $0.autoFit = false } })
                 .onTapGesture(count: 2) { model.playLineup(lineupID, from: i) }
                 .onTapGesture { selected = e.id }
+                // a blending transition sits across the end of one song and the start of the next
+                .scaleEffect(cross != nil ? 0.86 : 1, anchor: .center)
+                .shadow(color: .black.opacity(cross != nil ? 0.7 : 0), radius: 6, y: 2)
+                .padding(.leading, cross.map { -CGFloat(min($0.lead * pps, 0.45 * max(64, dur * pps))) } ?? 0)
+                .padding(.trailing, cross.map { -CGFloat(min($0.leadIn * pps, 0.45 * max(64, dur * pps))) } ?? 0)
+                .zIndex(cross != nil ? 2 : 0)
         } else {
             let song = model.song(e.songID)
             let show = song.flatMap { s in s.shows.first { $0.id == e.showID } ?? s.activeShow }
@@ -1753,7 +1776,7 @@ struct TimelineBlock: View {
             return min(1, max(0, (model.currentTime - musicStart) / max(duration, 1)))
         case .block:
             guard let b = model.activeBlock else { return 0 }
-            return min(1, max(0, (Date().timeIntervalSinceReferenceDate - b.start) / max(0.5, b.entry.blockSeconds)))
+            return min(1, max(0, (Date().timeIntervalSinceReferenceDate - b.start) / max(0.5, b.length)))
         case nil:
             return 0
         }

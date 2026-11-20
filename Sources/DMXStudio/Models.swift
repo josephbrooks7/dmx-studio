@@ -499,6 +499,7 @@ struct LineupEntry: Identifiable, Codable, Hashable {
     var palette: String? = nil
     var fadeMusic: Bool? = nil   // transitions: fade the song before out, and the next one in
     var waitForCue: Bool? = nil  // continuous sets: stop before this entry and wait for Space / →
+    var autoFit: Bool? = nil     // transitions: size and place automatically over the outro / intro
 
     var isBlock: Bool { block != nil }
     var blockSeconds: Double { seconds ?? (block == .silence ? 5 : 8) }
@@ -515,7 +516,8 @@ struct LineupEntry: Identifiable, Codable, Hashable {
     }
     static func transition(_ style: TransitionStyle) -> LineupEntry {
         LineupEntry(songID: UUID(), showID: nil, block: .transition, seconds: style.defaultSeconds, transition: style,
-                    palette: style.defaultPalette, fadeMusic: style.fadesMusicByDefault)
+                    palette: style.defaultPalette, fadeMusic: style.fadesMusicByDefault,
+                    autoFit: style.fadesMusicByDefault ? true : nil)
     }
 }
 

@@ -131,6 +131,7 @@ final class AppModel: ObservableObject {
     }
     private var cueStart: Double = 0
     private var fadingPlayer: AVAudioPlayer?   // the song fading out under a transition
+    private var blockEndWork: DispatchWorkItem? // ends a transition that blends into the next song
     private var lastSongBPM: Double = 120
     @Published var isPlaying = false
     var currentTime: Double { get { live.currentTime } set { if live.currentTime != newValue { live.currentTime = newValue } } }
@@ -1174,18 +1175,57 @@ final class AppModel: ObservableObject {
         return (e.isBlock || n.isBlock || (n.waitForCue ?? false)) ? 0 : l.gapSeconds
     }
 
+    /// A transition between two songs in a continuous set blends over both: auto-sync places it over the
+    /// first song's outro and the second song's intro (on the beat); otherwise it's split around the change.
+    func crossTiming(_ i: Int, in l: Lineup) -> CrossTiming? {
+        guard l.mode == .continuous, i > 0, i + 1 < l.entries.count else { return nil }
+        let e = l.entries[i], pe = l.entries[i - 1], ne = l.entries[i + 1]
+        guard e.block == .transition, e.fadeMusic ?? false, !(e.waitForCue ?? false),
+              !pe.isBlock, !ne.isBlock, !(ne.waitForCue ?? false),
+              let a = song(pe.songID)?.analysis else { return nil }
+        let b = song(ne.songID)?.analysis
+        func bar(_ x: SongAnalysis?) -> Double { 4 * 60 / max(60, x?.bpm ?? 120) }
+        if e.autoFit ?? false {
+            // over the outro: from where the outro starts (or the last two bars) to where the music ends
+            var lead = a.detectedSections.last(where: { $0.name.hasPrefix("Outro") && $0.start < a.musicEnd })
+                .map { a.musicEnd - $0.start } ?? 2 * bar(a)
+            lead = min(16, max(bar(a), lead))
+            // over the intro: from where the next song's music starts to where its intro ends (or two bars)
+            var leadIn = 2 * bar(b)
+            if let b, let intro = b.detectedSections.first(where: { $0.name.hasPrefix("Intro") && $0.end > b.musicStart }) {
+                leadIn = intro.end - b.musicStart
+            }
+            leadIn = min(16, max(bar(b), leadIn))
+            return CrossTiming(seconds: lead + leadIn, lead: lead, leadIn: leadIn)
+        }
+        let beat = 60 / max(60, a.bpm)
+        let lead = min(max(beat, (e.blockSeconds / 2 / beat).rounded() * beat), max(0.5, e.blockSeconds - 0.5))
+        return CrossTiming(seconds: e.blockSeconds, lead: lead, leadIn: e.blockSeconds - lead)
+    }
+
+    /// A block's actual length (auto-synced transitions size themselves).
+    func blockLength(_ i: Int, in l: Lineup) -> Double {
+        guard l.entries.indices.contains(i) else { return 0 }
+        return crossTiming(i, in: l)?.seconds ?? l.entries[i].blockSeconds
+    }
+
     /// When each entry starts, and the whole set's running time (cued waits not counted).
     func setTimeline(_ l: Lineup) -> (starts: [Double], total: Double) {
-        var t = 0.0, starts: [Double] = []
+        var t = 0.0, starts: [Double] = [], end = 0.0
         for (i, e) in l.entries.enumerated() {
-            // a music-fading transition begins while the song before is still ending
-            if e.block == .transition, e.fadeMusic ?? false, i > 0, !l.entries[i - 1].isBlock, l.mode == .continuous {
-                t = max(starts.last ?? 0, t - e.blockSeconds)
+            if let ct = crossTiming(i, in: l) {
+                // starts over the outro of the song before; the next song begins `lead` later
+                let s = max(starts.last ?? 0, t - ct.lead)
+                starts.append(s)
+                end = max(end, s + ct.seconds)
+                t = s + ct.lead
+                continue
             }
             starts.append(t)
-            t += entryDuration(e, in: l) + gapAfter(i, in: l)
+            t += (e.isBlock ? blockLength(i, in: l) : entryDuration(e, in: l)) + gapAfter(i, in: l)
+            end = max(end, t)
         }
-        return (starts, t)
+        return (starts, max(t, end))
     }
 
     func removeEntry(lineupID: UUID, entryID: UUID) {
@@ -1213,15 +1253,15 @@ final class AppModel: ObservableObject {
     func song(_ id: UUID) -> Song? { songs.first { $0.id == id } }
 
     /// Plays a whole lineup from the given entry: music + lights, then the next song automatically.
-    func playLineup(_ id: UUID, from entry: Int = 0) {
+    func playLineup(_ id: UUID, from entry: Int = 0, keepBlock: Bool = false, fadeIn fadeInOverride: Double? = nil) {
         guard let li = lineupIndex(id), lineups[li].entries.indices.contains(entry) else { stop(); return }
         let e = lineups[li].entries[entry]
         cuedEntry = nil
         if e.isBlock { startBlock(e, lineup: id, index: entry); return }
         guard song(e.songID) != nil else { playLineup(id, from: entry + 1); return }
         // Coming out of a transition that fades the music: bring this song in gently
-        var fadeIn = 0.0
-        if entry > 0, let prev = Optional(lineups[li].entries[entry - 1]), prev.block == .transition, prev.fadeMusic ?? false {
+        var fadeIn = fadeInOverride ?? 0
+        if fadeInOverride == nil, entry > 0, let prev = Optional(lineups[li].entries[entry - 1]), prev.block == .transition, prev.fadeMusic ?? false {
             fadeIn = min(2.5, prev.blockSeconds)
         }
         // Skip the silent lead-in baked into the file (keep a hair of it so the first hit isn't clipped)
@@ -1229,7 +1269,7 @@ final class AppModel: ObservableObject {
         if lineups[li].skipDeadAir ?? true, let a = song(e.songID)?.analysis {
             start = max(0, a.musicStart - 0.15)
         }
-        play(e.songID, show: e.showID, from: start, keepLineup: true, fadeIn: fadeIn)
+        play(e.songID, show: e.showID, from: start, keepLineup: true, fadeIn: fadeIn, keepBlock: keepBlock)
         playingLineupID = id
         playingEntryIndex = entry
     }
@@ -1273,11 +1313,14 @@ final class AppModel: ObservableObject {
 
     /// Runs a silence or transition block, then moves on to the next entry.
     /// `keepPlayer`: the song before keeps playing and fades out underneath (a music transition).
-    private func startBlock(_ e: LineupEntry, lineup: UUID, index: Int, keepPlayer: Bool = false) {
+    private func startBlock(_ e: LineupEntry, lineup: UUID, index: Int, keepPlayer: Bool = false, cross: CrossTiming? = nil) {
         gapWork?.cancel(); gapWork = nil; inGap = false
+        blockEndWork?.cancel(); blockEndWork = nil
         fadingPlayer?.stop(); fadingPlayer = nil
+        let length = cross?.seconds ?? (lineupIndex(lineup).map { blockLength(index, in: lineups[$0]) } ?? e.blockSeconds)
         if keepPlayer, let p = player {
-            p.setVolume(0, fadeDuration: max(0.5, e.blockSeconds))
+            // the song before fades out under the transition (over its outro)
+            p.setVolume(0, fadeDuration: max(0.5, cross?.lead ?? length))
             fadingPlayer = p
         } else {
             player?.stop()
@@ -1289,8 +1332,24 @@ final class AppModel: ObservableObject {
         playingLineupID = lineup
         playingEntryIndex = index
         isPlaying = true
-        activeBlock = ActiveBlock(entry: e, start: Date().timeIntervalSinceReferenceDate, bpm: lastSongBPM)
-        scheduleBlockEnd(after: e.blockSeconds, lineup: lineup, index: index)
+        activeBlock = ActiveBlock(entry: e, start: Date().timeIntervalSinceReferenceDate, bpm: lastSongBPM, length: length)
+        if let cross {
+            // the next song comes in under the transition (its intro), the transition's lights finish on top
+            let startNext = DispatchWorkItem { [weak self] in
+                guard let self, let li = self.lineupIndex(lineup), index + 1 < self.lineups[li].entries.count else { return }
+                self.playLineup(lineup, from: index + 1, keepBlock: true, fadeIn: min(2, cross.leadIn))
+            }
+            gapWork = startNext
+            DispatchQueue.main.asyncAfter(deadline: .now() + cross.lead, execute: startNext)
+            let end = DispatchWorkItem { [weak self] in
+                self?.fadingPlayer?.stop(); self?.fadingPlayer = nil
+                self?.activeBlock = nil
+            }
+            blockEndWork = end
+            DispatchQueue.main.asyncAfter(deadline: .now() + length, execute: end)
+        } else {
+            scheduleBlockEnd(after: length, lineup: lineup, index: index)
+        }
     }
 
     private func scheduleBlockEnd(after seconds: Double, lineup: UUID, index: Int) {
@@ -1328,7 +1387,7 @@ final class AppModel: ObservableObject {
     /// Lights for a running block.
     private func renderBlock(_ b: ActiveBlock, now: Double, idleFrame: [RenderedFixture]) -> [RenderedFixture] {
         let e = b.entry
-        let dur = max(0.5, e.blockSeconds)
+        let dur = max(0.5, b.length)
         let p = max(0, min(1, (now - b.start) / dur))
         let dark = fixtures.map { RenderedFixture(heads: Array(repeating: .off, count: $0.headCount)) }
         func white(_ k: Double, strobe: Double = 0) -> [RenderedFixture] {
@@ -1397,12 +1456,15 @@ final class AppModel: ObservableObject {
 
     // MARK: - Transport (music + lights start together)
 
-    func play(_ id: UUID, show: UUID? = nil, from start: Double? = nil, keepLineup: Bool = false, fadeIn: Double = 0) {
+    func play(_ id: UUID, show: UUID? = nil, from start: Double? = nil, keepLineup: Bool = false, fadeIn: Double = 0, keepBlock: Bool = false) {
         guard let i = index(of: id) else { return }
         CrashGuard.breadcrumb("Playing \(songs[i].title)")
         cancelGap()
-        activeBlock = nil
-        fadingPlayer?.stop(); fadingPlayer = nil
+        if !keepBlock {
+            activeBlock = nil
+            blockEndWork?.cancel(); blockEndWork = nil
+            fadingPlayer?.stop(); fadingPlayer = nil
+        }
         if let bpm = songs[i].analysis?.bpm { lastSongBPM = bpm }
         if !keepLineup { playingLineupID = nil; playingEntryIndex = nil }
         if playingSongID != id || player == nil {
@@ -1431,7 +1493,7 @@ final class AppModel: ObservableObject {
         if goCued() { return }
         if var b = activeBlock, let remaining = b.pausedRemaining, let lid = playingLineupID, let idx = playingEntryIndex {
             // resume a paused block where it left off
-            b.start = Date().timeIntervalSinceReferenceDate - (b.entry.blockSeconds - remaining)
+            b.start = Date().timeIntervalSinceReferenceDate - (b.length - remaining)
             b.pausedRemaining = nil
             activeBlock = b
             fadingPlayer?.play()
@@ -1444,10 +1506,17 @@ final class AppModel: ObservableObject {
     }
 
     func pause() {
+        // the next song already came in under a transition: let the transition finish now
+        if activeBlock != nil, playingSongID != nil {
+            blockEndWork?.cancel(); blockEndWork = nil
+            fadingPlayer?.stop(); fadingPlayer = nil
+            activeBlock = nil
+        }
         player?.pause()
         if var b = activeBlock, b.pausedRemaining == nil {
             gapWork?.cancel(); gapWork = nil
-            b.pausedRemaining = max(0.1, b.entry.blockSeconds - (Date().timeIntervalSinceReferenceDate - b.start))
+            b.pausedRemaining = max(0.1, b.length - (Date().timeIntervalSinceReferenceDate - b.start))
+            blockEndWork?.cancel(); blockEndWork = nil
             activeBlock = b
             fadingPlayer?.pause()
         }
@@ -1457,6 +1526,7 @@ final class AppModel: ObservableObject {
     func stop() {
         cancelGap()
         activeBlock = nil
+        blockEndWork?.cancel(); blockEndWork = nil
         cuedEntry = nil
         fadingPlayer?.stop(); fadingPlayer = nil
         player?.stop()
@@ -1533,10 +1603,14 @@ final class AppModel: ObservableObject {
                 if isPlaying, let lid = playingLineupID, let li = lineupIndex(lid), let idx = playingEntryIndex,
                    idx + 1 < lineups[li].entries.count {
                     let nx = lineups[li].entries[idx + 1]
-                    if nx.block == .transition, nx.fadeMusic ?? false, lineups[li].mode == .continuous, !(nx.waitForCue ?? false) {
-                        let end = (lineups[li].skipDeadAir ?? true) ? (songs[i].analysis?.musicEnd ?? p.duration) : p.duration
-                        if p.currentTime >= end - nx.blockSeconds {
-                            startBlock(nx, lineup: lid, index: idx + 1, keepPlayer: true)
+                    if let ct = crossTiming(idx + 1, in: lineups[li]) {
+                        let a = songs[i].analysis
+                        let end = a?.musicEnd ?? p.duration
+                        // start right on a beat over the outro
+                        var at = end - ct.lead
+                        if let beats = a?.beats, let near = beats.min(by: { abs($0 - at) < abs($1 - at) }), abs(near - at) < 0.6 { at = near }
+                        if p.currentTime >= at {
+                            startBlock(nx, lineup: lid, index: idx + 1, keepPlayer: true, cross: ct)
                             return
                         }
                     }
@@ -1744,5 +1818,14 @@ struct ActiveBlock {
     var entry: LineupEntry
     var start: Double
     var bpm: Double
+    var length: Double
     var pausedRemaining: Double? = nil
+}
+
+/// How a transition blends two songs: it starts `lead` seconds before the first song's music ends
+/// (over its outro), and the next song comes in after `lead`, under the rest of the transition (its intro).
+struct CrossTiming {
+    var seconds: Double
+    var lead: Double
+    var leadIn: Double
 }
