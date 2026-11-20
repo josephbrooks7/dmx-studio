@@ -165,7 +165,7 @@ enum MainTab: String, CaseIterable, Identifiable {
 
 struct MainShell: View {
     @EnvironmentObject var model: AppModel
-    @State private var tab: MainTab = .show
+    @State private var tab: MainTab = MainTab(rawValue: ProcessInfo.processInfo.environment["DMX_DEMO_TAB"] ?? "") ?? .show
 
     var body: some View {
         VStack(spacing: 0) {

@@ -105,6 +105,16 @@ final class AppModel: ObservableObject {
         RunLoop.main.add(timer!, forMode: .common)
         if output.autoConnect { connect(quiet: true) }
         syncExtraOutputs()
+
+        // Demo/screenshot hooks used by the automated build checks
+        let env = ProcessInfo.processInfo.environment
+        if let path = env["DMX_DEMO_SONG"] { importSongs([URL(fileURLWithPath: path)]) }
+        if env["DMX_DEMO_OPEN"] != nil, let first = sessions.first {
+            DispatchQueue.main.asyncAfter(deadline: .now() + 0.5) {
+                self.openSession(first.id)
+                if env["DMX_DEMO_PRESET"] != nil, let p = self.presets.first { self.togglePreset(p.id) }
+            }
+        }
         // Bluetooth-style background scanning for wireless DMX devices
         scanTimer = Timer(timeInterval: 8, repeats: true) { [weak self] _ in
             guard let self, self.output.autoScan else { return }

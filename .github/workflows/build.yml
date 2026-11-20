@@ -108,6 +108,21 @@ jobs:
             exit 1
           fi
           echo "---- app output ----"; cat /tmp/app.log | head -50
+      - name: Screenshots
+        continue-on-error: true
+        run: |
+          mkdir -p /tmp/shots
+          BIN="build/DMX Studio.app/Contents/MacOS/DMXStudio"
+          python3 packaging/make_test_song.py /tmp/demo.wav >/dev/null
+          shoot() {
+            env "$@" "$BIN" >/dev/null 2>&1 &
+            P=$!; sleep 14; screencapture -x "/tmp/shots/$NAME.png" || true; kill $P; sleep 2
+          }
+          NAME=1-sessions shoot DMX_DEMO_SONG=/tmp/demo.wav
+          NAME=2-show shoot DMX_DEMO_OPEN=1 DMX_DEMO_PRESET=1
+          NAME=3-live shoot DMX_DEMO_OPEN=1 DMX_DEMO_TAB=Live DMX_DEMO_PRESET=1
+          NAME=4-songs shoot DMX_DEMO_OPEN=1 DMX_DEMO_TAB=Songs
+          ls -la /tmp/shots
       - uses: actions/upload-artifact@v4
         with:
           name: DMX-Studio-dmg
@@ -126,6 +141,7 @@ jobs:
           git checkout --orphan dist
           git rm -rf . >/dev/null
           cp /tmp/dist/DMX-Studio.dmg .
-          git add DMX-Studio.dmg
+          mkdir -p shots && cp /tmp/shots/*.png shots/ 2>/dev/null || true
+          git add DMX-Studio.dmg shots
           git commit -m "DMG build ${{ github.run_number }}"
           git push -f origin dist
