@@ -343,8 +343,8 @@ final class AppModel: ObservableObject {
         selectedSongID = songs.first?.id
         adoptExistingSongs()
         // One time: remake learned shows so 38CH bars use their beams separately
-        if !UserDefaults.standard.bool(forKey: "showsRebuilt.perBeam4") {
-            UserDefaults.standard.set(true, forKey: "showsRebuilt.perBeam4")
+        if !UserDefaults.standard.bool(forKey: "showsRebuilt.perBeam5") {
+            UserDefaults.standard.set(true, forKey: "showsRebuilt.perBeam5")
             DispatchQueue.main.async { self.rebuildShowsForCurrentLights() }
         }
         // Songs that were still learning when the app closed: finish learning them now
@@ -374,7 +374,7 @@ final class AppModel: ObservableObject {
         for i in presets.indices where presets[i].mode == nil {
             if let d = (LookPreset.beamPack + LookPreset.barPack).first(where: { $0.name == presets[i].name }) { presets[i].mode = d.mode }
         }
-        for (pack, list) in [("themes1", LookPreset.themePack), ("beams3", LookPreset.beamPack), ("bars9ch1", LookPreset.barPack)] {
+        for (pack, list) in [("themes1", LookPreset.themePack), ("beams4", LookPreset.beamPack), ("bars9ch1", LookPreset.barPack)] {
             let packKey = "presetPack.\(pack).\(s.id.uuidString)"
             if !UserDefaults.standard.bool(forKey: packKey) {
                 let have = Set(presets.map(\.name))

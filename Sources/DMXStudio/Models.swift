@@ -74,6 +74,7 @@ struct Palette: Identifiable, Hashable {
         Palette(id: "Pop Candy", colors: [RGB(hex: 0xFF4FA0), RGB(hex: 0x4FD0FF), RGB(hex: 0xFFE04F), RGB(hex: 0xB06BFF)]),
         Palette(id: "Lime Club", colors: [RGB(hex: 0x8ACE00), RGB.white, RGB(hex: 0xB8FF2A)]),
         Palette(id: "Psychedelic", colors: [RGB(hex: 0xFF5A00), RGB(hex: 0xFF0070), RGB(hex: 0x8C00FF), RGB(hex: 0xFFB000), RGB(hex: 0x00C0A0)]),
+        Palette(id: "Gold", colors: [RGB(hex: 0xFFC34D), RGB(hex: 0xFFE7A0), RGB(hex: 0xFF9F1C), RGB.white]),
         Palette(id: "Christmas", colors: [RGB(hex: 0xFF0020), RGB(hex: 0x00C040), RGB(hex: 0xFFD060), RGB.white]),
     ]
 
@@ -358,9 +359,12 @@ enum LightEffect: String, CaseIterable, Codable, Identifiable {
     case tide = "Ocean Tide"
     case magic = "Magic Dust"
     case aurora = "Aurora"
+    case glitch = "Glitch"
+    case shimmer = "Shimmer"
+    case goldDust = "Gold Dust"
     var id: String { rawValue }
     /// Uses each beam of a bar separately.
-    var perBeam: Bool { [.wave, .centerOut, .split, .pixelPop, .bounce, .gradient, .ripple, .scan, .fill, .fire, .embers, .water, .tide, .magic, .aurora, .chase, .alternate, .rainbow, .sparkle, .colorBeat].contains(self) }
+    var perBeam: Bool { [.wave, .centerOut, .split, .pixelPop, .bounce, .gradient, .ripple, .scan, .fill, .fire, .embers, .water, .tide, .magic, .aurora, .glitch, .shimmer, .goldDust, .chase, .alternate, .rainbow, .sparkle, .colorBeat].contains(self) }
 }
 
 enum MoveEffect: String, CaseIterable, Codable, Identifiable {

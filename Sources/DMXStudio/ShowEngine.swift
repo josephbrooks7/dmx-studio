@@ -84,17 +84,17 @@ enum ShowGenerator {
 
         case (.techno, .low): return Look(effect: .steady, intensity: 0.4)
         case (.techno, .medium): return Look(effect: .kickFlash, movement: .beatNod, intensity: 0.9)
-        case (.techno, .high): return Look(effect: .chase, rate: 2, movement: .sweep)
+        case (.techno, .high): return Look(effect: .glitch, movement: .sweep)
         case (.techno, .drop): return Look(effect: .kickFlash, movement: .fullRotate, accent: true)
 
-        case (.disco, .low): return Look(effect: .sparkle, movement: .circle, intensity: 0.6)
+        case (.disco, .low): return Look(effect: .shimmer, movement: .none, intensity: 0.6)
         case (.disco, .medium): return Look(effect: .colorBeat, movement: .circle, intensity: 0.85)
         case (.disco, .high): return Look(effect: .alternate, movement: .circle)
         case (.disco, .drop): return Look(effect: .rainbow, rate: 2, movement: .fullRotate, accent: true)
 
         case (.hyperpop, .low): return Look(effect: .pulse, movement: .sweep, intensity: 0.6)
         case (.hyperpop, .medium): return Look(effect: .kickFlash, movement: .fan, intensity: 0.9)
-        case (.hyperpop, .high): return Look(effect: .colorBeat, movement: .flip)
+        case (.hyperpop, .high): return Look(effect: .glitch, movement: .fan)
         case (.hyperpop, .drop): return Look(effect: .kickFlash, movement: .beatNod, accent: true)
 
         case (.psychedelic, .low): return Look(effect: .aurora, rate: 0.5, movement: .none, intensity: 0.65)
@@ -105,7 +105,7 @@ enum ShowGenerator {
         case (.fantasy, .low): return Look(effect: .magic, rate: 0.5, movement: .none, intensity: 0.7)
         case (.fantasy, .medium): return Look(effect: .aurora, movement: .sweep, intensity: 0.85)
         case (.fantasy, .high): return Look(effect: .magic, rate: 1, movement: .sweep)
-        case (.fantasy, .drop): return Look(effect: .sparkle, rate: 2, movement: .circle, accent: true)
+        case (.fantasy, .drop): return Look(effect: .goldDust, rate: 2, movement: .sweep, accent: true)
         }
     }
 
@@ -531,7 +531,7 @@ struct ShowRenderer {
     private func beamMask(_ s: ShowSection, c: Ctx, head h: Int, of n: Int) -> Double {
         guard n >= 4 else { return 1 }
         // effects that already pick their own beams
-        if [.chase, .bounce, .pixelPop, .centerOut, .sparkle, .alternate, .split, .wave, .ripple, .scan, .fill, .gradient, .fire, .embers, .water, .tide, .magic, .aurora, .blackout].contains(s.effect) { return 1 }
+        if [.chase, .bounce, .pixelPop, .centerOut, .sparkle, .alternate, .split, .wave, .ripple, .scan, .fill, .gradient, .fire, .embers, .water, .tide, .magic, .aurora, .glitch, .shimmer, .goldDust, .blackout].contains(s.effect) { return 1 }
         let barN = Int(floor(c.beatPos * s.rate / 4))
         let pattern: Int
         switch s.level {
@@ -733,6 +733,38 @@ struct ShowRenderer {
             let cp = x * 1.5 + rb / 24
             let col = pal.color(Int(floor(cp))).mix(pal.color(Int(floor(cp)) + 1), cp - floor(cp))
             return FixtureState(intensity: max(0.05, min(1, s)), color: col)
+
+        case .glitch:
+            // digital glitch: beams stutter and drop out in quick bursts, colors jump, hits on the beat
+            let slice = Int(floor(rb * 8))                       // 32nd notes
+            let r = abs((slice &* 1_103_515_245) &+ (p &* 12_345) &+ 77) % 100
+            let burst = abs((Int(floor(rb)) &* 2_246_822_519) &+ 3) % 3 == 0   // some beats glitch hard
+            let on = burst ? r < 45 : r < 85
+            let shift = burst && r % 4 == 0
+            let col = shift ? pal.color(slice + 1).mix(.white, 0.3) : pal.color(Int(floor(rb / 4)))
+            return FixtureState(intensity: on ? (0.6 + 0.4 * exp(-ph * 3)) : 0, color: col)
+
+        case .shimmer:
+            // a fast fine sparkle over all the beams, like light on sequins
+            let fast = sin(c.t * 37 + Double(p) * 2.3) * sin(c.t * 23 + Double(p) * 5.1)
+            let s = 0.7 + 0.3 * fast
+            return FixtureState(intensity: s * (0.75 + 0.25 * c.energy), color: pal.color(0).mix(.white, max(0, fast) * 0.5))
+
+        case .goldDust:
+            // sprinkled light: random beams sparkle and the sparkles drift along the bar
+            let slice = Int(floor(c.t * 10))
+            var k = 0.0
+            for back in 0..<4 {                                  // each sparkle fades as it drifts one beam per slice
+                let s0 = slice - back
+                let start = abs((s0 &* 2_654_435_761) &+ 991) % max(n, 1)
+                let pos = (start + back) % max(n, 1)
+                if pos == p {
+                    let age = c.t * 10 - Double(s0)
+                    k = max(k, exp(-age * 0.9))
+                }
+            }
+            let twinkle = 0.12 + 0.1 * sin(c.t * 3 + Double(p))
+            return FixtureState(intensity: min(1, twinkle + k), color: pal.color(0).mix(.white, k * 0.6))
 
         case .gradient:
             // the palette spread across the beams, slowly drifting

@@ -77,6 +77,10 @@ struct LookPreset: Identifiable, Codable, Hashable {
             p("Ocean Tide", .tide, "Ice", .none, "water.waves"),
             p("Magic Dust", .magic, "Fairy", .none, "wand.and.stars"),
             p("Aurora", .aurora, "Galaxy", .sweep, rate: 0.5, "sparkles"),
+            p("Glitch", .glitch, "Lime Club", .none, "waveform.path.badge.minus"),
+            p("Shimmer", .shimmer, "Ice", .none, "sparkle"),
+            p("Gold Dust", .goldDust, "Gold", .none, "sparkles"),
+            p("Pixie Sprinkle", .goldDust, "Fairy", .sweep, "wand.and.rays"),
         ]
     }()
 
