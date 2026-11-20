@@ -7,7 +7,45 @@ struct DMXStudioApp: App {
     @StateObject private var model = AppModel()
 
     init() {
+        // Test hook: `DMXStudio --analyze song.wav` prints what Learn finds, then exits.
+        let args = CommandLine.arguments
+        if let i = args.firstIndex(of: "--analyze"), i + 1 < args.count {
+            Self.runAnalyzeAndExit(path: args[i + 1])
+        }
         NSApplication.shared.setActivationPolicy(.regular)
+    }
+
+    static func runAnalyzeAndExit(path: String) -> Never {
+        let url = URL(fileURLWithPath: path)
+        do {
+            let meta = SongMetadata.read(url)
+            let a = try AudioAnalyzer.analyze(url: url) { _ in }
+            let show = ShowGenerator.generate(a, style: a.suggestedStyle, variation: 1)
+            print("title=\(meta.title) artist=\(meta.artist ?? "-")")
+            print(String(format: "duration=%.2f bpm=%.2f beats=%d downbeat=%d kicks=%d snares=%d hats=%d",
+                         a.duration, a.bpm, a.beats.count, a.downbeatOffset, a.kicks.count, a.snares.count, a.hats.count))
+            print("firstBeats=" + a.beats.prefix(6).map { String(format: "%.3f", $0) }.joined(separator: ","))
+            print("silences=" + (a.silences ?? []).map { String(format: "%.2f-%.2f", $0.start, $0.end) }.joined(separator: ","))
+            for d in a.detectedSections {
+                print(String(format: "section %@ %.1f-%.1f %@ energy=%.2f", d.name, d.start, d.end, d.level.rawValue, d.energy))
+            }
+            print("suggested=\(a.suggestedStyle.rawValue) showSections=\(show.count)")
+            // Render a few frames to make sure the show engine runs
+            let fx = [Fixture(name: "A", address: 1, profileName: FixtureProfile.shehdsBeam38.name, layout: FixtureProfile.shehdsBeam38.layout),
+                      Fixture(name: "B", address: 39, profileName: FixtureProfile.shehdsBeam38.name, layout: FixtureProfile.shehdsBeam38.layout)]
+            let r = ShowRenderer(analysis: a, sections: show, fixtures: fx)
+            var lit = 0
+            for k in 0..<200 {
+                let t = a.duration * Double(k) / 200
+                let frame = DMXMapper.frame(fixtures: fx, rendered: r.renderWithIdle(at: t), master: 1, blackout: false, time: t)
+                if frame.contains(where: { $0 > 0 }) { lit += 1 }
+            }
+            print("framesWithLight=\(lit)/200")
+            exit(0)
+        } catch {
+            print("ERROR: \(error.localizedDescription)")
+            exit(2)
+        }
     }
 
     var body: some Scene {

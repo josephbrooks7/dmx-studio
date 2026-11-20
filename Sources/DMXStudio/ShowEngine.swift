@@ -36,16 +36,16 @@ enum ShowGenerator {
         case (.club, .low): return Look(effect: .breathe, movement: .sweep, intensity: 0.6)
         case (.club, .medium): return Look(effect: .pulse, movement: .sweep, intensity: 0.85)
         case (.club, .high): return Look(effect: .colorBeat, movement: .fan)
-        case (.club, .drop): return Look(effect: .kickFlash, movement: .beatNod, accent: true)
+        case (.club, .drop): return Look(effect: .kickFlash, movement: .flip, accent: true)
 
         case (.hiphop, .low): return Look(effect: .steady, intensity: 0.5)
         case (.hiphop, .medium): return Look(effect: .kickFlash, movement: .sweep, intensity: 0.85)
         case (.hiphop, .high): return Look(effect: .alternate, movement: .fan)
-        case (.hiphop, .drop): return Look(effect: .kickFlash, movement: .beatNod, accent: true)
+        case (.hiphop, .drop): return Look(effect: .kickFlash, movement: .flip, accent: true)
 
         case (.pop, .low): return Look(effect: .breathe, movement: .sweep, intensity: 0.6)
         case (.pop, .medium): return Look(effect: .pulse, movement: .sweep, intensity: 0.85)
-        case (.pop, .high): return Look(effect: .chase, movement: .fan)
+        case (.pop, .high): return Look(effect: .chase, movement: .fullRotate)
         case (.pop, .drop): return Look(effect: .rainbow, movement: .circle, accent: true)
 
         case (.rock, .low): return Look(effect: .steady, intensity: 0.5)
@@ -85,12 +85,14 @@ enum ShowGenerator {
                     Look(effect: .alternate, movement: .beatNod),
                     Look(effect: .chase, rate: slow ? 1 : 2, movement: .sweep),
                     Look(effect: .kickFlash, movement: .circle),
-                    Look(effect: .rainbow, rate: slow ? 0.5 : 1, movement: .fan)]
+                    Look(effect: .rainbow, rate: slow ? 0.5 : 1, movement: .fan),
+                    Look(effect: .colorBeat, movement: .fullRotate)]
         case .drop:
             return [Look(effect: .kickFlash, movement: .beatNod, accent: true),
                     Look(effect: .colorBeat, rate: slow ? 1 : 2, movement: .fan, accent: true),
                     Look(effect: .rainbow, movement: .circle, accent: true),
-                    Look(effect: .alternate, rate: slow ? 1 : 2, movement: .beatNod, accent: true)]
+                    Look(effect: .alternate, rate: slow ? 1 : 2, movement: .beatNod, accent: true),
+                    Look(effect: .kickFlash, movement: .flip, accent: true)]
         }
     }
 
@@ -466,6 +468,14 @@ struct ShowRenderer {
         case .beatNod:
             let up = (idx + fi) % 2 == 0
             return (0.5, up ? 0.7 : 0.3)
+        case .fullRotate:
+            // Uses the full range (the SHEHDS bar's whole 180°), one sweep across every 2 bars
+            let a = 2 * .pi * barPos / 4 + phase
+            return (0.5 + 0.48 * sin(a), 0.5 + 0.48 * sin(a))
+        case .flip:
+            // Snap end to end on every other beat
+            let side = ((idx / 2) + fi) % 2 == 0
+            return (side ? 0.05 : 0.95, side ? 0.05 : 0.95)
         }
     }
 }

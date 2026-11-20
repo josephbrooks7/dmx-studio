@@ -44,6 +44,8 @@ final class AppModel: ObservableObject {
     @Published var preview: [RenderedFixture] = []
     @Published var master: Double = 1
     @Published var blackout = false
+    @Published var flashHeld = false     // hold: everything full white
+    @Published var strobeHeld = false    // hold: everything strobes
     @Published var testMode: TestMode = .off
     @Published var identifyFixtureID: UUID?
     @Published var connected = false
@@ -89,14 +91,25 @@ final class AppModel: ObservableObject {
         findNodes()
 
         // Space bar = play/pause, except while typing in a text field
-        keyMonitor = NSEvent.addLocalMonitorForEvents(matching: .keyDown) { [weak self] e in
+        // Space = play/pause, hold F = flash, hold S = strobe (not while typing)
+        keyMonitor = NSEvent.addLocalMonitorForEvents(matching: [.keyDown, .keyUp]) { [weak self] e in
             guard let self else { return e }
             let mods = e.modifierFlags.intersection([.command, .option, .control])
-            if e.keyCode == 49 && mods.isEmpty && !(NSApp.keyWindow?.firstResponder is NSText) {
-                self.togglePlay()
+            guard mods.isEmpty, !(NSApp.keyWindow?.firstResponder is NSText) else { return e }
+            let down = e.type == .keyDown
+            switch e.keyCode {
+            case 49:
+                if down && !e.isARepeat { self.togglePlay() }
                 return nil
+            case 3:  // F
+                if self.flashHeld != down { self.flashHeld = down }
+                return nil
+            case 1:  // S
+                if self.strobeHeld != down { self.strobeHeld = down }
+                return nil
+            default:
+                return e
             }
-            return e
         }
     }
 
@@ -619,6 +632,17 @@ final class AppModel: ObservableObject {
                 let look = fx.stationaryLook
                 rendered[i] = (showRunning || look.onWhenIdle) ? look.render(fx)
                     : RenderedFixture(heads: Array(repeating: .off, count: fx.headCount))
+            }
+        }
+
+        // Live hold buttons override everything
+        if flashHeld || strobeHeld {
+            for i in rendered.indices {
+                for h in rendered[i].heads.indices {
+                    rendered[i].heads[h].intensity = 1
+                    if flashHeld { rendered[i].heads[h].color = .white }
+                }
+                if strobeHeld { rendered[i].strobe = 1 }
             }
         }
 

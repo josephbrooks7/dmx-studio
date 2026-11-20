@@ -944,6 +944,9 @@ struct TransportBar: View {
             }
             .help("Master brightness")
 
+            HoldButton(title: "FLASH", color: .white, isHeld: $model.flashHeld).help("Hold for full white (or hold F)")
+            HoldButton(title: "STROBE", color: .yellow, isHeld: $model.strobeHeld).help("Hold to strobe everything (or hold S)")
+
             Toggle(isOn: $model.blackout) {
                 Text("BLACKOUT").font(.caption.bold())
             }
@@ -1033,5 +1036,24 @@ struct BehaviorEditor: View {
                 .padding(.leading, 4)
             }
         }
+    }
+}
+
+/// A button that is "on" only while pressed.
+struct HoldButton: View {
+    let title: String
+    let color: Color
+    @Binding var isHeld: Bool
+
+    var body: some View {
+        Text(title)
+            .font(.caption.bold())
+            .padding(.horizontal, 12).padding(.vertical, 6)
+            .background(RoundedRectangle(cornerRadius: 6).fill(isHeld ? color.opacity(0.9) : Color.white.opacity(0.1)))
+            .foregroundColor(isHeld ? .black : .primary)
+            .contentShape(Rectangle())
+            .gesture(DragGesture(minimumDistance: 0)
+                .onChanged { _ in if !isHeld { isHeld = true } }
+                .onEnded { _ in isHeld = false })
     }
 }

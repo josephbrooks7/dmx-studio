@@ -289,6 +289,8 @@ enum MoveEffect: String, CaseIterable, Codable, Identifiable {
     case circle = "Circle"
     case fan = "Fan Out"
     case beatNod = "Beat Nod"
+    case fullRotate = "Full Rotate"
+    case flip = "Flip on Beat"
     var id: String { rawValue }
 }
 

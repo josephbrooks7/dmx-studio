@@ -21,6 +21,35 @@ jobs:
           otool -l "build/DMX Studio.app/Contents/MacOS/DMXStudio" | grep -A2 LC_RPATH || true
           lipo -info "build/DMX Studio.app/Contents/MacOS/DMXStudio"
           otool -l "build/DMX Studio.app/Contents/MacOS/DMXStudio" | grep -A4 LC_BUILD_VERSION | head -10
+      - name: Audio detection test - Learn a song with known answers
+        run: |
+          python3 packaging/make_test_song.py /tmp/test.wav
+          afconvert -f m4af -d aac /tmp/test.wav /tmp/test.m4a
+          BIN="build/DMX Studio.app/Contents/MacOS/DMXStudio"
+          for f in /tmp/test.wav /tmp/test.m4a; do
+            echo "===== $f"
+            "$BIN" --analyze "$f" | tee /tmp/out.txt
+            python3 - <<'PY'
+          import re, sys
+          o = open('/tmp/out.txt').read()
+          bpm = float(re.search(r'bpm=([\d.]+)', o).group(1))
+          beats = [float(v) for v in re.search(r'firstBeats=([\d.,]+)', o).group(1).split(',')]
+          ok = True
+          def check(cond, msg):
+              global ok
+              print(('PASS ' if cond else 'FAIL ') + msg); ok = ok and cond
+          check(126.5 <= bpm <= 129.5, f'tempo {bpm} ~ 128')
+          check(abs(beats[0] - 2.0) < 0.06, f'first beat {beats[0]:.3f}s ~ 2.000s (on the kick)')
+          check(re.search(r'silences=0\.00-', o) is not None, 'silent lead-in detected')
+          secs = re.findall(r'section (.+?) ([\d.]+)-([\d.]+) (\w+)', o)
+          check(len(secs) >= 2, f'{len(secs)} sections found')
+          loud = [s for s in secs if s[3] in ('High', 'Drop') and float(s[1]) >= 25]
+          check(len(loud) >= 1 and abs(float(loud[0][1]) - 32.0) < 4.0, 'loud part found starting near 32s')
+          check('framesWithLight=' in o and int(re.search(r'framesWithLight=(\d+)', o).group(1)) > 150, 'show lights up')
+          sys.exit(0 if ok else 1)
+          PY
+          done
+          grep -q "title=Test Groove artist=Red Velvet Test" <("$BIN" --analyze /tmp/test.wav) && echo "PASS tags read (title + artist)"
       - name: Smoke test - launch the app and make sure it stays running
         run: |
           APPBIN="build/DMX Studio.app/Contents/MacOS/DMXStudio"
