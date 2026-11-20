@@ -131,7 +131,7 @@ enum StemSplitter {
                 for k in 0..<bins {
                     for t in 0..<frames {
                         for j in -rad...rad {
-                            let tt = min(max(t + j, 0), frames - 1)
+                            let tt = reflect(t + j, frames)
                             tmp[j + rad] = mp[tt * bins + k]
                         }
                         H[t * bins + k] = median(&tmp)
@@ -142,7 +142,7 @@ enum StemSplitter {
                     let base = t * bins
                     for k in 0..<bins {
                         for j in -rad...rad {
-                            let kk = min(max(k + j, 0), bins - 1)
+                            let kk = reflect(k + j, bins)
                             tmp[j + rad] = mp[base + kk]
                         }
                         P[base + k] = median(&tmp)
@@ -355,6 +355,15 @@ enum StemSplitter {
     }
 
     // MARK: Helpers
+
+    /// Mirror an index back into 0..<n at the edges (d c b a | a b c d), so the lowest bins
+    /// (where kicks live) aren't smoothed against empty padding.
+    @inline(__always) static func reflect(_ i: Int, _ n: Int) -> Int {
+        var i = i
+        if i < 0 { i = -i - 1 }
+        if i >= n { i = 2 * n - i - 1 }
+        return min(max(i, 0), n - 1)
+    }
 
     /// Median of a small buffer (sorts it in place).
     static func median(_ a: inout [Float]) -> Float {
