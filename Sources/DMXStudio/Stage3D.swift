@@ -575,9 +575,11 @@ struct Stage3DView: NSViewRepresentable {
                     if let beam = lens.childNode(withName: "beam", recursively: false) {
                         for (k, fade) in [0.30, 0.15, 0.07, 0.025].enumerated() {
                             guard let m = beam.childNode(withName: "seg\(k)", recursively: false)?.geometry?.firstMaterial else { continue }
-                            m.diffuse.contents = c
-                            // a followspot's narrow shaft is see-through in haze, not a solid bar
-                            m.transparency = CGFloat(level * fade * haze * (fx.colorWheel != nil ? 0.3 : 1))
+                            // Additive glow: brightness comes from the color itself, so dim the color.
+                            // A followspot's narrow shaft is see-through in haze, not a solid bar.
+                            let k = level * fade * haze * (fx.colorWheel != nil ? 0.35 : 1)
+                            m.diffuse.contents = NSColor(calibratedRed: st.color.r * k, green: st.color.g * k, blue: st.color.b * k, alpha: 1)
+                            m.transparency = 1
                         }
                     }
                     avg.r += st.color.r * level; avg.g += st.color.g * level; avg.b += st.color.b * level; avg.i += level
