@@ -21,6 +21,9 @@ jobs:
           otool -l "build/DMX Studio.app/Contents/MacOS/DMXStudio" | grep -A2 LC_RPATH || true
           lipo -info "build/DMX Studio.app/Contents/MacOS/DMXStudio"
           otool -l "build/DMX Studio.app/Contents/MacOS/DMXStudio" | grep -A4 LC_BUILD_VERSION | head -10
+          for k in NSMicrophoneUsageDescription NSLocalNetworkUsageDescription; do
+            /usr/libexec/PlistBuddy -c "Print :$k" "build/DMX Studio.app/Contents/Info.plist" || { echo "Missing $k"; exit 1; }
+          done
       - name: Audio detection test - Learn a song with known answers
         run: |
           python3 packaging/make_test_song.py /tmp/test.wav
