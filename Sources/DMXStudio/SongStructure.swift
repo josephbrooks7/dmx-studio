@@ -152,6 +152,8 @@ enum SongStructure {
             else if i == outroI { role = "Outro" }
             else if s.group == chorusGroup { role = "Chorus" }
             else if s.group == verseGroup && chorusesSoFar < 3 { role = "Verse" }
+            // a bridge: comes after two choruses, appears once, and is a full part (not a 4-bar lead-in)
+            else if chorusesSoFar >= 2 && once(i) && barsLong >= 6 { role = "Bridge" }
             else if let ni = nextI, segs[ni].group == chorusGroup, barsLong <= 12 { role = "Pre-Chorus" }
             else if n > 0, segs[musical[n - 1]].role == "Chorus", e >= chorusE - 0.15, barsLong <= 8 { role = "Post-Chorus" }
             else if chorusesSoFar >= 2 && once(i) { role = "Bridge" }
