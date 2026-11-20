@@ -507,6 +507,8 @@ final class AppModel: ObservableObject {
             fixtures[i].profileName = p.name
             fixtures[i].layout = p.layout
         }
+        // the shows are built for what the lights can do, so remake them for the new mode
+        rebuildShowsForCurrentLights()
     }
 
     // MARK: - Linking chained lights

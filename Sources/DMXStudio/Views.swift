@@ -710,6 +710,7 @@ struct LightsView: View {
                     .menuStyle(.borderlessButton).fixedSize()
                     .controlSize(.large)
                 }
+                LightSetupGuide()
                 Card {
                     VStack(alignment: .leading, spacing: 8) {
                         Text("How your lights work together").font(.headline)
@@ -801,7 +802,7 @@ struct FixtureCard: View {
                 HStack(spacing: 6) {
                     Image(systemName: "display")
                     Text("The light's display should read ").foregroundColor(.secondary) + Text(fx.displayCode).bold().monospacedDigit()
-                        + Text(fx.shehdsModeCode.map { ", C.hnd \($0)" } ?? "").bold()
+                        + Text(fx.shehdsModeCode.map { " and \($0)" } ?? "").bold()
                 }
                 .font(.callout)
                 if fx.isShehdsBar { ShehdsModePicker(fixture: fx).frame(maxWidth: 420) }
@@ -932,7 +933,7 @@ struct WirelessView: View {
                         Text("If the lights don't respond:").font(.subheadline.bold()).padding(.top, 4)
                         Text("""
                         1. Look at the PKnight's channel light. Blinking quickly means DMX is coming out (PKnight manual). If it's not blinking, the Mac isn't reaching it: make sure the Mac's Wi-Fi is on the PKNIGHT.WIFI network and the PKnight shows as Connected above.
-                        2. If it IS blinking quickly but the lights do nothing: check the DMX cable (PKnight → Bar 1 DMX IN, Bar 1 DMX OUT → Bar 2 DMX IN) and that each bar's address reads A.001 and its C.hnd channel mode matches the mode picked on the light's card (38ch or 9ch), not Auto or Sound mode.
+                        2. If it IS blinking quickly but the lights do nothing: check the DMX cable (PKnight → Bar 1 DMX IN, Bar 1 DMX OUT → Bar 2 DMX IN) and that each bar's address reads A.001 and its channel mode matches the one picked on the light's card (38CH or 9CH), not Auto or Sound mode.
                         3. Close Photon or any other lighting app; two apps sending at once fight each other.
                         """)
                         .font(.callout).foregroundColor(.secondary).fixedSize(horizontal: false, vertical: true)
@@ -1799,5 +1800,59 @@ struct FoldedCorner: Shape {
         p.addLine(to: CGPoint(x: r.maxX, y: r.maxY))
         p.closeSubpath()
         return p
+    }
+}
+
+
+/// "Set your lights to this": exactly what to choose on each light's own menu so it matches the app,
+/// using the mode with the most control. Shows are built for these settings.
+struct LightSetupGuide: View {
+    @EnvironmentObject var model: AppModel
+    @State private var rebuilt = false
+
+    var body: some View {
+        Card {
+            VStack(alignment: .leading, spacing: 10) {
+                HStack {
+                    Image(systemName: "slider.horizontal.3").foregroundColor(.pink)
+                    Text("Set your lights to this").font(.headline)
+                    Spacer()
+                    Text("Chained lights on the same address get the same settings").font(.caption).foregroundColor(.secondary)
+                }
+                ForEach(model.fixtures) { fx in
+                    VStack(alignment: .leading, spacing: 4) {
+                        HStack(spacing: 6) {
+                            Text(fx.name).font(.subheadline.bold())
+                            Text(fx.profile?.name ?? fx.profileName).font(.caption).foregroundColor(.secondary).lineLimit(1)
+                        }
+                        ForEach(Array(fx.lightSettings.enumerated()), id: \.offset) { _, row in
+                            HStack(alignment: .firstTextBaseline, spacing: 8) {
+                                Text(row.setting).font(.caption).foregroundColor(.secondary).frame(width: 190, alignment: .leading)
+                                Text(row.value).font(.system(.callout, design: .monospaced).bold())
+                            }
+                        }
+                        if let better = fx.betterMode {
+                            HStack(spacing: 8) {
+                                Image(systemName: "sparkles").foregroundColor(.orange)
+                                Text(better).font(.caption).foregroundColor(.orange)
+                                Button("Use 38CH") { model.setShehdsMode(fx.id, perBeam: true); rebuilt = false }
+                                    .controlSize(.small)
+                            }
+                        }
+                    }
+                    .padding(.vertical, 4)
+                    if fx.id != model.fixtures.last?.id { Divider() }
+                }
+                HStack {
+                    Text("Changed a light's mode? Rebuild your songs' light shows so they use what it can do now.")
+                        .font(.caption).foregroundColor(.secondary)
+                    Spacer()
+                    Button(rebuilt ? "Rebuilt ✓" : "Rebuild Light Shows") {
+                        model.rebuildShowsForCurrentLights(); rebuilt = true
+                    }
+                    .disabled(rebuilt)
+                }
+            }
+        }
     }
 }

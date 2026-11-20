@@ -1216,15 +1216,15 @@ struct ShehdsModePicker: View {
     var body: some View {
         let perBeam = fixture.profileName == FixtureProfile.shehdsBeam38.name
         VStack(alignment: .leading, spacing: 6) {
-            Text("Channel mode on the light (C.hnd menu)").font(.caption).foregroundColor(Theme.subtle)
+            Text("Channel mode on the light (MENU → CH)").font(.caption).foregroundColor(Theme.subtle)
             Picker("", selection: Binding(get: { perBeam }, set: { model.setShehdsMode(fixture.id, perBeam: $0) })) {
                 Text("38ch · each beam").tag(true)
                 Text("9ch · all together").tag(false)
             }
             .pickerStyle(.segmented)
             .labelsHidden()
-            Text(perBeam ? "Set the light's C.hnd to 38ch. Every one of the 8 beams can do its own thing."
-                         : "Set the light's C.hnd to 9ch. All 8 beams do the same thing; choose 38ch on both for separate beams.")
+            Text(perBeam ? "Set the light to 38CH. Every one of the 8 beams can do its own thing."
+                         : "Set the light to 9CH. All 8 beams do the same thing; choose 38CH on both for separate beams.")
                 .font(.caption2).foregroundColor(Theme.subtle).fixedSize(horizontal: false, vertical: true)
             Text("If colors look wrong (red shows as green), this doesn't match the light.")
                 .font(.caption2).foregroundColor(.orange).fixedSize(horizontal: false, vertical: true)

@@ -200,13 +200,13 @@ struct FixtureProfile: Identifiable, Hashable {
         return FixtureProfile(
             name: "SHEHDS LED Beam 8x12W RGBW — 38ch (each head separate)",
             layout: parts.joined(separator: ","),
-            setupTip: "On the light: MENU to C.hnd and choose 38ch (every beam separate), ENTER. Then MENU to A.xxx and set the address shown here (A.001 for address 1), ENTER. Chained bars on the same address mirror each other.")
+            setupTip: "On the light: MENU to the channel mode and choose 38CH (every beam separate), ENTER. Then MENU to Addr and set A.xxx to the address shown here (A.001 for address 1). Chained bars on the same address mirror each other.")
     }()
 
     static let shehdsBeam9 = FixtureProfile(
         name: "SHEHDS LED Beam 8x12W RGBW — 9ch (all heads together)",
         layout: "T,SPD,0,0,D,R,G,B,W",
-        setupTip: "On the light: MENU to C.hnd and choose 9ch (all 8 beams do the same thing), then set the address A.xxx shown here. For separate beams choose 38ch instead. No strobe channel in this mode, so the app strobes in software.")
+        setupTip: "On the light: MENU to the channel mode and choose 9CH (all 8 beams do the same thing), then Addr A.xxx as shown here. For separate beams choose 38CH instead. No strobe channel in this mode, so the app strobes in software.")
 
     static let chauvetFollowspot75ST = FixtureProfile(
         name: "Chauvet DJ LED Followspot 75ST — 3ch",
@@ -273,12 +273,36 @@ struct Fixture: Identifiable, Codable, Hashable {
         if isShehdsBar { return "A.\(n)" }
         return n
     }
-    /// SHEHDS bars: what the C.hnd (channel mode) menu must be set to.
+    /// SHEHDS bars: what the channel-mode menu must be set to.
     var shehdsModeCode: String? {
-        if profileName == FixtureProfile.shehdsBeam38.name { return "38ch" }
-        if profileName == FixtureProfile.shehdsBeam9.name { return "9ch" }
+        if profileName == FixtureProfile.shehdsBeam38.name { return "38CH" }
+        if profileName == FixtureProfile.shehdsBeam9.name { return "9CH" }
         return nil
     }
+    /// What to set on the light itself so it matches the app (and gets the most control).
+    var lightSettings: [(setting: String, value: String)] {
+        let n = String(format: "%03d", address)
+        if profileName == FixtureProfile.shehdsBeam38.name {
+            return [("Channel mode (MENU → CH)", "38CH · every beam separate (most control)"),
+                    ("Address (MENU → Addr)", "A.\(n)"),
+                    ("Make sure it's not on", "Slave, Auto or Sound mode")]
+        }
+        if profileName == FixtureProfile.shehdsBeam9.name {
+            return [("Channel mode (MENU → CH)", "9CH · all beams together"),
+                    ("Address (MENU → Addr)", "A.\(n)"),
+                    ("Make sure it's not on", "Slave, Auto or Sound mode")]
+        }
+        if profileName == FixtureProfile.chauvetFollowspot75ST.name {
+            return [("DMX address", "\(n) (3-channel)"),
+                    ("Focus and iris", "by hand on the light")]
+        }
+        return [("DMX address", n), ("Channel mode", "\(channelCount) channels")]
+    }
+    /// A better mode the light offers (more control), if it isn't using it.
+    var betterMode: String? {
+        profileName == FixtureProfile.shehdsBeam9.name ? "Set the light to 38CH so all 8 beams can do their own thing" : nil
+    }
+
     var isShehdsBar: Bool { profileName == FixtureProfile.shehdsBeam38.name || profileName == FixtureProfile.shehdsBeam9.name }
 }
 
