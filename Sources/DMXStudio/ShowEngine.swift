@@ -20,6 +20,13 @@ enum ShowGenerator {
         case .rock: return ["Fire", "Red Velvet", "Full White", "Ice", "Purple Haze", "Warm White"]
         case .chill: return ["Purple Haze", "Ocean", "Warm White", "Sunset", "Red Velvet", "Forest"]
         case .latin: return ["Fire", "Sunset", "Forest", "Neon", "Red Velvet", "Ocean"]
+        case .electronic: return ["EDM", "Galaxy", "Neon", "Ice", "Ocean", "Purple Haze"]
+        case .dubstep: return ["Dubstep", "Rave", "Purple Haze", "Red Room", "Neon", "Ice"]
+        case .techno: return ["Techno", "Red Room", "Full White", "Rave", "Ice", "Purple Haze"]
+        case .disco: return ["Disco", "Dance", "Sunset", "Pop Candy", "Neon", "Warm White"]
+        case .hyperpop: return ["Lime Club", "Pop Candy", "Full White", "Neon", "Rave", "Ice"]
+        case .psychedelic: return ["Psychedelic", "Sunset", "Purple Haze", "Galaxy", "Fire", "Ocean"]
+        case .fantasy: return ["Fairy", "Fantasy", "Galaxy", "Ice", "Dragon", "Purple Haze"]
         }
     }
 
@@ -27,8 +34,10 @@ enum ShowGenerator {
     static func signature(style: ShowStyle, level: EnergyLevel, isBuild: Bool) -> Look {
         if isBuild {
             switch style {
-            case .chill: return Look(effect: .breathe, movement: .sweep, intensity: 0.8)
+            case .chill, .fantasy, .psychedelic: return Look(effect: .breathe, movement: .sweep, intensity: 0.8)
             case .rock: return Look(effect: .snareHit, movement: .fan)
+            case .dubstep: return Look(effect: .snareHit, rate: 2, movement: .beatNod, intensity: 0.9)
+            case .disco: return Look(effect: .sparkle, rate: 2, movement: .circle, intensity: 0.9)
             default: return Look(effect: .chase, rate: 2, movement: .sweep, intensity: 0.9)
             }
         }
@@ -62,12 +71,47 @@ enum ShowGenerator {
         case (.latin, .medium): return Look(effect: .snareHit, movement: .fan, intensity: 0.85)  // dembow snare
         case (.latin, .high): return Look(effect: .colorBeat, movement: .beatNod)
         case (.latin, .drop): return Look(effect: .kickFlash, movement: .circle, accent: true)
+
+        case (.electronic, .low): return Look(effect: .breathe, movement: .circle, intensity: 0.6)
+        case (.electronic, .medium): return Look(effect: .chase, movement: .sweep, intensity: 0.85)
+        case (.electronic, .high): return Look(effect: .colorBeat, movement: .fan)
+        case (.electronic, .drop): return Look(effect: .kickFlash, rate: 2, movement: .fullRotate, accent: true)
+
+        case (.dubstep, .low): return Look(effect: .breathe, rate: 0.5, movement: .sweep, intensity: 0.5)
+        case (.dubstep, .medium): return Look(effect: .snareHit, movement: .fan, intensity: 0.85)     // half-time snare
+        case (.dubstep, .high): return Look(effect: .pulse, rate: 2, movement: .beatNod)               // wobble
+        case (.dubstep, .drop): return Look(effect: .kickFlash, movement: .flip, accent: true)
+
+        case (.techno, .low): return Look(effect: .steady, intensity: 0.4)
+        case (.techno, .medium): return Look(effect: .kickFlash, movement: .beatNod, intensity: 0.9)
+        case (.techno, .high): return Look(effect: .chase, rate: 2, movement: .sweep)
+        case (.techno, .drop): return Look(effect: .kickFlash, movement: .fullRotate, accent: true)
+
+        case (.disco, .low): return Look(effect: .sparkle, movement: .circle, intensity: 0.6)
+        case (.disco, .medium): return Look(effect: .colorBeat, movement: .circle, intensity: 0.85)
+        case (.disco, .high): return Look(effect: .alternate, movement: .circle)
+        case (.disco, .drop): return Look(effect: .rainbow, rate: 2, movement: .fullRotate, accent: true)
+
+        case (.hyperpop, .low): return Look(effect: .pulse, movement: .sweep, intensity: 0.6)
+        case (.hyperpop, .medium): return Look(effect: .kickFlash, movement: .fan, intensity: 0.9)
+        case (.hyperpop, .high): return Look(effect: .colorBeat, movement: .flip)
+        case (.hyperpop, .drop): return Look(effect: .kickFlash, movement: .beatNod, accent: true)
+
+        case (.psychedelic, .low): return Look(effect: .breathe, rate: 0.5, movement: .circle, intensity: 0.55)
+        case (.psychedelic, .medium): return Look(effect: .rainbow, rate: 0.5, movement: .sweep, intensity: 0.8)
+        case (.psychedelic, .high): return Look(effect: .colorBeat, rate: 0.5, movement: .circle)
+        case (.psychedelic, .drop): return Look(effect: .rainbow, movement: .fullRotate)
+
+        case (.fantasy, .low): return Look(effect: .sparkle, rate: 0.5, movement: .sweep, intensity: 0.5)
+        case (.fantasy, .medium): return Look(effect: .breathe, movement: .circle, intensity: 0.75)
+        case (.fantasy, .high): return Look(effect: .rainbow, rate: 0.5, movement: .sweep)
+        case (.fantasy, .drop): return Look(effect: .sparkle, rate: 2, movement: .circle, accent: true)
         }
     }
 
     /// Pools of looks that suit each energy level; later variations pick from these.
     static func pool(level: EnergyLevel, style: ShowStyle) -> [Look] {
-        let slow = style == .chill
+        let slow = style == .chill || style == .fantasy || style == .psychedelic
         switch level {
         case .low:
             return [Look(effect: .breathe, rate: slow ? 0.5 : 1, movement: .sweep, intensity: 0.55),

@@ -59,6 +59,22 @@ struct Palette: Identifiable, Hashable {
         Palette(id: "Forest", colors: [RGB(hex: 0x00FF40), RGB(hex: 0x80FF00), RGB(hex: 0x00A080), RGB(hex: 0xFFE000)]),
         Palette(id: "Warm White", colors: [RGB(hex: 0xFFC890), RGB(hex: 0xFFE0B0), RGB(hex: 0xFFB060)]),
         Palette(id: "Full White", colors: [RGB.white]),
+        // Themes
+        Palette(id: "Fairy", colors: [RGB(hex: 0xFFB7E6), RGB(hex: 0xC9A0FF), RGB(hex: 0x9FFFE0), RGB(hex: 0xFFE9A0)]),
+        Palette(id: "Fantasy", colors: [RGB(hex: 0x7A00FF), RGB(hex: 0x00D0A0), RGB(hex: 0xFFC040), RGB(hex: 0xFF40C0)]),
+        Palette(id: "Galaxy", colors: [RGB(hex: 0x1A00FF), RGB(hex: 0x8A00FF), RGB(hex: 0xFF00C8), RGB(hex: 0x00C8FF)]),
+        Palette(id: "Dragon", colors: [RGB(hex: 0xFF2000), RGB(hex: 0xFF8000), RGB(hex: 0xFFC000), RGB(hex: 0x8000FF)]),
+        Palette(id: "EDM", colors: [RGB(hex: 0x00FF60), RGB(hex: 0x00E0FF), RGB(hex: 0xFF00E0), RGB.white]),
+        Palette(id: "Dubstep", colors: [RGB(hex: 0x7CFF00), RGB(hex: 0x8000FF), RGB(hex: 0xFF0030), RGB.white]),
+        Palette(id: "Techno", colors: [RGB.white, RGB(hex: 0xFF0010), RGB(hex: 0x3000FF), RGB.white]),
+        Palette(id: "Red Room", colors: [RGB(hex: 0xFF0000), RGB(hex: 0xB00000), RGB(hex: 0xFF2A2A)]),
+        Palette(id: "Rave", colors: [RGB(hex: 0xB0FF00), RGB(hex: 0xFF00FF), RGB(hex: 0x00FFFF), RGB(hex: 0x7A00FF)]),
+        Palette(id: "Dance", colors: [RGB(hex: 0xFF2A8A), RGB(hex: 0xFFC400), RGB(hex: 0x00B2FF), RGB(hex: 0x9B30FF)]),
+        Palette(id: "Disco", colors: [RGB(hex: 0xFFC000), RGB(hex: 0xFF00A0), RGB(hex: 0x00E5FF), RGB(hex: 0xFF6000), RGB.white]),
+        Palette(id: "Pop Candy", colors: [RGB(hex: 0xFF4FA0), RGB(hex: 0x4FD0FF), RGB(hex: 0xFFE04F), RGB(hex: 0xB06BFF)]),
+        Palette(id: "Lime Club", colors: [RGB(hex: 0x8ACE00), RGB.white, RGB(hex: 0xB8FF2A)]),
+        Palette(id: "Psychedelic", colors: [RGB(hex: 0xFF5A00), RGB(hex: 0xFF0070), RGB(hex: 0x8C00FF), RGB(hex: 0xFFB000), RGB(hex: 0x00C0A0)]),
+        Palette(id: "Christmas", colors: [RGB(hex: 0xFF0020), RGB(hex: 0x00C040), RGB(hex: 0xFFD060), RGB.white]),
     ]
 
     static func named(_ id: String) -> Palette { all.first { $0.id == id } ?? all[0] }
@@ -318,6 +334,13 @@ enum ShowStyle: String, CaseIterable, Codable, Identifiable {
     case rock = "Rock"
     case chill = "Chill / R&B"
     case latin = "Latin / Reggaeton"
+    case electronic = "Electronic"
+    case dubstep = "Dubstep / Bass"
+    case techno = "Techno / Rave"
+    case disco = "Dance / Disco"
+    case hyperpop = "Hyperpop / Club Pop"
+    case psychedelic = "Psychedelic / Indie"
+    case fantasy = "Fairy / Fantasy"
     var id: String { rawValue }
 }
 
@@ -426,6 +449,7 @@ extension SongAnalysis {
         let bassAvg = avg(bass), highAvg = avg(high), energyAvg = avg(energy)
         let kickRate = Double(kicks.count) / max(duration, 1) * 60  // kicks per minute
         if energyAvg < 0.35 && bpm < 105 { return .chill }
+        if bpm >= 136 && bpm <= 152 && bassAvg > 0.55 && kickRate < bpm * 0.5 { return .dubstep }   // half-time, heavy bass
         if bpm >= 118 && bpm <= 150 && kickRate > bpm * 0.6 && bassAvg > 0.45 { return .club }
         if bpm >= 160 && bpm <= 180 && bassAvg > 0.45 { return .club }          // drum & bass / dubstep feel
         if (bpm >= 70 && bpm < 112) && bassAvg > 0.5 { return .hiphop }

@@ -248,7 +248,14 @@ final class AppModel: ObservableObject {
         fixtures = s.fixtures
         lineups = s.lineups.isEmpty ? [Lineup(name: "My Set List")] : s.lineups
         presets = s.presets ?? LookPreset.defaults
-        if !presets.contains(where: { $0.effect == .soundLevel }), let fs = LookPreset.defaults.last { presets.append(fs) }
+        if !presets.contains(where: { $0.effect == .soundLevel }), let fs = LookPreset.essentials.last { presets.append(fs) }
+        // One time per session: add the themed looks (Fairy, EDM, Dubstep, Techno, Disco, Pop, Psychedelic…)
+        let packKey = "presetPack.themes1.\(s.id.uuidString)"
+        if !UserDefaults.standard.bool(forKey: packKey) {
+            let have = Set(presets.map(\.name))
+            presets += LookPreset.themePack.filter { !have.contains($0.name) }
+            UserDefaults.standard.set(true, forKey: packKey)
+        }
         idle = s.idle
         rigMode = s.rigMode ?? .together
         stage = s.stage ?? StageLayout.starter(for: s.fixtures)
@@ -471,6 +478,16 @@ final class AppModel: ObservableObject {
     }
 
     // MARK: - Live looks & beat
+
+    /// Presets grouped by theme, in a fixed order (custom groups after the built-in ones).
+    var presetGroups: [(name: String, presets: [LookPreset])] {
+        var order = LookPreset.groupOrder
+        for p in presets { let g = p.group ?? "Essentials"; if !order.contains(g) { order.append(g) } }
+        return order.compactMap { g in
+            let list = presets.filter { ($0.group ?? "Essentials") == g }
+            return list.isEmpty ? nil : (g, list)
+        }
+    }
 
     func togglePreset(_ id: UUID) {
         if activePresetID == id { activePresetID = nil; return }

@@ -14,6 +14,7 @@ struct LookPreset: Identifiable, Codable, Hashable {
     var rate: Double = 1
     var intensity: Double = 1
     var icon: String = "sparkles"
+    var group: String? = nil      // theme heading on the presets screen; nil = Essentials
 
     func asSection(start: Double) -> ShowSection {
         ShowSection(name: name, start: start, end: start + 1e9, level: .high, effect: effect, palette: palette,
@@ -25,7 +26,60 @@ struct LookPreset: Identifiable, Codable, Hashable {
     var usesStrobe: Bool { effect == .strobe }
     var isBeatDriven: Bool { ![.steady, .breathe, .blackout].contains(effect) }
 
-    static let defaults: [LookPreset] = [
+    static var defaults: [LookPreset] { essentials + themePack }
+
+    static let groupOrder = ["Essentials", "Fairy & Fantasy", "EDM & Electronic", "Dubstep & Bass", "Techno & Rave",
+                             "Dance & Disco", "Pop & Hyperpop", "Psychedelic", "Holiday"]
+
+    /// Themed looks: the name says the vibe, the palette and movement do the rest.
+    static let themePack: [LookPreset] = {
+        func p(_ g: String, _ n: String, _ e: LightEffect, _ pal: String, _ m: MoveEffect, rate: Double = 1, i: Double = 1, _ icon: String) -> LookPreset {
+            LookPreset(name: n, effect: e, palette: pal, movement: m, rate: rate, intensity: i, icon: icon, group: g)
+        }
+        return [
+            p("Fairy & Fantasy", "Fairy Dust", .sparkle, "Fairy", .sweep, i: 0.85, "sparkle"),
+            p("Fairy & Fantasy", "Pixie Twinkle", .sparkle, "Fairy", .none, rate: 0.5, i: 0.75, "star.fill"),
+            p("Fairy & Fantasy", "Enchanted", .breathe, "Fantasy", .circle, rate: 0.5, i: 0.8, "wand.and.stars"),
+            p("Fairy & Fantasy", "Galaxy Drift", .rainbow, "Galaxy", .circle, rate: 0.5, "moon.stars.fill"),
+            p("Fairy & Fantasy", "Dragon Fire", .kickFlash, "Dragon", .flip, "flame.fill"),
+
+            p("EDM & Electronic", "Laser Chase", .chase, "EDM", .fan, rate: 2, "bolt.horizontal.fill"),
+            p("EDM & Electronic", "Drop Hits", .kickFlash, "EDM", .flip, "burst.fill"),
+            p("EDM & Electronic", "Build-Up", .chase, "EDM", .sweep, rate: 4, "arrow.up.right"),
+            p("EDM & Electronic", "Festival Rainbow", .rainbow, "Neon", .fullRotate, rate: 2, "sparkles"),
+            p("EDM & Electronic", "Synth Wave", .breathe, "Galaxy", .sweep, "waveform"),
+
+            p("Dubstep & Bass", "Wobble", .pulse, "Dubstep", .beatNod, rate: 2, "waveform.path"),
+            p("Dubstep & Bass", "Bass Drop", .kickFlash, "Dubstep", .flip, "speaker.wave.3.fill"),
+            p("Dubstep & Bass", "Half-Time Snare", .snareHit, "Dubstep", .fan, "metronome.fill"),
+            p("Dubstep & Bass", "Toxic Strobe", .strobe, "Dubstep", .none, "bolt.fill"),
+
+            p("Techno & Rave", "Warehouse", .kickFlash, "Techno", .beatNod, "building.2.fill"),
+            p("Techno & Rave", "Red Room", .kickFlash, "Red Room", .sweep, i: 0.9, "square.fill"),
+            p("Techno & Rave", "Techno Strobe", .strobe, "Full White", .none, "bolt.circle.fill"),
+            p("Techno & Rave", "Acid Rave", .colorBeat, "Rave", .fan, rate: 2, "hare.fill"),
+            p("Techno & Rave", "UV Rave", .pulse, "Rave", .sweep, "sun.max.fill"),
+
+            p("Dance & Disco", "Disco Ball", .sparkle, "Disco", .circle, rate: 2, "circle.hexagongrid.fill"),
+            p("Dance & Disco", "Disco Fever", .colorBeat, "Disco", .circle, "music.note"),
+            p("Dance & Disco", "Dance Floor", .alternate, "Dance", .beatNod, "music.note.list"),
+            p("Dance & Disco", "Funk Groove", .pulse, "Disco", .sweep, "hifispeaker.fill"),
+
+            p("Pop & Hyperpop", "Pop Candy", .colorBeat, "Pop Candy", .sweep, "heart.circle.fill"),
+            p("Pop & Hyperpop", "Sweet Chorus", .pulse, "Pop Candy", .fan, "star.circle.fill"),
+            p("Pop & Hyperpop", "Lime Club", .kickFlash, "Lime Club", .flip, "square.fill"),
+            p("Pop & Hyperpop", "Lime Flash", .alternate, "Lime Club", .beatNod, rate: 2, "bolt.square.fill"),
+
+            p("Psychedelic", "Psychedelic Swirl", .rainbow, "Psychedelic", .circle, rate: 0.5, "hurricane"),
+            p("Psychedelic", "Lava Lamp", .breathe, "Psychedelic", .sweep, rate: 0.25, i: 0.85, "drop.triangle.fill"),
+            p("Psychedelic", "Currents", .colorBeat, "Psychedelic", .sweep, rate: 0.5, "wind"),
+
+            p("Holiday", "Christmas Lights", .alternate, "Christmas", .none, rate: 0.5, "gift.fill"),
+            p("Holiday", "Snowfall Sparkle", .sparkle, "Christmas", .sweep, "snowflake"),
+        ]
+    }()
+
+    static let essentials: [LookPreset] = [
         LookPreset(name: "Red Velvet", effect: .pulse, palette: "Red Velvet", movement: .sweep, icon: "heart.fill"),
         LookPreset(name: "Color Fades", effect: .breathe, palette: "Neon", movement: .sweep, icon: "paintbrush.fill"),
         LookPreset(name: "Club Chase", effect: .chase, palette: "Neon", movement: .fan, rate: 2, icon: "bolt.horizontal.fill"),

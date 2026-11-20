@@ -474,8 +474,12 @@ struct ShowScreen: View {
                                 } label: { Label("New Preset", systemImage: "plus") }
                                 .buttonStyle(PillButtonStyle())
                             }
+                            ForEach(model.presetGroups, id: \.name) { group in
+                            if model.presetGroups.count > 1 {
+                                Text(group.name).font(.system(size: 12, weight: .semibold)).foregroundColor(Theme.subtle).padding(.top, 4)
+                            }
                             LazyVGrid(columns: cols, alignment: .leading, spacing: 12) {
-                                ForEach(model.presets) { p in
+                                ForEach(group.presets) { p in
                                     PresetTile(preset: p, active: model.activePresetID == p.id)
                                         .onTapGesture { model.togglePreset(p.id) }
                                         .contextMenu {
@@ -493,6 +497,7 @@ struct ShowScreen: View {
                                             PresetEditor(presetID: p.id).environmentObject(model)
                                         }
                                 }
+                            }
                             }
                         }
                     }
@@ -910,11 +915,13 @@ struct LiveScreen: View {
                     if model.beatSource == .mic {
                         Panel { AudioSourcePicker() }
                     }
-                    Text("Looks").font(.headline).foregroundColor(Theme.subtle)
-                    LazyVGrid(columns: cols, spacing: 14) {
-                        ForEach(model.presets) { p in
-                            LivePad(title: p.name, icon: p.icon, colors: Palette.named(p.palette).colors.prefix(3).map { $0.color },
-                                    active: model.activePresetID == p.id) { model.togglePreset(p.id) }
+                    ForEach(model.presetGroups, id: \.name) { group in
+                        Text(group.name == "Essentials" ? "Looks" : group.name).font(.headline).foregroundColor(Theme.subtle)
+                        LazyVGrid(columns: cols, spacing: 14) {
+                            ForEach(group.presets) { p in
+                                LivePad(title: p.name, icon: p.icon, colors: Palette.named(p.palette).colors.prefix(3).map { $0.color },
+                                        active: model.activePresetID == p.id) { model.togglePreset(p.id) }
+                            }
                         }
                     }
                     Text("Hits").font(.headline).foregroundColor(Theme.subtle)
