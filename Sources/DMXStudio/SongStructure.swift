@@ -61,94 +61,58 @@ enum SongStructure {
         }
         func cosine(_ x: [Double], _ y: [Double]) -> Double { zip(x, y).reduce(0) { $0 + $1.0 * $1.1 } }
 
-        // ---- 1. where the parts change: loudness/tone, singing on/off, and chord pattern
-        let k = nb >= 32 ? 4 : 2
-        var novelty = [Double](repeating: 0, count: nb)
-        if nb > 2 * k {
-            for b in k...(nb - k) {
-                var d = 0.0
-                for f in 0..<4 {
-                    var before = 0.0, after = 0.0
-                    for j in 0..<k { before += tone[b - 1 - j][f]; after += tone[min(nb - 1, b + j)][f] }
-                    d += pow((after - before) / Double(k), 2)
-                }
-                var vb = 0.0, va = 0.0
-                for j in 0..<k { vb += voc[b - 1 - j]; va += voc[min(nb - 1, b + j)] }
-                d += pow((va - vb) / Double(k), 2) * 0.6
-                // chord pattern: how unlike the bars after are from the bars before
-                var cs = 0.0
-                for j in 0..<k { cs += cosine(chromaBar[b - 1 - j], chromaBar[min(nb - 1, b + j)]) }
-                d += max(0, 0.5 - cs / Double(k)) * 0.35
-                novelty[b] = sqrt(d)
-            }
-        }
-        let nMean = novelty.reduce(0, +) / Double(nb)
-        let nStd = sqrt(novelty.map { pow($0 - nMean, 2) }.reduce(0, +) / Double(nb))
-        let minBars = 4
-        // phrase grid: songs change on 4-bar phrases; snap to it
+        // ---- 1. cut the music into 4-bar phrases (songs are built from them) and group the phrases
+        //         that are the same part again: same chord pattern, similar loudness, singing or not
         let firstMusicBar = bars.firstIndex { $0 >= musicStart - 0.05 } ?? 0
-        let cands = (1..<nb).filter { novelty[$0] > nMean + 0.35 * nStd }.sorted { novelty[$0] > novelty[$1] }
-        var chosen: [Int] = []
-        for c in cands {
-            var cc = c
-            let off = (c - firstMusicBar) % 4
-            if off == 1 { cc = c - 1 } else if off == 3 { cc = c + 1 }
-            guard cc > 0, cc < nb, chosen.allSatisfy({ abs($0 - cc) >= minBars }),
-                  cc >= 2, nb - cc >= 2 else { continue }
-            chosen.append(cc)
+        let lastBar = min(nb, (bars.lastIndex { $0 < mEnd - 0.05 } ?? (nb - 1)) + 1)
+        var blocks: [(a: Int, b: Int)] = []
+        var b0 = firstMusicBar
+        while b0 < lastBar { blocks.append((b0, min(b0 + 4, lastBar))); b0 += 4 }
+        guard !blocks.isEmpty else {
+            return [DetectedSection(start: 0, end: duration, energy: 0.6, level: .medium, name: "Full Song")]
         }
-        // where singing starts or stops for a while is always a boundary (on the nearest phrase line)
-        for b in 1..<nb where (voc[b] > 0.4) != (voc[b - 1] > 0.4) {
-            let run = (b..<min(nb, b + 4)).allSatisfy { (voc[$0] > 0.4) == (voc[b] > 0.4) }
-            guard run else { continue }
-            var cc = b
-            let off = (b - firstMusicBar) % 4
-            if off == 1 { cc = b - 1 } else if off == 3 { cc = b + 1 }
-            if cc > 0, cc < nb, chosen.allSatisfy({ abs($0 - cc) >= 2 }) { chosen.append(cc) }
+        func avg(_ x: (a: Int, b: Int), _ v: [Double]) -> Double {
+            (x.a..<x.b).reduce(0.0) { $0 + v[$1] } / Double(max(1, x.b - x.a))
         }
-        chosen.sort()
-        // edges in seconds, plus the start / end of the music
-        var edges: [Double] = [0]
-        edges += chosen.map { bars[$0] }.filter { $0 > musicStart + 2 && $0 < mEnd - 2 }
-        if musicStart > 0.3 { edges.append(musicStart) }
-        edges.append(mEnd)
-        if mEnd < duration - 0.3 { edges.append(duration) }
-        edges = Array(Set(edges.map { ($0 * 1000).rounded() / 1000 })).sorted()
-        func barIndex(_ t: Double) -> Int { (bars.lastIndex { $0 <= t + 0.05 }) ?? 0 }
+        let eMinB = blocks.map { avg($0, eng) }.min() ?? 0, eMaxB = blocks.map { avg($0, eng) }.max() ?? 1
+        func bsim(_ x: (a: Int, b: Int), _ y: (a: Int, b: Int)) -> Double {
+            let n = min(x.b - x.a, y.b - y.a)
+            guard n > 0 else { return -1 }
+            var c = 0.0
+            for j in 0..<n { c += cosine(chromaBar[x.a + j], chromaBar[y.a + j]) }
+            let de = abs(avg(x, eng) - avg(y, eng)) / max(eMaxB - eMinB, 1e-4)
+            return c / Double(n) - 0.35 * de - 0.5 * abs(avg(x, voc) - avg(y, voc))
+        }
+        var bgroup = [Int](repeating: -1, count: blocks.count)
+        var ng = 0
+        for i in blocks.indices where bgroup[i] < 0 {
+            bgroup[i] = ng
+            for j in blocks.indices where j > i && bgroup[j] < 0 && bsim(blocks[i], blocks[j]) > 0.6 { bgroup[j] = ng }
+            ng += 1
+        }
+        // a part = a run of phrases from the same group
         var segs: [Seg] = []
-        for j in 0..<(edges.count - 1) {
-            let a = edges[j], b = edges[j + 1]
-            guard b - a > 0.3 else { continue }
-            var s = Seg(a: barIndex(a), b: max(barIndex(a) + 1, barIndex(b)), start: a, end: b)
-            s.energy = mean(an.energy, a, b)
-            s.vocal = vocalFrac(a, b)
-            segs.append(s)
+        if musicStart > 0.3 { segs.append(Seg(a: 0, b: firstMusicBar, start: 0, end: musicStart)) }
+        var r = 0
+        while r < blocks.count {
+            var q = r
+            while q + 1 < blocks.count && bgroup[q + 1] == bgroup[r] { q += 1 }
+            let st = r == 0 ? musicStart : bars[blocks[r].a]
+            let en = q == blocks.count - 1 ? mEnd : bars[blocks[q + 1].a]
+            var sg = Seg(a: blocks[r].a, b: blocks[q].b, start: st, end: en)
+            sg.energy = mean(an.energy, st, en)
+            sg.vocal = vocalFrac(st, en)
+            sg.group = bgroup[r]
+            segs.append(sg)
+            r = q + 1
         }
+        if mEnd < duration - 0.3 { segs.append(Seg(a: lastBar, b: nb, start: mEnd, end: duration)) }
         func silent(_ s: Seg) -> Bool { s.end <= musicStart + 0.01 || s.start >= mEnd - 0.01 }
         let musical = segs.indices.filter { !silent(segs[$0]) }
         guard !musical.isEmpty else { return [DetectedSection(start: 0, end: duration, energy: 0, level: .low, name: "Silence")] }
         let eMin = musical.map { segs[$0].energy }.min()!, eMax = musical.map { segs[$0].energy }.max()!
         let eRange = max(eMax - eMin, 1e-4)
         func e01(_ s: Seg) -> Double { musical.count == 1 ? 0.6 : (s.energy - eMin) / eRange }
-
-        // ---- 2. which parts are the same part again (same chord pattern, similar loudness and singing)
-        func sim(_ x: Seg, _ y: Seg) -> Double {
-            let n = min(x.b - x.a, y.b - y.a)
-            guard n > 0 else { return -1 }
-            var best = -1.0
-            for o in 0..<min(4, max(1, (y.b - y.a) - n + 1)) {     // allow a slightly different start
-                var c = 0.0
-                for j in 0..<n { c += cosine(chromaBar[min(nb - 1, x.a + j)], chromaBar[min(nb - 1, y.a + o + j)]) }
-                best = max(best, c / Double(n))
-            }
-            return best - 0.7 * abs(e01(x) - e01(y)) - 0.5 * abs(x.vocal - y.vocal)
-        }
-        var group = 0
-        for i in musical where segs[i].group < 0 {
-            segs[i].group = group
-            for j in musical where j > i && segs[j].group < 0 && sim(segs[i], segs[j]) > 0.45 { segs[j].group = group }
-            group += 1
-        }
 
         // ---- 3. name them
         let sungSong = vocals != nil && an.vocalShare > 0.08
