@@ -146,7 +146,39 @@ enum ShowGenerator {
     /// and no chases or sparkles when there are only one or two light points to spread them across.
     static func fit(_ secs: inout [ShowSection], to lights: [Fixture]) {
         guard !lights.isEmpty else { return }
+        func has(_ f: Fixture, _ roles: [ChannelRole]) -> Bool {
+            f.channels.contains { if case .role(let r, _) = $0 { return roles.contains(r) }; return false }
+        }
         let movers = lights.contains { $0.isMover }
+        let canPan = lights.contains { has($0, [.pan]) }
+        let mixesColor = lights.contains { has($0, [.red, .green, .blue]) }
+        let wheelOnly = !mixesColor && lights.contains { $0.colorWheel != nil }
+        let noColor = !mixesColor && !wheelOnly          // dimmer-only / white-only lights
+        for i in secs.indices {
+            // Tilt-only bars (like the SHEHDS beam bars): moves that need pan become tilt moves
+            if movers && !canPan {
+                switch secs[i].movement {
+                case .circle: secs[i].movement = .sweep
+                default: break
+                }
+            }
+            // A color wheel can't change color every beat or blend: hold colors, let brightness do the work
+            if wheelOnly {
+                switch secs[i].effect {
+                case .colorBeat, .rainbow, .gradient, .split, .pixelPop, .wave: secs[i].effect = .pulse
+                case .sparkle: secs[i].effect = .kickFlash
+                default: break
+                }
+            }
+            // No color at all: it's all brightness and strobe
+            if noColor {
+                switch secs[i].effect {
+                case .colorBeat, .rainbow, .gradient, .split: secs[i].effect = .pulse
+                default: break
+                }
+                secs[i].palette = "Full White"
+            }
+        }
         var seen = Set<String>(), points = 0
         for f in lights where seen.insert("\(f.address)|\(f.layout)|\(f.outputKey ?? "")").inserted { points += max(1, f.headCount) }
         for i in secs.indices {

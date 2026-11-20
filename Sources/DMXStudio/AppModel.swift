@@ -93,6 +93,7 @@ final class AppModel: ObservableObject {
     private var windowShowing = true
     private var scanTicks = 0
     var wirelessPageOpen = false
+    var songsPageOpen = false
     private var lastAutoChange: Double = 0      // when Auto Lighting last switched looks
     private var clock = BeatClock()
     private var tapTimes: [Double] = []
@@ -242,6 +243,10 @@ final class AppModel: ObservableObject {
         keyMonitor = NSEvent.addLocalMonitorForEvents(matching: [.keyDown, .keyUp]) { [weak self] e in
             guard let self else { return e }
             let mods = e.modifierFlags.intersection([.command, .option, .control])
+            if e.keyCode == 53, e.type == .keyDown, NSApp.keyWindow?.firstResponder is NSText {
+                NSApp.keyWindow?.makeFirstResponder(nil)   // Esc leaves the text box; Space plays again
+                return nil
+            }
             guard mods.isEmpty, !(NSApp.keyWindow?.firstResponder is NSText) else { return e }
             let down = e.type == .keyDown
             switch e.keyCode {
@@ -1132,7 +1137,8 @@ final class AppModel: ObservableObject {
         let st = style ?? songs[i].effectiveGenre
         let variation = (songs[i].shows.filter { $0.style == st }.map(\.variation).max() ?? 0) + 1
         let name = variation == 1 ? "\(st.rawValue)" : "\(st.rawValue) #\(variation)"
-        // Build for the lights that are switched on in this session right now
+        // Build for the lights that are switched on in this session right now, fitted to what those
+        // models can do (moving heads or not, tilt-only, separate beams, color mixing vs a color wheel)
         let onLights = fixtures.filter { $0.isOn }
         var sections = ShowGenerator.generate(a, style: st, variation: variation)
         ShowGenerator.fit(&sections, to: onLights.filter { $0.effectiveBehavior == .sequence })
@@ -1277,6 +1283,21 @@ final class AppModel: ObservableObject {
             end = max(end, t)
         }
         return (starts, max(t, end))
+    }
+
+    /// Remakes every learned show for the lights switched on now (same style and variation, so set lists keep their links).
+    func rebuildShowsForCurrentLights() {
+        let onLights = fixtures.filter { $0.isOn }
+        let seq = onLights.filter { $0.effectiveBehavior == .sequence }
+        for i in songs.indices {
+            guard let a = songs[i].analysis else { continue }
+            for j in songs[i].shows.indices {
+                var secs = ShowGenerator.generate(a, style: songs[i].shows[j].style, variation: songs[i].shows[j].variation)
+                ShowGenerator.fit(&secs, to: seq)
+                songs[i].shows[j].sections = secs
+                songs[i].shows[j].fixtureIDs = onLights.isEmpty ? nil : onLights.map(\.id)
+            }
+        }
     }
 
     func removeEntry(lineupID: UUID, entryID: UUID) {
@@ -1554,6 +1575,12 @@ final class AppModel: ObservableObject {
             fadingPlayer?.play()
             isPlaying = true
             scheduleBlockEnd(after: remaining, lineup: lid, index: idx)
+            return
+        }
+        // On the Songs page, Space plays the song you have selected (music + its light show)
+        if songsPageOpen, let sel = selectedSongID, sel != playingSongID {
+            let start = songs.first { $0.id == sel }?.analysis.map { max(0, $0.musicStart - 0.15) } ?? 0
+            play(sel, from: start)
             return
         }
         if let id = playingSongID, player != nil { play(id, show: playingShowID, keepLineup: playingLineupID != nil); return }

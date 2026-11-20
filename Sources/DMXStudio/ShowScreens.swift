@@ -188,6 +188,12 @@ struct MainShell: View {
                 case .stage: StageScreen()
                 case .live: LiveScreen()
                 case .songs: SongsScreen()
+                        .onAppear {
+                            model.songsPageOpen = true
+                            // don't let the search box grab the keyboard, so Space plays
+                            DispatchQueue.main.async { NSApp.keyWindow?.makeFirstResponder(nil) }
+                        }
+                        .onDisappear { model.songsPageOpen = false }
                 case .sets: SetListsScreen()
                 case .setup: SetupScreen()
                 }
@@ -1010,6 +1016,11 @@ struct SongsScreen: View {
                 HStack {
                     Text("Song Library").font(.system(size: 17, weight: .bold))
                     Spacer()
+                    Menu {
+                        Button("Rebuild Light Shows for the Lights That Are On") { model.rebuildShowsForCurrentLights() }
+                    } label: { Image(systemName: "wand.and.rays") }
+                        .menuStyle(.borderlessButton).fixedSize()
+                        .help("Remake every song's learned shows for the lights switched on now (hand edits to a show's sections are replaced)")
                     Button { importing = true } label: { Image(systemName: "plus") }.buttonStyle(PillButtonStyle())
                 }
                 TextField("Search songs or artists", text: $search).textFieldStyle(.roundedBorder)
