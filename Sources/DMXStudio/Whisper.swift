@@ -103,7 +103,12 @@ enum WhisperEngine {
                 try FileManager.default.createDirectory(at: tmp, withIntermediateDirectories: true)
                 defer { try? FileManager.default.removeItem(at: tmp) }
                 let wav = tmp.appendingPathComponent("vocals.wav")
-                try writeSpeechWav(vocals, to: wav, keep: phrases)
+                // Only silence the non-sung parts when singing was clearly found; on backing tracks with
+                // faint or partial vocals, let Whisper hear the whole vocal part
+                let dur = (try? AVAudioFile(forReading: vocals)).map { Double($0.length) / $0.processingFormat.sampleRate } ?? 0
+                let sung = phrases.reduce(0) { $0 + $1.end - $1.start }
+                let trusted = dur > 0 && sung / dur >= 0.15 ? phrases : []
+                try writeSpeechWav(vocals, to: wav, keep: trusted)
                 let p = Process()
                 p.executableURL = bin
                 let threads = max(2, min(8, ProcessInfo.processInfo.activeProcessorCount))
@@ -136,7 +141,7 @@ enum WhisperEngine {
                 p.waitUntilExit()
                 guard p.terminationStatus == 0 else { throw LyricsError.unavailable }
                 let data = try Data(contentsOf: tmp.appendingPathComponent("out.json"))
-                let words = parse(data, phrases: phrases)
+                let words = parse(data, phrases: trusted)
                 if ProcessInfo.processInfo.environment["DMX_DEBUG_WHISPER"] != nil {
                     print("whisper stderr: \(errLog.suffix(3000))")
                     print("whisper json: \(String(decoding: data.prefix(1500), as: UTF8.self))")
@@ -166,6 +171,7 @@ enum WhisperEngine {
                 if let p = t["p"] as? Double { ps.append(p) }
             }
             let conf = ps.isEmpty ? 0.5 : ps.reduce(0, +) / Double(ps.count)
+            if conf < 0.3 { continue }      // very unsure: probably hearing words in the music
             let w = LyricWord(text: text, start: a / 1000, end: max(a, b) / 1000, confidence: conf)
             // Whisper sometimes invents words in silence: keep only words where someone is singing
             if !phrases.isEmpty && !phrases.contains(where: { w.start < $0.end + 0.6 && w.end > $0.start - 0.6 }) { continue }

@@ -376,7 +376,7 @@ struct LyricsTab: View {
                     } else if let st = model.lyricsStatus[song.id] {
                         Text(st).font(.caption).foregroundColor(.orange).lineLimit(1)
                     } else if let ly = song.lyrics {
-                        Text(ly.lines.isEmpty ? "no words understood" : ly.summary).font(.caption).foregroundColor(.secondary).lineLimit(1)
+                        Text(ly.lines.isEmpty ? "No lead vocal heard (backing track?) — use Paste / Edit All" : ly.summary).font(.caption).foregroundColor(.secondary).lineLimit(1)
                     } else {
                         Text("not learned yet").font(.caption).foregroundColor(.secondary)
                     }
