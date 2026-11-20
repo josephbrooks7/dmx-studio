@@ -31,7 +31,13 @@ enum AudioAnalyzer {
                 // drum hits: the tested method on the full song (on the AI drum part it over-counts kicks)
                 let drums = try StemSplitter.run(url: url, settings: settings, stemsDir: nil) { progress(0.85 + $0 * 0.07) }
                 let vox = try StemSplitter.run(url: stemsDir.appendingPathComponent("vocals.m4a"), settings: settings, stemsDir: nil) { progress(0.92 + $0 * 0.07) }
-                let phrases = audible(vox.vocalPhrases, part: stemsDir.appendingPathComponent("vocals.m4a"), mix: url)
+                // sung phrases: found on the full song or on the AI vocal part (either one), merged
+                let both = (drums.vocalPhrases + audible(vox.vocalPhrases, part: stemsDir.appendingPathComponent("vocals.m4a"), mix: url))
+                    .sorted { $0.start < $1.start }
+                var phrases: [TimeSpan] = []
+                for p in both {
+                    if let l = phrases.last, p.start <= l.end + 0.2 { phrases[phrases.count - 1].end = max(l.end, p.end) } else { phrases.append(p) }
+                }
                 out = StemSplitter.Output(hits: drums.hits, vocalPhrases: phrases, stemsFolder: stemsDir.path)
             } else {
                 out = try StemSplitter.run(url: url, settings: settings, stemsDir: stemsDir) { progress(0.3 + $0 * 0.7) }
