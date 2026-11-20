@@ -41,40 +41,61 @@ extension AppModel {
     }
 }
 
-// MARK: - Stage screen
+// MARK: - Stage screen (3D venue)
 
 struct StageScreen: View {
     @EnvironmentObject var model: AppModel
-    @State private var editing = false
 
     var body: some View {
         VStack(spacing: 12) {
-            HStack(spacing: 12) {
+            HStack(spacing: 10) {
                 VStack(alignment: .leading, spacing: 2) {
                     Text("Stage").font(.system(size: 22, weight: .heavy))
-                    Text(editing ? "Drag lights into place. Right-click a light to change how it's mounted."
-                                 : "A live simulation of your show. Everything you play shows up here.")
-                        .font(.caption).foregroundColor(Theme.subtle)
+                    Text(model.stageEditing ? "Click something to select it, drag it across the floor. Fine-tune on the right."
+                                            : "Your venue in 3D. Drag to orbit, scroll or pinch to zoom. Everything you play shows up here.")
+                        .font(.caption).foregroundColor(Theme.subtle).lineLimit(1)
                 }
                 Spacer()
-                RealLightsSwitch()
+                ForEach(["Audience", "Top", "Side"], id: \.self) { v in
+                    Button(v) { model.stageCameraRequest = (v, UUID()) }.buttonStyle(PillButtonStyle())
+                }
                 HStack(spacing: 6) {
                     Image(systemName: "cloud.fog").foregroundColor(Theme.subtle)
-                    Slider(value: $model.haze, in: 0.1...1).frame(width: 110)
+                    Slider(value: $model.haze, in: 0.1...1).frame(width: 90)
                 }
                 .help("Haze: how visible the beams are")
-                Button { editing.toggle() } label: {
-                    Label(editing ? "Done" : "Edit Layout", systemImage: editing ? "checkmark" : "arrow.up.and.down.and.arrow.left.and.right")
+                Menu {
+                    Section("Lights") {
+                        ForEach(FixtureProfile.all) { p in Button(p.name) { model.stageEditing = true; model.addStageLight(p) } }
+                    }
+                    Section("Venue") {
+                        ForEach(PropKind.allCases) { k in Button(k.rawValue) { model.stageEditing = true; model.addProp(k) } }
+                    }
+                } label: { Label("Add", systemImage: "plus") }
+                .menuStyle(.borderlessButton).fixedSize()
+                .padding(.horizontal, 10).padding(.vertical, 6)
+                .background(Capsule().fill(Color.white.opacity(0.09)))
+                Button { model.stageEditing.toggle(); if !model.stageEditing { model.selectedStageItem = nil } } label: {
+                    Label(model.stageEditing ? "Done" : "Edit Venue", systemImage: model.stageEditing ? "checkmark" : "hammer")
                 }
-                .buttonStyle(PillButtonStyle(active: editing))
-                if editing {
-                    Button("Reset Layout") { model.resetStageLayout() }.buttonStyle(PillButtonStyle())
+                .buttonStyle(PillButtonStyle(active: model.stageEditing))
+            }
+            HStack(spacing: 12) {
+                ZStack(alignment: .topTrailing) {
+                    Stage3DView(model: model)
+                        .clipShape(RoundedRectangle(cornerRadius: 18, style: .continuous))
+                        .overlay(RoundedRectangle(cornerRadius: 18, style: .continuous).stroke(Theme.panelBorder))
+                    if !model.outputEnabled {
+                        Text("SIMULATION · real lights are off").font(.system(size: 11, weight: .heavy)).foregroundColor(.orange)
+                            .padding(8).background(Capsule().fill(Color.black.opacity(0.6))).padding(12)
+                    }
+                }
+                if model.stageEditing {
+                    StageInspector().frame(width: 270)
                 }
             }
-            StageCanvas(editing: editing)
-                .clipShape(RoundedRectangle(cornerRadius: 18, style: .continuous))
-                .overlay(RoundedRectangle(cornerRadius: 18, style: .continuous).stroke(Theme.panelBorder))
             HStack(spacing: 10) {
+                RealLightsSwitch()
                 Text("Quick looks").font(.caption).foregroundColor(Theme.subtle)
                 ScrollView(.horizontal, showsIndicators: false) {
                     HStack(spacing: 8) {
@@ -98,6 +119,72 @@ struct StageScreen: View {
             }
         }
         .padding(16)
+        .onAppear { model.ensureStageItems() }
+        .onChange(of: model.fixtures) { _ in model.ensureStageItems() }
+    }
+}
+
+/// Fine-tune the selected item: position, height, rotation, size, mounting.
+struct StageInspector: View {
+    @EnvironmentObject var model: AppModel
+
+    var body: some View {
+        Panel {
+            ScrollView {
+                VStack(alignment: .leading, spacing: 12) {
+                    if let id = model.selectedStageItem, let item = model.stage.items.first(where: { $0.id == id }) {
+                        let fx = item.fixtureID.flatMap { fid in model.fixtures.first { $0.id == fid } }
+                        HStack {
+                            Image(systemName: item.prop?.icon ?? "lightbulb.fill").foregroundColor(Theme.accent)
+                            Text(fx?.name ?? item.prop?.rawValue ?? "Item").font(.headline).lineLimit(1)
+                        }
+                        if let fx { Text(fx.profileName).font(.caption2).foregroundColor(Theme.subtle).lineLimit(2) }
+                        slider("Left / right", item.x, -8...8, "m") { v in model.updateStageItem(id) { $0.x = v } }
+                        slider("Front / back", item.z, -6...10, "m") { v in model.updateStageItem(id) { $0.z = v } }
+                        slider("Height", item.y, 0...6, "m") { v in model.updateStageItem(id) { $0.y = v } }
+                        slider("Rotation", item.rotation, -180...180, "°") { v in model.updateStageItem(id) { $0.rotation = v } }
+                        if let k = item.prop, [.stage, .truss, .trussTower, .circleTruss, .lightStand].contains(k) {
+                            slider(k == .truss ? "Length" : (k == .stage ? "Width" : "Size"), item.size,
+                                   k == .truss ? 1...12 : (k == .trussTower || k == .lightStand ? 1...6 : 0.5...3),
+                                   k == .stage || k == .circleTruss ? "×" : "m") { v in model.updateStageItem(id) { $0.size = v } }
+                        }
+                        if item.fixtureID != nil {
+                            Toggle("Hang upside down (on a truss)", isOn: Binding(get: { item.hanging }, set: { v in model.updateStageItem(id) { $0.hanging = v } }))
+                            HStack {
+                                Button("On the stage floor") { model.updateStageItem(id) { $0.y = 0.6; $0.hanging = false } }
+                                Button("On the truss") { model.updateStageItem(id) { $0.y = 3.3; $0.hanging = true } }
+                            }
+                            .font(.caption)
+                        }
+                        Divider()
+                        Button(role: .destructive) { model.deleteStageItem(id) } label: {
+                            Label(item.fixtureID != nil ? "Remove light from session" : "Remove from venue", systemImage: "trash")
+                        }
+                    } else {
+                        Text("Nothing selected").font(.headline)
+                        Text("Click a light or a prop in the 3D view to select it, then drag it across the floor. Use Add to put in more lights, truss, stands, a mic stand, speakers, a DJ booth or a performer.")
+                            .font(.caption).foregroundColor(Theme.subtle)
+                        Divider()
+                        Button("Reset to starter venue") {
+                            model.stage = StageLayout.starter(for: model.fixtures)
+                            model.selectedStageItem = nil
+                        }
+                        Text("The venue is saved with this session.").font(.caption2).foregroundColor(Theme.subtle)
+                    }
+                }
+            }
+        }
+    }
+
+    private func slider(_ label: String, _ value: Double, _ range: ClosedRange<Double>, _ unit: String, set: @escaping (Double) -> Void) -> some View {
+        VStack(alignment: .leading, spacing: 2) {
+            HStack {
+                Text(label).font(.caption)
+                Spacer()
+                Text(String(format: "%.1f%@", value, unit)).font(.caption).monospacedDigit().foregroundColor(Theme.subtle)
+            }
+            Slider(value: Binding(get: { value }, set: { set(($0 * 10).rounded() / 10) }), in: range)
+        }
     }
 }
 

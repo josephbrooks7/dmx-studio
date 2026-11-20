@@ -584,6 +584,7 @@ struct Session: Identifiable, Codable {
     var presets: [LookPreset]? = nil
     var idle: IdleLook = IdleLook()
     var rigMode: RigMode? = nil
+    var stage: StageLayout? = nil
 
     /// Your standard rig: two daisy-chained SHEHDS bars + the Chauvet followspot.
     static func standardRig() -> [Fixture] {
@@ -611,4 +612,77 @@ enum StageMount: String, CaseIterable, Codable, Identifiable {
     case hanging = "Hanging (beams down)"
     case frontOfHouse = "Front of house (aims at the stage)"
     var id: String { rawValue }
+}
+
+// MARK: - 3D venue (saved with each session)
+
+enum PropKind: String, CaseIterable, Codable, Identifiable {
+    case stage = "Stage Platform"
+    case truss = "Truss (straight)"
+    case trussTower = "Truss Tower"
+    case circleTruss = "Circle Truss"
+    case lightStand = "Light Stand"
+    case micStand = "Mic Stand"
+    case speaker = "Speaker"
+    case djBooth = "DJ Booth"
+    case performer = "Performer"
+    var id: String { rawValue }
+    var icon: String {
+        switch self {
+        case .stage: return "rectangle.fill"
+        case .truss: return "line.3.horizontal"
+        case .trussTower: return "building.columns"
+        case .circleTruss: return "circle"
+        case .lightStand: return "lamp.floor"
+        case .micStand: return "mic"
+        case .speaker: return "hifispeaker"
+        case .djBooth: return "music.note.house"
+        case .performer: return "person.fill"
+        }
+    }
+}
+
+/// One thing in the venue: either a prop, or one of the session's lights.
+struct StageItem: Identifiable, Codable, Hashable {
+    var id = UUID()
+    var prop: PropKind? = nil
+    var fixtureID: UUID? = nil
+    var x: Double = 0          // meters, left/right (audience view)
+    var z: Double = 0          // meters, + toward the audience
+    var y: Double = 0          // height off the floor
+    var rotation: Double = 0   // degrees around vertical
+    var size: Double = 1       // length / scale
+    var hanging: Bool = false  // lights: upside down on a truss
+}
+
+struct StageLayout: Codable, Hashable {
+    var items: [StageItem] = []
+    var haze: Double = 0.6
+
+    /// A starter venue: stage, goal-post truss, circle truss, mic stand, performer — then your lights placed on it.
+    static func starter(for fixtures: [Fixture]) -> StageLayout {
+        var items: [StageItem] = [
+            StageItem(prop: .stage, x: 0, z: -2, size: 1),
+            StageItem(prop: .trussTower, x: -3.2, z: -3.6, size: 3.5),
+            StageItem(prop: .trussTower, x: 3.2, z: -3.6, size: 3.5),
+            StageItem(prop: .truss, x: 0, z: -3.6, y: 3.5, size: 6.7),
+            StageItem(prop: .circleTruss, x: 0, z: -3.9, y: 0.6, size: 1),
+            StageItem(prop: .micStand, x: 0, z: -0.8, y: 0.6),
+            StageItem(prop: .performer, x: 0.45, z: -1.1, y: 0.6),
+            StageItem(prop: .speaker, x: -3.6, z: 0.2),
+            StageItem(prop: .speaker, x: 3.6, z: 0.2),
+        ]
+        var bar = 0
+        for fx in fixtures {
+            if fx.colorWheel != nil {
+                items.append(StageItem(fixtureID: fx.id, x: 0, z: 7, y: 0, rotation: 0))
+            } else {
+                let side: Double = bar % 2 == 0 ? -1 : 1
+                let row = Double(bar / 2)
+                items.append(StageItem(fixtureID: fx.id, x: side * (1.9 + row * 0.2), z: -2.6 + row * 0.6, y: 0.6, rotation: 0))
+                bar += 1
+            }
+        }
+        return StageLayout(items: items)
+    }
 }

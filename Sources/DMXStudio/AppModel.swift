@@ -50,6 +50,10 @@ final class AppModel: ObservableObject {
     @Published var manual: [UUID: ManualControl] = [:]   // hands-on control per light
     @Published var outputEnabled = true          // off = simulate only, real lights stay dark
     @Published var haze: Double = 0.6            // beam visibility in the Stage simulation
+    @Published var stage = StageLayout() { didSet { scheduleSave() } }
+    @Published var selectedStageItem: UUID?
+    @Published var stageEditing = false
+    @Published var stageCameraRequest: (name: String, id: UUID)? = nil
 
     // Live
     @Published var selectedSongID: UUID?
@@ -198,6 +202,7 @@ final class AppModel: ObservableObject {
         presets = s.presets ?? LookPreset.defaults
         idle = s.idle
         rigMode = s.rigMode ?? .together
+        stage = s.stage ?? StageLayout.starter(for: s.fixtures)
         manual = [:]
         activePresetID = nil
     }
@@ -208,10 +213,10 @@ final class AppModel: ObservableObject {
         let s = sessions[i]
         // Only write (and bump "edited") when something actually changed — avoids endless re-saving
         guard s.fixtures != fixtures || s.lineups != lineups || (s.presets ?? LookPreset.defaults) != presets
-                || s.idle != idle || (s.rigMode ?? .together) != rigMode else { return }
+                || s.idle != idle || (s.rigMode ?? .together) != rigMode || s.stage != stage else { return }
         var updated = s
         updated.fixtures = fixtures; updated.lineups = lineups; updated.presets = presets
-        updated.idle = idle; updated.rigMode = rigMode
+        updated.idle = idle; updated.rigMode = rigMode; updated.stage = stage
         updated.modified = Date()
         if !loading { sessions[i] = updated }
     }
@@ -261,6 +266,54 @@ final class AppModel: ObservableObject {
     }
 
     var currentSessionName: String { sessions.first { $0.id == currentSessionID }?.name ?? "Session" }
+
+    // MARK: - 3D venue
+
+    /// Every light in the session gets a place in the venue.
+    func ensureStageItems() {
+        var items = stage.items.filter { item in item.fixtureID == nil || fixtures.contains { $0.id == item.fixtureID } }
+        for fx in fixtures where !items.contains(where: { $0.fixtureID == fx.id }) {
+            let n = items.filter { $0.fixtureID != nil }.count
+            items.append(StageItem(fixtureID: fx.id, x: Double(n % 5) * 1.0 - 2, z: -1.5 + Double(n / 5) * 0.8, y: 0.6))
+        }
+        if items != stage.items { stage.items = items }
+    }
+
+    func addProp(_ kind: PropKind) {
+        var item = StageItem(prop: kind, x: 0, z: 1.5)
+        switch kind {
+        case .truss: item.size = 3; item.y = 3
+        case .trussTower: item.size = 3.5
+        case .lightStand: item.size = 2.2
+        case .micStand, .performer: item.z = 0
+        default: break
+        }
+        stage.items.append(item)
+        selectedStageItem = item.id
+    }
+
+    func addStageLight(_ profile: FixtureProfile) {
+        addFixture(profile: profile)
+        ensureStageItems()
+        if let fx = fixtures.last, let i = stage.items.firstIndex(where: { $0.fixtureID == fx.id }) {
+            stage.items[i].x = 0; stage.items[i].z = 0.5; stage.items[i].y = 0.6
+            selectedStageItem = stage.items[i].id
+        }
+    }
+
+    func updateStageItem(_ id: UUID, _ change: (inout StageItem) -> Void) {
+        guard let i = stage.items.firstIndex(where: { $0.id == id }) else { return }
+        change(&stage.items[i])
+    }
+
+    func deleteStageItem(_ id: UUID) {
+        guard let item = stage.items.first(where: { $0.id == id }) else { return }
+        if let fid = item.fixtureID {
+            fixtures.removeAll { $0.id == fid }    // removing a light from the venue removes it from the session
+        }
+        stage.items.removeAll { $0.id == id }
+        selectedStageItem = nil
+    }
 
     // MARK: - Live looks & beat
 
