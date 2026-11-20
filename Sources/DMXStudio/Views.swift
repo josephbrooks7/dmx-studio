@@ -500,7 +500,7 @@ struct LineupView: View {
         }
     }
 
-    private var main: some View {
+    @ViewBuilder private var main: some View {
         let binding = model.lineupBinding(lineupID)
         let lineup = binding.wrappedValue
         VStack(alignment: .leading, spacing: 16) {
