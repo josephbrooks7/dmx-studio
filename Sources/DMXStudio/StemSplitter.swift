@@ -188,6 +188,13 @@ enum StemSplitter {
         // chord starting is spread across the spectrum, so it doesn't count as a kick
         let lowShare = zip(level[0], level[4]).map { $0 / ($1 + 1e-9) }
         func mx(_ a: [Float], _ i: Int) -> Float { a[max(0, i - 1)...min(a.count - 1, i + 1)].max() ?? 0 }
+        if ProcessInfo.processInfo.environment["DMX_DEBUG_KICK"] != nil {
+            print(String(format: "dbg p99.5 kick flux=%.4f p99 kick level=%.4f frames=%d", percentile(flux[0], 99.5), percentile(level[0], 99), frames))
+            for p in peaks(kf, fps: fps, gap: settings.kickSpacing, sens: 0.12, extra: nil) {
+                print(String(format: "dbgkick i=%d t=%.3f kf=%.3f kl=%.3f share=%.3f M=%.4f mP=%.3f", p.i, frameTime(p.i), kf[p.i], mx(kl, p.i),
+                             mx(lowShare, p.i), M[p.i * bins + 3], mP[p.i * bins + 3]))
+            }
+        }
         let off = settings.offsetMs / 1000
         var hits: [DrumHit] = []
         for p in peaks(kf, fps: fps, gap: settings.kickSpacing, sens: Float(0.12 / max(settings.kickSensitivity, 0.1)),

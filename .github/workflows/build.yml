@@ -75,6 +75,8 @@ jobs:
           "$BIN" --analyze /tmp/v/verify.wav --stems /tmp/v/stems | tee /tmp/v/out.txt
           echo "split + learn took $(( $(date +%s) - START )) s for a 60 s song"
           ls -la /tmp/v/stems
+          DMX_DEBUG_KICK=1 "$BIN" --analyze /tmp/v/verify.wav | grep "^dbg" > /tmp/v/dbg.txt || true
+          head -3 /tmp/v/dbg.txt; grep -E "t=(42\.4|49\.5|49\.6|54\.4|40\.0|44\.8)" /tmp/v/dbg.txt || true
           python3 packaging/check_stems.py /tmp/v/out.txt /tmp/v/verify.wav /tmp/v/stems
       - name: Helper processes (Wi-Fi scan + Learn run outside the app)
         run: |
