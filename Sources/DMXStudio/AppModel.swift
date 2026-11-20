@@ -850,8 +850,12 @@ final class AppModel: ObservableObject {
         let st = style ?? songs[i].effectiveGenre
         let variation = (songs[i].shows.filter { $0.style == st }.map(\.variation).max() ?? 0) + 1
         let name = variation == 1 ? "\(st.rawValue)" : "\(st.rawValue) #\(variation)"
-        let show = LightShow(name: name, style: st, variation: variation,
-                             sections: ShowGenerator.generate(a, style: st, variation: variation))
+        // Build for the lights that are switched on in this session right now
+        let onLights = fixtures.filter { $0.isOn }
+        var sections = ShowGenerator.generate(a, style: st, variation: variation)
+        ShowGenerator.fit(&sections, to: onLights.filter { $0.effectiveBehavior == .sequence })
+        let show = LightShow(name: name, style: st, variation: variation, sections: sections,
+                             fixtureIDs: onLights.isEmpty ? nil : onLights.map(\.id))
         songs[i].shows.append(show)
         songs[i].activeShowID = show.id
     }

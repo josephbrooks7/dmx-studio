@@ -98,6 +98,26 @@ enum ShowGenerator {
 
     /// Variation 1 = the genre's signature look. 2, 3, … mix it up but stay consistent
     /// within a show (every chorus gets the same look, every verse the same, etc.).
+    /// Tailor a generated show to the lights it will run on: no movement without moving heads,
+    /// and no chases or sparkles when there are only one or two light points to spread them across.
+    static func fit(_ secs: inout [ShowSection], to lights: [Fixture]) {
+        guard !lights.isEmpty else { return }
+        let movers = lights.contains { $0.isMover }
+        var seen = Set<String>(), points = 0
+        for f in lights where seen.insert("\(f.address)|\(f.layout)|\(f.outputKey ?? "")").inserted { points += max(1, f.headCount) }
+        for i in secs.indices {
+            if !movers { secs[i].movement = .none }
+            if points <= 2 {
+                switch secs[i].effect {
+                case .chase, .rainbow: secs[i].effect = points == 2 ? .alternate : .colorBeat
+                case .sparkle: secs[i].effect = .kickFlash
+                case .alternate where points < 2: secs[i].effect = .pulse
+                default: break
+                }
+            }
+        }
+    }
+
     static func generate(_ a: SongAnalysis, style: ShowStyle, variation: Int) -> [ShowSection] {
         let pals = palettes(for: style)
         let shift = max(0, variation - 1)
