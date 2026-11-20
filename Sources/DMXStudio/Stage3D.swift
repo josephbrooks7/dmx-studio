@@ -118,7 +118,7 @@ private enum Build {
     /// Returns root, the aimable head (the light itself), and the lens.
     static func followspot(onStand: Bool) -> (SCNNode, SCNNode, SCNNode) {
         let root = SCNNode()
-        let pivotHeight: CGFloat = onStand ? 1.72 : 0.24
+        let pivotHeight: CGFloat = onStand ? 1.72 : 0.15
 
         if onStand {
             // Tripod: three legs from the hub, braces to the pole, rubber feet
@@ -145,18 +145,19 @@ private enum Build {
         }
 
         // U-yoke (fixed): bottom bar + two arms up to the pivot knobs
-        let yokeBottom = pivotHeight - 0.14
-        let yb = box(0.30, 0.02, 0.04, Mat.black); yb.position = SCNVector3(0, yokeBottom, 0); root.addChildNode(yb)
-        for x in [CGFloat(-0.15), CGFloat(0.15)] {
-            let arm = box(0.012, 0.15, 0.04, Mat.black); arm.position = SCNVector3(x, yokeBottom + 0.075, 0); root.addChildNode(arm)
-            let knob = cyl(0.035, 0.045, Mat.darkGray); knob.eulerAngles.z = .pi / 2
-            knob.position = SCNVector3(x + (x > 0 ? 0.03 : -0.03), pivotHeight, 0); root.addChildNode(knob)
+        let yokeBottom = pivotHeight - 0.13
+        let yb = box(0.23, 0.015, 0.04, Mat.black); yb.position = SCNVector3(0, yokeBottom, 0); root.addChildNode(yb)
+        for x in [CGFloat(-0.112), CGFloat(0.112)] {
+            let arm = box(0.01, 0.14, 0.04, Mat.black); arm.position = SCNVector3(x, yokeBottom + 0.07, 0); root.addChildNode(arm)
+            let knob = cyl(0.03, 0.026, Mat.darkGray); knob.eulerAngles.z = .pi / 2
+            knob.position = SCNVector3(x + (x > 0 ? 0.019 : -0.019), pivotHeight, 0); root.addChildNode(knob)   // 27.4 cm across the knobs
         }
 
         // The light (tilts inside the yoke)
         let head = SCNNode()
         head.position = SCNVector3(0, pivotHeight, 0)
-        let body = SCNCylinder(radius: 0.125, height: 0.58)
+        // Official size: 55.8 cm long × 27.4 cm wide (with knobs) × 29.2 cm tall (with handle)
+        let body = SCNCylinder(radius: 0.1, height: 0.5)
         body.radialSegmentCount = 8                       // octagonal housing
         body.materials = [Mat.black]
         let bodyNode = SCNNode(geometry: body)
@@ -164,40 +165,40 @@ private enum Build {
         head.addChildNode(bodyNode)
         // vents along the top
         for k in 0..<6 {
-            let v = box(0.12, 0.004, 0.012, Mat.darkGray); v.position = SCNVector3(0, 0.122, -0.05 + Double(k) * 0.03); head.addChildNode(v)
+            let v = box(0.1, 0.004, 0.012, Mat.darkGray); v.position = SCNVector3(0, 0.098, -0.05 + Double(k) * 0.03); head.addChildNode(v)
         }
         // Front bezel plate
-        let bezel = SCNCylinder(radius: 0.135, height: 0.02); bezel.radialSegmentCount = 8; bezel.materials = [Mat.black]
+        let bezel = SCNCylinder(radius: 0.108, height: 0.03); bezel.radialSegmentCount = 8; bezel.materials = [Mat.black]
         let bezelNode = SCNNode(geometry: bezel); bezelNode.eulerAngles = SCNVector3(Double.pi / 2, 0, Double.pi / 8)
-        bezelNode.position = SCNVector3(0, 0, -0.30); head.addChildNode(bezelNode)
+        bezelNode.position = SCNVector3(0, 0, -0.263); head.addChildNode(bezelNode)
         // Rear control panel with the red LED display and buttons
-        let panel = box(0.2, 0.17, 0.01, Mat.darkGray); panel.position = SCNVector3(0, 0, 0.295); head.addChildNode(panel)
+        let panel = box(0.17, 0.15, 0.01, Mat.darkGray); panel.position = SCNVector3(0, 0, 0.255); head.addChildNode(panel)
         let display = box(0.045, 0.02, 0.004, { let m = SCNMaterial(); m.lightingModel = .constant; m.diffuse.contents = NSColor.red; return m }())
-        display.position = SCNVector3(0.055, 0.04, 0.302); head.addChildNode(display)
+        display.position = SCNVector3(0.045, 0.035, 0.262); head.addChildNode(display)
         for r in 0..<2 { for c in 0..<4 {
             let btn = box(0.018, 0.018, 0.006, Mat.black)
-            btn.position = SCNVector3(-0.07 + Double(c) * 0.03, -0.01 - Double(r) * 0.03, 0.302); head.addChildNode(btn)
+            btn.position = SCNVector3(-0.065 + Double(c) * 0.026, -0.01 - Double(r) * 0.026, 0.262); head.addChildNode(btn)
         } }
         let power = box(0.022, 0.03, 0.008, { let m = SCNMaterial(); m.lightingModel = .constant; m.diffuse.contents = NSColor(calibratedRed: 0.9, green: 0.05, blue: 0.05, alpha: 1); return m }())
-        power.position = SCNVector3(0.115, 0.03, 0.26); head.addChildNode(power)
+        power.position = SCNVector3(0.06, -0.035, 0.262); head.addChildNode(power)
         // Top tilt handle: dome cover + stalk + ball knob
-        let dome = SCNCylinder(radius: 0.07, height: 0.12); dome.materials = [Mat.black]
-        let domeNode = SCNNode(geometry: dome); domeNode.eulerAngles.z = .pi / 2; domeNode.position = SCNVector3(0, 0.125, 0.12)
+        let dome = SCNCylinder(radius: 0.05, height: 0.1); dome.materials = [Mat.black]
+        let domeNode = SCNNode(geometry: dome); domeNode.eulerAngles.z = .pi / 2; domeNode.position = SCNVector3(0, 0.1, 0.1)
         head.addChildNode(domeNode)
-        head.addChildNode(pipe(from: SCNVector3(0, 0.19, 0.12), to: SCNVector3(0, 0.25, 0.12), r: 0.006, Mat.aluminum))
-        let ball = SCNNode(geometry: { let g = SCNSphere(radius: 0.025); g.materials = [Mat.black]; return g }())
-        ball.position = SCNVector3(0, 0.27, 0.12); head.addChildNode(ball)
+        head.addChildNode(pipe(from: SCNVector3(0, 0.145, 0.1), to: SCNVector3(0, 0.172, 0.1), r: 0.005, Mat.aluminum))
+        let ball = SCNNode(geometry: { let g = SCNSphere(radius: 0.02); g.materials = [Mat.black]; return g }())
+        ball.position = SCNVector3(0, 0.19, 0.1); head.addChildNode(ball)
         // Carry handle under the back
-        head.addChildNode(pipe(from: SCNVector3(-0.08, -0.13, 0.31), to: SCNVector3(0.08, -0.13, 0.31), r: 0.012, Mat.darkGray))
+        head.addChildNode(pipe(from: SCNVector3(-0.07, -0.08, 0.275), to: SCNVector3(0.07, -0.08, 0.275), r: 0.011, Mat.darkGray))
         // Focus knobs on the side
         for z in [CGFloat(-0.05), CGFloat(0.05)] {
-            let fk = cyl(0.018, 0.03, Mat.darkGray); fk.eulerAngles.z = .pi / 2; fk.position = SCNVector3(0.135, 0.07, z); head.addChildNode(fk)
+            let fk = cyl(0.016, 0.03, Mat.darkGray); fk.eulerAngles.z = .pi / 2; fk.position = SCNVector3(0.105, -0.03, z); head.addChildNode(fk)
         }
         // Lens (beam leaves toward -Z)
         let lensNode = SCNNode()
-        lensNode.position = SCNVector3(0, 0, -0.312)
+        lensNode.position = SCNVector3(0, 0, -0.262)
         lensNode.eulerAngles.x = -.pi / 2
-        let glass = cyl(0.085, 0.01, Mat.lens()); glass.name = "lens"
+        let glass = cyl(0.07, 0.01, Mat.lens()); glass.name = "lens"
         lensNode.addChildNode(glass)
         lensNode.addChildNode(beamNode(spreadDeg: 10, length: 12))
         head.addChildNode(lensNode)
