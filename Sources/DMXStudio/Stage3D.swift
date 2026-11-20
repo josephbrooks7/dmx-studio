@@ -417,6 +417,8 @@ struct Stage3DView: NSViewRepresentable {
             camera.camera?.zFar = 200
             camera.camera?.fieldOfView = 50
             camera.camera?.wantsHDR = true
+            camera.camera?.wantsExposureAdaptation = false   // keep the venue dark, like a real show
+            camera.camera?.exposureOffset = 0
             camera.camera?.bloomIntensity = 0.5
             camera.camera?.bloomThreshold = 0.8
             setCamera("Audience")
