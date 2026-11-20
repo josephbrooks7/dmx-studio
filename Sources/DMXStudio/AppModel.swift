@@ -271,6 +271,19 @@ final class AppModel: ObservableObject {
 
         // Space bar = play/pause, except while typing in a text field
         // Space = play/pause, hold F = flash, hold S = strobe (not while typing)
+        // Double-click a song in the library: play it (the list's own selection handling swallows
+        // SwiftUI double-tap gestures on macOS 12, so watch the clicks directly)
+        mouseMonitor = NSEvent.addLocalMonitorForEvents(matching: [.leftMouseUp]) { [weak self] e in
+            guard let self, e.clickCount == 2, self.songListHovered else { return e }
+            DispatchQueue.main.asyncAfter(deadline: .now() + 0.05) {
+                if let id = self.hoveredSongID ?? self.selectedSongID, self.song(id) != nil {
+                    self.selectedSongID = id
+                    self.selectedEntry = nil
+                    self.play(id, from: self.songStart(id))
+                }
+            }
+            return e
+        }
         keyMonitor = NSEvent.addLocalMonitorForEvents(matching: [.keyDown, .keyUp]) { [weak self] e in
             guard let self else { return e }
             let mods = e.modifierFlags.intersection([.command, .option, .control])
@@ -1376,6 +1389,9 @@ final class AppModel: ObservableObject {
     }
 
     @Published var lyricsStatus: [UUID: String] = [:]
+    var songListHovered = false
+    var hoveredSongID: UUID?
+    private var mouseMonitor: Any?
     /// Songs waiting for an internet connection to download the lyrics model (once)
     private var waitingForNetwork: [UUID] = []
     private var netMonitor: NWPathMonitor?

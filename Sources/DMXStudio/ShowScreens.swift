@@ -1051,11 +1051,10 @@ struct SongsScreen: View {
                 List(selection: $model.selectedSongID) {
                     ForEach(model.songs.filter { search.isEmpty || $0.displayName.localizedCaseInsensitiveContains(search) }) { s in
                         SongRow(song: s).tag(Optional(s.id))
+                            .onHover { inside in
+                                if inside { model.hoveredSongID = s.id } else if model.hoveredSongID == s.id { model.hoveredSongID = nil }
+                            }
                             .onDrag { NSItemProvider(object: s.id.uuidString as NSString) }
-                            .simultaneousGesture(TapGesture(count: 2).onEnded {
-                                model.selectedSongID = s.id
-                                model.play(s.id, from: model.songStart(s.id))   // double-click: music + lights
-                            })
                             .simultaneousGesture(TapGesture(count: 1).onEnded {
                                 model.selectedSongID = s.id   // single click on the title selects it too
                                 model.selectedEntry = nil
@@ -1076,6 +1075,7 @@ struct SongsScreen: View {
                     }
                 }
                 .listStyle(.inset)
+                .onHover { model.songListHovered = $0 }
                 Text("Drag WAV / MP3 files or a folder here").font(.caption).foregroundColor(Theme.subtle)
             }
             .padding(14)
