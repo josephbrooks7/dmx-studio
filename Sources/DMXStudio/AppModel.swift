@@ -343,8 +343,8 @@ final class AppModel: ObservableObject {
         selectedSongID = songs.first?.id
         adoptExistingSongs()
         // One time: remake learned shows so 38CH bars use their beams separately
-        if !UserDefaults.standard.bool(forKey: "showsRebuilt.perBeam3") {
-            UserDefaults.standard.set(true, forKey: "showsRebuilt.perBeam3")
+        if !UserDefaults.standard.bool(forKey: "showsRebuilt.perBeam4") {
+            UserDefaults.standard.set(true, forKey: "showsRebuilt.perBeam4")
             DispatchQueue.main.async { self.rebuildShowsForCurrentLights() }
         }
         // Songs that were still learning when the app closed: finish learning them now
@@ -374,7 +374,7 @@ final class AppModel: ObservableObject {
         for i in presets.indices where presets[i].mode == nil {
             if let d = (LookPreset.beamPack + LookPreset.barPack).first(where: { $0.name == presets[i].name }) { presets[i].mode = d.mode }
         }
-        for (pack, list) in [("themes1", LookPreset.themePack), ("beams2", LookPreset.beamPack), ("bars9ch1", LookPreset.barPack)] {
+        for (pack, list) in [("themes1", LookPreset.themePack), ("beams3", LookPreset.beamPack), ("bars9ch1", LookPreset.barPack)] {
             let packKey = "presetPack.\(pack).\(s.id.uuidString)"
             if !UserDefaults.standard.bool(forKey: packKey) {
                 let have = Set(presets.map(\.name))
@@ -2016,7 +2016,7 @@ final class AppModel: ObservableObject {
         // Smooth movement: heads glide to where the show wants them instead of snapping (no jerky moves)
         if testMode == .off {
             if smoothPan.count != rendered.count { smoothPan = rendered.map(\.pan); smoothTilt = rendered.map(\.tilt) }
-            let a = 1 - exp(-(1.0 / 40.0) / 0.16)
+            let a = 1 - exp(-(1.0 / 40.0) / 0.07)   // light smoothing: moves are already eased and beat-timed
             for i in rendered.indices {
                 smoothPan[i] += (rendered[i].pan - smoothPan[i]) * a
                 smoothTilt[i] += (rendered[i].tilt - smoothTilt[i]) * a

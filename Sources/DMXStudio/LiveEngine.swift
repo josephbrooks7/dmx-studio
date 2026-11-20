@@ -71,6 +71,12 @@ struct LookPreset: Identifiable, Codable, Hashable {
             p("Ripple", .ripple, "Ocean", .none, "dot.radiowaves.left.and.right"),
             p("Scanner", .scan, "Red Velvet", .sweep, "arrow.left.arrow.right"),
             p("Fill Up", .fill, "Neon", .none, "chart.bar.fill"),
+            p("Fire", .fire, "Fire", .none, "flame.fill"),
+            p("Embers", .embers, "Dragon", .none, "flame"),
+            p("Water Shimmer", .water, "Ocean", .sweep, "drop.fill"),
+            p("Ocean Tide", .tide, "Ice", .none, "water.waves"),
+            p("Magic Dust", .magic, "Fairy", .none, "wand.and.stars"),
+            p("Aurora", .aurora, "Galaxy", .sweep, rate: 0.5, "sparkles"),
         ]
     }()
 

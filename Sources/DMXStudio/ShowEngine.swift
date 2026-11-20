@@ -62,8 +62,8 @@ enum ShowGenerator {
         case (.rock, .high): return Look(effect: .alternate, movement: .beatNod)
         case (.rock, .drop): return Look(effect: .snareHit, movement: .beatNod, accent: true)
 
-        case (.chill, .low): return Look(effect: .breathe, rate: 0.5, movement: .sweep, intensity: 0.5)
-        case (.chill, .medium): return Look(effect: .breathe, movement: .sweep, intensity: 0.7)
+        case (.chill, .low): return Look(effect: .tide, rate: 0.5, movement: .none, intensity: 0.6)
+        case (.chill, .medium): return Look(effect: .water, movement: .sweep, intensity: 0.8)
         case (.chill, .high): return Look(effect: .pulse, rate: 0.5, movement: .sweep, intensity: 0.85)
         case (.chill, .drop): return Look(effect: .colorBeat, rate: 0.5, movement: .circle)
 
@@ -97,14 +97,14 @@ enum ShowGenerator {
         case (.hyperpop, .high): return Look(effect: .colorBeat, movement: .flip)
         case (.hyperpop, .drop): return Look(effect: .kickFlash, movement: .beatNod, accent: true)
 
-        case (.psychedelic, .low): return Look(effect: .breathe, rate: 0.5, movement: .circle, intensity: 0.55)
+        case (.psychedelic, .low): return Look(effect: .aurora, rate: 0.5, movement: .none, intensity: 0.65)
         case (.psychedelic, .medium): return Look(effect: .rainbow, rate: 0.5, movement: .sweep, intensity: 0.8)
         case (.psychedelic, .high): return Look(effect: .colorBeat, rate: 0.5, movement: .circle)
         case (.psychedelic, .drop): return Look(effect: .rainbow, movement: .fullRotate)
 
-        case (.fantasy, .low): return Look(effect: .sparkle, rate: 0.5, movement: .sweep, intensity: 0.5)
-        case (.fantasy, .medium): return Look(effect: .breathe, movement: .circle, intensity: 0.75)
-        case (.fantasy, .high): return Look(effect: .rainbow, rate: 0.5, movement: .sweep)
+        case (.fantasy, .low): return Look(effect: .magic, rate: 0.5, movement: .none, intensity: 0.7)
+        case (.fantasy, .medium): return Look(effect: .aurora, movement: .sweep, intensity: 0.85)
+        case (.fantasy, .high): return Look(effect: .magic, rate: 1, movement: .sweep)
         case (.fantasy, .drop): return Look(effect: .sparkle, rate: 2, movement: .circle, accent: true)
         }
     }
@@ -466,6 +466,11 @@ struct ShowRenderer {
         let barPos = rb / 4
 
         let accentOn = s.accentStrobe && (c.t - s.start) < c.beatLen * 4
+        // Movement runs a little ahead so the heads (motor + smoothing) arrive right on the beat
+        let moveLead = 0.2 / max(c.beatLen, 0.1)
+        let mBeats = (c.beatPos + moveLead) * s.rate
+        let mBar = mBeats / 4
+        let mIdx = Int(floor(mBeats))
         var result: [RenderedFixture] = []
         var p = 0
         let moverCount = max(1, fixtures.filter { $0.isMover }.count)
@@ -502,16 +507,16 @@ struct ShowRenderer {
             if fx.isMover {
                 switch rig {
                 case .together:
-                    let m = movement(s.movement, barPos: barPos, idx: idx, fi: 0, n: 1)
+                    let m = movement(s.movement, barPos: mBar, idx: mIdx, fi: 0, n: 1)
                     rf.pan = m.pan; rf.tilt = m.tilt
                 case .mirror:
-                    let m = movement(s.movement, barPos: barPos, idx: idx, fi: 0, n: 1)
+                    let m = movement(s.movement, barPos: mBar, idx: mIdx, fi: 0, n: 1)
                     let flip = moverIdx % 2 == 1
                     rf.pan = flip ? 1 - m.pan : m.pan
                     // tilt-only bars: mirror the swing around center so the pair opens and closes
                     rf.tilt = flip && s.movement != .none ? 1 - m.tilt : m.tilt
                 case .independent:
-                    let m = movement(s.movement, barPos: barPos, idx: idx, fi: moverIdx, n: moverCount)
+                    let m = movement(s.movement, barPos: mBar, idx: mIdx, fi: moverIdx, n: moverCount)
                     rf.pan = m.pan; rf.tilt = m.tilt
                 }
                 moverIdx += 1
@@ -526,7 +531,7 @@ struct ShowRenderer {
     private func beamMask(_ s: ShowSection, c: Ctx, head h: Int, of n: Int) -> Double {
         guard n >= 4 else { return 1 }
         // effects that already pick their own beams
-        if [.chase, .bounce, .pixelPop, .centerOut, .sparkle, .alternate, .split, .wave, .ripple, .scan, .fill, .gradient, .blackout].contains(s.effect) { return 1 }
+        if [.chase, .bounce, .pixelPop, .centerOut, .sparkle, .alternate, .split, .wave, .ripple, .scan, .fill, .gradient, .fire, .embers, .water, .tide, .magic, .aurora, .blackout].contains(s.effect) { return 1 }
         let barN = Int(floor(c.beatPos * s.rate / 4))
         let pattern: Int
         switch s.level {
@@ -679,6 +684,56 @@ struct ShowRenderer {
             let on = Double(pos) < count
             return FixtureState(intensity: on ? 1 : 0, color: pal.color(bar + (pos * pal.colors.count) / max(n, 1)))
 
+        case .fire:
+            // flames: every beam flickers on its own, hotter (brighter, yellower) with the music's energy
+            let slice = Int(floor(c.t * 14))
+            func noise(_ k: Int) -> Double { Double(abs((k &* 2_654_435_761) &+ (p &* 97_531)) % 1000) / 1000 }
+            let a = noise(slice), b = noise(slice + 1)
+            let f = c.t * 14 - floor(c.t * 14)
+            let flick = a + (b - a) * f
+            let heat = min(1, 0.35 + 0.65 * flick * (0.6 + 0.6 * c.energy))
+            let col = pal.color(0).mix(pal.color(1), heat).mix(pal.color(2), max(0, heat - 0.75) * 2)
+            return FixtureState(intensity: 0.25 + 0.75 * heat, color: col)
+
+        case .embers:
+            // glowing coals: slow, deep flicker with an occasional spark
+            let slow = 0.5 + 0.5 * sin(c.t * 1.3 + Double(p) * 1.7) * sin(c.t * 0.7 + Double(p))
+            let spark = (Int(floor(c.t * 3)) &* 31 &+ p &* 7) % 23 == 0 ? 1.0 : 0
+            return FixtureState(intensity: 0.15 + 0.55 * slow + 0.3 * spark, color: pal.color(0).mix(pal.color(1), slow * 0.6 + spark * 0.4))
+
+        case .water:
+            // shimmering water: two ripples at different speeds cross over each other
+            let x = Double(p) / Double(max(n, 1))
+            let w1 = sin(2 * .pi * (x * 1.3 - rb / 6)), w2 = sin(2 * .pi * (x * 0.7 + rb / 9) + 1.3)
+            let s = 0.5 + 0.25 * w1 + 0.25 * w2
+            let col = pal.color(0).mix(pal.color(1), 0.5 + 0.5 * w2).mix(.white, max(0, s - 0.85) * 2)
+            return FixtureState(intensity: 0.15 + 0.85 * s * s, color: col)
+
+        case .tide:
+            // the light rises along the bar and falls back like a tide, once every 2 bars, with a soft edge
+            let level = 0.5 - 0.5 * cos(2 * .pi * rb / 8)           // 0…1…0 over 8 beats
+            let edge = level * Double(n) - Double(p)
+            let k = max(0, min(1, edge + 0.5))
+            return FixtureState(intensity: 0.08 + 0.92 * k, color: pal.color(0).mix(pal.color(1), Double(p) / Double(max(n - 1, 1))))
+
+        case .magic:
+            // magic dust: beams twinkle in and out slowly in shifting colors, with a glitter on the hi-hats
+            let ph1 = c.t * 0.9 + Double((p &* 7_919) % 97) * 0.37
+            let tw = pow(0.5 + 0.5 * sin(ph1), 3)
+            let glitter = (c.hatIndex &+ p) % 5 == 0 ? exp(-c.sinceHat * 12) : 0
+            let cp = rb / 8 + Double(p) * 0.37
+            let col = pal.color(Int(floor(cp))).mix(pal.color(Int(floor(cp)) + 1), cp - floor(cp)).mix(.white, glitter * 0.8)
+            return FixtureState(intensity: min(1, 0.05 + 0.8 * tw + glitter), color: col)
+
+        case .aurora:
+            // northern lights: slow flowing curtains of color drifting along the bar
+            let x = Double(p) / Double(max(n - 1, 1))
+            let flow = sin(2 * .pi * (x * 0.8 - rb / 16)) + 0.5 * sin(2 * .pi * (x * 1.9 + rb / 11))
+            let s = 0.5 + 0.33 * flow
+            let cp = x * 1.5 + rb / 24
+            let col = pal.color(Int(floor(cp))).mix(pal.color(Int(floor(cp)) + 1), cp - floor(cp))
+            return FixtureState(intensity: max(0.05, min(1, s)), color: col)
+
         case .gradient:
             // the palette spread across the beams, slowly drifting
             let x = Double(p) / Double(max(n - 1, 1))
@@ -688,28 +743,41 @@ struct ShowRenderer {
         }
     }
 
+    /// Ping-pong between 0 and 1: each leg takes exactly `legBeats` beats, eases in and out,
+    /// and lands on a beat (so swings arrive with the music).
+    private func leg(_ beats: Double, _ legBeats: Double, offset: Double = 0) -> Double {
+        let k = beats / legBeats + offset
+        let i = floor(k), f = k - i
+        let e = f * f * (3 - 2 * f)
+        return Int(i) % 2 == 0 ? e : 1 - e
+    }
+
     private func movement(_ m: MoveEffect, barPos: Double, idx: Int, fi: Int, n: Int) -> (pan: Double, tilt: Double) {
         let phase = Double(fi) * 0.6
+        let beats = barPos * 4
         switch m {
         case .none:
             return (0.5, 0.5)
         case .sweep:
-            let a = 2 * .pi * barPos / 2 + phase
-            return (0.5 + 0.45 * sin(a), 0.5 + 0.45 * sin(a))
+            // end to end in one bar (4 beats), arriving on the downbeat
+            let v = 0.05 + 0.9 * leg(beats, 4, offset: Double(fi) * 0.5)
+            return (v, v)
         case .circle:
             let a = 2 * .pi * barPos + phase
             return (0.5 + 0.42 * sin(a), 0.5 + 0.42 * cos(a))
         case .fan:
-            let s = 0.5 - 0.5 * cos(2 * .pi * barPos / 2)
+            // open out and back in, 2 beats each way
+            let s = leg(beats, 2)
             let dir: Double = fi % 2 == 0 ? 1 : -1
             return (0.5 + dir * 0.45 * s, 0.5 + dir * 0.45 * s)
         case .beatNod:
-            let up = (idx / 2 + fi) % 2 == 0       // every 2 beats (smoother than every beat)
-            return (0.5, up ? 0.85 : 0.15)
+            // up and down, 2 beats each way, landing on the beat
+            let v = 0.15 + 0.7 * leg(beats, 2, offset: Double(fi))
+            return (0.5, v)
         case .fullRotate:
-            // Uses the full range (the SHEHDS bar's whole 180°), one sweep across every 2 bars
-            let a = 2 * .pi * barPos / 4 + phase
-            return (0.5 + 0.48 * sin(a), 0.5 + 0.48 * sin(a))
+            // the whole 180°, one way per 2 bars (8 beats)
+            let v = 0.02 + 0.96 * leg(beats, 8, offset: Double(fi) * 0.5)
+            return (v, v)
         case .flip:
             // Snap end to end on every other beat
             let side = ((idx / 4) + fi) % 2 == 0   // once a bar

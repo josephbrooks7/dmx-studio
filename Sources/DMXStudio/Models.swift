@@ -352,9 +352,15 @@ enum LightEffect: String, CaseIterable, Codable, Identifiable {
     case ripple = "Ripple"
     case scan = "Scanner"
     case fill = "Fill"
+    case fire = "Fire"
+    case embers = "Embers"
+    case water = "Water Shimmer"
+    case tide = "Ocean Tide"
+    case magic = "Magic Dust"
+    case aurora = "Aurora"
     var id: String { rawValue }
     /// Uses each beam of a bar separately.
-    var perBeam: Bool { [.wave, .centerOut, .split, .pixelPop, .bounce, .gradient, .ripple, .scan, .fill, .chase, .alternate, .rainbow, .sparkle, .colorBeat].contains(self) }
+    var perBeam: Bool { [.wave, .centerOut, .split, .pixelPop, .bounce, .gradient, .ripple, .scan, .fill, .fire, .embers, .water, .tide, .magic, .aurora, .chase, .alternate, .rainbow, .sparkle, .colorBeat].contains(self) }
 }
 
 enum MoveEffect: String, CaseIterable, Codable, Identifiable {
