@@ -542,6 +542,19 @@ struct LightsView: View {
                     .menuStyle(.borderlessButton).fixedSize()
                     .controlSize(.large)
                 }
+                Card {
+                    VStack(alignment: .leading, spacing: 8) {
+                        Text("How your lights work together").font(.headline)
+                        Picker("", selection: $model.rigMode) {
+                            ForEach(RigMode.allCases) { Text($0.rawValue).tag($0) }
+                        }
+                        .pickerStyle(.segmented)
+                        .labelsHidden()
+                        Text(model.rigMode.explanation).font(.callout).foregroundColor(.secondary)
+                        Text("Lights are treated left to right in the order listed below. Daisy-chained bars: give each its own address (shown on each card) so the app can control them separately; if both are set to the same address they will always do exactly the same thing.")
+                            .font(.caption).foregroundColor(.secondary)
+                    }
+                }
                 ForEach(model.fixtures) { fx in
                     FixtureCard(fixtureID: fx.id, showAdvanced: $showAdvanced)
                 }

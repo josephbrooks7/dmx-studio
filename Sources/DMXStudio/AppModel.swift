@@ -10,6 +10,7 @@ struct Library: Codable {
     var output = OutputSettings()
     var idle = IdleLook()
     var globalLatencyMs: Double = 0
+    var rigMode: RigMode? = nil
 }
 
 enum TestMode: String, CaseIterable, Identifiable {
@@ -28,6 +29,7 @@ final class AppModel: ObservableObject {
     @Published var lineups: [Lineup] = [] { didSet { scheduleSave() } }
     @Published var idle = IdleLook() { didSet { scheduleSave() } }
     @Published var globalLatencyMs: Double = 0 { didSet { scheduleSave() } }
+    @Published var rigMode: RigMode = .together { didSet { scheduleSave() } }
 
     // Live
     @Published var selectedSongID: UUID?
@@ -104,9 +106,13 @@ final class AppModel: ObservableObject {
         guard let data = try? Data(contentsOf: Self.storeURL),
               let lib = try? JSONDecoder().decode(Library.self, from: data) else {
             // First launch: start with your SHEHDS beam bar already added.
-            fixtures = [Fixture(name: "Beam Bar 1", address: 1,
-                                profileName: FixtureProfile.shehdsBeam38.name,
-                                layout: FixtureProfile.shehdsBeam38.layout)]
+            // First launch: your two daisy-chained SHEHDS beam bars (addresses 001 and 039).
+            fixtures = [
+                Fixture(name: "Beam Bar 1", address: 1,
+                        profileName: FixtureProfile.shehdsBeam38.name, layout: FixtureProfile.shehdsBeam38.layout),
+                Fixture(name: "Beam Bar 2", address: 39,
+                        profileName: FixtureProfile.shehdsBeam38.name, layout: FixtureProfile.shehdsBeam38.layout),
+            ]
             output.kind = .artNet
             lineups = [Lineup(name: "My Lineup")]
             return
@@ -117,6 +123,7 @@ final class AppModel: ObservableObject {
         output = lib.output
         idle = lib.idle
         globalLatencyMs = lib.globalLatencyMs
+        rigMode = lib.rigMode ?? .together
         selectedSongID = songs.first?.id
     }
 
@@ -130,7 +137,7 @@ final class AppModel: ObservableObject {
 
     func saveNow() {
         let lib = Library(fixtures: fixtures, songs: songs, lineups: lineups, output: output,
-                          idle: idle, globalLatencyMs: globalLatencyMs)
+                          idle: idle, globalLatencyMs: globalLatencyMs, rigMode: rigMode)
         DispatchQueue.global(qos: .utility).async {
             if let data = try? JSONEncoder().encode(lib) {
                 try? data.write(to: Self.storeURL, options: .atomic)
@@ -456,6 +463,7 @@ final class AppModel: ObservableObject {
                     t = p.currentTime + (songs[i].syncOffsetMs + globalLatencyMs) / 1000
                     var r = ShowRenderer(analysis: a, sections: show.sections, fixtures: fixtures)
                     r.idle = idle
+                    r.rig = rigMode
                     showFrame = r.renderWithIdle(at: t)
                 }
             }

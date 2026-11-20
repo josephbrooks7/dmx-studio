@@ -490,3 +490,20 @@ func blendRendered(_ a: [RenderedFixture], _ b: [RenderedFixture], _ k: Double) 
     }
     return out
 }
+
+// MARK: - Rig: how multiple lights work together
+
+enum RigMode: String, CaseIterable, Codable, Identifiable {
+    case together = "Linked: move together"
+    case mirror = "Linked: mirror each other"
+    case independent = "Independent"
+    var id: String { rawValue }
+
+    var explanation: String {
+        switch self {
+        case .together: return "All lights aim the same way at the same time, and effects like chases flow across every head as one long strip."
+        case .mirror: return "Lights work as a pair: every other light moves and chases in the opposite direction, so the look is symmetrical."
+        case .independent: return "Each light moves a little out of step with the others, for a looser, scattered look."
+        }
+    }
+}

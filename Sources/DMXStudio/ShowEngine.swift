@@ -166,6 +166,7 @@ struct ShowRenderer {
     let sections: [ShowSection]
     let fixtures: [Fixture]
     var idle: IdleLook = IdleLook()
+    var rig: RigMode = .together
 
     /// Show + automatic fade to the idle look wherever the song is silent.
     func renderWithIdle(at t: Double) -> [RenderedFixture] {
@@ -281,19 +282,22 @@ struct ShowRenderer {
         let moverCount = max(1, fixtures.filter { $0.isMover }.count)
         var moverIdx = 0
 
-        for fx in fixtures {
+        for (fi, fx) in fixtures.enumerated() {
             var heads: [FixtureState] = []
-            for _ in 0..<fx.headCount {
+            let reversed = rig == .mirror && fi % 2 == 1
+            for h in 0..<fx.headCount {
                 var st: FixtureState
+                // In mirror mode every other light runs its heads in reverse, so chases meet in the middle.
+                let pixel = reversed ? p + (fx.headCount - 1 - h) : p + h
                 if accentOn {
                     st = FixtureState(intensity: 1, color: .white)
                 } else {
-                    st = effect(s.effect, pal: pal, c: c, rb: rb, idx: idx, ph: ph, p: p, n: totalPixels)
+                    st = effect(s.effect, pal: pal, c: c, rb: rb, idx: idx, ph: ph, p: pixel, n: totalPixels)
                 }
                 st.intensity = min(1, max(0, st.intensity * s.intensity))
                 heads.append(st)
-                p += 1
             }
+            p += fx.headCount
             if fx.colorWheel != nil {
                 // A color wheel is mechanical: hold one color per section instead of changing every beat.
                 let follow = fx.wheelFollowsShow ?? true
@@ -303,8 +307,20 @@ struct ShowRenderer {
             var rf = RenderedFixture(heads: heads)
             if accentOn || s.effect == .strobe { rf.strobe = 0.5 + 0.5 * c.energy }
             if fx.isMover {
-                let m = movement(s.movement, barPos: barPos, idx: idx, fi: moverIdx, n: moverCount)
-                rf.pan = m.pan; rf.tilt = m.tilt
+                switch rig {
+                case .together:
+                    let m = movement(s.movement, barPos: barPos, idx: idx, fi: 0, n: 1)
+                    rf.pan = m.pan; rf.tilt = m.tilt
+                case .mirror:
+                    let m = movement(s.movement, barPos: barPos, idx: idx, fi: 0, n: 1)
+                    let flip = moverIdx % 2 == 1
+                    rf.pan = flip ? 1 - m.pan : m.pan
+                    // tilt-only bars: mirror the swing around center so the pair opens and closes
+                    rf.tilt = flip && s.movement != .none ? 1 - m.tilt : m.tilt
+                case .independent:
+                    let m = movement(s.movement, barPos: barPos, idx: idx, fi: moverIdx, n: moverCount)
+                    rf.pan = m.pan; rf.tilt = m.tilt
+                }
                 moverIdx += 1
             }
             result.append(rf)
