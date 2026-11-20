@@ -102,8 +102,8 @@ print("wrapper vs demucs: max diff", float(np.abs(ours - ref).max()), "ref max",
 import coremltools as ct
 # PyTorch's fused "fast path" attention isn't something Core ML can read: use the plain ops
 if hasattr(torch.backends, "mha"): torch.backends.mha.set_fastpath_enabled(False)
-with torch.no_grad():
-    traced = torch.jit.trace(core, (torch.from_numpy(test)[None], torch.from_numpy(mag)), check_trace=False)
+# (traced with gradients on: PyTorch only takes the fused attention shortcut when they're off)
+traced = torch.jit.trace(core, (torch.from_numpy(test)[None], torch.from_numpy(mag)), check_trace=False)
 t0 = time.time()
 ml = ct.convert(traced, convert_to="mlprogram", minimum_deployment_target=ct.target.macOS12,
                 inputs=[ct.TensorType(name="mix", shape=(1, 2, SEG)), ct.TensorType(name="mag", shape=mag.shape)],
