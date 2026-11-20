@@ -493,6 +493,14 @@ struct LineupView: View {
     @State private var importingHere = false
 
     var body: some View {
+        HStack(spacing: 0) {
+            main
+            Divider()
+            SetListLibraryPanel(lineupID: lineupID)
+        }
+    }
+
+    private var main: some View {
         let binding = model.lineupBinding(lineupID)
         let lineup = binding.wrappedValue
         VStack(alignment: .leading, spacing: 16) {
@@ -514,7 +522,8 @@ struct LineupView: View {
                 .disabled(lineup.entries.isEmpty)
             }
             HStack {
-                Button { importingHere = true } label: { Label("Add Songs…", systemImage: "plus") }
+                Button { importingHere = true } label: { Label("Add Files…", systemImage: "plus") }
+                    .help("Import new WAV / MP3 files. Songs already in your library: use the Song Library on the right.")
                 if let a = model.mainArtist(of: lineup.entries.map(\.songID)), lineup.name != a {
                     Button("Name it \"\(a)\"") { binding.wrappedValue.name = model.uniqueSetListName(a) }
                 }
@@ -530,8 +539,8 @@ struct LineupView: View {
                 Card {
                     VStack(spacing: 10) {
                         Image(systemName: "square.and.arrow.down.on.square").font(.system(size: 40)).foregroundColor(.pink)
-                        Text("Drag WAV or MP3 files (or a folder) here").font(.title3.bold())
-                        Text("Songs are named automatically from their tags, learned, and given a light show. A new set list is named after the artist. You can also add songs from the library with right-click → Add to Set List.")
+                        Text("Add songs from your library on the right").font(.title3.bold())
+                        Text("Click + next to a song (or drag it here). You can also drag new WAV or MP3 files or a folder here: they're named from their tags, learned, and given a light show. A new set list is named after the artist.")
                             .multilineTextAlignment(.center).foregroundColor(.secondary)
                     }
                     .frame(maxWidth: .infinity)
@@ -551,8 +560,8 @@ struct LineupView: View {
             }
         }
         .padding(24)
-        .onDrop(of: [UTType.fileURL], isTargeted: $dropTargeted) { providers in
-            loadDroppedURLs(providers) { urls in model.importSongs(urls, into: lineupID) }
+        .onDrop(of: [UTType.fileURL, UTType.plainText], isTargeted: $dropTargeted) { providers in
+            handleSongDrop(providers, model: model, lineupID: lineupID)
             return true
         }
         .overlay(dropTargeted ? RoundedRectangle(cornerRadius: 12).stroke(Color.pink, lineWidth: 3).padding(6) : nil)
@@ -1206,5 +1215,80 @@ struct ProblemsView: View {
             }
             .padding(24)
         }
+    }
+}
+
+
+/// Drops onto a set list: audio files get imported; songs dragged from the library get added.
+func handleSongDrop(_ providers: [NSItemProvider], model: AppModel, lineupID: UUID) {
+    let fileType = UTType.fileURL.identifier
+    let files = providers.filter { $0.hasItemConformingToTypeIdentifier(fileType) }
+    if !files.isEmpty { loadDroppedURLs(files) { urls in model.importSongs(urls, into: lineupID) } }
+    for p in providers where !p.hasItemConformingToTypeIdentifier(fileType) && p.canLoadObject(ofClass: NSString.self) {
+        _ = p.loadObject(ofClass: NSString.self) { obj, _ in
+            guard let str = obj as? String else { return }
+            let ids = str.split(separator: "\n").compactMap { UUID(uuidString: String($0)) }
+            DispatchQueue.main.async {
+                for id in ids { if let song = model.song(id) { model.addToLineup(lineupID, songID: id, showID: song.activeShow?.id) } }
+            }
+        }
+    }
+}
+
+/// The song library beside a set list: click + (or double-click, or drag) to add songs to the set.
+struct SetListLibraryPanel: View {
+    @EnvironmentObject var model: AppModel
+    let lineupID: UUID
+    @State private var search = ""
+
+    var body: some View {
+        let inSet = Set(model.lineups.first { $0.id == lineupID }?.entries.map(\.songID) ?? [])
+        let list = model.songs.filter { search.isEmpty || $0.displayName.localizedCaseInsensitiveContains(search) }
+        VStack(alignment: .leading, spacing: 8) {
+            HStack {
+                Text("Song Library").font(.headline)
+                Spacer()
+                Button("Add All") {
+                    for s in list where !inSet.contains(s.id) { model.addToLineup(lineupID, songID: s.id, showID: s.activeShow?.id) }
+                }
+                .disabled(list.allSatisfy { inSet.contains($0.id) })
+                .help("Add every song shown here that isn't in the set yet")
+            }
+            TextField("Search songs or artists", text: $search).textFieldStyle(.roundedBorder)
+            if model.songs.isEmpty {
+                Text("No songs yet. Import them on the Songs tab, or drag files into the set.")
+                    .font(.caption).foregroundColor(.secondary)
+                Spacer()
+            } else {
+                List {
+                    ForEach(list) { s in
+                        HStack(spacing: 8) {
+                            Image(systemName: "music.note").foregroundColor(.secondary)
+                            VStack(alignment: .leading, spacing: 1) {
+                                Text(s.title).lineLimit(1)
+                                Text(s.artistName + (s.analysis.map { " · \(Int($0.bpm.rounded())) BPM" } ?? ""))
+                                    .font(.caption).foregroundColor(.secondary).lineLimit(1)
+                            }
+                            Spacer()
+                            if inSet.contains(s.id) {
+                                Image(systemName: "checkmark").foregroundColor(.secondary).help("Already in this set (you can add it again)")
+                            }
+                            Button { model.addToLineup(lineupID, songID: s.id, showID: s.activeShow?.id) } label: {
+                                Image(systemName: "plus.circle.fill").font(.system(size: 16)).foregroundColor(.pink)
+                            }
+                            .buttonStyle(.borderless)
+                            .help("Add to the end of the set")
+                        }
+                        .contentShape(Rectangle())
+                        .onTapGesture(count: 2) { model.addToLineup(lineupID, songID: s.id, showID: s.activeShow?.id) }
+                        .onDrag { NSItemProvider(object: s.id.uuidString as NSString) }
+                    }
+                }
+                .listStyle(.inset)
+            }
+            Text("Click +, double-click, or drag a song into the set.").font(.caption).foregroundColor(.secondary)
+        }
+        .padding(14)
+        .frame(width: 290)
     }
 }

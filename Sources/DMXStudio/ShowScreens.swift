@@ -1015,6 +1015,7 @@ struct SongsScreen: View {
                 List(selection: $model.selectedSongID) {
                     ForEach(model.songs.filter { search.isEmpty || $0.displayName.localizedCaseInsensitiveContains(search) }) { s in
                         SongRow(song: s).tag(Optional(s.id))
+                            .onDrag { NSItemProvider(object: s.id.uuidString as NSString) }
                             .contextMenu {
                                 Button("Learn Again") { model.learn(s.id) }
                                 Menu("Add to Set List") {
@@ -1081,8 +1082,8 @@ struct SetListsScreen: View {
                             Text("\(l.entries.count)").font(.caption).foregroundColor(Theme.subtle)
                         }
                         .tag(Optional(l.id))
-                        .onDrop(of: [UTType.fileURL], isTargeted: nil) { providers in
-                            loadDroppedURLs(providers) { urls in model.importSongs(urls, into: l.id) }
+                        .onDrop(of: [UTType.fileURL, UTType.plainText], isTargeted: nil) { providers in
+                            handleSongDrop(providers, model: model, lineupID: l.id)
                             return true
                         }
                         .contextMenu {
