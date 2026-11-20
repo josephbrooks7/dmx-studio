@@ -41,6 +41,12 @@ jobs:
           check(127.2 <= bpm <= 128.8, f'tempo {bpm} ~ 128')
           kicks = int(re.search(r'kicks=(\d+)', o).group(1)); snares = int(re.search(r'snares=(\d+)', o).group(1))
           check(120 <= kicks <= 136, f'{kicks} kicks ~ 128')
+          st = [float(v) for v in re.search(r'snareTimes=([\d.,]*)', o).group(1).split(',') if v]
+          beat = 60 / 128
+          true_s = [2 + k * beat for k in range(64, 128) if k % 2 == 1]
+          fp = [t for t in st if min(abs(t - u) for u in true_s) > 0.05]
+          ph = [round(((t - 2) / beat) % 2, 2) for t in fp]
+          print('false snares:', len(fp), 'beat phases (0/1 = kick beats, .5/1.5 = hi-hat offbeats):', ph[:30])
           check(26 <= snares <= 38, f'{snares} snares ~ 32')
           check(abs(beats[0] - 2.0) < 0.06, f'first beat {beats[0]:.3f}s ~ 2.000s (on the kick)')
           check(re.search(r'silences=0\.00-', o) is not None, 'silent lead-in detected')
