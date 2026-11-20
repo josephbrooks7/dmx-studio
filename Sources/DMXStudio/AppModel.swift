@@ -46,7 +46,7 @@ final class AppModel: ObservableObject {
     @Published var beatOn = false                 // pulses on each beat (for the BPM light)
     @Published var micLevel: Double = 0
     @Published var audioInputs: [AudioInputDevice] = []
-    @Published var autoLighting = false          // pick looks automatically from what it hears
+    @Published var autoLighting = false { didSet { if autoLighting && beatSource != .mic { beatSource = .mic } } }  // pick looks from what it hears
     private var autoEnergy = 0.0
     private var lastAutoBeat = Int.min
     private var clock = BeatClock()
@@ -402,6 +402,7 @@ final class AppModel: ObservableObject {
     func togglePreset(_ id: UUID) {
         if activePresetID == id { activePresetID = nil; return }
         activePresetID = id
+        if presets.first(where: { $0.id == id })?.effect == .soundLevel && beatSource != .mic { beatSource = .mic }
         presetStart = Date().timeIntervalSinceReferenceDate
         testMode = .off
     }
