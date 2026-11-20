@@ -82,29 +82,71 @@ private enum Build {
 
     /// SHEHDS LED Beam 8x12W: black bar, end brackets and a tilting head with 8 lenses.
     /// Returns the root and the tilting head node; each lens has a beam named "beam".
+    /// SHEHDS LED Beam 8x12W RGBW, from its spec sheet and photos: 107 × 13 × 8 cm overall.
+    /// Rounded end caps, a fixed lower housing with the rear panel (powerCON in/out, DMX in/out,
+    /// power switch, fuse, red display + 4 buttons), and a tilting lens bar with 8 lenses.
     static func shehdsBar() -> (SCNNode, SCNNode, [SCNNode]) {
         let root = SCNNode()
-        // Base housing (sits on the floor / clamps to truss)
-        let base = box(1.0, 0.09, 0.16, Mat.black, chamfer: 0.01)
-        base.position = SCNVector3(0, 0.045, 0)
-        root.addChildNode(base)
-        // Feet + display panel
-        for x in [-0.42, 0.42] { let f = box(0.06, 0.02, 0.18, Mat.darkGray); f.position = SCNVector3(x, -0.005, 0); root.addChildNode(f) }
-        let disp = box(0.07, 0.025, 0.002, { let m = SCNMaterial(); m.lightingModel = .constant; m.diffuse.contents = NSColor.red; return m }())
-        disp.position = SCNVector3(-0.15, 0.05, 0.081); root.addChildNode(disp)
-        // End yokes
-        for x in [-0.505, 0.505] { let y = box(0.03, 0.2, 0.17, Mat.black, chamfer: 0.01); y.position = SCNVector3(x, 0.15, 0); root.addChildNode(y) }
-        // Tilting head
+        let len: CGFloat = 1.07, height: CGFloat = 0.13, depth: CGFloat = 0.08
+        let capW: CGFloat = 0.065
+        let inner = len - 2 * capW                       // 0.94 m between the end caps
+
+        // End caps: flat bottom, rounded top ("D" shape), full height and depth
+        for side in [-1.0, 1.0] {
+            let x = CGFloat(side) * (len / 2 - capW / 2)
+            let lower = box(capW, height - depth / 2, depth, Mat.black, chamfer: 0.004)
+            lower.position = SCNVector3(x, (height - depth / 2) / 2, 0); root.addChildNode(lower)
+            let top = cyl(depth / 2, capW, Mat.black)
+            top.eulerAngles.z = .pi / 2
+            top.position = SCNVector3(x, height - depth / 2, 0); root.addChildNode(top)
+            // mounting holes on the outer face
+            for (hy, hz) in [(0.03, -0.022), (0.03, 0.022), (0.085, -0.022), (0.085, 0.022)] {
+                let hole = cyl(0.005, 0.004, Mat.darkGray); hole.eulerAngles.z = .pi / 2
+                hole.position = SCNVector3(x + CGFloat(side) * (capW / 2 + 0.001), CGFloat(hy), CGFloat(hz)); root.addChildNode(hole)
+            }
+        }
+
+        // Lower housing with the rear panel facing +z
+        let baseH: CGFloat = 0.06
+        let base = box(inner, baseH, depth - 0.006, Mat.black, chamfer: 0.003)
+        base.position = SCNVector3(0, baseH / 2, 0); root.addChildNode(base)
+        let face = depth / 2 - 0.002
+        func onPanel(_ n: SCNNode, x: CGFloat, y: CGFloat) {
+            n.position = SCNVector3(x, y, face); root.addChildNode(n)
+        }
+        func round(_ r: CGFloat, _ m: SCNMaterial) -> SCNNode { let c = cyl(r, 0.006, m); c.eulerAngles.x = .pi / 2; return c }
+        let blue = Mat.make(NSColor(calibratedRed: 0.1, green: 0.35, blue: 0.85, alpha: 1), rough: 0.5)
+        let white = Mat.make(NSColor(white: 0.85, alpha: 1), rough: 0.5)
+        let x0 = -inner / 2
+        onPanel(round(0.012, blue), x: x0 + 0.06, y: 0.032)        // POWER IN (blue powerCON)
+        onPanel(round(0.012, white), x: x0 + 0.095, y: 0.032)      // POWER OUT (white powerCON)
+        onPanel(round(0.011, Mat.darkGray), x: x0 + 0.15, y: 0.032)   // DMX IN
+        onPanel(round(0.011, Mat.darkGray), x: x0 + 0.185, y: 0.032)  // DMX OUT
+        onPanel(box(0.012, 0.02, 0.006, Mat.darkGray), x: x0 + 0.23, y: 0.032)   // ON/OFF switch
+        onPanel(round(0.008, Mat.black), x: x0 + 0.26, y: 0.032)                // fuse
+        let red = SCNMaterial(); red.lightingModel = .constant; red.diffuse.contents = NSColor(calibratedRed: 0.9, green: 0.1, blue: 0.1, alpha: 1)
+        onPanel(box(0.04, 0.02, 0.003, red), x: x0 + 0.33, y: 0.04)            // display
+        for k in 0..<4 { onPanel(round(0.003, Mat.darkGray), x: x0 + 0.312 + CGFloat(k) * 0.012, y: 0.019) }   // MENU UP DOWN ENTER
+        // rubber feet
+        for x in [-0.4, 0.4] { let f = cyl(0.012, 0.008, Mat.darkGray); f.position = SCNVector3(x, -0.004, 0); root.addChildNode(f) }
+
+        // Tilting lens bar: pivots between the end caps, lenses face up (+y) at rest
         let head = SCNNode()
-        head.position = SCNVector3(0, 0.17, 0)
-        let headBody = box(0.98, 0.1, 0.13, Mat.black, chamfer: 0.015)
+        head.position = SCNVector3(0, height - depth / 2, 0)      // same axis as the rounded cap tops
+        let headBody = box(inner - 0.004, 0.06, depth - 0.012, Mat.black, chamfer: 0.006)
         head.addChildNode(headBody)
+        // heat-sink fins on the back of the bar
+        for k in 0..<5 {
+            let fin = box(inner - 0.03, 0.003, 0.012, Mat.darkGray)
+            fin.position = SCNVector3(0, -0.024 + CGFloat(k) * 0.012, -(depth - 0.012) / 2 - 0.005); head.addChildNode(fin)
+        }
         var lenses: [SCNNode] = []
+        let pitch: CGFloat = 0.106
         for i in 0..<8 {
             let lensNode = SCNNode()
-            lensNode.position = SCNVector3(-0.4375 + Double(i) * 0.125, 0.05, 0)
-            let ring = cyl(0.04, 0.012, Mat.darkGray); ring.position = SCNVector3(0, 0.002, 0)
-            let glass = cyl(0.032, 0.014, Mat.lens()); glass.name = "lens"; glass.position = SCNVector3(0, 0.004, 0)
+            lensNode.position = SCNVector3(-3.5 * pitch + CGFloat(i) * pitch, 0.03, 0)
+            let ring = cyl(0.03, 0.01, Mat.darkGray); ring.position = SCNVector3(0, 0.002, 0)
+            let glass = cyl(0.024, 0.012, Mat.lens()); glass.name = "lens"; glass.position = SCNVector3(0, 0.004, 0)
             lensNode.addChildNode(ring); lensNode.addChildNode(glass)
             lensNode.addChildNode(beamNode(spreadDeg: 8, length: 9))
             head.addChildNode(lensNode)
