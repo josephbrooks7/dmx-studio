@@ -443,7 +443,7 @@ struct ShowScreen: View {
                                   }
                                 }
                             }
-                            .padding(.vertical, 6)
+                            .padding(.vertical, 16).padding(.horizontal, 12)   // room for the glow and hover zoom
                         }
                     }
                 }
@@ -581,7 +581,7 @@ struct RingShape: Shape {
     func path(in rect: CGRect) -> Path {
         var p = Path()
         let c = CGPoint(x: rect.midX, y: rect.midY)
-        let r = min(rect.width, rect.height) / 2
+        let r = max(1, min(rect.width, rect.height) / 2 - 10)    // keep the 18 pt stroke inside the frame
         let startA = 125.0, sweep = 290.0                         // open at the bottom
         let n = max(segments, 1)
         let each = sweep / Double(n)
@@ -657,7 +657,7 @@ struct FixtureRing: View {
                 }
                 .frame(width: 90)
             }
-            .frame(width: 128, height: 128)
+            .frame(width: 140, height: 140)
             .opacity(fixture.isOn ? 1 : 0.45)
             .scaleEffect(hover ? 1.04 : 1)
             .animation(.easeOut(duration: 0.12), value: hover)
