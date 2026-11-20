@@ -2,6 +2,7 @@ import Foundation
 import AVFoundation
 import SwiftUI
 import AppKit
+import MediaPlayer
 
 struct Library: Codable {
     var fixtures: [Fixture] = []
@@ -133,9 +134,16 @@ final class AppModel: ObservableObject {
     private var fadingPlayer: AVAudioPlayer?   // the song fading out under a transition
     private var blockEndWork: DispatchWorkItem? // ends a transition that blends into the next song
     @Published var pauseTime: Double?           // set while paused: the moment the lights froze
+    /// Master volume for all songs (0…1), remembered between launches.
+    @Published var musicVolume: Double = UserDefaults.standard.object(forKey: "musicVolume") as? Double ?? 1 {
+        didSet {
+            UserDefaults.standard.set(musicVolume, forKey: "musicVolume")
+            player?.volume = Float(musicVolume)
+        }
+    }
     private var pausedPresetElapsed: Double?
     private var lastSongBPM: Double = 120
-    @Published var isPlaying = false
+    @Published var isPlaying = false { didSet { if isPlaying != oldValue { updateNowPlayingInfo() } } }
     var currentTime: Double { get { live.currentTime } set { if live.currentTime != newValue { live.currentTime = newValue } } }
     @Published var learning: [UUID: Double] = [:]
     var preview: [RenderedFixture] { get { live.preview } set { live.preview = newValue } }
@@ -181,6 +189,7 @@ final class AppModel: ObservableObject {
     init() {
         AppModel.current = self
         load()
+        setupMediaKeys()
         engine.onError = { [weak self] msg in
             self?.statusMessage = "Output error: \(msg)"
         }
@@ -672,6 +681,43 @@ final class AppModel: ObservableObject {
     }
 
     static weak var current: AppModel?
+
+    /// The keyboard's play/pause and next/previous keys (and the Touch Bar) control DMX Studio,
+    /// so pausing the sound always pauses the lights too.
+    func setupMediaKeys() {
+        let c = MPRemoteCommandCenter.shared()
+        c.togglePlayPauseCommand.addTarget { [weak self] _ in self?.togglePlay(); return .success }
+        c.playCommand.addTarget { [weak self] _ in
+            guard let self else { return .commandFailed }
+            if !self.isPlaying { self.togglePlay() }
+            return .success
+        }
+        c.pauseCommand.addTarget { [weak self] _ in
+            guard let self else { return .commandFailed }
+            if self.isPlaying { self.pause() }
+            return .success
+        }
+        c.nextTrackCommand.addTarget { [weak self] _ in self?.nextInLineup(); return .success }
+        c.previousTrackCommand.addTarget { [weak self] _ in self?.previousInLineup(); return .success }
+    }
+
+    /// Tells macOS what's playing (so the media keys and Touch Bar point here).
+    func updateNowPlayingInfo() {
+        let info = MPNowPlayingInfoCenter.default()
+        guard let id = playingSongID, let song = song(id) else {
+            info.nowPlayingInfo = nil
+            info.playbackState = .stopped
+            return
+        }
+        info.nowPlayingInfo = [
+            MPMediaItemPropertyTitle: song.title,
+            MPMediaItemPropertyArtist: song.artistName,
+            MPMediaItemPropertyPlaybackDuration: player?.duration ?? 0,
+            MPNowPlayingInfoPropertyElapsedPlaybackTime: player?.currentTime ?? 0,
+            MPNowPlayingInfoPropertyPlaybackRate: isPlaying ? 1.0 : 0.0,
+        ]
+        info.playbackState = isPlaying ? .playing : .paused
+    }
 
     // MARK: - Library folder, export & import
 
@@ -1488,7 +1534,7 @@ final class AppModel: ObservableObject {
         resumeFromPause()
         if fadeIn > 0 { player?.volume = 0 }
         player?.play()
-        if fadeIn > 0 { player?.setVolume(1, fadeDuration: fadeIn) } else { player?.volume = 1 }
+        if fadeIn > 0 { player?.setVolume(Float(musicVolume), fadeDuration: fadeIn) } else { player?.volume = Float(musicVolume) }
         isPlaying = true
     }
 
@@ -1540,7 +1586,11 @@ final class AppModel: ObservableObject {
         if let e = pausedPresetElapsed { presetStart = Date().timeIntervalSinceReferenceDate - e }
         pauseTime = nil
         pausedPresetElapsed = nil
+        resumedAt = Date().timeIntervalSinceReferenceDate
     }
+    private var resumedAt: Double?
+    /// How bright the lights stay while paused (same colors, dimmed).
+    static let pausedLevel = 0.25
 
     func stop() {
         resumeFromPause()
@@ -1611,8 +1661,14 @@ final class AppModel: ObservableObject {
             if let id = playingSongID, let i = index(of: id), let p = player {
                 currentTime = p.currentTime
                 if isPlaying && !p.isPlaying {
-                    songFinished()
-                    return
+                    // Stopped before the end = the sound was paused from outside (media key, headphones
+                    // unplugged, another app): pause the lights too instead of skipping ahead.
+                    if p.currentTime > 0.05 && p.currentTime < p.duration - 0.5 {
+                        pause()
+                    } else {
+                        songFinished()
+                        return
+                    }
                 }
                 // In a set list, move on as soon as the music ends instead of playing out silent tails
                 if isPlaying, let lid = playingLineupID, let li = lineupIndex(lid), lineups[li].skipDeadAir ?? true,
@@ -1753,6 +1809,18 @@ final class AppModel: ObservableObject {
         let phase = clock.beatNumber(at: now) - floor(clock.beatNumber(at: now))
         let on = phase < 0.18
         if on != beatOn { beatOn = on }
+
+        // Paused: hold the same colors, dimmed, no strobing (eases down; eases back up on play)
+        let wall = Date().timeIntervalSinceReferenceDate
+        var dimK = 1.0
+        if let pt = pauseTime { dimK = 1 - (1 - Self.pausedLevel) * min(1, (wall - pt) / 0.6) }
+        else if let r = resumedAt, wall - r < 0.4 { dimK = Self.pausedLevel + (1 - Self.pausedLevel) * ((wall - r) / 0.4) }
+        if dimK < 1 {
+            for i in rendered.indices {
+                for h in rendered[i].heads.indices { rendered[i].heads[h].intensity *= dimK }
+                if pauseTime != nil { rendered[i].strobe = 0 }
+            }
+        }
 
         // Live hold buttons override everything
         if flashHeld || strobeHeld {

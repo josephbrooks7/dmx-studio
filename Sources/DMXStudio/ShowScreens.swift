@@ -259,6 +259,7 @@ struct NowPlayingCard: View {
                 }
             }
             .frame(width: 260, alignment: .leading)
+            VolumeControl()
         }
         .padding(.horizontal, 14).padding(.vertical, 6)
         .background(Capsule().fill(Theme.panel))
@@ -1152,6 +1153,39 @@ struct SetupScreen: View {
                 }
             }
             .frame(maxWidth: .infinity, maxHeight: .infinity)
+        }
+    }
+}
+
+
+/// Master music volume: click the speaker to mute / unmute.
+struct VolumeControl: View {
+    @EnvironmentObject var model: AppModel
+    @State private var beforeMute: Double = 1
+
+    var body: some View {
+        HStack(spacing: 6) {
+            Button {
+                if model.musicVolume > 0 { beforeMute = model.musicVolume; model.musicVolume = 0 }
+                else { model.musicVolume = max(0.2, beforeMute) }
+            } label: {
+                Image(systemName: icon).frame(width: 18)
+            }
+            .buttonStyle(.plain)
+            .help(model.musicVolume > 0 ? "Mute the music" : "Unmute")
+            Slider(value: $model.musicVolume, in: 0...1).frame(width: 90).controlSize(.small)
+            Text("\(Int((model.musicVolume * 100).rounded()))").font(.caption2).monospacedDigit()
+                .foregroundColor(Theme.subtle).frame(width: 24, alignment: .trailing)
+        }
+        .help("Music volume for all songs")
+    }
+
+    private var icon: String {
+        switch model.musicVolume {
+        case 0: return "speaker.slash.fill"
+        case ..<0.34: return "speaker.wave.1.fill"
+        case ..<0.67: return "speaker.wave.2.fill"
+        default: return "speaker.wave.3.fill"
         }
     }
 }
