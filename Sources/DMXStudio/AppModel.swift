@@ -1068,7 +1068,7 @@ final class AppModel: ObservableObject {
                 if let a = songs[i].analysis, let show = songs[i].shows.first(where: { $0.id == showID }) ?? songs[i].activeShow {
                     t = p.currentTime + (songs[i].syncOffsetMs + globalLatencyMs) / 1000
                     // Only the lights linked to this show run it; the rest stay on the idle look
-                    let linked = fixtures.indices.filter { show.includes(fixtures[$0]) && fixtures[$0].effectiveBehavior == .sequence && copySource(of: $0) == nil }
+                    let linked = fixtures.indices.filter { show.includes(fixtures[$0]) && fixtures[$0].isOn && fixtures[$0].effectiveBehavior == .sequence && copySource(of: $0) == nil }
                     var r = ShowRenderer(analysis: a, sections: show.sections, fixtures: linked.map { fixtures[$0] })
                     r.idle = idle
                     r.rig = rigMode
@@ -1090,7 +1090,7 @@ final class AppModel: ObservableObject {
                     onsets = snap.onsets; level = max(0.3, snap.level)
                 }
                 let la = clock.liveAnalysis(now: now, onsets: onsets, level: level, useOnsetsAsKicks: beatSource == .mic)
-                let linked = fixtures.indices.filter { fixtures[$0].effectiveBehavior == .sequence && copySource(of: $0) == nil }
+                let linked = fixtures.indices.filter { fixtures[$0].isOn && fixtures[$0].effectiveBehavior == .sequence && copySource(of: $0) == nil }
                 var r = ShowRenderer(analysis: la, sections: [preset.asSection(start: presetStart)], fixtures: linked.map { fixtures[$0] })
                 r.rig = rigMode
                 let part = r.render(at: now)

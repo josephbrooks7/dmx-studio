@@ -229,10 +229,21 @@ struct SongView: View {
                     HStack(spacing: 8) {
                         Text("Lights in this show").foregroundColor(.secondary)
                         ForEach(model.fixtures) { fx in
-                            let on = song.shows[si].includes(fx)
+                            let picked = song.shows[si].includes(fx)
+                            let on = picked && fx.isOn
+                            if !fx.isOn {
+                                Button { model.setLightOn(fx.id, true) } label: {
+                                    Label("\(fx.name) · off", systemImage: "power")
+                                        .padding(.horizontal, 10).padding(.vertical, 4)
+                                        .background(Capsule().fill(Color.white.opacity(0.04)))
+                                        .foregroundColor(.secondary)
+                                }
+                                .buttonStyle(.plain)
+                                .help("This light is switched off, so the show plays on the other lights. Click to turn it back on.")
+                            } else {
                             Button {
                                 var ids = song.shows[si].fixtureIDs ?? model.fixtures.map(\.id)
-                                if on { ids.removeAll { $0 == fx.id } } else { ids.append(fx.id) }
+                                if picked { ids.removeAll { $0 == fx.id } } else { ids.append(fx.id) }
                                 binding.wrappedValue.shows[si].fixtureIDs = ids
                             } label: {
                                 Label(fx.name, systemImage: on ? "checkmark.circle.fill" : "circle")
@@ -241,6 +252,7 @@ struct SongView: View {
                             }
                             .buttonStyle(.plain)
                             .help(fx.effectiveBehavior == .stationary ? "Stationary lights hold their own settings" : "Tap to include or leave out")
+                            }
                         }
                     }
                 }
