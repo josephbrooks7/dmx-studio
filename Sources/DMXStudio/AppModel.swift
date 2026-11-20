@@ -198,6 +198,16 @@ final class AppModel: ObservableObject {
             DispatchQueue.main.asyncAfter(deadline: .now() + 0.5) {
                 self.openSession(first.id)
                 if env["DMX_DEMO_PRESET"] != nil, let p = self.presets.first { self.togglePreset(p.id) }
+                if env["DMX_DEMO_SET"] != nil, let song = self.songs.first, !self.lineups.isEmpty {
+                    let lid = self.lineups[0].id
+                    self.lineups[0].entries = []
+                    self.addToLineup(lid, songID: song.id, showID: nil)
+                    self.addBlock(.transition(.buildUp), to: lid)
+                    self.addToLineup(lid, songID: song.id, showID: nil)
+                    self.addBlock(.silence(4), to: lid)
+                    self.addBlock(.transition(.colorWash), to: lid)
+                    self.addToLineup(lid, songID: song.id, showID: nil)
+                }
             }
         }
         if env["DMX_TEST_LIVE_STRESS"] != nil {
@@ -1146,6 +1156,36 @@ final class AppModel: ObservableObject {
         } else {
             lineups[li].entries.append(e)
         }
+    }
+
+    // MARK: - Set timing
+
+    /// How long one set-list entry plays (songs: from where the music starts to where it ends, if skipping dead air).
+    func entryDuration(_ e: LineupEntry, in l: Lineup) -> Double {
+        if e.isBlock { return e.blockSeconds }
+        guard let a = song(e.songID)?.analysis else { return 0 }
+        return (l.skipDeadAir ?? true) ? max(1, a.musicEnd - max(0, a.musicStart - 0.15)) : a.duration
+    }
+
+    /// Gap after entry i (the idle look between two songs in a continuous set).
+    func gapAfter(_ i: Int, in l: Lineup) -> Double {
+        guard i + 1 < l.entries.count, l.mode == .continuous else { return 0 }
+        let e = l.entries[i], n = l.entries[i + 1]
+        return (e.isBlock || n.isBlock || (n.waitForCue ?? false)) ? 0 : l.gapSeconds
+    }
+
+    /// When each entry starts, and the whole set's running time (cued waits not counted).
+    func setTimeline(_ l: Lineup) -> (starts: [Double], total: Double) {
+        var t = 0.0, starts: [Double] = []
+        for (i, e) in l.entries.enumerated() {
+            // a music-fading transition begins while the song before is still ending
+            if e.block == .transition, e.fadeMusic ?? false, i > 0, !l.entries[i - 1].isBlock, l.mode == .continuous {
+                t = max(starts.last ?? 0, t - e.blockSeconds)
+            }
+            starts.append(t)
+            t += entryDuration(e, in: l) + gapAfter(i, in: l)
+        }
+        return (starts, t)
     }
 
     func removeEntry(lineupID: UUID, entryID: UUID) {

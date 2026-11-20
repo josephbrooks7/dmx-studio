@@ -1079,7 +1079,7 @@ struct SetListsScreen: View {
                                 .foregroundColor(model.playingLineupID == l.id ? Theme.accent : Theme.subtle)
                             Text(l.name)
                             Spacer()
-                            Text("\(l.entries.count)").font(.caption).foregroundColor(Theme.subtle)
+                            Text(l.entries.isEmpty ? "0" : formatTime(model.setTimeline(l).total)).font(.caption).monospacedDigit().foregroundColor(Theme.subtle)
                         }
                         .tag(Optional(l.id))
                         .onDrop(of: [UTType.fileURL, UTType.plainText], isTargeted: nil) { providers in

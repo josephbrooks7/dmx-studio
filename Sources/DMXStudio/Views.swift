@@ -564,6 +564,9 @@ struct LineupView: View {
                 Spacer()
             }
 
+            if !lineup.entries.isEmpty {
+                SetTimeline(lineupID: lineupID)
+            }
             if lineup.entries.isEmpty {
                 Card {
                     VStack(spacing: 10) {
@@ -1387,7 +1390,10 @@ struct BlockPalette: View {
                 Spacer(minLength: 0)
             }
             .padding(.horizontal, 8).padding(.vertical, 5)
-            .background(RoundedRectangle(cornerRadius: 7).fill(Color.white.opacity(0.08)))
+            .foregroundColor(.white)
+            .background(RoundedRectangle(cornerRadius: 7).fill(LinearGradient(colors: make().blockColors.map { $0.opacity(0.85) },
+                                                                              startPoint: .leading, endPoint: .trailing)))
+            .shadow(color: .black.opacity(0.4), radius: 1)
         }
         .buttonStyle(.plain)
         .help(help)
@@ -1405,6 +1411,7 @@ struct BlockRow: View {
         let isNow = model.playingLineupID == lineupID && model.playingEntryIndex == index
         let isCued = isNow && model.cuedEntry == index
         let isSilence = entry.block == .silence
+        VStack(alignment: .leading, spacing: 4) {
         HStack(spacing: 12) {
             Text("").frame(width: 24)
             Image(systemName: isSilence ? "speaker.slash.fill" : (entry.transition ?? .colorWash).icon)
@@ -1441,10 +1448,6 @@ struct BlockRow: View {
                                                    set: { v in model.updateEntry(lineupID, entry.id) { $0.fadeMusic = v } }))
                     .help("Fade the song before out during this transition, and the next song in")
             }
-            Stepper("\(Int(entry.blockSeconds)) s", value: Binding(get: { entry.blockSeconds },
-                                                                set: { v in model.updateEntry(lineupID, entry.id) { $0.seconds = v } }),
-                    in: 1...60, step: 1)
-                .frame(width: 90)
             VStack(spacing: 2) {
                 Button { model.moveEntry(lineupID: lineupID, from: index, by: -1) } label: { Image(systemName: "chevron.up") }
                     .disabled(index == 0)
@@ -1456,6 +1459,17 @@ struct BlockRow: View {
                 .buttonStyle(.borderless).help("Remove this block")
         }
         .padding(.vertical, 4)
+        LiveReader(model.live) {
+        DurationBar(seconds: entry.blockSeconds, colors: entry.blockColors,
+                    label: isSilence ? "Silence" : (entry.transition ?? .colorWash).rawValue,
+                    progress: isNow && !isCued ? model.activeBlock.map { b in
+                        min(1, (Date().timeIntervalSinceReferenceDate - b.start) / max(0.5, b.entry.blockSeconds)) } : nil) { v in
+            model.updateEntry(lineupID, entry.id) { $0.seconds = v }
+        }
+        }
+        .padding(.leading, 36)
+        .padding(.bottom, 4)
+        }
         .padding(.horizontal, 6)
         .background(RoundedRectangle(cornerRadius: 8).fill(Color.purple.opacity(isNow ? 0.25 : 0.10)))
         .contextMenu {
@@ -1464,5 +1478,301 @@ struct BlockRow: View {
             Divider()
             Button("Remove Block", role: .destructive) { model.removeEntry(lineupID: lineupID, entryID: entry.id) }
         }
+    }
+}
+
+
+extension LineupEntry {
+    /// The colors a block is drawn with: its palette for color transitions, its character otherwise.
+    var blockColors: [Color] {
+        if block == .silence {
+            return transition == .blackout ? [Color(white: 0.12), Color(white: 0.05)] : [Color(white: 0.32), Color(white: 0.2)]
+        }
+        switch transition ?? .colorWash {
+        case .idle: return [Color(red: 0.45, green: 0.2, blue: 0.55), Color(red: 0.25, green: 0.12, blue: 0.35)]
+        case .blackout: return [Color(white: 0.35), Color.black]
+        case .strobeHit: return [Color.white, Color.yellow, Color(white: 0.2)]
+        case .whiteFlash: return [Color(white: 0.3), Color.white, Color(white: 0.3)]
+        default:
+            let cols = Palette.named(palette ?? transition?.defaultPalette ?? "Neon").colors.prefix(4).map(\.color)
+            return cols.count > 1 ? Array(cols) : [cols.first ?? .purple, .purple]
+        }
+    }
+}
+
+/// A block's length as a colored bar: drag the right edge to make it longer or shorter.
+struct DurationBar: View {
+    let seconds: Double
+    let colors: [Color]
+    let label: String
+    var progress: Double? = nil
+    let onChange: (Double) -> Void
+    @State private var dragStart: Double?
+    @State private var hovering = false
+    private let perSecond: CGFloat = 12          // points per second
+    static let range: ClosedRange<Double> = 1...60
+
+    var body: some View {
+        let w = max(36, CGFloat(seconds) * perSecond)
+        HStack(spacing: 0) {
+            ZStack(alignment: .leading) {
+                RoundedRectangle(cornerRadius: 7)
+                    .fill(LinearGradient(colors: colors, startPoint: .leading, endPoint: .trailing))
+                if let progress {
+                    Rectangle().fill(Color.white.opacity(0.9)).frame(width: 2).offset(x: (w - 2) * CGFloat(progress))
+                }
+                Text("\(label) · \(fmt(seconds)) s")
+                    .font(.system(size: 11, weight: .bold)).foregroundColor(.white)
+                    .shadow(color: .black.opacity(0.7), radius: 2)
+                    .lineLimit(1).fixedSize()
+                    .padding(.leading, 8)
+                // right-edge handle
+                HStack {
+                    Spacer()
+                    RoundedRectangle(cornerRadius: 2).fill(Color.white.opacity(hovering || dragStart != nil ? 1 : 0.75))
+                        .frame(width: 5, height: 18)
+                        .padding(.trailing, 4)
+                }
+                .frame(width: w)
+            }
+            .frame(width: w, height: 28)
+            .overlay(alignment: .trailing) {
+                Color.clear.frame(width: 16).contentShape(Rectangle())
+                    .onHover { inside in
+                        hovering = inside
+                        if inside { NSCursor.resizeLeftRight.push() } else { NSCursor.pop() }
+                    }
+                    .highPriorityGesture(DragGesture(minimumDistance: 1, coordinateSpace: .global)
+                        .onChanged { g in
+                            if dragStart == nil { dragStart = seconds }
+                            let v = (dragStart ?? seconds) + Double(g.translation.width / perSecond)
+                            let snapped = min(Self.range.upperBound, max(Self.range.lowerBound, (v * 2).rounded() / 2))
+                            if snapped != seconds { onChange(snapped) }
+                        }
+                        .onEnded { _ in dragStart = nil })
+            }
+            .help("Drag the right edge to change how long this lasts")
+            Spacer(minLength: 0)
+        }
+        .animation(dragStart == nil ? .easeOut(duration: 0.15) : nil, value: seconds)
+    }
+
+    private func fmt(_ v: Double) -> String { v == v.rounded() ? "\(Int(v))" : String(format: "%.1f", v) }
+}
+
+
+// MARK: - Set timeline (every song and block as a colored block, sized by how long it lasts)
+
+struct SetTimeline: View {
+    @EnvironmentObject var model: AppModel
+    let lineupID: UUID
+    @State private var zoom: Double = 0          // 0 = fit the whole set
+    @State private var selected: UUID?
+
+    var body: some View {
+        let l = model.lineups.first { $0.id == lineupID } ?? Lineup(name: "")
+        let timing = model.setTimeline(l)
+        let songCount = l.entries.filter { !$0.isBlock }.count
+        let blockCount = l.entries.count - songCount
+        VStack(alignment: .leading, spacing: 8) {
+            HStack(spacing: 14) {
+                Text("Timeline").font(.headline)
+                HStack(spacing: 6) {
+                    Image(systemName: "clock")
+                    Text("Total \(formatLong(timing.total))").font(.system(size: 13, weight: .bold)).monospacedDigit()
+                }
+                .padding(.horizontal, 10).padding(.vertical, 4)
+                .background(Capsule().fill(Color.pink.opacity(0.25)))
+                Text("\(songCount) song\(songCount == 1 ? "" : "s")" + (blockCount > 0 ? " · \(blockCount) block\(blockCount == 1 ? "" : "s")" : "")
+                     + (l.mode == .cued ? " · plus your cue waits" : ""))
+                    .font(.caption).foregroundColor(.secondary)
+                Spacer()
+                Image(systemName: "minus.magnifyingglass").foregroundColor(.secondary)
+                Slider(value: $zoom, in: 0...1).frame(width: 110).help("Zoom (all the way left fits the whole set)")
+                Image(systemName: "plus.magnifyingglass").foregroundColor(.secondary)
+            }
+            GeometryReader { geo in
+                let fit = max(0.15, Double(geo.size.width - 40) / max(timing.total, 1))
+                let pps = zoom == 0 ? fit : fit + (12 - fit) * zoom
+                ScrollView(.horizontal, showsIndicators: true) {
+                    HStack(alignment: .top, spacing: 3) {
+                        ForEach(Array(l.entries.enumerated()), id: \.element.id) { i, e in
+                            block(e, index: i, in: l, start: timing.starts[i], pps: pps)
+                            let gap = model.gapAfter(i, in: l)
+                            if gap > 0 {
+                                Rectangle().fill(Color.white.opacity(0.06))
+                                    .frame(width: max(3, CGFloat(gap * pps)), height: 62)
+                                    .help("Gap: \(Int(gap)) s of idle look")
+                            }
+                        }
+                    }
+                    .padding(.vertical, 4)
+                }
+            }
+            .frame(height: 76)
+            Text("Double-click a block to start the set there. Drag a transition's right edge to change its length.")
+                .font(.caption2).foregroundColor(.secondary)
+        }
+        .padding(12)
+        .background(RoundedRectangle(cornerRadius: 12).fill(Color.white.opacity(0.04)))
+    }
+
+    @ViewBuilder
+    private func block(_ e: LineupEntry, index i: Int, in l: Lineup, start: Double, pps: Double) -> some View {
+        let dur = model.entryDuration(e, in: l)
+        let isNow = model.playingLineupID == lineupID && model.playingEntryIndex == i
+        let isCued = isNow && model.cuedEntry == i
+        if e.isBlock {
+            TimelineBlock(title: e.block == .silence ? "Silence" : (e.transition ?? .colorWash).rawValue,
+                          subtitle: e.block == .silence ? (e.transition == .blackout ? "Lights dark" : "Idle look")
+                                                        : ((e.fadeMusic ?? false) ? "Fades the music" : (e.transition ?? .colorWash).blurb),
+                          icon: e.block == .silence ? "speaker.slash.fill" : (e.transition ?? .colorWash).icon,
+                          colors: e.blockColors, start: start, duration: dur, pps: pps,
+                          isNow: isNow, isCued: isCued, isSelected: selected == e.id, progressFor: isNow && !isCued ? .block : nil,
+                          onResize: { v in model.updateEntry(lineupID, e.id) { $0.seconds = v } })
+                .onTapGesture(count: 2) { model.playLineup(lineupID, from: i) }
+                .onTapGesture { selected = e.id }
+        } else {
+            let song = model.song(e.songID)
+            let show = song.flatMap { s in s.shows.first { $0.id == e.showID } ?? s.activeShow }
+            let pal = Palette.named(show?.sections.first { $0.name != "Silence" }?.palette ?? "Red Velvet")
+            TimelineBlock(title: song?.title ?? "Missing song",
+                          subtitle: [show?.name, song?.analysis.map { "\(Int($0.bpm.rounded())) BPM" }].compactMap { $0 }.joined(separator: " · "),
+                          icon: (e.waitForCue ?? false) ? "hand.raised.fill" : "music.note",
+                          colors: pal.colors.prefix(3).map { $0.color.opacity(0.85) }, start: start, duration: dur, pps: pps,
+                          isNow: isNow, isCued: isCued, isSelected: selected == e.id,
+                          progressFor: isNow && !isCued ? .song(musicStart: (l.skipDeadAir ?? true) ? max(0, (song?.analysis?.musicStart ?? 0) - 0.15) : 0) : nil,
+                          onResize: nil)
+                .onTapGesture(count: 2) { model.playLineup(lineupID, from: i) }
+                .onTapGesture { selected = e.id }
+        }
+    }
+
+    private func formatLong(_ t: Double) -> String {
+        let s = Int(t.rounded())
+        return s >= 3600 ? String(format: "%d:%02d:%02d", s / 3600, (s % 3600) / 60, s % 60) : String(format: "%d:%02d", s / 60, s % 60)
+    }
+}
+
+enum TimelineProgress { case song(musicStart: Double), block }
+
+/// One block on the set timeline: a header strip with its name, what it does, when it starts and how long it lasts.
+struct TimelineBlock: View {
+    @EnvironmentObject var model: AppModel
+    let title: String
+    let subtitle: String
+    let icon: String
+    let colors: [Color]
+    let start: Double
+    let duration: Double
+    let pps: Double
+    let isNow: Bool
+    let isCued: Bool
+    let isSelected: Bool
+    let progressFor: TimelineProgress?
+    let onResize: ((Double) -> Void)?
+    @State private var dragStart: Double?
+    @State private var hovering = false
+
+    var body: some View {
+        let w = max(onResize != nil ? 64 : 90, CGFloat(duration * pps))
+        ZStack(alignment: .topLeading) {
+            RoundedRectangle(cornerRadius: 7, style: .continuous)
+                .fill(LinearGradient(colors: colors.count > 1 ? colors : [colors.first ?? .purple, .purple],
+                                     startPoint: .leading, endPoint: .trailing))
+            VStack(alignment: .leading, spacing: 0) {
+                HStack(spacing: 4) {
+                    Image(systemName: icon).font(.system(size: 9, weight: .bold))
+                    Text(title).font(.system(size: 11, weight: .bold)).lineLimit(1)
+                    Spacer(minLength: 10)
+                }
+                .padding(.horizontal, 6)
+                .frame(height: 19)
+                .background(Color.black.opacity(0.35))
+                Text(subtitle).font(.system(size: 10, weight: .medium)).lineLimit(1)
+                    .padding(.horizontal, 6).padding(.top, 4)
+                Spacer(minLength: 0)
+                Text("\(clock(start)) · \(lengthText)").font(.system(size: 9, weight: .semibold)).monospacedDigit()
+                    .opacity(0.9).lineLimit(1)
+                    .padding(.horizontal, 6).padding(.bottom, 4)
+            }
+            .foregroundColor(.white)
+            .shadow(color: .black.opacity(0.6), radius: 1.5)
+            // folded corner
+            FoldedCorner().fill(Color.white.opacity(0.45)).frame(width: 11, height: 11)
+                .frame(maxWidth: .infinity, alignment: .topTrailing)
+            if isCued {
+                Text("READY").font(.system(size: 8, weight: .heavy)).padding(.horizontal, 4).padding(.vertical, 1)
+                    .background(Capsule().fill(Color.pink)).foregroundColor(.white)
+                    .padding(.top, 22).frame(maxWidth: .infinity, alignment: .trailing).padding(.trailing, 6)
+            }
+            if progressFor != nil {
+                LiveReader(model.live) {
+                    Rectangle().fill(Color.white).frame(width: 2)
+                        .shadow(color: .white, radius: 3)
+                        .offset(x: (w - 2) * CGFloat(progress))
+                }
+            }
+        }
+        .frame(width: w, height: 62)
+        .clipShape(RoundedRectangle(cornerRadius: 7, style: .continuous))
+        .overlay(RoundedRectangle(cornerRadius: 7, style: .continuous)
+            .stroke(isNow ? Color.white : (isSelected ? Color.pink : Color.black.opacity(0.55)), lineWidth: isNow || isSelected ? 2 : 1))
+        .overlay(alignment: .trailing) {
+            if let onResize {
+                ZStack {
+                    Color.clear
+                    RoundedRectangle(cornerRadius: 2).fill(Color.white.opacity(hovering || dragStart != nil ? 1 : 0.7))
+                        .frame(width: 4, height: 26)
+                }
+                .frame(width: 14)
+                .contentShape(Rectangle())
+                .onHover { inside in
+                    hovering = inside
+                    if inside { NSCursor.resizeLeftRight.push() } else { NSCursor.pop() }
+                }
+                .highPriorityGesture(DragGesture(minimumDistance: 1, coordinateSpace: .global)
+                    .onChanged { g in
+                        if dragStart == nil { dragStart = duration }
+                        let perSecond = max(pps, 4)      // short blocks stay easy to drag
+                        let v = (dragStart ?? duration) + Double(g.translation.width) / perSecond
+                        let snapped = min(60, max(1, (v * 2).rounded() / 2))
+                        if snapped != duration { onResize(snapped) }
+                    }
+                    .onEnded { _ in dragStart = nil })
+                .help("Drag to make it longer or shorter")
+            }
+        }
+        .contentShape(Rectangle())
+        .help("\(title): starts at \(clock(start)), lasts \(lengthText)")
+    }
+
+    private var progress: Double {
+        switch progressFor {
+        case .song(let musicStart):
+            return min(1, max(0, (model.currentTime - musicStart) / max(duration, 1)))
+        case .block:
+            guard let b = model.activeBlock else { return 0 }
+            return min(1, max(0, (Date().timeIntervalSinceReferenceDate - b.start) / max(0.5, b.entry.blockSeconds)))
+        case nil:
+            return 0
+        }
+    }
+
+    private var lengthText: String {
+        duration < 60 ? (duration == duration.rounded() ? "\(Int(duration)) s" : String(format: "%.1f s", duration)) : clock(duration)
+    }
+    private func clock(_ t: Double) -> String { let s = Int(t.rounded()); return String(format: "%d:%02d", s / 60, s % 60) }
+}
+
+/// The little folded-page corner at the top right of a timeline block.
+struct FoldedCorner: Shape {
+    func path(in r: CGRect) -> Path {
+        var p = Path()
+        p.move(to: CGPoint(x: r.minX, y: r.minY))
+        p.addLine(to: CGPoint(x: r.maxX, y: r.minY))
+        p.addLine(to: CGPoint(x: r.maxX, y: r.maxY))
+        p.closeSubpath()
+        return p
     }
 }
