@@ -303,6 +303,11 @@ struct SectionRow: View {
 
             Slider(value: $section.intensity, in: 0.1...1).frame(width: 80)
             Toggle("Hit", isOn: $section.accentStrobe).help("Strobe hit on the first bar")
+            Menu {
+                Button("Split in two") { model.splitSection(songID: songID, sectionID: section.id) }
+                Button("Merge with next") { model.mergeWithNext(songID: songID, sectionID: section.id) }
+            } label: { Image(systemName: "scissors") }
+            .menuStyle(.borderlessButton).fixedSize()
         }
         .font(.callout)
     }
@@ -649,11 +654,7 @@ struct FixtureCard: View {
                     }
                     .font(.callout).foregroundColor(.secondary)
                 }
-                if fx.colorWheel != nil {
-                    Toggle("Use show colors on the color wheel (off = always white, like a classic followspot)",
-                           isOn: Binding(get: { fx.wheelFollowsShow ?? true },
-                                         set: { b.wrappedValue.wheelFollowsShow = $0 }))
-                }
+                BehaviorEditor(fixtureID: fx.id)
                 if !conflicts.isEmpty {
                     Label("Overlaps with \(conflicts.map(\.name).joined(separator: ", ")). Change the start address.", systemImage: "exclamationmark.triangle.fill")
                         .foregroundColor(.orange)
@@ -928,5 +929,84 @@ struct TransportBar: View {
         .padding(.horizontal, 16)
         .padding(.vertical, 10)
         .background(Color.black.opacity(0.35))
+    }
+}
+
+// MARK: - Sequence / Stationary editor
+
+struct BehaviorEditor: View {
+    @EnvironmentObject var model: AppModel
+    let fixtureID: UUID
+
+    var body: some View {
+        let b = model.fixtureBinding(fixtureID)
+        let fx = b.wrappedValue
+        let look = fx.stationaryLook
+        let setLook: (StationaryLook) -> Void = { b.wrappedValue.stationary = $0 }
+        VStack(alignment: .leading, spacing: 10) {
+            HStack {
+                Picker("This light is", selection: Binding(get: { fx.effectiveBehavior }, set: { b.wrappedValue.behavior = $0 })) {
+                    ForEach(LightBehavior.allCases) { Text($0.rawValue).tag($0) }
+                }
+                .pickerStyle(.segmented)
+                .frame(width: 320)
+                Text(fx.effectiveBehavior.explanation).font(.caption).foregroundColor(.secondary)
+            }
+            if fx.effectiveBehavior == .stationary {
+                VStack(alignment: .leading, spacing: 8) {
+                    HStack {
+                        Text("Brightness").frame(width: 80, alignment: .leading)
+                        Slider(value: Binding(get: { look.brightness }, set: { var l = look; l.brightness = $0; setLook(l) }), in: 0...1)
+                            .frame(width: 260)
+                        Text("\(Int(look.brightness * 100))%").monospacedDigit()
+                    }
+                    HStack {
+                        Text("Color").frame(width: 80, alignment: .leading)
+                        if let wheel = fx.colorWheel {
+                            ForEach(0..<wheel.slots.count, id: \.self) { i in
+                                let slot = wheel.slots[i]
+                                let selected = wheel.nearest(look.color).value == slot.value
+                                Button {
+                                    var l = look; l.color = slot.color; setLook(l)
+                                } label: {
+                                    Circle().fill(slot.color.color).frame(width: 24, height: 24)
+                                        .overlay(Circle().stroke(selected ? Color.white : Color.clear, lineWidth: 3))
+                                }
+                                .buttonStyle(.plain)
+                            }
+                        } else {
+                            ColorPicker("", selection: Binding(get: { look.color.color }, set: { c in
+                                if let ns = NSColor(c).usingColorSpace(.deviceRGB) {
+                                    var l = look
+                                    l.color = RGB(r: Double(ns.redComponent), g: Double(ns.greenComponent), b: Double(ns.blueComponent))
+                                    setLook(l)
+                                }
+                            }), supportsOpacity: false).labelsHidden()
+                        }
+                    }
+                    if fx.hasStrobeChannel {
+                        HStack {
+                            Text("Strobe").frame(width: 80, alignment: .leading)
+                            Slider(value: Binding(get: { look.strobe }, set: { var l = look; l.strobe = $0; setLook(l) }), in: 0...1)
+                                .frame(width: 260)
+                            Text(look.strobe < 0.02 ? "Off" : "\(Int(look.strobe * 100))%").monospacedDigit()
+                        }
+                    }
+                    if fx.isMover {
+                        HStack {
+                            Text("Position").frame(width: 80, alignment: .leading)
+                            Slider(value: Binding(get: { look.tilt }, set: { var l = look; l.tilt = $0; setLook(l) }), in: 0...1)
+                                .frame(width: 260)
+                        }
+                    }
+                    Toggle("Stay on before the show and between songs", isOn: Binding(get: { look.onWhenIdle }, set: { var l = look; l.onWhenIdle = $0; setLook(l) }))
+                    if fx.colorWheel != nil {
+                        Text("Focus, focal length and iris are set with the knobs on the light itself.")
+                            .font(.caption).foregroundColor(.secondary)
+                    }
+                }
+                .padding(.leading, 4)
+            }
+        }
     }
 }

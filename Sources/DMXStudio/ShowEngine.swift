@@ -120,7 +120,26 @@ enum ShowGenerator {
             return l
         }
 
-        return a.detectedSections.map { d in
+        // Bar start times, for splitting long sections into 8-bar phrases
+        var barTimes: [Double] = []
+        var bi = a.downbeatOffset
+        while bi < a.beats.count { barTimes.append(a.beats[bi]); bi += 4 }
+
+        // A second look per level, used on alternating phrases so long sections keep moving
+        var altLooks: [String: Look] = [:]
+        func altFor(_ level: EnergyLevel, _ base: Look) -> Look {
+            let key = level.rawValue
+            if let l = altLooks[key] { return l }
+            let options = pool(level: level, style: style).filter { $0.effect != base.effect }
+            var l = options.isEmpty ? base : options[rng.next(options.count)]
+            l.accent = false
+            l.intensity = base.intensity
+            altLooks[key] = l
+            return l
+        }
+
+        var out: [ShowSection] = []
+        for d in a.detectedSections {
             let isBuild = d.name.hasPrefix("Build")
             let l = lookFor(d.level, isBuild)
             let levelSlot: Int
@@ -131,10 +150,26 @@ enum ShowGenerator {
             case .drop: levelSlot = 3
             }
             let pal = pals[(levelSlot + shift) % pals.count]
-            return ShowSection(name: d.name, start: d.start, end: d.end, level: d.level,
-                               effect: l.effect, palette: pal, intensity: l.intensity,
-                               rate: l.rate, movement: l.movement, accentStrobe: l.accent)
+
+            // Phrase boundaries every 8 bars inside sections of 16+ bars
+            let inner = barTimes.filter { $0 > d.start + 0.1 && $0 < d.end - 0.1 }
+            var cuts: [Double] = []
+            if inner.count + 1 >= 16 && !isBuild {
+                var k = 8
+                while k < inner.count - 3 { cuts.append(inner[k - 1]); k += 8 }
+            }
+            let edges = [d.start] + cuts + [d.end]
+            for p in 0..<(edges.count - 1) {
+                let look = p % 2 == 0 ? l : altFor(d.level, l)
+                out.append(ShowSection(name: p == 0 ? d.name : "\(d.name) ·\(p + 1)",
+                                       start: edges[p], end: edges[p + 1], level: d.level,
+                                       effect: look.effect, palette: pal, intensity: look.intensity,
+                                       rate: look.rate, movement: look.movement,
+                                       accentStrobe: p == 0 && look.accent,
+                                       colorShift: p == 0 ? nil : p))
+            }
         }
+        return out
     }
 }
 
@@ -205,11 +240,12 @@ struct ShowRenderer {
             return fixtures.map { RenderedFixture(heads: Array(repeating: .off, count: $0.headCount)) }
         }
         let sec = sections[si]
-        var out = renderSection(sec, ctx)
+        let next = si + 1 < sections.count ? sections[si + 1] : nil
+        var out = renderSection(sec, ctx, next: next)
         // Smooth crossfade into a new section
         let xf = 0.35
         if si > 0, t - sec.start < xf {
-            let prev = renderSection(sections[si - 1], ctx)
+            let prev = renderSection(sections[si - 1], ctx, next: sec)
             let k = max(0, (t - sec.start) / xf)
             for f in out.indices {
                 for h in out[f].heads.indices {
@@ -268,8 +304,27 @@ struct ShowRenderer {
 
     // MARK: effects
 
-    private func renderSection(_ s: ShowSection, _ c: Ctx) -> [RenderedFixture] {
-        let pal = Palette.named(s.palette)
+    private static func rank(_ l: EnergyLevel) -> Int {
+        switch l { case .low: return 0; case .medium: return 1; case .high: return 2; case .drop: return 3 }
+    }
+
+    private func renderSection(_ s: ShowSection, _ c: Ctx, next: ShowSection? = nil) -> [RenderedFixture] {
+        // Colors rotate per phrase, and keep evolving every 8 bars inside a section
+        let startBeat = context(s.start).beatPos
+        let evolve = max(0, Int(floor((c.beatPos - startBeat) / 32)))
+        let base = Palette.named(s.palette)
+        let shiftBy = (s.colorShift ?? 0) + evolve
+        let pal: Palette = {
+            guard shiftBy != 0, base.colors.count > 1 else { return base }
+            let n = base.colors.count, k = shiftBy % n
+            return Palette(id: base.id, colors: Array(base.colors[k...] + base.colors[..<k]))
+        }()
+        // Build-up fill: last beat before a bigger section flickers in 16ths
+        let fillOn: Bool? = {
+            guard let next, Self.rank(next.level) > Self.rank(s.level), s.end - c.t < c.beatLen, s.end > c.t else { return nil }
+            let into = c.t - (s.end - c.beatLen)
+            return Int(into / (c.beatLen / 4)) % 2 == 0
+        }()
         let totalPixels = max(1, fixtures.reduce(0) { $0 + $1.headCount })
         let rb = c.beatPos * s.rate
         let idx = Int(floor(rb))
@@ -295,6 +350,10 @@ struct ShowRenderer {
                     st = effect(s.effect, pal: pal, c: c, rb: rb, idx: idx, ph: ph, p: pixel, n: totalPixels)
                 }
                 st.intensity = min(1, max(0, st.intensity * s.intensity))
+                if let on = fillOn {
+                    st.intensity = on ? 1 : 0.1
+                    st.color = st.color.mix(.white, 0.35)
+                }
                 heads.append(st)
             }
             p += fx.headCount

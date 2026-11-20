@@ -195,7 +195,7 @@ struct FixtureProfile: Identifiable, Hashable {
     static let chauvetFollowspot75ST = FixtureProfile(
         name: "Chauvet DJ LED Followspot 75ST — 3ch",
         layout: "D,CW:CHAUVET-FS75,S:5:8:215",
-        setupTip: "On the followspot's menu choose DMX mode and set the starting address shown here. The color wheel follows each section's main color (or stays white if you turn that off below).")
+        setupTip: "On the followspot, press FUNCTION SELECT until 001 shows, then use UP/DOWN to set the starting address shown here. Focus and iris are the knobs on the light itself; DMX controls brightness, the 8-color wheel and strobe.")
 
     static let all: [FixtureProfile] = [
         shehdsBeam38,
@@ -218,7 +218,13 @@ struct Fixture: Identifiable, Codable, Hashable {
     var address: Int          // 1...512
     var profileName: String
     var layout: String        // channel layout, see ChannelSpec.parse
-    var wheelFollowsShow: Bool? = nil   // color-wheel lights: follow show colors (default) or stay white
+    var wheelFollowsShow: Bool? = nil   // color-wheel lights in Sequence mode: follow show colors (default) or stay white
+    var behavior: LightBehavior? = nil
+    var stationary: StationaryLook? = nil
+
+    /// Spotlights (color-wheel lights) default to Stationary; everything else to Sequence.
+    var effectiveBehavior: LightBehavior { behavior ?? (colorWheel != nil ? .stationary : .sequence) }
+    var stationaryLook: StationaryLook { stationary ?? StationaryLook() }
 
     var channels: [ChannelSpec] { ChannelSpec.parse(layout) }
     var colorWheel: ColorWheel? {
@@ -311,6 +317,7 @@ struct ShowSection: Identifiable, Codable, Hashable {
     var rate: Double = 1.0          // beats multiplier: 0.5 = half time, 2 = double time
     var movement: MoveEffect = .none
     var accentStrobe: Bool = false  // strobe hit on the first bar
+    var colorShift: Int? = nil      // rotates the palette so repeated phrases look different
 }
 
 struct SongAnalysis: Codable {
@@ -508,5 +515,36 @@ enum RigMode: String, CaseIterable, Codable, Identifiable {
         case .mirror: return "Lights work as a pair: every other light moves and chases in the opposite direction, so the look is symmetrical."
         case .independent: return "Each light moves a little out of step with the others, for a looser, scattered look."
         }
+    }
+}
+
+// MARK: - Sequence vs Stationary lights
+
+enum LightBehavior: String, CaseIterable, Codable, Identifiable {
+    case sequence = "Sequence"
+    case stationary = "Stationary"
+    var id: String { rawValue }
+    var explanation: String {
+        switch self {
+        case .sequence: return "Follows the light show: colors, effects and movement change with the music."
+        case .stationary: return "Holds the settings below for the whole show, like a spotlight on a performer."
+        }
+    }
+}
+
+struct StationaryLook: Codable, Equatable {
+    var brightness: Double = 1
+    var color: RGB = .white
+    var strobe: Double = 0          // 0 = off
+    var pan: Double = 0.5
+    var tilt: Double = 0.5
+    var onWhenIdle: Bool = true     // stay on before the show / between songs
+
+    func render(_ fx: Fixture) -> RenderedFixture {
+        var rf = RenderedFixture(heads: Array(repeating: FixtureState(intensity: brightness, color: color), count: fx.headCount))
+        rf.strobe = strobe
+        rf.pan = pan
+        rf.tilt = tilt
+        return rf
     }
 }

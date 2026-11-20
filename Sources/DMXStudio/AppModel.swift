@@ -377,6 +377,34 @@ final class AppModel: ObservableObject {
         if selectedSongID == id { selectedSongID = songs.first?.id }
     }
 
+    /// Splits a section in two at the bar nearest its middle, so you can give each half its own look.
+    func splitSection(songID: UUID, sectionID: UUID) {
+        guard let i = index(of: songID), let si = songs[i].activeShowIndex, let a = songs[i].analysis,
+              let k = songs[i].shows[si].sections.firstIndex(where: { $0.id == sectionID }) else { return }
+        let sec = songs[i].shows[si].sections[k]
+        let mid = (sec.start + sec.end) / 2
+        var bars: [Double] = []
+        var b = a.downbeatOffset
+        while b < a.beats.count { bars.append(a.beats[b]); b += 4 }
+        let cut = bars.filter { $0 > sec.start + 1 && $0 < sec.end - 1 }.min { abs($0 - mid) < abs($1 - mid) } ?? mid
+        var first = sec, second = sec
+        first.end = cut
+        second.id = UUID(); second.start = cut; second.name = sec.name + " (b)"
+        second.accentStrobe = false
+        second.colorShift = (sec.colorShift ?? 0) + 1
+        songs[i].shows[si].sections[k] = first
+        songs[i].shows[si].sections.insert(second, at: k + 1)
+    }
+
+    /// Joins a section with the one after it.
+    func mergeWithNext(songID: UUID, sectionID: UUID) {
+        guard let i = index(of: songID), let si = songs[i].activeShowIndex,
+              let k = songs[i].shows[si].sections.firstIndex(where: { $0.id == sectionID }),
+              k + 1 < songs[i].shows[si].sections.count else { return }
+        songs[i].shows[si].sections[k].end = songs[i].shows[si].sections[k + 1].end
+        songs[i].shows[si].sections.remove(at: k + 1)
+    }
+
     // MARK: - Lineups
 
     func lineupIndex(_ id: UUID?) -> Int? {
@@ -538,6 +566,16 @@ final class AppModel: ObservableObject {
             } else {
                 rendered = idleFrame
                 idleBlend = 1
+            }
+        }
+
+        // Stationary lights (like the spotlight) hold their own settings
+        if testMode == .off {
+            let showRunning = playingSongID != nil || inGap
+            for (i, fx) in fixtures.enumerated() where i < rendered.count && fx.effectiveBehavior == .stationary {
+                let look = fx.stationaryLook
+                rendered[i] = (showRunning || look.onWhenIdle) ? look.render(fx)
+                    : RenderedFixture(heads: Array(repeating: .off, count: fx.headCount))
             }
         }
 
