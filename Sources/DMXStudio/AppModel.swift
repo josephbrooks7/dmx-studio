@@ -1658,8 +1658,15 @@ final class AppModel: ObservableObject {
             }
 
             // Set list block (silence / transition) between songs
+            // A transition takes over the lights for its length, easing in from the song's own
+            // programming and easing back into it at the end (no hard cuts).
             if let b = activeBlock, activePresetID == nil {
-                showFrame = renderBlock(b, now: now, idleFrame: idleFrame)
+                let blockFrame = renderBlock(b, now: now, idleFrame: idleFrame)
+                let elapsed = b.pausedRemaining.map { b.length - $0 } ?? (now - b.start)
+                let edge = min(1.0, max(0.2, b.length * 0.18))
+                let k = max(0, min(1, elapsed / edge, (b.length - elapsed) / edge))
+                let underneath = showFrame ?? idleFrame
+                showFrame = blendRendered(underneath, blockFrame, k)
                 t = now
             }
 
