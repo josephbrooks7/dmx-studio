@@ -137,6 +137,11 @@ struct StageInspector: View {
                         HStack {
                             Image(systemName: item.prop?.icon ?? "lightbulb.fill").foregroundColor(Theme.accent)
                             Text(fx?.name ?? item.prop?.rawValue ?? "Item").font(.headline).lineLimit(1)
+                            Spacer()
+                            if let fx {
+                                Toggle("", isOn: Binding(get: { fx.isOn }, set: { model.setLightOn(fx.id, $0) }))
+                                    .toggleStyle(.switch).labelsHidden().help("Turn this light on or off")
+                            }
                         }
                         if let fx { Text(fx.profileName).font(.caption2).foregroundColor(Theme.subtle).lineLimit(2) }
                         slider("Left / right", item.x, -8...8, "m") { v in model.updateStageItem(id) { $0.x = v } }

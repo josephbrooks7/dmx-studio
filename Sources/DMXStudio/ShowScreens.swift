@@ -407,6 +407,9 @@ struct ShowScreen: View {
                             Text("Stage").font(.system(size: 17, weight: .bold))
                             Text("Tap a light to control it by hand").font(.caption).foregroundColor(Theme.subtle)
                             Spacer()
+                            if model.anyLightOff {
+                                Button("Turn all on") { model.turnAllLightsOn() }.buttonStyle(PillButtonStyle())
+                            }
                             if !model.manual.isEmpty {
                                 Button("Release all") { model.manual = [:] }.buttonStyle(PillButtonStyle())
                             }
@@ -415,7 +418,8 @@ struct ShowScreen: View {
                             HStack(spacing: 26) {
                                 ForEach(Array(model.fixtures.enumerated()), id: \.element.id) { i, fx in
                                     FixtureRing(fixture: fx, rendered: i < model.preview.count ? model.preview[i] : nil,
-                                                manual: model.manual[fx.id] != nil)
+                                                manual: model.manual[fx.id] != nil,
+                                                onPower: { model.setLightOn(fx.id, !fx.isOn) })
                                         .onTapGesture { controlling = fx.id }
                                         .popover(isPresented: Binding(get: { controlling == fx.id }, set: { if !$0 { controlling = nil } }),
                                                  arrowEdge: .bottom) {
@@ -580,6 +584,7 @@ struct FixtureRing: View {
     let fixture: Fixture
     let rendered: RenderedFixture?
     let manual: Bool
+    var onPower: (() -> Void)? = nil
     @State private var hover = false
 
     var body: some View {
@@ -597,7 +602,10 @@ struct FixtureRing: View {
                     Text(fixture.name).font(.system(size: 13, weight: .bold)).lineLimit(1)
                     Text(fixture.effectiveBehavior == .stationary ? "Stationary" : "Sequence")
                         .font(.system(size: 9)).foregroundColor(Theme.subtle)
-                    if manual {
+                    if !fixture.isOn {
+                        Text("OFF").font(.system(size: 8, weight: .heavy)).padding(.horizontal, 5).padding(.vertical, 1)
+                            .background(Capsule().fill(Color.gray.opacity(0.6)))
+                    } else if manual {
                         Text("HAND").font(.system(size: 8, weight: .heavy)).padding(.horizontal, 5).padding(.vertical, 1)
                             .background(Capsule().fill(Theme.accent))
                     }
@@ -605,8 +613,21 @@ struct FixtureRing: View {
                 .frame(width: 90)
             }
             .frame(width: 128, height: 128)
+            .opacity(fixture.isOn ? 1 : 0.45)
             .scaleEffect(hover ? 1.04 : 1)
             .animation(.easeOut(duration: 0.12), value: hover)
+            .overlay(alignment: .topTrailing) {
+                if let onPower {
+                    Button(action: onPower) {
+                        Image(systemName: "power").font(.system(size: 12, weight: .bold))
+                            .foregroundColor(fixture.isOn ? .white : Theme.subtle)
+                            .frame(width: 28, height: 28)
+                            .background(Circle().fill(fixture.isOn ? Theme.accent : Color.white.opacity(0.12)))
+                    }
+                    .buttonStyle(.plain)
+                    .help(fixture.isOn ? "Turn this light off" : "Turn this light on")
+                }
+            }
             HStack(spacing: 4) {
                 Image(systemName: "lightbulb").font(.system(size: 9))
                 Text("\(fixture.headCount == 1 ? "1 light" : "\(fixture.headCount) heads") · ch \(fixture.address)")
@@ -637,8 +658,17 @@ struct FixtureControlPanel: View {
             HStack {
                 Text(fx?.name ?? "Light").font(.title3.bold())
                 Spacer()
+                Toggle(isOn: Binding(get: { fx?.isOn ?? true }, set: { model.setLightOn(fixtureID, $0) })) {
+                    Text(fx?.isOn ?? true ? "On" : "Off").font(.callout.bold())
+                }
+                .toggleStyle(.switch)
                 Button("Follow show") { model.manual[fixtureID] = nil }
                     .buttonStyle(PillButtonStyle(active: model.manual[fixtureID] == nil))
+            }
+            let twins = model.sharesAddress(fixtureID)
+            if !twins.isEmpty {
+                Text("\(twins.map(\.name).joined(separator: ", ")) is on the same address (\(fx?.displayCode ?? "")), so the real lights get the same signal: they only go dark when both are off. To switch them separately, give one a different address on the light and in Setup → Lights.")
+                    .font(.caption2).foregroundColor(.orange).fixedSize(horizontal: false, vertical: true)
             }
             if let wheel = fx?.colorWheel {
                 Text("Color wheel").font(.caption).foregroundColor(.secondary)

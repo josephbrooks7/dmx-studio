@@ -225,8 +225,10 @@ struct Fixture: Identifiable, Codable, Hashable {
     var stageX: Double? = nil           // position in the Stage simulation (0 = left, 1 = right)
     var stageY: Double? = nil           // (0 = top, 1 = bottom)
     var stageMount: StageMount? = nil
+    var off: Bool? = nil                // switched off in the app (sends dark), nil/false = on
 
     /// Spotlights (color-wheel lights) default to Stationary; everything else to Sequence.
+    var isOn: Bool { off != true }
     var effectiveBehavior: LightBehavior { behavior ?? (colorWheel != nil ? .stationary : .sequence) }
     var stationaryLook: StationaryLook { stationary ?? StationaryLook() }
 

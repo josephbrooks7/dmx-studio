@@ -299,6 +299,21 @@ final class AppModel: ObservableObject {
         return fixtures.indices.first { $0 < i && fixtures[$0].address == f.address && fixtures[$0].layout == f.layout && fixtures[$0].outputKey == f.outputKey }
     }
 
+    // MARK: - Turning single lights on and off
+
+    func setLightOn(_ id: UUID, _ on: Bool) {
+        guard let i = fixtures.firstIndex(where: { $0.id == id }) else { return }
+        fixtures[i].off = on ? nil : true
+    }
+    var anyLightOff: Bool { fixtures.contains { !$0.isOn } }
+    func turnAllLightsOn() { for i in fixtures.indices { fixtures[i].off = nil } }
+
+    /// Other lights on the same address as this one (they physically receive the same signal).
+    func sharesAddress(_ id: UUID) -> [Fixture] {
+        guard let f = fixtures.first(where: { $0.id == id }) else { return [] }
+        return fixtures.filter { $0.id != id && $0.address == f.address && $0.layout == f.layout && $0.outputKey == f.outputKey }
+    }
+
     // MARK: - 3D venue
 
     /// Every light in the session gets a place in the venue.
@@ -1059,12 +1074,26 @@ final class AppModel: ObservableObject {
             }
         }
 
+        // Lights switched off: dark on screen. On the wire, lights sharing one address get the
+        // same signal, so that address only goes dark when every light on it is off.
+        func dark(_ r: RenderedFixture) -> RenderedFixture {
+            var d = r; for h in d.heads.indices { d.heads[h].intensity = 0 }; d.strobe = 0; return d
+        }
+        var wire = rendered
+        var isCopy = [Bool](repeating: false, count: fixtures.count)
+        for i in fixtures.indices where i < rendered.count {
+            if copySource(of: i) != nil { isCopy[i] = true; continue }
+            let group = fixtures.indices.filter { $0 == i || copySource(of: $0) == i }
+            if !group.contains(where: { fixtures[$0].isOn }) { wire[i] = dark(rendered[i]) }
+        }
+        for i in fixtures.indices where i < rendered.count && !fixtures[i].isOn { rendered[i] = dark(rendered[i]) }
+
         // One DMX frame per output device
         var frames: [String: [UInt8]] = [:]
         let keys = Set(fixtures.map { $0.outputKey ?? DMXEngine.mainKey })
         for key in keys {
-            let idx = fixtures.indices.filter { (fixtures[$0].outputKey ?? DMXEngine.mainKey) == key && $0 < rendered.count }
-            frames[key] = DMXMapper.frame(fixtures: idx.map { fixtures[$0] }, rendered: idx.map { rendered[$0] },
+            let idx = fixtures.indices.filter { (fixtures[$0].outputKey ?? DMXEngine.mainKey) == key && $0 < wire.count && !isCopy[$0] }
+            frames[key] = DMXMapper.frame(fixtures: idx.map { fixtures[$0] }, rendered: idx.map { wire[$0] },
                                           master: master, blackout: blackout, time: t)
         }
         if !outputEnabled {
