@@ -626,6 +626,9 @@ enum PropKind: String, CaseIterable, Codable, Identifiable {
     case speaker = "Speaker"
     case djBooth = "DJ Booth"
     case performer = "Performer"
+    case trussFrame = "Truss Frame (box)"
+    case ledWall = "LED Video Wall"
+    case drumKit = "Drum Kit"
     var id: String { rawValue }
     var icon: String {
         switch self {
@@ -638,6 +641,9 @@ enum PropKind: String, CaseIterable, Codable, Identifiable {
         case .speaker: return "hifispeaker"
         case .djBooth: return "music.note.house"
         case .performer: return "person.fill"
+        case .trussFrame: return "cube"
+        case .ledWall: return "tv"
+        case .drumKit: return "music.quarternote.3"
         }
     }
 }
@@ -668,6 +674,9 @@ struct StageLayout: Codable, Hashable {
             StageItem(prop: .trussTower, x: 3.2, z: -3.6, size: 3.5),
             StageItem(prop: .truss, x: 0, z: -3.6, y: 3.5, size: 6.7),
             StageItem(prop: .circleTruss, x: 0, z: -3.9, y: 0.6, size: 1),
+            StageItem(prop: .ledWall, x: -2.2, z: -3.85, y: 0.6, size: 1),
+            StageItem(prop: .ledWall, x: 2.2, z: -3.85, y: 0.6, size: 1),
+            StageItem(prop: .drumKit, x: -1.0, z: -2.9, y: 0.6),
             StageItem(prop: .micStand, x: 0, z: -0.8, y: 0.6),
             StageItem(prop: .performer, x: 0.45, z: -1.1, y: 0.6),
             StageItem(prop: .speaker, x: -3.6, z: 0.2),

@@ -16,7 +16,8 @@ private enum Mat {
     static let black = make(NSColor(white: 0.05, alpha: 1), metal: true, rough: 0.45)
     static let darkGray = make(NSColor(white: 0.12, alpha: 1), rough: 0.8)
     static let aluminum = make(NSColor(white: 0.75, alpha: 1), metal: true, rough: 0.3)
-    static let stageTop = make(NSColor(white: 0.07, alpha: 1), rough: 0.5)
+    static let stageTop = make(NSColor(calibratedRed: 0.30, green: 0.19, blue: 0.11, alpha: 1), rough: 0.55)   // wood deck
+    static let chrome = make(NSColor(white: 0.85, alpha: 1), metal: true, rough: 0.2)
     static let person = make(NSColor(white: 0.25, alpha: 1), rough: 0.9)
 
     static func beam() -> SCNMaterial {
@@ -301,6 +302,40 @@ private enum Build {
             let face = box(1.6, 0.6, 0.01, { let m = SCNMaterial(); m.lightingModel = .constant; m.diffuse.contents = NSColor(calibratedRed: 0.5, green: 0.02, blue: 0.12, alpha: 1); return m }())
             face.position = SCNVector3(0, 0.55, 0.38); root.addChildNode(face)
             return root
+        case .trussFrame:
+            // Box frame: four towers + a square of truss on top (size = scale; 6 m × 4 m × 3.5 m)
+            let root = SCNNode()
+            let w = 6.5 * s, d = 4.5 * s, h: CGFloat = 3.6
+            for (x, z) in [(-w / 2, -d / 2), (w / 2, -d / 2), (-w / 2, d / 2), (w / 2, d / 2)] {
+                let t = truss(length: h); t.eulerAngles.z = .pi / 2; t.position = SCNVector3(x, h / 2, z); root.addChildNode(t)
+            }
+            for z in [-d / 2, d / 2] { let t = truss(length: w); t.position = SCNVector3(0, h + 0.15, z); root.addChildNode(t) }
+            for x in [-w / 2, w / 2] { let t = truss(length: d); t.eulerAngles.y = .pi / 2; t.position = SCNVector3(x, h + 0.15, 0); root.addChildNode(t) }
+            return root
+        case .ledWall:
+            // 1.5 m × 2.5 m video panel on a frame; its picture follows the show colors
+            let root = SCNNode()
+            let frame = box(1.6 * s, 2.6 * s, 0.1, Mat.black); frame.position = SCNVector3(0, 1.3 * s, 0); root.addChildNode(frame)
+            let screen = SCNNode(geometry: { let g = SCNPlane(width: 1.5 * s, height: 2.5 * s)
+                let m = SCNMaterial(); m.lightingModel = .constant; m.diffuse.contents = NSColor(white: 0.05, alpha: 1); g.materials = [m]; return g }())
+            screen.name = "ledscreen"
+            screen.position = SCNVector3(0, 1.3 * s, 0.052); root.addChildNode(screen)
+            return root
+        case .drumKit:
+            let root = SCNNode()
+            let kick = cyl(0.28, 0.4, Mat.black); kick.eulerAngles.x = .pi / 2; kick.position = SCNVector3(0, 0.3, 0); root.addChildNode(kick)
+            let head = cyl(0.27, 0.01, Mat.make(NSColor(white: 0.9, alpha: 1))); head.eulerAngles.x = .pi / 2; head.position = SCNVector3(0, 0.3, 0.205); root.addChildNode(head)
+            for (x, y, r) in [(-0.38, 0.62, 0.16), (0.38, 0.62, 0.15), (0.5, 0.48, 0.2)] {
+                let tom = cyl(CGFloat(r), 0.2, Mat.make(NSColor(calibratedRed: 0.5, green: 0.02, blue: 0.1, alpha: 1), metal: true, rough: 0.3))
+                tom.position = SCNVector3(x, y, -0.05); root.addChildNode(tom)
+            }
+            for (x, y) in [(-0.65, 1.15), (0.7, 1.25)] {
+                root.addChildNode(pipe(from: SCNVector3(x, 0, -0.1), to: SCNVector3(x, y, -0.1), r: 0.01, Mat.chrome))
+                let cym = cyl(0.22, 0.006, Mat.make(NSColor(calibratedRed: 0.8, green: 0.65, blue: 0.25, alpha: 1), metal: true, rough: 0.25))
+                cym.position = SCNVector3(x, y, -0.1); cym.eulerAngles.z = 0.15; root.addChildNode(cym)
+            }
+            let stool = cyl(0.17, 0.5, Mat.black); stool.position = SCNVector3(0, 0.25, -0.65); root.addChildNode(stool)
+            return root
         case .performer:
             let root = SCNNode()
             let body = SCNNode(geometry: { let g = SCNCapsule(capRadius: 0.2, height: 1.45); g.materials = [Mat.person]; return g }())
@@ -422,7 +457,7 @@ struct Stage3DView: NSViewRepresentable {
             camera.camera?.exposureOffset = 0
             camera.camera?.bloomIntensity = 0.5
             camera.camera?.bloomThreshold = 0.8
-            setCamera("Audience")
+            setCamera("Overview")
             scene.rootNode.addChildNode(camera)
         }
 
@@ -438,15 +473,16 @@ struct Stage3DView: NSViewRepresentable {
             switch name {
             case "Top": camera.position = SCNVector3(0, 16, 1); camera.look(at: SCNVector3(0, 0, -1))
             case "Side": camera.position = SCNVector3(12, 3, -1); camera.look(at: SCNVector3(0, 1.8, -1.5))
-            default: camera.position = SCNVector3(0, 2.3, 8.2); camera.look(at: SCNVector3(0, 2.2, -2))
+            case "Audience": camera.position = SCNVector3(0, 2.3, 8.2); camera.look(at: SCNVector3(0, 2.2, -2))
+            default: camera.position = SCNVector3(-7.5, 6.5, 8.5); camera.look(at: SCNVector3(0, 1.2, -1.8))   // Overview
             }
             view?.pointOfView = camera
         }
 
         private func buildRoom() {
             let floor = SCNFloor()
-            floor.reflectivity = 0.06
-            floor.materials = [Mat.make(NSColor(white: 0.06, alpha: 1), rough: 0.7)]
+            floor.reflectivity = 0.05
+            floor.materials = [Mat.make(NSColor(white: 0.16, alpha: 1), rough: 0.75)]   // light enough to show beam pools
             scene.rootNode.addChildNode(SCNNode(geometry: floor))
             let wall = SCNNode(geometry: { let g = SCNPlane(width: 40, height: 14); g.materials = [Mat.make(NSColor(white: 0.03, alpha: 1), rough: 1)]; return g }())
             wall.position = SCNVector3(0, 7, -6)
@@ -514,7 +550,7 @@ struct Stage3DView: NSViewRepresentable {
             light.light = SCNLight()
             light.light?.type = .spot
             // Followspot: crisp hard-edged circle (like the real 75ST). Beam bars: softer.
-            light.light?.spotOuterAngle = fx.colorWheel != nil ? 11 : 30
+            light.light?.spotOuterAngle = fx.colorWheel != nil ? 11 : 40
             light.light?.spotInnerAngle = fx.colorWheel != nil ? 10 : 4
             light.light?.intensity = 0
             light.light?.attenuationEndDistance = 20
@@ -591,7 +627,23 @@ struct Stage3DView: NSViewRepresentable {
                     let n = Double(max(1, parts.lenses.count))
                     let mx = max(avg.r, avg.g, avg.b, 0.0001)
                     l.color = NSColor(calibratedRed: avg.r / mx, green: avg.g / mx, blue: avg.b / mx, alpha: 1)
-                    l.intensity = CGFloat(avg.i / n * (fx.colorWheel != nil ? 3500 : 2200))
+                    l.intensity = CGFloat(avg.i / n * (fx.colorWheel != nil ? 3500 : 4000))
+                }
+            }
+            // LED video walls: animated color bands from what the lights are doing
+            let lit = model.preview.flatMap { $0.heads }.filter { $0.intensity > 0.05 }
+            for item in model.stage.items where item.prop == .ledWall {
+                guard let screen = itemNodes[item.id]?.childNode(withName: "ledscreen", recursively: true)?.geometry?.firstMaterial else { continue }
+                if lit.isEmpty || master == 0 {
+                    screen.diffuse.contents = NSColor(white: 0.04, alpha: 1)
+                } else {
+                    let k = Int(now * 2) % max(1, lit.count)
+                    let a = lit[k], b = lit[(k + lit.count / 2) % lit.count]
+                    let wave = 0.5 + 0.5 * sin(now * 2.5 + item.x)
+                    let r = (a.color.r * wave + b.color.r * (1 - wave)) * master
+                    let g = (a.color.g * wave + b.color.g * (1 - wave)) * master
+                    let bl = (a.color.b * wave + b.color.b * (1 - wave)) * master
+                    screen.diffuse.contents = NSColor(calibratedRed: r * 0.8, green: g * 0.8, blue: bl * 0.8, alpha: 1)
                 }
             }
             SCNTransaction.commit()
