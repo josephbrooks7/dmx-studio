@@ -417,8 +417,41 @@ struct ShowRenderer {
                 out[f].tilt = prev[f].tilt + (out[f].tilt - prev[f].tilt) * k
             }
         }
+        applyLyricCues(&out, t: t)
         applyAccents(&out, t: t, beatLen: ctx.beatLen)
         return out
+    }
+
+    /// How much the lyrics may steer the look (set in the Lyrics panel).
+    static var lyricWeights = LyricLighting.Weights.current
+
+    /// Lyric cues tint and shape the section look (they never replace it): a feeling colors the line,
+    /// imagery words get a short swell, delivery makes it brighter or softer.
+    private func applyLyricCues(_ out: inout [RenderedFixture], t: Double) {
+        guard let cues = analysis.lyricCues, !cues.isEmpty else { return }
+        let w = Self.lyricWeights
+        for c in cues where t >= c.start - 0.35 && t < c.end + 0.7 {
+            let env: Double
+            if c.accent {
+                let dt = t - c.start
+                env = dt < 0 ? 0 : min(1, dt / 0.08) * exp(-max(0, dt - 0.08) / 0.4)
+            } else {
+                let fin = min(1, max(0, (t - c.start + 0.35) / 0.35))
+                let fout = min(1, max(0, (c.end + 0.7 - t) / 0.7))
+                env = fin * fout
+            }
+            let weight = c.kind == "Emotion" ? w.emotion : c.kind == "Imagery" ? w.imagery : w.delivery
+            let k = env * weight
+            guard k > 0.001 else { continue }
+            for f in out.indices {
+                for h in out[f].heads.indices {
+                    if let col = c.color { out[f].heads[h].color = out[f].heads[h].color.mix(col, min(1, c.amount * k)) }
+                    var inten = out[f].heads[h].intensity * (1 + c.intensity * k)
+                    if c.accent && c.intensity > 0 { inten = max(inten, 0.85 * k) }
+                    out[f].heads[h].intensity = min(1, max(0, inten))
+                }
+            }
+        }
     }
 
     /// Strobe gate on the beat grid: true = flash on. nil = flashing isn't allowed.

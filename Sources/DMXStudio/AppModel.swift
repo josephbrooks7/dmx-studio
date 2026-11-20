@@ -1320,8 +1320,9 @@ final class AppModel: ObservableObject {
                 if self.songs[i].shows.isEmpty { self.createShow(for: id) }
                 else if rebuildShows { self.rebuildShows(for: id) }
                 self.makeLooks(from: id)
-                // then learn the words from the separated vocals (keeps lyrics you pasted yourself)
-                if analysis.vocalShare > 0.03, self.songs[i].lyrics?.source != "Pasted" { self.learnLyrics(id) }
+                // then learn the words from the separated vocals (keeps lyrics you pasted or corrected)
+                if analysis.vocalShare > 0.03, !["Pasted", "Edited"].contains(self.songs[i].lyrics?.source ?? "") { self.learnLyrics(id) }
+                else if self.songs[i].lyrics != nil { self.refreshLyricLighting(id) }
             }
         }
     }
@@ -1373,6 +1374,8 @@ final class AppModel: ObservableObject {
         nextLyrics()
     }
 
+    @Published var lyricsStatus: [UUID: String] = [:]
+
     private func nextLyrics() {
         guard !lyricsBusy, !lyricsQueue.isEmpty else { return }
         let id = lyricsQueue.removeFirst()
@@ -1381,34 +1384,132 @@ final class AppModel: ObservableObject {
         }
         let vocals = URL(fileURLWithPath: folder).appendingPathComponent("vocals.m4a")
         let title = songs[i].title
+        let phrases = a.vocalPhrases ?? []
         lyricsBusy = true
-        LyricsLearner.transcribe(vocals: vocals, phrases: a.vocalPhrases ?? [], duration: a.duration,
-                                 progress: { p in if self.lyricsProgress[id] != nil { self.lyricsProgress[id] = p } }) { result in
-            self.lyricsBusy = false
-            self.lyricsProgress[id] = nil
+        func finish(_ result: Result<[LyricWord], Error>, engine: String) {
+            lyricsBusy = false
+            lyricsProgress[id] = nil
+            lyricsStatus[id] = nil
             switch result {
             case .success(let words):
-                if let i = self.index(of: id), self.songs[i].lyrics?.source != "Pasted" {
-                    self.songs[i].lyrics = LyricsLearner.build(words: words, phrases: a.vocalPhrases ?? [], source: "Heard from the vocals")
+                if let i = index(of: id), !["Pasted", "Edited"].contains(songs[i].lyrics?.source ?? "") {
+                    var ly = LyricsLearner.build(words: words, phrases: phrases, source: "Heard from the vocals")
+                    ly.engine = engine
+                    ly.mode = songs[i].lyrics?.mode
+                    songs[i].lyrics = ly
+                    refreshLyricLighting(id)
                 }
             case .failure(let e):
                 ErrorCenter.shared.report(area: "Lyrics", message: "Couldn't learn the lyrics of \"\(title)\": \(e.localizedDescription)", details: "\(e)")
-                if (e as? LyricsError) == .notAllowed { self.lyricsQueue.forEach { self.lyricsProgress[$0] = nil }; self.lyricsQueue = [] }
+                if (e as? LyricsError) == .notAllowed { lyricsQueue.forEach { lyricsProgress[$0] = nil }; lyricsQueue = [] }
             }
-            self.nextLyrics()
+            nextLyrics()
+        }
+        let progress: (Double) -> Void = { p in if self.lyricsProgress[id] != nil { self.lyricsProgress[id] = p } }
+        // Whisper (built in, on this Mac) when it's available; Apple's speech recognizer otherwise
+        if WhisperEngine.isAvailable {
+            let size = WhisperEngine.chosen
+            let run = {
+                self.lyricsStatus[id] = "Listening (Whisper \(size.rawValue))…"
+                WhisperEngine.transcribe(vocals: vocals, phrases: phrases, model: size, progress: progress) { r in
+                    finish(r, engine: "Whisper \(size.rawValue)")
+                }
+            }
+            if WhisperEngine.isInstalled(size) { run() }
+            else {
+                lyricsStatus[id] = "Getting the lyrics model (once)…"
+                FileDownloader.fetch(size.url, to: WhisperEngine.modelURL(size), progress: progress) { err in
+                    if let err { finish(.failure(err), engine: "") } else { self.lyricsProgress[id] = 0; run() }
+                }
+            }
+        } else {
+            lyricsStatus[id] = "Listening (Apple speech)…"
+            LyricsLearner.transcribe(vocals: vocals, phrases: phrases, duration: a.duration, progress: progress) { r in
+                finish(r, engine: "Apple speech")
+            }
         }
     }
 
     /// Official lyrics pasted in: placed on the sung parts and analyzed for topic and mood.
     func pasteLyrics(_ id: UUID, text: String) {
         guard let i = index(of: id), let a = songs[i].analysis else { return }
-        let heard = songs[i].lyrics?.source == "Pasted" ? [] : (songs[i].lyrics?.words ?? [])
+        let heard = ["Pasted", "Edited"].contains(songs[i].lyrics?.source ?? "") ? [] : (songs[i].lyrics?.words ?? [])
         // Tracks made to be sung over have little lead vocal: place the words on the sung parts of the
         // song structure (verses, pre-choruses, choruses, bridge) instead
         let sungParts = a.detectedSections.filter { d in ["Verse", "Pre-Chorus", "Chorus", "Post-Chorus", "Bridge"].contains { d.name.hasPrefix($0) } }
             .map { TimeSpan(start: $0.start, end: $0.end) }
         let spans = a.vocalShare > 0.15 ? (a.vocalPhrases ?? []) : sungParts
+        let mode = songs[i].lyrics?.mode
         songs[i].lyrics = LyricsLearner.align(text: text, heard: heard, phrases: spans, duration: a.duration)
+        songs[i].lyrics?.engine = "Pasted"
+        songs[i].lyrics?.mode = mode
+        refreshLyricLighting(id)
+    }
+
+    /// Fix a line by hand (words and/or timing). Your corrections are kept when the song is relearned.
+    func editLyricLine(_ id: UUID, lineID: UUID, text: String? = nil, shift: Double = 0, start: Double? = nil, end: Double? = nil) {
+        guard let i = index(of: id), var ly = songs[i].lyrics, let li = ly.lines.firstIndex(where: { $0.id == lineID }) else { return }
+        var line = ly.lines[li]
+        let oldStart = line.start, oldEnd = line.end
+        line.start = max(0, (start ?? line.start) + shift)
+        line.end = max(line.start + 0.2, (end ?? line.end) + shift)
+        if let text, text != line.text { line.text = text }
+        line.confidence = 1
+        // words in this line: re-spread over the (new) line
+        ly.words.removeAll { $0.start >= oldStart - 0.01 && $0.end <= oldEnd + 0.01 }
+        let ws = line.text.split(separator: " ").map(String.init)
+        let step = (line.end - line.start) / Double(max(ws.count, 1))
+        for (k, w) in ws.enumerated() {
+            ly.words.append(LyricWord(text: w, start: line.start + Double(k) * step, end: line.start + Double(k + 1) * step, confidence: 1))
+        }
+        ly.words.sort { $0.start < $1.start }
+        ly.lines[li] = line
+        ly.source = "Edited"
+        songs[i].lyrics = ly
+        refreshLyricLighting(id)
+    }
+
+    func setLyricMode(_ id: UUID, _ m: LyricLightingMode) {
+        guard let i = index(of: id), songs[i].lyrics != nil else { return }
+        songs[i].lyrics?.mode = m
+        refreshLyricLighting(id, regenerate: false)
+    }
+
+    func setCueAccepted(_ id: UUID, cueID: UUID, _ v: Bool?) {
+        guard let i = index(of: id), let ci = songs[i].lyrics?.cues?.firstIndex(where: { $0.id == cueID }) else { return }
+        songs[i].lyrics?.cues?[ci].accepted = v
+        refreshLyricLighting(id, regenerate: false)
+    }
+
+    /// Re-reads the lyrics (emotion, imagery, delivery) and remakes the lighting cues from them.
+    /// Your accept / reject choices are kept for cues that are still there.
+    func refreshLyricLighting(_ id: UUID, regenerate: Bool = true) {
+        guard let i = index(of: id), var ly = songs[i].lyrics, let a = songs[i].analysis else { return }
+        if regenerate {
+            var level: [Float]? = nil
+            if let folder = a.stemsFolder, let v = try? AudioAnalyzer.loadMono(url: URL(fileURLWithPath: folder).appendingPathComponent("vocals.m4a")) {
+                level = v
+            }
+            LyricsInterpreter.interpret(&ly, vocalLevel: level, levelRate: AudioAnalyzer.sampleRate)
+            let old = ly.cues ?? []
+            var fresh = LyricLighting.cues(ly, analysis: a)
+            for k in fresh.indices {
+                if let o = old.first(where: { $0.kind == fresh[k].kind && $0.label == fresh[k].label && abs($0.start - fresh[k].start) < 0.5 }) {
+                    fresh[k].accepted = o.accepted
+                    fresh[k].id = o.id
+                }
+            }
+            ly.cues = fresh
+            songs[i].lyrics = ly
+        }
+        let cues = ly.cues ?? []
+        let used: [LyricCue]
+        switch ly.mode ?? .automatic {
+        case .automatic: used = cues.filter { $0.accepted != false && $0.confidence >= 0.4 }
+        case .assisted: used = cues.filter { $0.accepted == true }
+        case .manual: used = []
+        }
+        songs[i].analysis?.lyricCues = used
     }
 
     /// Colors the active show to fit what the lyrics are about (drops keep their genre colors).

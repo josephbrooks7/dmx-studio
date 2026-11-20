@@ -382,7 +382,7 @@ struct LyricsTab: View {
         .background(RoundedRectangle(cornerRadius: 12).fill(Color.primary.opacity(0.04)))
         .sheet(isPresented: $pasting) {
             VStack(alignment: .leading, spacing: 10) {
-                Text("Paste the official lyrics").font(.headline)
+                Text("Paste or edit the lyrics").font(.headline)
                 Text("One line per sung line. Labels like [Chorus] are skipped. They'll be placed on the sung parts of the song.")
                     .font(.caption).foregroundColor(.secondary)
                 TextEditor(text: $pasteText).font(.body).frame(minWidth: 460, minHeight: 320)
@@ -398,45 +398,164 @@ struct LyricsTab: View {
         }
     }
 
+    @State private var editing: UUID?
+    @State private var editText = ""
+    @State private var showCues = true
+    @AppStorage("lyricWeightsOpen") private var weightsOpen = false
+
     @ViewBuilder var content: some View {
-        HStack {
+        HStack(spacing: 10) {
             Button { model.learnLyrics(song.id) } label: { Label("Listen for Lyrics", systemImage: "waveform.and.mic") }
                 .disabled(model.lyricsProgress[song.id] != nil || song.analysis?.stemsFolder == nil)
-                .help("Listens to the separated vocals and writes down the words with their timing")
-            Button { pasteText = song.lyrics?.source == "Pasted" ? song.lyrics!.lines.map(\.text).joined(separator: "\n") : ""; pasting = true } label: {
-                Label("Paste Lyrics", systemImage: "doc.on.clipboard")
+                .help("Listens to the separated vocals and writes down every word with its timing (like auto-captions)")
+            if WhisperEngine.isAvailable {
+                Picker("", selection: Binding(get: { WhisperEngine.chosen }, set: { WhisperEngine.chosen = $0; model.objectWillChange.send() })) {
+                    ForEach(WhisperEngine.ModelSize.allCases) { Text($0.label).tag($0) }
+                }
+                .frame(width: 170)
+                .help("Whisper speech model used for lyrics (downloaded once, runs on this Mac)")
             }
-            if let ly = song.lyrics, let pal = LyricsLearner.palette(for: ly.themes), song.activeShow != nil {
-                Button { model.applyLyricColors(song.id) } label: { Label("Use Lyric Colors (\(pal))", systemImage: "paintpalette") }
-                    .help("Colors the show to fit what the song is about (drops keep their colors)")
+            Button { pasteText = song.lyrics.map { $0.lines.map(\.text).joined(separator: "\n") } ?? ""; pasting = true } label: {
+                Label("Paste / Edit All", systemImage: "doc.on.clipboard")
             }
             Spacer()
+            if let s = model.lyricsStatus[song.id] { Text(s).font(.caption).foregroundColor(.secondary) }
         }
         if let ly = song.lyrics {
-            VStack(alignment: .leading, spacing: 4) {
+            // lighting from lyrics: mode + weights
+            HStack(spacing: 10) {
+                Text("Lyric lighting").foregroundColor(.secondary)
+                Picker("", selection: Binding(get: { ly.mode ?? .automatic }, set: { model.setLyricMode(song.id, $0) })) {
+                    ForEach(LyricLightingMode.allCases) { Text($0.rawValue).tag($0) }
+                }
+                .pickerStyle(.segmented).frame(width: 290)
+                Button { model.refreshLyricLighting(song.id) } label: { Label("Regenerate Cues", systemImage: "arrow.clockwise") }
+                Button { weightsOpen.toggle() } label: { Label("Weights", systemImage: "slider.horizontal.3") }
+                if let pal = LyricsLearner.palette(for: ly.themes), song.activeShow != nil {
+                    Button { model.applyLyricColors(song.id) } label: { Label("Lyric Colors (\(pal))", systemImage: "paintpalette") }
+                }
+                Spacer()
+            }
+            Text((ly.mode ?? .automatic).blurb).font(.caption).foregroundColor(.secondary)
+            if weightsOpen { LyricWeightsView() }
+            VStack(alignment: .leading, spacing: 3) {
                 if !ly.themes.isEmpty { Text("About: " + ly.themes.joined(separator: ", ")).font(.callout.bold()) }
-                Text("Mood: \(ly.moodLabel)   ·   \(ly.source)").font(.caption).foregroundColor(.secondary)
+                Text("Mood: \(ly.moodLabel)   ·   \(ly.engine ?? ly.source)").font(.caption).foregroundColor(.secondary)
                 if !ly.keywords.isEmpty { Text("Key words: " + ly.keywords.joined(separator: ", ")).font(.caption).foregroundColor(.secondary) }
             }
-            ScrollView {
-                VStack(alignment: .leading, spacing: 3) {
-                    ForEach(ly.lines) { line in
-                        HStack(alignment: .firstTextBaseline, spacing: 10) {
-                            Text(StemMixerView.clock(line.start).dropLast(4)).font(.caption.monospacedDigit()).foregroundColor(.secondary)
-                                .frame(width: 44, alignment: .leading)
-                            Text(line.text)
-                                .foregroundColor(line.confidence < 0.4 ? .secondary : .primary)
-                                .help(line.confidence < 0.4 ? "Not sure about this line (or its timing)" : "")
-                            Circle().fill(line.sentiment > 0.25 ? Color.yellow : line.sentiment < -0.25 ? Color.blue : Color.gray.opacity(0.5))
-                                .frame(width: 6, height: 6).help(String(format: "line mood %.2f", line.sentiment))
+            LiveReader(model.live) {
+                let t = model.playingSongID == song.id ? model.currentTime : -1
+                ScrollView {
+                    VStack(alignment: .leading, spacing: 4) {
+                        ForEach(Array(ly.lines.enumerated()), id: \.element.id) { idx, line in
+                            lineRow(ly, idx, line, now: t)
                         }
-                        .contentShape(Rectangle())
-                        .onTapGesture { model.play(song.id, from: max(0, line.start - 0.5)) }
                     }
                 }
+                .frame(maxHeight: 300)
             }
-            .frame(maxHeight: 260)
-            Text("Gray lines: not sure of the words or timing. Click a line to play from there.").font(.caption2).foregroundColor(.secondary)
+            Text("Gray: not sure of the words or timing. Click a line to play from there; ✎ to fix the words, ‹ › to nudge timing.")
+                .font(.caption2).foregroundColor(.secondary)
+            if let cues = ly.cues, !cues.isEmpty {
+                DisclosureGroup(isExpanded: $showCues) {
+                    VStack(alignment: .leading, spacing: 3) {
+                        ForEach(cues) { c in cueRow(ly, c) }
+                    }
+                } label: {
+                    Text("Lighting cues from the lyrics (\(cues.count))").font(.callout.bold())
+                }
+            }
+        }
+    }
+
+    @ViewBuilder func lineRow(_ ly: Lyrics, _ idx: Int, _ line: LyricLine, now t: Double) -> some View {
+        let ins = (ly.insights?.count ?? 0) > idx ? ly.insights![idx] : nil
+        let current = t >= line.start && t < line.end
+        HStack(alignment: .firstTextBaseline, spacing: 8) {
+            Text(StemMixerView.clock(line.start).dropLast(4)).font(.caption.monospacedDigit()).foregroundColor(.secondary)
+                .frame(width: 44, alignment: .leading)
+            if editing == line.id {
+                TextField("", text: $editText, onCommit: {
+                    model.editLyricLine(song.id, lineID: line.id, text: editText); editing = nil
+                })
+                .textFieldStyle(.roundedBorder)
+            } else {
+                // the word being sung lights up, like karaoke captions
+                let ws = ly.words.filter { $0.start >= line.start - 0.01 && $0.end <= line.end + 0.01 }
+                if current && !ws.isEmpty {
+                    ws.reduce(Text("")) { acc, w in
+                        let on = t >= w.start && t < w.end + 0.05
+                        let done = t >= w.end
+                        return acc + Text(w.text + " ").foregroundColor(on ? .pink : done ? .primary : .secondary).bold()
+                    }
+                } else {
+                    Text(line.text).foregroundColor(line.confidence < 0.4 ? .secondary : .primary)
+                }
+            }
+            if let ins {
+                ForEach(ins.emotions, id: \.self) { e in chip(e, color: LyricEmotion(rawValue: e).map { $0.color.color } ?? .gray) }
+                ForEach(ins.imagery, id: \.self) { e in chip(e, color: LyricImagery(rawValue: e).map { $0.color.color } ?? .gray) }
+                if ins.delivery != "Normal" && !ins.delivery.isEmpty { chip(ins.delivery, color: .gray) }
+                if ins.repeated { chip("repeated", color: .gray) }
+            }
+            Spacer(minLength: 4)
+            HStack(spacing: 2) {
+                Button("‹") { model.editLyricLine(song.id, lineID: line.id, shift: -0.1) }.help("0.1 s earlier")
+                Button("›") { model.editLyricLine(song.id, lineID: line.id, shift: 0.1) }.help("0.1 s later")
+                Button("✎") { editText = line.text; editing = line.id }.help("Fix the words")
+            }
+            .buttonStyle(.borderless).font(.caption)
+        }
+        .padding(.vertical, 1)
+        .background(RoundedRectangle(cornerRadius: 4).fill(current ? Color.pink.opacity(0.12) : .clear))
+        .contentShape(Rectangle())
+        .onTapGesture { model.play(song.id, from: max(0, line.start - 0.5)) }
+    }
+
+    func chip(_ s: String, color: Color) -> some View {
+        Text(s).font(.system(size: 9, weight: .semibold)).padding(.horizontal, 5).padding(.vertical, 1)
+            .background(Capsule().fill(color.opacity(0.25))).foregroundColor(.primary)
+    }
+
+    @ViewBuilder func cueRow(_ ly: Lyrics, _ c: LyricCue) -> some View {
+        let mode = ly.mode ?? .automatic
+        let used = mode == .automatic ? (c.accepted != false && c.confidence >= 0.4) : mode == .assisted ? c.accepted == true : false
+        HStack(spacing: 8) {
+            Text(StemMixerView.clock(c.start).dropLast(4)).font(.caption.monospacedDigit()).foregroundColor(.secondary).frame(width: 44, alignment: .leading)
+            Circle().fill(c.color.map { $0.color } ?? .gray).frame(width: 9, height: 9)
+            Text("\(c.kind): \(c.label)").font(.caption.bold())
+            Text(c.reason).font(.caption).foregroundColor(.secondary).lineLimit(1)
+            Text("\(Int(c.confidence * 100))%").font(.caption2.monospacedDigit()).foregroundColor(.secondary)
+            Spacer()
+            if mode != .manual {
+                Toggle("", isOn: Binding(get: { used }, set: { model.setCueAccepted(song.id, cueID: c.id, $0) }))
+                    .toggleStyle(.checkbox).help(used ? "Used in the show (uncheck to leave it out)" : "Not used (check to add it to the show)")
+            }
+        }
+        .contentShape(Rectangle())
+        .onTapGesture { model.play(song.id, from: max(0, c.start - 1)) }
+    }
+}
+
+struct LyricWeightsView: View {
+    @State private var w = LyricLighting.Weights.current
+    var body: some View {
+        VStack(alignment: .leading, spacing: 4) {
+            row("Lyric feeling (color)", \.emotion)
+            row("Imagery words (accents)", \.imagery)
+            row("Vocal delivery (brightness)", \.delivery)
+            Text("Rhythm, energy and song structure always drive the show; these set how much the lyrics steer it.")
+                .font(.caption2).foregroundColor(.secondary)
+        }
+        .padding(8).background(RoundedRectangle(cornerRadius: 8).fill(Color.primary.opacity(0.04)))
+    }
+    func row(_ label: String, _ kp: WritableKeyPath<LyricLighting.Weights, Double>) -> some View {
+        HStack {
+            Text(label).font(.caption).frame(width: 190, alignment: .leading)
+            Slider(value: Binding(get: { w[keyPath: kp] }, set: {
+                w[keyPath: kp] = $0; LyricLighting.Weights.current = w; ShowRenderer.lyricWeights = w
+            }), in: 0...1)
+            Text("\(Int(w[keyPath: kp] * 100))%").font(.caption.monospacedDigit()).frame(width: 40)
         }
     }
 }

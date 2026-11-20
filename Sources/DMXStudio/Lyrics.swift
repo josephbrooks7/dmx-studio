@@ -29,6 +29,10 @@ struct Lyrics: Codable, Hashable {
     var themes: [String] = []       // e.g. "Night & Party", "Dreams & Fantasy"
     var mood: Double = 0            // overall -1…+1
     var moodLabel: String = ""
+    var insights: [LineInsight]? = nil        // per line: emotion, imagery, delivery, repeated
+    var cues: [LyricCue]? = nil               // lighting suggestions made from the lyrics
+    var mode: LyricLightingMode? = nil        // nil = Automatic
+    var engine: String? = nil                 // what heard the words ("Whisper base", "Apple speech", "Pasted")
 
     var summary: String {
         var parts: [String] = []

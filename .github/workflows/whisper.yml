@@ -14,7 +14,7 @@ jobs:
         run: |
           git clone --depth 1 --branch v1.7.4 https://github.com/ggerganov/whisper.cpp /tmp/w
           cd /tmp/w
-          common="-DCMAKE_BUILD_TYPE=Release -DBUILD_SHARED_LIBS=OFF -DGGML_METAL=OFF -DGGML_NATIVE=OFF -DCMAKE_OSX_DEPLOYMENT_TARGET=12.0 -DWHISPER_BUILD_TESTS=OFF -DWHISPER_SDL2=OFF"
+          common="-DCMAKE_BUILD_TYPE=Release -DBUILD_SHARED_LIBS=OFF -DGGML_METAL=OFF -DGGML_NATIVE=OFF -DCMAKE_OSX_DEPLOYMENT_TARGET=12.0 -DWHISPER_BUILD_TESTS=OFF -DWHISPER_SDL2=OFF -DGGML_BLAS=OFF"
           cmake -B b-arm $common -DCMAKE_OSX_ARCHITECTURES=arm64
           cmake --build b-arm -j 4 --target whisper-cli
           cmake -B b-x86 $common -DCMAKE_OSX_ARCHITECTURES=x86_64 -DGGML_AVX=ON -DGGML_AVX2=ON -DGGML_FMA=ON -DGGML_F16C=ON
@@ -22,6 +22,9 @@ jobs:
           lipo -create b-arm/bin/whisper-cli b-x86/bin/whisper-cli -output /tmp/whisper-cli
           lipo -info /tmp/whisper-cli; otool -L /tmp/whisper-cli
           otool -l /tmp/whisper-cli | grep -A4 LC_BUILD_VERSION | head -12
+          # nothing newer than macOS 12 may be linked (cblas "new" API is macOS 13.3+)
+          if nm -u /tmp/whisper-cli | grep -i cblas; then echo "FAIL: links cblas (needs macOS 13.3)"; exit 1; fi
+          echo "PASS: no macOS 13+ only symbols"
       - name: Smoke test (tiny model on a spoken sentence)
         run: |
           curl -sL -o /tmp/tiny.bin https://huggingface.co/ggerganov/whisper.cpp/resolve/main/ggml-tiny.en.bin

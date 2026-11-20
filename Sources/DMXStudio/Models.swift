@@ -443,6 +443,7 @@ struct SongAnalysis: Codable {
     var vocalPhrases: [TimeSpan]? = nil  // where someone is singing (from the separated vocals)
     var stemsFolder: String? = nil       // the separated parts (vocals/drums/bass/other .m4a)
     var accents: [Accent]? = nil         // white blinder hits / strobe stutters on the big moments
+    var lyricCues: [LyricCue]? = nil     // lyric-driven cues in use (set from the song's lyrics + mode)
 
     func value(_ arr: [Float], at t: Double) -> Double {
         guard !arr.isEmpty else { return 0 }

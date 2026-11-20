@@ -74,6 +74,14 @@ cat > "$APP/Contents/Info.plist" <<PLIST
 PLIST
 
 # Ad-hoc signature (no paid Apple developer account needed)
+# Lyrics transcription engine (whisper.cpp, built by the "Whisper transcription engine" workflow)
+if curl -sfL -o "$APP/Contents/Resources/whisper-cli" "https://github.com/josephbrooks7/dmx-studio/releases/download/whisper-1/whisper-cli"; then
+  chmod +x "$APP/Contents/Resources/whisper-cli"
+  codesign --force --sign - "$APP/Contents/Resources/whisper-cli"
+  echo "bundled whisper-cli"
+else
+  rm -f "$APP/Contents/Resources/whisper-cli"; echo "whisper-cli not published yet: lyrics transcription falls back to Apple speech"
+fi
 codesign --force --deep --sign - "$APP"
 
 # DMG with an Applications shortcut for drag-to-install
