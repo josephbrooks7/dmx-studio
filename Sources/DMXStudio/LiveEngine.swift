@@ -32,10 +32,29 @@ struct LookPreset: Identifiable, Codable, Hashable {
 
     /// What this look controls, for the little icons on its tile.
     var usesMovement: Bool { movement != .none }
-    var usesStrobe: Bool { effect == .strobe }
+    var usesStrobe: Bool { [.strobe, .stutter, .blinderHits].contains(effect) }
     var isBeatDriven: Bool { ![.steady, .breathe, .blackout].contains(effect) }
 
-    static var defaults: [LookPreset] { essentials + beamPack + barPack + themePack }
+    static var defaults: [LookPreset] { essentials + strobePack + beamPack + barPack + themePack }
+
+    /// Strobes locked to the beat at different speeds, stutters, and color looks with white blinder hits.
+    /// (How fast they really flash is capped by the Flashing setting on the Lights page.)
+    static let strobePack: [LookPreset] = {
+        func p(_ n: String, _ e: LightEffect, _ pal: String, rate: Double = 1, _ icon: String) -> LookPreset {
+            LookPreset(name: n, effect: e, palette: pal, movement: .none, rate: rate, intensity: 1, icon: icon, group: "Strobes & Blinders")
+        }
+        return [
+            p("Blinder Hits", .blinderHits, "Red Velvet", "light.max"),
+            p("Blinder Hits Neon", .blinderHits, "Neon", "light.max"),
+            p("Strobe 1/4", .strobe, "Full White", rate: 1, "bolt"),
+            p("Strobe 1/8", .strobe, "Full White", rate: 2, "bolt.fill"),
+            p("Strobe Triplets", .strobe, "Full White", rate: 3, "bolt.horizontal.fill"),
+            p("Strobe 1/16", .strobe, "Full White", rate: 4, "bolt.circle.fill"),
+            p("Strobe 1/32", .strobe, "Full White", rate: 8, "bolt.square.fill"),
+            p("Strobe Stutter", .stutter, "Full White", "waveform.path"),
+            p("Color Stutter", .stutter, "EDM", "waveform.path.ecg"),
+        ]
+    }()
 
     /// Looks made for bars in 9CH mode (the whole bar is one color): bold color changes, hits and tilt moves.
     static let barPack: [LookPreset] = {
@@ -84,7 +103,7 @@ struct LookPreset: Identifiable, Codable, Hashable {
         ]
     }()
 
-    static let groupOrder = ["Essentials", "Beam Patterns", "Whole-Bar (9CH)", "Fairy & Fantasy", "EDM & Electronic", "Dubstep & Bass", "Techno & Rave",
+    static let groupOrder = ["Essentials", "Strobes & Blinders", "Beam Patterns", "Whole-Bar (9CH)", "Fairy & Fantasy", "EDM & Electronic", "Dubstep & Bass", "Techno & Rave",
                              "Dance & Disco", "Pop & Hyperpop", "Psychedelic", "Holiday"]
 
     /// Themed looks: the name says the vibe, the palette and movement do the rest.

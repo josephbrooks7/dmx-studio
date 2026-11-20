@@ -34,6 +34,7 @@ enum AudioAnalyzer {
         } catch {
             FileHandle.standardError.write(Data("stem split skipped: \(error.localizedDescription)\n".utf8))
         }
+        a.accents = AccentFinder.find(a)
         progress(1)
         return a
     }

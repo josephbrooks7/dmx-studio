@@ -138,6 +138,28 @@ final class AppModel: ObservableObject {
     private var blockEndWork: DispatchWorkItem? // ends a transition that blends into the next song
     @Published var pauseTime: Double?           // set while paused: the moment the lights froze
     /// Master volume for all songs (0…1), remembered between launches.
+    /// How much flashing the shows may use. Fast strobes are opt-in (photosensitivity safety).
+    enum FlashLimit: String, CaseIterable, Identifiable {
+        case none = "No Flashing", gentle = "Gentle", full = "Full Strobes"
+        var id: String { rawValue }
+        var hz: Double { switch self { case .none: return 0; case .gentle: return 3; case .full: return 25 } }
+        var blurb: String {
+            switch self {
+            case .none: return "No flashing or strobing at all. Big moments swell to white instead."
+            case .gentle: return "Blinder hits and strobes up to 3 flashes a second (safe for most audiences)."
+            case .full: return "Fast strobes and stutters (16ths, 32nds). Can affect people with photosensitive epilepsy: warn your audience."
+            }
+        }
+    }
+    static func savedFlashLimit() -> FlashLimit {
+        let f = FlashLimit(rawValue: UserDefaults.standard.string(forKey: "flashLimit") ?? "") ?? .gentle
+        ShowRenderer.maxFlashHz = f.hz
+        return f
+    }
+    @Published var flashLimit: FlashLimit = AppModel.savedFlashLimit() {
+        didSet { UserDefaults.standard.set(flashLimit.rawValue, forKey: "flashLimit"); ShowRenderer.maxFlashHz = flashLimit.hz }
+    }
+
     @Published var musicVolume: Double = UserDefaults.standard.object(forKey: "musicVolume") as? Double ?? 1 {
         didSet {
             UserDefaults.standard.set(musicVolume, forKey: "musicVolume")
@@ -381,7 +403,8 @@ final class AppModel: ObservableObject {
         for i in presets.indices where presets[i].mode == nil {
             if let d = (LookPreset.beamPack + LookPreset.barPack).first(where: { $0.name == presets[i].name }) { presets[i].mode = d.mode }
         }
-        for (pack, list) in [("themes1", LookPreset.themePack), ("beams4", LookPreset.beamPack), ("bars9ch1", LookPreset.barPack)] {
+        for (pack, list) in [("themes1", LookPreset.themePack), ("beams4", LookPreset.beamPack), ("bars9ch1", LookPreset.barPack),
+                             ("strobes1", LookPreset.strobePack)] {
             let packKey = "presetPack.\(pack).\(s.id.uuidString)"
             if !UserDefaults.standard.bool(forKey: packKey) {
                 let have = Set(presets.map(\.name))
@@ -1677,7 +1700,9 @@ final class AppModel: ObservableObject {
         case .buildUp:
             if p > 0.93 { return white(1) }
             return scaled(look(.chase, rate: p < 0.5 ? 1 : (p < 0.8 ? 2 : 4), movement: .fan), 0.35 + 0.65 * p)
-        case .strobeHit: return p < 0.45 ? white(1, strobe: 1) : scaled(white(1), max(0, 1 - (p - 0.45) / 0.2))
+        case .strobeHit:
+            let strobe: Double = ShowRenderer.maxFlashHz >= 10 ? 1 : 0   // the light's strobe only with fast strobes on
+            return p < 0.45 ? white(1, strobe: strobe) : scaled(white(1), max(0, 1 - (p - 0.45) / 0.2))
         case .whiteFlash: return white(sin(.pi * p))
         case .rainbow: return look(.rainbow, rate: 1, movement: .fullRotate)
         }

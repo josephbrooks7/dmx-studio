@@ -745,6 +745,16 @@ struct LightsView: View {
                 LightSetupGuide()
                 Card {
                     VStack(alignment: .leading, spacing: 8) {
+                        Text("Flashing & strobes").font(.headline)
+                        Picker("", selection: $model.flashLimit) {
+                            ForEach(AppModel.FlashLimit.allCases) { Text($0.rawValue).tag($0) }
+                        }
+                        .pickerStyle(.segmented)
+                        Text(model.flashLimit.blurb).font(.callout).foregroundColor(.secondary)
+                    }
+                }
+                Card {
+                    VStack(alignment: .leading, spacing: 8) {
                         Text("How your lights work together").font(.headline)
                         Picker("", selection: $model.rigMode) {
                             ForEach(RigMode.allCases) { Text($0.rawValue).tag($0) }

@@ -362,6 +362,9 @@ enum LightEffect: String, CaseIterable, Codable, Identifiable {
     case glitch = "Glitch"
     case shimmer = "Shimmer"
     case goldDust = "Gold Dust"
+    // white accents
+    case blinderHits = "Blinder Hits"     // color look, full white on the big drum hits
+    case stutter = "Strobe Stutter"       // strobe chops that speed up across each bar
     var id: String { rawValue }
     /// Uses each beam of a bar separately.
     var perBeam: Bool { [.wave, .centerOut, .split, .pixelPop, .bounce, .gradient, .ripple, .scan, .fill, .fire, .embers, .water, .tide, .magic, .aurora, .glitch, .shimmer, .goldDust, .chase, .alternate, .rainbow, .sparkle, .colorBeat].contains(self) }
@@ -433,6 +436,7 @@ struct SongAnalysis: Codable {
     var hits: [DrumHit]? = nil           // drum hits found on the separated drum part (type, time, confidence)
     var vocalPhrases: [TimeSpan]? = nil  // where someone is singing (from the separated vocals)
     var stemsFolder: String? = nil       // the separated parts (vocals/drums/bass/other .m4a)
+    var accents: [Accent]? = nil         // white blinder hits / strobe stutters on the big moments
 
     func value(_ arr: [Float], at t: Double) -> Double {
         guard !arr.isEmpty else { return 0 }

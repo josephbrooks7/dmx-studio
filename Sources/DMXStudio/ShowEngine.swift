@@ -336,6 +336,10 @@ struct RenderedFixture: Equatable {
 }
 
 struct ShowRenderer {
+    /// Fastest flashing allowed (flashes per second). 0 = no flashing at all; 3 = gentle (the default,
+    /// within photosensitivity guidance); higher only when the user turns on fast strobes.
+    static var maxFlashHz: Double = 3
+
     let analysis: SongAnalysis
     let sections: [ShowSection]
     let fixtures: [Fixture]
@@ -374,6 +378,7 @@ struct ShowRenderer {
         var sinceSnare: Double
         var sinceHat: Double, hatIndex: Int
         var energy: Double, bass: Double, high: Double
+        var rate: Double = 1
     }
 
     func render(at t: Double) -> [RenderedFixture] {
@@ -408,7 +413,66 @@ struct ShowRenderer {
                 out[f].tilt = prev[f].tilt + (out[f].tilt - prev[f].tilt) * k
             }
         }
+        applyAccents(&out, t: t, beatLen: ctx.beatLen)
         return out
+    }
+
+    /// Strobe gate on the beat grid: true = flash on. nil = flashing isn't allowed.
+    /// Slows to half/quarter speed if the chosen speed is faster than the flashing limit.
+    func gate(_ beatsIn: Double, div: Double, beatLen: Double) -> Bool? {
+        guard Self.maxFlashHz > 0 else { return nil }
+        var d = div
+        while d > 0.25 && d / max(beatLen, 0.05) > Self.maxFlashHz { d /= 2 }
+        let ph = (beatsIn * d).truncatingRemainder(dividingBy: 1)
+        return ph < 0.4
+    }
+
+    /// White accents on top of the color look (they never replace it: they flash and hand back).
+    private func applyAccents(_ out: inout [RenderedFixture], t: Double, beatLen: Double) {
+        guard let acc = analysis.accents, !acc.isEmpty else { return }
+        for a in acc where t >= a.start - 0.001 && t < a.end {
+            switch a.kind {
+            case .blinder:
+                let dt = t - a.start
+                let soft = Self.maxFlashHz <= 0
+                let k = soft ? 0.6 * exp(-dt / 0.3) : exp(-dt / 0.13)
+                for f in out.indices {
+                    for h in out[f].heads.indices {
+                        out[f].heads[h].color = out[f].heads[h].color.mix(.white, k)
+                        out[f].heads[h].intensity = max(out[f].heads[h].intensity, k)
+                    }
+                }
+            case .stutter, .ramp:
+                let beatsIn = (t - a.start) / max(beatLen, 0.05)
+                var div = a.division
+                if a.kind == .ramp {
+                    // speeds up: quarters, eighths, sixteenths, thirty-seconds over the last bars
+                    let frac = (t - a.start) / max(a.end - a.start, 0.01)
+                    div = frac < 0.5 ? 1 : frac < 0.75 ? 2 : frac < 0.875 ? 4 : 8
+                }
+                guard let on = gate(beatsIn, div: div, beatLen: beatLen) else {
+                    if a.kind == .ramp {   // no flashing: the build just gets brighter and whiter
+                        let frac = (t - a.start) / max(a.end - a.start, 0.01)
+                        for f in out.indices { for h in out[f].heads.indices {
+                            out[f].heads[h].color = out[f].heads[h].color.mix(.white, frac * 0.5)
+                            out[f].heads[h].intensity = max(out[f].heads[h].intensity, frac)
+                        } }
+                    }
+                    continue
+                }
+                let mixW = a.kind == .ramp ? 0.5 + 0.5 * (t - a.start) / max(a.end - a.start, 0.01) : 0.85
+                for f in out.indices {
+                    for h in out[f].heads.indices {
+                        if on {
+                            out[f].heads[h].color = out[f].heads[h].color.mix(.white, mixW)
+                            out[f].heads[h].intensity = 1
+                        } else {
+                            out[f].heads[h].intensity *= 0.05
+                        }
+                    }
+                }
+            }
+        }
     }
 
     // MARK: dynamics
@@ -502,6 +566,8 @@ struct ShowRenderer {
     }
 
     private func renderSection(_ s: ShowSection, _ c: Ctx, next: ShowSection? = nil) -> [RenderedFixture] {
+        var c = c
+        c.rate = s.rate
         // Colors rotate per phrase, and keep evolving every 8 bars inside a section
         let startBeat = context(s.start).beatPos
         let evolve = max(0, Int(floor((c.beatPos - startBeat) / 32)))
@@ -516,7 +582,7 @@ struct ShowRenderer {
         let fillOn: Bool? = {
             guard let next, Self.rank(next.level) > Self.rank(s.level), s.end - c.t < c.beatLen, s.end > c.t else { return nil }
             let into = c.t - (s.end - c.beatLen)
-            return Int(into / (c.beatLen / 4)) % 2 == 0
+            return gate(into / max(c.beatLen, 0.05), div: 4, beatLen: c.beatLen) ?? true
         }()
         let totalPixels = max(1, fixtures.reduce(0) { $0 + $1.headCount })
         let rb = c.beatPos * s.rate
@@ -562,7 +628,11 @@ struct ShowRenderer {
                 for h in heads.indices { heads[h].color = col }
             }
             var rf = RenderedFixture(heads: heads)
-            if accentOn || s.effect == .strobe { rf.strobe = 0.5 + 0.5 * c.energy }
+            // The light's own strobe channel only for strobes too fast to flash in software (and only
+            // when fast strobes are turned on); slower strobes are flashed on the beat above.
+            if Self.maxFlashHz >= 10 && ((accentOn && s.level == .drop) || (s.effect == .strobe && s.rate / max(c.beatLen, 0.05) > 10)) {
+                rf.strobe = 0.6 + 0.4 * c.energy
+            }
             if fx.isMover {
                 switch rig {
                 case .together:
@@ -665,7 +735,29 @@ struct ShowRenderer {
             return FixtureState(intensity: 0.12 + 0.88 * k, color: col)
 
         case .strobe:
-            return FixtureState(intensity: 1, color: pal.color(bar))
+            // rate = flashes per beat: 1 = quarters, 2 = eighths, 3 = triplets, 4 = sixteenths, 8 = 32nds
+            let col = pal.color(bar)
+            guard let on = gate(rb / max(c.rate, 0.01), div: c.rate, beatLen: c.beatLen) else {
+                return FixtureState(intensity: 0.55 + 0.45 * exp(-ph * 3), color: col)   // no flashing: a pulse
+            }
+            return FixtureState(intensity: on ? 1 : 0.02, color: on ? col.mix(.white, 0.5) : col)
+
+        case .stutter:
+            // chops that speed up across each bar: eighths, eighths, sixteenths, thirty-seconds
+            let beatInBar = (rb / max(c.rate, 0.01)).truncatingRemainder(dividingBy: 4)
+            let div: Double = beatInBar < 2 ? 2 : beatInBar < 3 ? 4 : 8
+            let col = pal.color(bar)
+            guard let on = gate(rb / max(c.rate, 0.01), div: div, beatLen: c.beatLen) else {
+                return FixtureState(intensity: 0.3 + 0.7 * beatInBar / 4, color: col.mix(.white, beatInBar / 8))
+            }
+            return FixtureState(intensity: on ? 1 : 0.03, color: on ? col.mix(.white, 0.6) : col)
+
+        case .blinderHits:
+            // the palette's color look, and on strong snares / kick+snare hits a white blinder flash
+            let base = pal.color(p % max(1, min(2, pal.colors.count)))
+            let snareK = exp(-c.sinceSnare * 9)
+            let k = Self.maxFlashHz > 0 ? snareK : snareK * 0.4
+            return FixtureState(intensity: 0.55 + 0.45 * max(k, exp(-c.sinceKick * 8) * 0.5), color: base.mix(.white, k))
 
         case .soundLevel:
             // Brightness rides the volume (voice, room, or computer audio); louder = warmer palette color
