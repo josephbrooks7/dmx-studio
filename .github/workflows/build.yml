@@ -72,6 +72,17 @@ jobs:
           python3 -c "import json; a=json.load(open('/tmp/h.json')); assert 127 < a['bpm'] < 129; print('PASS learn helper wrote analysis, bpm', round(a['bpm'],1))"
           set +e; "$BIN" --learn /tmp/does-not-exist.wav /tmp/x.json; code=$?; set -e
           [ $code -ne 0 ] && echo "PASS learn helper reports a missing file instead of crashing (exit $code)"
+      - name: Light signal check (acts like the PKnight)
+        run: |
+          BIN="build/DMX Studio.app/Contents/MacOS/DMXStudio"
+          python3 packaging/artnet_check.py 6 &
+          L=$!
+          sleep 0.5
+          DMX_TEST_ARTNET_IP=127.0.0.1 "$BIN" >/dev/null 2>&1 &
+          P=$!
+          wait $L; R=$?
+          kill $P || true
+          exit $R
       - name: Snare diagnostics
         if: always()
         run: |

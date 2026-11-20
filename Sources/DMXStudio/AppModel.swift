@@ -121,6 +121,11 @@ final class AppModel: ObservableObject {
 
         // Demo/screenshot hooks used by the automated build checks
         let env = ProcessInfo.processInfo.environment
+        if let ip = env["DMX_TEST_ARTNET_IP"] {
+            output.kind = .artNet; output.artNetIP = ip; output.autoScan = false
+            output.rememberedDevice = ArtNetNode(ip: ip, name: "Test receiver")
+            connect(quiet: true)
+        }
         if let path = env["DMX_DEMO_SONG"] { importSongs([URL(fileURLWithPath: path)]) }
         if env["DMX_DEMO_OPEN"] != nil, let first = sessions.first {
             DispatchQueue.main.asyncAfter(deadline: .now() + 0.5) {
