@@ -431,6 +431,9 @@ struct ShowRenderer {
     private func applyAccents(_ out: inout [RenderedFixture], t: Double, beatLen: Double) {
         guard let acc = analysis.accents, !acc.isEmpty else { return }
         for a in acc where t >= a.start - 0.001 && t < a.end {
+            // the lighting mode decides how much accent use a part gets (Atmospheric: little, Club: lots)
+            let amount = sections.last(where: { $0.start <= a.start + 0.01 })?.accents ?? 1
+            if amount < 0.25 || (a.kind != .blinder && amount < 0.6) { continue }
             switch a.kind {
             case .blinder:
                 let dt = t - a.start

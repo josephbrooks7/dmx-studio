@@ -92,6 +92,13 @@ struct SongView: View {
                     }
                     .font(.callout).foregroundColor(.secondary)
                     HStack(spacing: 14) {
+                        let g = a.groove
+                        Label(g.feel == .normal ? "Normal groove" : "\(g.feel.rawValue) feel (\(Int(a.feltBPM.rounded())) BPM felt)",
+                              systemImage: "waveform.path")
+                        Label("Sounds like: \(a.genreSummary)", systemImage: "music.quarternote.3")
+                    }
+                    .font(.callout).foregroundColor(.secondary)
+                    HStack(spacing: 14) {
                         Label("Music starts \(formatTime(a.musicStart))" + (a.musicStart >= 0.3 ? String(format: " (%.1f s lead-in)", a.musicStart) : ""),
                               systemImage: "arrow.right.to.line")
                         Label("ends \(formatTime(a.musicEnd))" + (a.duration - a.musicEnd >= 0.3 ? String(format: " (%.1f s silent tail)", a.duration - a.musicEnd) : ""),
@@ -198,6 +205,29 @@ struct SongView: View {
                     .menuStyle(.borderlessButton)
                     .fixedSize()
                     .disabled(song.shows.isEmpty)
+                }
+                if let active = song.activeShow {
+                    let blend = active.design ?? DesignBlend()
+                    HStack(spacing: 10) {
+                        Text("Lighting style").foregroundColor(.secondary)
+                        Picker("", selection: Binding(get: { blend.base }, set: { m in
+                            var b = blend; b.base = m; if b.peaks == m { b.peaks = nil }
+                            model.setDesign(songID: song.id, showID: active.id, b)
+                        })) {
+                            ForEach(DesignMode.allCases) { m in Text(m == .automatic ? m.rawValue : "\(m.rawValue) · \(m.inspiredBy)").tag(m) }
+                        }
+                        .frame(maxWidth: 320)
+                        Text("Choruses & drops").foregroundColor(.secondary)
+                        Picker("", selection: Binding(get: { blend.peaks ?? blend.base }, set: { m in
+                            var b = blend; b.peaks = (m == b.base || m == .automatic) ? nil : m
+                            model.setDesign(songID: song.id, showID: active.id, b)
+                        })) {
+                            ForEach(DesignMode.allCases) { m in Text(m == .automatic ? "Same as above" : "\(m.rawValue) · \(m.inspiredBy)").tag(m) }
+                        }
+                        .frame(maxWidth: 320)
+                    }
+                    Text(blend.peaks == nil ? blend.base.blurb : "Quieter parts: \(blend.base.blurb)  Peaks: \(blend.mode(for: .drop).blurb)")
+                        .font(.caption).foregroundColor(.secondary)
                 }
                 ScrollView(.horizontal, showsIndicators: false) {
                     HStack {

@@ -60,6 +60,9 @@ struct Palette: Identifiable, Hashable {
         Palette(id: "Warm White", colors: [RGB(hex: 0xFFC890), RGB(hex: 0xFFE0B0), RGB(hex: 0xFFB060)]),
         Palette(id: "Full White", colors: [RGB.white]),
         // Themes
+        Palette(id: "Deep Blue", colors: [RGB(hex: 0x0A1AFF), RGB(hex: 0x4B0FA8), RGB(hex: 0x002A6E), RGB(hex: 0x7A5CFF)]),
+        Palette(id: "Aurora", colors: [RGB(hex: 0x00FF9C), RGB(hex: 0x00B3A4), RGB(hex: 0x6A3CFF), RGB(hex: 0x2EFF4F)]),
+        Palette(id: "Rainbow", colors: [RGB(hex: 0xFF0000), RGB(hex: 0xFF8C00), RGB(hex: 0xFFE600), RGB(hex: 0x00E040), RGB(hex: 0x0070FF), RGB(hex: 0x9B00FF)]),
         Palette(id: "Fairy", colors: [RGB(hex: 0xFFB7E6), RGB(hex: 0xC9A0FF), RGB(hex: 0x9FFFE0), RGB(hex: 0xFFE9A0)]),
         Palette(id: "Fantasy", colors: [RGB(hex: 0x7A00FF), RGB(hex: 0x00D0A0), RGB(hex: 0xFFC040), RGB(hex: 0xFF40C0)]),
         Palette(id: "Galaxy", colors: [RGB(hex: 0x1A00FF), RGB(hex: 0x8A00FF), RGB(hex: 0xFF00C8), RGB(hex: 0x00C8FF)]),
@@ -79,6 +82,7 @@ struct Palette: Identifiable, Hashable {
     ]
 
     static func named(_ id: String) -> Palette { all.first { $0.id == id } ?? all[0] }
+    static func exists(_ id: String) -> Bool { all.contains { $0.id == id } }
 
     func color(_ i: Int) -> RGB {
         guard !colors.isEmpty else { return .white }
@@ -415,6 +419,7 @@ struct ShowSection: Identifiable, Codable, Hashable {
     var movement: MoveEffect = .none
     var accentStrobe: Bool = false  // strobe hit on the first bar
     var colorShift: Int? = nil      // rotates the palette so repeated phrases look different
+    var accents: Double? = nil      // how much white blinder / strobe accent use (nil = 1, 0 = none)
 }
 
 struct SongAnalysis: Codable {
@@ -467,6 +472,7 @@ struct LightShow: Identifiable, Codable, Hashable {
     var sections: [ShowSection]
     var fixtureIDs: [UUID]? = nil   // lights linked to this show; nil = all lights
     var builtFor: String? = nil      // lights + channel modes it was programmed for, e.g. "Beam Bar 1 · 38CH"
+    var design: DesignBlend? = nil   // artist-inspired lighting mode(s) it was made with
 
     func includes(_ fx: Fixture) -> Bool { fixtureIDs?.contains(fx.id) ?? true }
 }
@@ -507,20 +513,8 @@ extension SongAnalysis {
         return duration
     }
 
-    /// A best guess at the genre from tempo and how bass-heavy / bright / dynamic the song is.
-    var suggestedStyle: ShowStyle {
-        func avg(_ a: [Float]) -> Double { a.isEmpty ? 0 : Double(a.reduce(0, +)) / Double(a.count) }
-        let bassAvg = avg(bass), highAvg = avg(high), energyAvg = avg(energy)
-        let kickRate = Double(kicks.count) / max(duration, 1) * 60  // kicks per minute
-        if energyAvg < 0.35 && bpm < 105 { return .chill }
-        if bpm >= 136 && bpm <= 152 && bassAvg > 0.55 && kickRate < bpm * 0.5 { return .dubstep }   // half-time, heavy bass
-        if bpm >= 118 && bpm <= 150 && kickRate > bpm * 0.6 && bassAvg > 0.45 { return .club }
-        if bpm >= 160 && bpm <= 180 && bassAvg > 0.45 { return .club }          // drum & bass / dubstep feel
-        if (bpm >= 70 && bpm < 112) && bassAvg > 0.5 { return .hiphop }
-        if highAvg > 0.55 && energyAvg > 0.5 && kickRate < bpm * 0.6 { return .rock }
-        if energyAvg < 0.4 { return .chill }
-        return .pop
-    }
+    /// The most likely genre (see `genreScores` for the full list with confidences).
+    var suggestedStyle: ShowStyle { genreScores.first?.style ?? .pop }
 }
 
 // MARK: - Output settings

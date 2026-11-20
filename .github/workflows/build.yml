@@ -60,6 +60,8 @@ jobs:
           check(len(secs) >= 2, f'{len(secs)} sections found')
           loud = [s for s in secs if s[3] in ('High', 'Drop') and float(s[1]) >= 25]
           check(len(loud) >= 1 and abs(float(loud[0][1]) - 32.0) < 4.0, 'loud part found starting near 32s')
+          check(re.search(r'groove=Normal', o) is not None, 'groove: normal (not half-time) for a 4/4 backbeat song')
+          print(re.search(r'genres=.*', o).group(0))
           check('framesWithLight=' in o and int(re.search(r'framesWithLight=(\d+)', o).group(1)) > 150, 'show lights up')
           sys.exit(0 if ok else 1)
           PY
@@ -78,6 +80,9 @@ jobs:
           DMX_DEBUG_KICK=1 "$BIN" --analyze /tmp/v/verify.wav | grep "^dbg" > /tmp/v/dbg.txt || true
           head -3 /tmp/v/dbg.txt; grep -E "t=(42\.4|49\.5|49\.6|54\.4|40\.0|44\.8)" /tmp/v/dbg.txt || true
           python3 packaging/check_stems.py /tmp/v/out.txt /tmp/v/verify.wav /tmp/v/stems
+          python3 packaging/make_halftime_song.py /tmp/v/half.wav
+          "$BIN" --analyze /tmp/v/half.wav | grep -E "bpm=|groove=|genres=" | tee /tmp/v/half.txt
+          grep -q "groove=Half-time" /tmp/v/half.txt && echo "PASS half-time groove detected (140 BPM felt as 70)" || { echo "FAIL half-time groove not detected"; exit 1; }
       - name: Helper processes (Wi-Fi scan + Learn run outside the app)
         run: |
           BIN="build/DMX Studio.app/Contents/MacOS/DMXStudio"

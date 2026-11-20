@@ -686,7 +686,7 @@ final class AppModel: ObservableObject {
         guard let i = index(of: songID), let a = songs[i].analysis else { return }
         let onLights = fixtures.filter { $0.isOn }
         for j in songs[i].shows.indices {
-            var secs = ShowGenerator.generate(a, style: songs[i].shows[j].style, variation: songs[i].shows[j].variation)
+            var secs = ShowGenerator.generateShaped(a, style: songs[i].shows[j].style, variation: songs[i].shows[j].variation, design: songs[i].shows[j].design)
             ShowGenerator.fit(&secs, to: onLights.filter { $0.effectiveBehavior == .sequence })
             songs[i].shows[j].sections = secs
             songs[i].shows[j].fixtureIDs = onLights.isEmpty ? nil : onLights.map(\.id)
@@ -1339,8 +1339,21 @@ final class AppModel: ObservableObject {
         return made.count
     }
 
+    /// Changes the lighting mode(s) of a show and re-programs it.
+    func setDesign(songID: UUID, showID: UUID, _ blend: DesignBlend) {
+        guard let i = index(of: songID), let j = songs[i].shows.firstIndex(where: { $0.id == showID }),
+              let a = songs[i].analysis else { return }
+        songs[i].shows[j].design = blend.isAutomatic ? nil : blend
+        let onLights = fixtures.filter { $0.isOn }
+        var secs = ShowGenerator.generateShaped(a, style: songs[i].shows[j].style, variation: songs[i].shows[j].variation,
+                                                design: songs[i].shows[j].design)
+        ShowGenerator.fit(&secs, to: onLights.filter { $0.effectiveBehavior == .sequence })
+        songs[i].shows[j].sections = secs
+        songs[i].shows[j].builtFor = rigDescription
+    }
+
     /// Builds a new light show from what was learned, using the song's genre (or the one passed in).
-    func createShow(for id: UUID, style: ShowStyle? = nil) {
+    func createShow(for id: UUID, style: ShowStyle? = nil, design: DesignBlend? = nil) {
         guard let i = index(of: id), let a = songs[i].analysis else { return }
         let st = style ?? songs[i].effectiveGenre
         let variation = (songs[i].shows.filter { $0.style == st }.map(\.variation).max() ?? 0) + 1
@@ -1348,11 +1361,13 @@ final class AppModel: ObservableObject {
         // Build for the lights that are switched on in this session right now, fitted to what those
         // models can do (moving heads or not, tilt-only, separate beams, color mixing vs a color wheel)
         let onLights = fixtures.filter { $0.isOn }
-        var sections = ShowGenerator.generate(a, style: st, variation: variation)
+        let blend = design ?? songs[i].activeShow?.design
+        var sections = ShowGenerator.generateShaped(a, style: st, variation: variation, design: blend)
         ShowGenerator.fit(&sections, to: onLights.filter { $0.effectiveBehavior == .sequence })
         var show = LightShow(name: name, style: st, variation: variation, sections: sections,
                              fixtureIDs: onLights.isEmpty ? nil : onLights.map(\.id))
         show.builtFor = rigDescription
+        show.design = blend
         songs[i].shows.append(show)
         songs[i].activeShowID = show.id
     }
@@ -1501,7 +1516,7 @@ final class AppModel: ObservableObject {
         for i in songs.indices {
             guard let a = songs[i].analysis else { continue }
             for j in songs[i].shows.indices {
-                var secs = ShowGenerator.generate(a, style: songs[i].shows[j].style, variation: songs[i].shows[j].variation)
+                var secs = ShowGenerator.generateShaped(a, style: songs[i].shows[j].style, variation: songs[i].shows[j].variation, design: songs[i].shows[j].design)
                 ShowGenerator.fit(&secs, to: seq)
                 songs[i].shows[j].sections = secs
                 songs[i].shows[j].fixtureIDs = onLights.isEmpty ? nil : onLights.map(\.id)

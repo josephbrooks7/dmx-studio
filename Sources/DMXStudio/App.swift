@@ -92,7 +92,11 @@ struct DMXStudioApp: App {
             let args = CommandLine.arguments
             let stems = args.firstIndex(of: "--stems").flatMap { $0 + 1 < args.count ? URL(fileURLWithPath: args[$0 + 1]) : nil }
             let a = try AudioAnalyzer.analyze(url: url, stemsDir: stems) { _ in }
-            let show = ShowGenerator.generate(a, style: a.suggestedStyle, variation: 1)
+            let show = ShowGenerator.generateShaped(a, style: a.suggestedStyle, variation: 1, design: nil)
+            let g = a.groove
+            print(String(format: "groove=%@ confidence=%.2f feltBPM=%.1f fourOnFloor=%.2f", g.feel.rawValue, g.confidence, a.feltBPM, a.fourOnTheFloor))
+            print("genres=\(a.genreSummary)")
+            print("accents=" + (a.accents ?? []).map { "\($0.kind.rawValue)@\(String(format: "%.2f", $0.start))" }.joined(separator: ","))
             print("title=\(meta.title) artist=\(meta.artist ?? "-")")
             print(String(format: "duration=%.2f bpm=%.2f beats=%d downbeat=%d kicks=%d snares=%d hats=%d",
                          a.duration, a.bpm, a.beats.count, a.downbeatOffset, a.kicks.count, a.snares.count, a.hats.count))
