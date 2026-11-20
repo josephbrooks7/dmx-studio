@@ -642,6 +642,11 @@ struct Stage3DView: NSViewRepresentable {
 
         /// 30 times a second: copy what every light is doing onto its 3D model.
         private func animate() {
+            // Only draw while the Stage view is actually on screen (not minimized, hidden or covered)
+            guard let w = view?.window, w.isVisible, w.occlusionState.contains(.visible), !w.isMiniaturized else {
+                if view?.isPlaying == true { view?.isPlaying = false }
+                return
+            }
             let now = Date().timeIntervalSinceReferenceDate
             let master = model.blackout ? 0 : model.master
             let haze = model.haze
