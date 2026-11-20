@@ -114,12 +114,12 @@ final class AppModel: ObservableObject {
                         profileName: FixtureProfile.shehdsBeam38.name, layout: FixtureProfile.shehdsBeam38.layout),
             ]
             output.kind = .artNet
-            lineups = [Lineup(name: "My Lineup")]
+            lineups = [Lineup(name: "My Set List")]
             return
         }
         fixtures = lib.fixtures
         songs = lib.songs
-        lineups = lib.lineups.isEmpty ? [Lineup(name: "My Lineup")] : lib.lineups
+        lineups = lib.lineups.isEmpty ? [Lineup(name: "My Set List")] : lib.lineups
         output = lib.output
         idle = lib.idle
         globalLatencyMs = lib.globalLatencyMs
@@ -243,14 +243,74 @@ final class AppModel: ObservableObject {
 
     // MARK: - Songs
 
-    func importSongs(_ urls: [URL]) {
+    /// Adds audio files (WAV, MP3, …) to the library, named from their tags. Folders are searched too.
+    /// Returns the song ids in order (existing songs are reused, not duplicated).
+    @discardableResult
+    func importSongs(_ urls: [URL], into lineupID: UUID? = nil) -> [UUID] {
+        var files: [URL] = []
         for url in urls {
-            let title = url.deletingPathExtension().lastPathComponent
-            let song = Song(title: title, path: url.path)
+            var isDir: ObjCBool = false
+            if FileManager.default.fileExists(atPath: url.path, isDirectory: &isDir), isDir.boolValue {
+                let e = FileManager.default.enumerator(at: url, includingPropertiesForKeys: nil)
+                while let f = e?.nextObject() as? URL { if SongMetadata.isAudio(f) { files.append(f) } }
+            } else if SongMetadata.isAudio(url) {
+                files.append(url)
+            }
+        }
+        files.sort { $0.lastPathComponent.localizedStandardCompare($1.lastPathComponent) == .orderedAscending }
+
+        var ids: [UUID] = []
+        for url in files {
+            if let existing = songs.first(where: { $0.path == url.path }) { ids.append(existing.id); continue }
+            let meta = SongMetadata.read(url)
+            let song = Song(title: meta.title, path: url.path, artist: meta.artist)
             songs.append(song)
-            selectedSongID = song.id
+            ids.append(song.id)
             learn(song.id)
         }
+        if let first = ids.last { selectedSongID = first }
+
+        if let lineupID, let li = lineupIndex(lineupID) {
+            let wasEmpty = lineups[li].entries.isEmpty
+            for id in ids { lineups[li].entries.append(LineupEntry(songID: id, showID: nil)) }
+            // A fresh set list gets named after the artist
+            if wasEmpty && isDefaultName(lineups[li].name), let a = mainArtist(of: ids) {
+                lineups[li].name = uniqueSetListName(a)
+            }
+        }
+        if files.isEmpty && !urls.isEmpty {
+            alert = "Those files aren't audio DMX Studio can play. Use WAV, MP3, AIFF or M4A."
+        }
+        return ids
+    }
+
+    private func isDefaultName(_ n: String) -> Bool {
+        n.hasPrefix("Set List") || n.hasPrefix("Lineup") || n == "My Lineup" || n == "My Set List" || n.isEmpty
+    }
+
+    func mainArtist(of ids: [UUID]) -> String? {
+        let names = ids.compactMap { song($0)?.artist }.filter { !$0.isEmpty }
+        let counts = Dictionary(grouping: names, by: { $0 }).mapValues { $0.count }
+        return counts.max { $0.value < $1.value }?.key
+    }
+
+    func uniqueSetListName(_ base: String) -> String {
+        var name = base, n = 2
+        while lineups.contains(where: { $0.name == name }) { name = "\(base) \(n)"; n += 1 }
+        return name
+    }
+
+    var artists: [String] {
+        Array(Set(songs.compactMap { $0.artist }.filter { !$0.isEmpty })).sorted()
+    }
+
+    /// New set list containing every song by an artist, named after them.
+    @discardableResult
+    func createSetList(forArtist artist: String) -> UUID {
+        let l = Lineup(name: uniqueSetListName(artist),
+                       entries: songs.filter { $0.artist == artist }.map { LineupEntry(songID: $0.id, showID: nil) })
+        lineups.append(l)
+        return l.id
     }
 
     func index(of id: UUID?) -> Int? {
@@ -330,7 +390,7 @@ final class AppModel: ObservableObject {
     }
 
     func newLineup() -> UUID {
-        let l = Lineup(name: "Lineup \(lineups.count + 1)")
+        let l = Lineup(name: "Set List \(lineups.count + 1)")
         lineups.append(l)
         return l.id
     }

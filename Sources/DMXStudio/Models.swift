@@ -362,6 +362,7 @@ struct Song: Identifiable, Codable {
     var id = UUID()
     var title: String
     var path: String
+    var artist: String? = nil
     var genre: ShowStyle?            // what you tagged it as (nil = use the suggestion)
     var syncOffsetMs: Double = 0     // positive = lights fire earlier
     var analysis: SongAnalysis?      // what the app learned
@@ -370,6 +371,8 @@ struct Song: Identifiable, Codable {
 
     var url: URL { URL(fileURLWithPath: path) }
     var isLearned: Bool { analysis != nil }
+    var artistName: String { (artist?.isEmpty == false) ? artist! : "Unknown Artist" }
+    var displayName: String { artist?.isEmpty == false ? "\(artist!) — \(title)" : title }
     var activeShow: LightShow? { shows.first { $0.id == activeShowID } ?? shows.first }
     var activeShowIndex: Int? {
         if let id = activeShowID, let i = shows.firstIndex(where: { $0.id == id }) { return i }

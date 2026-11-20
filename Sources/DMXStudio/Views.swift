@@ -1,5 +1,6 @@
 import SwiftUI
 import AppKit
+import UniformTypeIdentifiers
 
 // MARK: - Bindings by id (safe when items are deleted)
 
@@ -78,6 +79,9 @@ struct SongView: View {
         HStack(alignment: .top) {
             VStack(alignment: .leading, spacing: 6) {
                 Text(song.title).font(.largeTitle.bold()).lineLimit(1)
+                TextField("Artist", text: Binding(get: { song.artist ?? "" },
+                                                  set: { model.songBinding(song.id).wrappedValue.artist = $0 }))
+                    .textFieldStyle(.plain).font(.title3).foregroundColor(.secondary)
                 if let a = song.analysis {
                     HStack(spacing: 14) {
                         Label("\(Int(a.bpm.rounded())) BPM", systemImage: "metronome")
@@ -167,12 +171,12 @@ struct SongView: View {
                             Button(l.name) { model.addToLineup(l.id, songID: song.id, showID: song.activeShow?.id) }
                         }
                         Divider()
-                        Button("New Lineup…") {
+                        Button("New Set List…") {
                             let id = model.newLineup()
                             model.addToLineup(id, songID: song.id, showID: song.activeShow?.id)
                         }
                     } label: {
-                        Label("Add to Lineup", systemImage: "text.badge.plus")
+                        Label("Add to Set List", systemImage: "text.badge.plus")
                     }
                     .menuStyle(.borderlessButton)
                     .fixedSize()
@@ -430,13 +434,15 @@ struct StagePreview: View {
 struct LineupView: View {
     @EnvironmentObject var model: AppModel
     let lineupID: UUID
+    @State private var dropTargeted = false
+    @State private var importingHere = false
 
     var body: some View {
         let binding = model.lineupBinding(lineupID)
         let lineup = binding.wrappedValue
         VStack(alignment: .leading, spacing: 16) {
             HStack(alignment: .firstTextBaseline) {
-                TextField("Lineup name", text: binding.name)
+                TextField("Set list name", text: binding.name)
                     .font(.largeTitle.bold())
                     .textFieldStyle(.plain)
                 Spacer()
@@ -445,7 +451,7 @@ struct LineupView: View {
                     else if model.playingLineupID == lineupID { model.togglePlay() }
                     else { model.playLineup(lineupID, from: 0) }
                 } label: {
-                    Label(model.playingLineupID == lineupID && model.isPlaying ? "Pause" : "Play Lineup",
+                    Label(model.playingLineupID == lineupID && model.isPlaying ? "Pause" : "Play Set",
                           systemImage: model.playingLineupID == lineupID && model.isPlaying ? "pause.fill" : "play.fill")
                         .frame(minWidth: 120)
                 }
@@ -453,6 +459,11 @@ struct LineupView: View {
                 .disabled(lineup.entries.isEmpty)
             }
             HStack {
+                Button { importingHere = true } label: { Label("Add Songs…", systemImage: "plus") }
+                if let a = model.mainArtist(of: lineup.entries.map(\.songID)), lineup.name != a {
+                    Button("Name it \"\(a)\"") { binding.wrappedValue.name = model.uniqueSetListName(a) }
+                }
+                Spacer()
                 Text("Gap between songs").foregroundColor(.secondary)
                 Stepper("\(Int(lineup.gapSeconds)) s", value: binding.gapSeconds, in: 0...30, step: 1)
                 Text("The idle look shows during the gap.").font(.caption).foregroundColor(.secondary)
@@ -460,8 +471,14 @@ struct LineupView: View {
 
             if lineup.entries.isEmpty {
                 Card {
-                    Text("Add songs here from a song's page (Add to Lineup) or right-click a song in the sidebar. Each entry remembers which light show to run.")
-                        .foregroundColor(.secondary)
+                    VStack(spacing: 10) {
+                        Image(systemName: "square.and.arrow.down.on.square").font(.system(size: 40)).foregroundColor(.pink)
+                        Text("Drag WAV or MP3 files (or a folder) here").font(.title3.bold())
+                        Text("Songs are named automatically from their tags, learned, and given a light show. A new set list is named after the artist. You can also add songs from the library with right-click → Add to Set List.")
+                            .multilineTextAlignment(.center).foregroundColor(.secondary)
+                    }
+                    .frame(maxWidth: .infinity)
+                    .padding(30)
                 }
                 Spacer()
             } else {
@@ -477,6 +494,14 @@ struct LineupView: View {
             }
         }
         .padding(24)
+        .onDrop(of: [UTType.fileURL], isTargeted: $dropTargeted) { providers in
+            loadDroppedURLs(providers) { urls in model.importSongs(urls, into: lineupID) }
+            return true
+        }
+        .overlay(dropTargeted ? RoundedRectangle(cornerRadius: 12).stroke(Color.pink, lineWidth: 3).padding(6) : nil)
+        .fileImporter(isPresented: $importingHere, allowedContentTypes: [.audio, .mp3, .wav, .folder], allowsMultipleSelection: true) { result in
+            if case .success(let urls) = result { model.importSongs(urls, into: lineupID) }
+        }
     }
 }
 
@@ -495,6 +520,7 @@ struct LineupRow: View {
                 .foregroundColor(isNow ? .pink : .secondary)
             VStack(alignment: .leading) {
                 Text(song?.title ?? "Missing song").font(.headline)
+                if let a = song?.artist, !a.isEmpty { Text(a).font(.caption).foregroundColor(.secondary) }
                 if let a = song?.analysis {
                     Text("\(Int(a.bpm.rounded())) BPM · \(formatTime(a.duration))").font(.caption).foregroundColor(.secondary)
                 } else {
@@ -516,7 +542,7 @@ struct LineupRow: View {
             }
             Button { model.playLineup(lineupID, from: index) } label: { Image(systemName: "play.circle") }
                 .buttonStyle(.borderless)
-                .help("Start the lineup from here")
+                .help("Start the set from here")
         }
         .padding(.vertical, 4)
     }
@@ -849,7 +875,7 @@ struct TransportBar: View {
 
     var nowPlaying: String {
         if model.inGap { return "Next song starting…" }
-        if let id = model.playingSongID, let s = model.song(id) { return s.title }
+        if let id = model.playingSongID, let s = model.song(id) { return s.displayName }
         return "Nothing playing · idle look on"
     }
 
