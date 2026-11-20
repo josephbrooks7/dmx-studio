@@ -15,8 +15,18 @@ import demucs_dsp as dsp
 
 out_dir = sys.argv[1]
 os.makedirs(out_dir, exist_ok=True)
-bag = get_model("htdemucs_6s")
-m = bag.models[0] if hasattr(bag, "models") else bag
+# --vocals: the fine-tuned vocals specialist from htdemucs_ft (best Demucs model for singing)
+VOX = "--vocals" in sys.argv
+sys.argv = [a for a in sys.argv if a != "--vocals"]
+NAME = "DemucsVox" if VOX else "DemucsHQ"
+bag = get_model("htdemucs_ft" if VOX else "htdemucs_6s")
+if VOX:
+    vi = bag.sources.index("vocals")
+    k = max(range(len(bag.models)), key=lambda j: float(bag.weights[j][vi]) if bag.weights is not None else 0)
+    m = bag.models[k]
+    print("vocals specialist: model", k, "of", len(bag.models), "weights", bag.weights[k] if bag.weights is not None else None)
+else:
+    m = bag.models[0] if hasattr(bag, "models") else bag
 m.eval()
 SR = m.samplerate
 SEG = int(m.segment * SR)
@@ -109,13 +119,14 @@ ml = ct.convert(traced, convert_to="mlprogram", minimum_deployment_target=ct.tar
                 inputs=[ct.TensorType(name="mix", shape=(1, 2, SEG)), ct.TensorType(name="mag", shape=mag.shape)],
                 outputs=[ct.TensorType(name="spec"), ct.TensorType(name="wave")],
                 compute_precision=ct.precision.FLOAT32)
-ml.short_description = "Demucs htdemucs_6s (Meta, MIT license): vocals, drums, bass, guitar, piano, other"
+ml.short_description = ("Demucs htdemucs_ft vocals specialist (Meta, MIT license)" if VOX else
+                        "Demucs htdemucs_6s (Meta, MIT license): vocals, drums, bass, guitar, piano, other")
 ml.user_defined_metadata["sources"] = ",".join(m.sources)
 ml.user_defined_metadata["segment"] = str(SEG)
-ml.save(os.path.join(out_dir, "DemucsHQ.mlpackage"))
+ml.save(os.path.join(out_dir, NAME + ".mlpackage"))
 print("converted in %.0f s" % (time.time() - t0))
 json.dump({"sources": m.sources, "segment": SEG, "samplerate": SR, "nfft": dsp.NFFT, "hop": dsp.HL,
-           "frames": int(mag.shape[-1])}, open(os.path.join(out_dir, "DemucsHQ.json"), "w"))
+           "frames": int(mag.shape[-1])}, open(os.path.join(out_dir, NAME + ".json"), "w"))
 
 # Check the Core ML network on the same input
 pred = ml.predict({"mix": test[None], "mag": mag})
@@ -146,7 +157,7 @@ if len(sys.argv) > 2:
     outp = outp / wsum * sd + mu
     print("core ml pipeline: %.1f s for %.1f s of audio" % (time.time() - t0, L / SR))
     with torch.no_grad():
-        dm = apply_model(bag, torch.from_numpy(((x - mu) / sd)[None].copy()), split=True, overlap=0.25, shifts=0)[0].numpy() * sd + mu
+        dm = apply_model(m if VOX else bag, torch.from_numpy(((x - mu) / sd)[None].copy()), split=True, overlap=0.25, shifts=0)[0].numpy() * sd + mu
     base = sys.argv[2].rsplit(".", 1)[0]
     def sdr(r, e): return 10 * np.log10((r ** 2).sum() / (((r - e) ** 2).sum() + 1e-9) + 1e-12)
     res = {}
@@ -158,4 +169,4 @@ if len(sys.argv) > 2:
             line += f", vs true part: ours {sdr(r, outp[k]):.1f} dB, demucs {sdr(r, dm[k]):.1f} dB"
             res[name] = sdr(r, outp[k])
         print(line)
-    json.dump(res, open(os.path.join(out_dir, "check.json"), "w"))
+    json.dump(res, open(os.path.join(out_dir, ("checkVox" if VOX else "check") + ".json"), "w"))

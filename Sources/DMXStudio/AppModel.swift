@@ -1484,7 +1484,10 @@ final class AppModel: ObservableObject {
                     if case .success(let lead) = r, lead.count < 8 {
                         self.lyricsStatus[id] = "No lead vocal — listening for background vocals…"
                         self.lyricsProgress[id] = 0
-                        WhisperEngine.transcribe(vocals: vocals, phrases: phrases, model: size, background: true, progress: progress) { r2 in
+                        // the vocal part plus "other" (where the AI split can put vocal chops, choirs, stacked backing vocals)
+                        let other = URL(fileURLWithPath: folder).appendingPathComponent("other.m4a")
+                        WhisperEngine.transcribe(vocals: vocals, extra: FileManager.default.fileExists(atPath: other.path) ? [other] : [],
+                                                 phrases: phrases, model: size, background: true, progress: progress) { r2 in
                             if case .success(let bg) = r2, bg.count > lead.count { finish(.success(bg), engine: "Whisper \(size.rawValue) · background vocals") }
                             else { finish(r, engine: "Whisper \(size.rawValue)") }
                         }

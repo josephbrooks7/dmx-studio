@@ -93,7 +93,7 @@ enum WhisperEngine {
     }
 
     /// Transcribes the vocals. Runs in the background; `done` is called on the main thread.
-    static func transcribe(vocals: URL, phrases: [TimeSpan], model: ModelSize, background: Bool = false,
+    static func transcribe(vocals: URL, extra: [URL] = [], phrases: [TimeSpan], model: ModelSize, background: Bool = false,
                            progress: @escaping (Double) -> Void,
                            done: @escaping (Result<[LyricWord], Error>) -> Void) {
         guard let bin = binary else { done(.failure(LyricsError.unavailable)); return }
@@ -109,7 +109,7 @@ enum WhisperEngine {
                 let dur = (try? AVAudioFile(forReading: vocals)).map { Double($0.length) / $0.processingFormat.sampleRate } ?? 0
                 let sung = phrases.reduce(0) { $0 + $1.end - $1.start }
                 let trusted = !background && dur > 0 && sung / dur >= 0.15 ? phrases : []
-                try writeSpeechWav(vocals, to: wav, keep: trusted, boost: background)
+                try writeSpeechWav([vocals] + extra, to: wav, keep: trusted, boost: background)
                 let p = Process()
                 p.executableURL = bin
                 let threads = max(2, min(8, ProcessInfo.processInfo.activeProcessorCount))
@@ -184,12 +184,11 @@ enum WhisperEngine {
 
     /// 16 kHz mono WAV of the vocals (what Whisper takes). Outside the sung phrases it's silent, so the
     /// timing stays the same but Whisper isn't tempted to "hear" words in the music.
-    static func writeSpeechWav(_ src: URL, to dst: URL, keep: [TimeSpan], boost: Bool = false) throws {
+    private static func read16k(_ src: URL, _ outFmt: AVAudioFormat) throws -> [Float] {
         let f = try AVAudioFile(forReading: src)
-        guard let outFmt = AVAudioFormat(commonFormat: .pcmFormatFloat32, sampleRate: 16000, channels: 1, interleaved: false),
-              let conv = AVAudioConverter(from: f.processingFormat, to: outFmt) else { throw LyricsError.unavailable }
+        guard let conv = AVAudioConverter(from: f.processingFormat, to: outFmt),
+              let inBuf = AVAudioPCMBuffer(pcmFormat: f.processingFormat, frameCapacity: 32768) else { throw LyricsError.unavailable }
         conv.downmix = true
-        guard let inBuf = AVAudioPCMBuffer(pcmFormat: f.processingFormat, frameCapacity: 32768) else { throw LyricsError.unavailable }
         var ended = false
         var all: [Float] = []
         while true {
@@ -206,6 +205,20 @@ enum WhisperEngine {
             let n = Int(outBuf.frameLength)
             if n > 0, let ch = outBuf.floatChannelData { all.append(contentsOf: UnsafeBufferPointer(start: ch[0], count: n)) }
             if st == .endOfStream || st == .error || (ended && n == 0) { break }
+        }
+        return all
+    }
+
+    static func writeSpeechWav(_ srcs: [URL], to dst: URL, keep: [TimeSpan], boost: Bool = false) throws {
+        guard let outFmt = AVAudioFormat(commonFormat: .pcmFormatFloat32, sampleRate: 16000, channels: 1, interleaved: false) else {
+            throw LyricsError.unavailable
+        }
+        // the vocal-related parts, mixed together, at 16 kHz mono
+        var all: [Float] = []
+        for (n, src) in srcs.enumerated() {
+            guard let part = try? read16k(src, outFmt) else { if n == 0 { throw LyricsError.unavailable } else { continue } }
+            if all.count < part.count { all.append(contentsOf: [Float](repeating: 0, count: part.count - all.count)) }
+            for i in part.indices { all[i] += part[i] }
         }
         if !keep.isEmpty {
             for i in all.indices {

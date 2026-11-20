@@ -20,14 +20,17 @@ jobs:
           mkdir -p /tmp/v
           python packaging/make_verify_song.py /tmp/v/verify.wav --parts
           python packaging/export_demucs.py /tmp/model /tmp/v/verify.wav
+          python packaging/export_demucs.py /tmp/model /tmp/v/verify.wav --vocals
       - name: Compile and publish
         env: { GH_TOKEN: "${{ github.token }}" }
         run: |
           cd /tmp/model
           xcrun coremlcompiler compile DemucsHQ.mlpackage .
           ditto -c -k --keepParent DemucsHQ.mlmodelc DemucsHQ.mlmodelc.zip
+          xcrun coremlcompiler compile DemucsVox.mlpackage .
+          ditto -c -k --keepParent DemucsVox.mlmodelc DemucsVox.mlmodelc.zip
           ls -la; du -sh DemucsHQ.mlmodelc
           gh release view hq-model-1 -R "$GITHUB_REPOSITORY" >/dev/null 2>&1 || \
             gh release create hq-model-1 -R "$GITHUB_REPOSITORY" --title "High Quality stem splitter model" \
               --notes "Demucs htdemucs_6s (Meta, MIT license) converted to Core ML for DMX Studio. Downloaded by the app the first time you use High Quality splitting."
-          gh release upload hq-model-1 -R "$GITHUB_REPOSITORY" DemucsHQ.mlmodelc.zip DemucsHQ.json check.json --clobber
+          gh release upload hq-model-1 -R "$GITHUB_REPOSITORY" DemucsHQ.mlmodelc.zip DemucsHQ.json check.json DemucsVox.mlmodelc.zip DemucsVox.json checkVox.json --clobber
