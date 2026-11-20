@@ -415,6 +415,11 @@ struct LyricsTab: View {
                 .frame(width: 170)
                 .help("Whisper speech model used for lyrics (downloaded once, runs on this Mac)")
             }
+            Picker("", selection: Binding(get: { WhisperEngine.language }, set: { WhisperEngine.language = $0; model.objectWillChange.send() })) {
+                ForEach(WhisperEngine.Language.allCases) { Text($0.rawValue).tag($0) }
+            }
+            .frame(width: 120)
+            .help("Language of the lyrics")
             Button { pasteText = song.lyrics.map { $0.lines.map(\.text).joined(separator: "\n") } ?? ""; pasting = true } label: {
                 Label("Paste / Edit All", systemImage: "doc.on.clipboard")
             }

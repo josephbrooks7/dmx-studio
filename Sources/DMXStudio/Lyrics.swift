@@ -62,7 +62,8 @@ enum LyricsLearner {
                            done: @escaping (Result<[LyricWord], Error>) -> Void) {
         SFSpeechRecognizer.requestAuthorization { status in
             guard status == .authorized else { DispatchQueue.main.async { done(.failure(LyricsError.notAllowed)) }; return }
-            guard let rec = SFSpeechRecognizer(locale: Locale(identifier: "en-US")) ?? SFSpeechRecognizer(), rec.isAvailable else {
+            let loc = WhisperEngine.language == .es ? "es-US" : "en-US"
+            guard let rec = SFSpeechRecognizer(locale: Locale(identifier: loc)) ?? SFSpeechRecognizer(), rec.isAvailable else {
                 DispatchQueue.main.async { done(.failure(LyricsError.unavailable)) }; return
             }
             // Pieces of at most ~45 s, cut between sung phrases

@@ -26,6 +26,22 @@ enum LyricEmotion: String, CaseIterable, Codable {
         case .dream: return ["floating through a dream among the stars", "fairy tale magic and glittering skies", "lost in a fantasy world of wonder"]
         }
     }
+    var examplesES: [String] {
+        switch self {
+        case .celebration: return ["bailamos toda la noche y lo pasamos increíble", "vamos a celebrar, manos arriba", "esta fiesta es lo máximo"]
+        case .heartbreak: return ["me rompiste el corazón y me dejaste llorando", "te extraño y me duele tanto", "las lágrimas no paran desde que te fuiste"]
+        case .anger: return ["estoy tan enojado que quiero gritar", "odio lo que me hiciste", "vete, ya me cansé de tus mentiras"]
+        case .fear: return ["tengo miedo y no puedo respirar", "algo se esconde en la oscuridad", "mi corazón se acelera, estoy aterrado"]
+        case .love: return ["te amo y quiero abrazarte para siempre", "eres mi todo, mi amor", "bésame, me estoy enamorando"]
+        case .confidence: return ["soy la reina y nadie me para", "soy fuerte y mando aquí", "mírame brillar, nadie me detiene"]
+        case .mystery: return ["secretos escondidos en las sombras", "nadie sabe lo que hay detrás de la puerta", "susurros extraños en la medianoche"]
+        case .nostalgia: return ["recuerdo el verano cuando éramos jóvenes", "esos días se fueron pero aún pienso en ellos", "en los viejos tiempos"]
+        case .loneliness: return ["estoy solo y no hay nadie aquí", "perdido en la oscuridad sin nadie", "cuarto vacío y teléfono en silencio"]
+        case .hope: return ["por fin puedo ver la luz", "mañana será mejor, sigue adelante", "un nuevo día amanece y yo creo"]
+        case .rebellion: return ["no seguiremos tus reglas, nos liberamos", "quemalo todo, no tenemos miedo", "levántate y lucha"]
+        case .dream: return ["flotando en un sueño entre las estrellas", "magia de cuento de hadas y cielos brillantes", "perdido en un mundo de fantasía"]
+        }
+    }
     /// Lighting starting points (from the spec's table — configurable, not rules)
     var color: RGB {
         switch self {
@@ -70,6 +86,34 @@ enum LyricImagery: String, CaseIterable, Codable {
         case .heart: return ["heartbreak", "heartbroken", "broken heart"]
         }
     }
+    var wordsES: [String] {
+        switch self {
+        case .fire: return ["fuego", "arde", "quema", "llama", "llamas", "incendio"]
+        case .water: return ["mar", "océano", "agua", "ola", "olas", "río", "marea"]
+        case .stars: return ["estrella", "estrellas", "galaxia", "universo", "cosmos"]
+        case .night: return ["noche", "oscuridad", "medianoche", "sombra", "sombras"]
+        case .sun: return ["sol", "amanecer", "luz", "dorado", "brillar", "atardecer"]
+        case .storm: return ["lluvia", "tormenta", "trueno", "huracán"]
+        case .ice: return ["hielo", "helado", "frío", "nieve"]
+        case .dream: return ["sueño", "soñar", "fantasía", "hadas", "magia"]
+        case .lightning: return ["relámpago", "rayo", "eléctrico", "chispa", "chispas"]
+        case .heart: return ["corazón roto"]
+        }
+    }
+    var phraseES: String {
+        switch self {
+        case .fire: return "llamas de fuego ardiendo"
+        case .water: return "el agua profunda del océano y las olas"
+        case .stars: return "estrellas brillando en la galaxia"
+        case .night: return "la oscuridad de la noche"
+        case .sun: return "la luz dorada del sol"
+        case .storm: return "lluvia y tormenta con truenos"
+        case .ice: return "hielo y nieve fría"
+        case .dream: return "un sueño mágico de cuento de hadas"
+        case .lightning: return "chispas eléctricas de un relámpago"
+        case .heart: return "un corazón roto"
+        }
+    }
     var phrase: String {   // what the imagery means, for checking a line is really about it
         switch self {
         case .fire: return "burning flames of fire"
@@ -110,14 +154,18 @@ struct LineInsight: Codable, Hashable {
 }
 
 enum LyricsInterpreter {
-    private static var embedding: NLEmbedding? = NLEmbedding.sentenceEmbedding(for: .english)
+    private static var embeddingEN: NLEmbedding? = NLEmbedding.sentenceEmbedding(for: .english)
+    private static var embeddingES: NLEmbedding? = NLEmbedding.sentenceEmbedding(for: .spanish)
+    /// Spanish lyrics are read with the Spanish model and Spanish examples
+    static var spanish = false
+    private static var embedding: NLEmbedding? { spanish ? (embeddingES ?? embeddingEN) : embeddingEN }
 
     /// how close in meaning (0…1); nil if this Mac has no sentence model
     private static var cache: [String: [Double]] = [:]
     private static func vec(_ s: String) -> [Double]? {
-        let k = s.lowercased()
+        let k = (spanish ? "es:" : "en:") + s.lowercased()
         if let v = cache[k] { return v }
-        guard let v = embedding?.vector(for: k) else { return nil }
+        guard let v = embedding?.vector(for: s.lowercased()) else { return nil }
         if cache.count > 4000 { cache.removeAll() }
         cache[k] = v
         return v
@@ -129,19 +177,32 @@ enum LyricsInterpreter {
         return dot / max(1e-9, (na * nb).squareRoot())
     }
 
+    /// Spanish if the lyrics language is set to Spanish, or (auto) the words look Spanish
+    static func detectSpanish(_ ly: Lyrics) -> Bool {
+        switch WhisperEngine.language {
+        case .es: return true
+        case .en: return false
+        case .auto:
+            let r = NLLanguageRecognizer()
+            r.processString(ly.lines.map(\.text).joined(separator: " "))
+            return r.dominantLanguage == .spanish
+        }
+    }
+
     static func normalized(_ s: String) -> String {
         s.lowercased().filter { $0.isLetter || $0 == " " }.split(separator: " ").joined(separator: " ")
     }
 
     /// Emotion (in context of the lines around it), imagery, delivery and repetition for every line.
     static func interpret(_ ly: inout Lyrics, vocalLevel: [Float]? = nil, levelRate: Double = 0) {
+        spanish = detectSpanish(ly)
         let n = ly.lines.count
         guard n > 0 else { return }
         // raw emotion scores per line
         var raw: [[Double]] = Array(repeating: Array(repeating: 0, count: LyricEmotion.allCases.count), count: n)
         for (i, line) in ly.lines.enumerated() {
             for (k, em) in LyricEmotion.allCases.enumerated() {
-                let sims = em.examples.compactMap { similarity(line.text, $0) }
+                let sims = (spanish ? em.examplesES : em.examples).compactMap { similarity(line.text, $0) }
                 raw[i][k] = sims.max() ?? 0
             }
         }
@@ -183,11 +244,13 @@ enum LyricsInterpreter {
             }
             // imagery: the word is there AND the line is really about it (not "you're on fire tonight")
             let words = Set(normalized(line.text).split(separator: " ").map(String.init))
-            let negated = words.contains("not") || words.contains("no") || words.contains("never") || line.text.lowercased().contains("n't")
+            let negated = words.contains("not") || words.contains("no") || words.contains("never") || words.contains("nunca")
+                || line.text.lowercased().contains("n't")
             for im in LyricImagery.allCases {
-                guard let hit = im.words.first(where: { words.contains($0) || ($0.contains(" ") && line.text.lowercased().contains($0)) }) else { continue }
-                let about = similarity(line.text, im.phrase) ?? 0.5
-                if about >= 0.35 && !negated {
+                let list = spanish ? im.wordsES : im.words
+                guard let hit = list.first(where: { words.contains($0) || ($0.contains(" ") && line.text.lowercased().contains($0)) }) else { continue }
+                let about = similarity(line.text, spanish ? im.phraseES : im.phrase) ?? 0.5
+                if about >= 0.22 && !negated {
                     ins.imagery.append(im.rawValue)
                     if ins.imageryWord == nil { ins.imageryWord = hit }
                 }

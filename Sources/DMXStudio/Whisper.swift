@@ -72,6 +72,15 @@ enum WhisperEngine {
     static func isInstalled(_ m: ModelSize) -> Bool {
         ((try? FileManager.default.attributesOfItem(atPath: modelURL(m).path)[.size] as? Int) ?? 0) > 10_000_000
     }
+    enum Language: String, CaseIterable, Identifiable {
+        case en = "English", es = "Spanish", auto = "Auto-detect"
+        var id: String { rawValue }
+        var code: String { switch self { case .en: return "en"; case .es: return "es"; case .auto: return "auto" } }
+    }
+    static var language: Language {
+        get { Language(rawValue: UserDefaults.standard.string(forKey: "lyricsLanguage") ?? "") ?? .en }
+        set { UserDefaults.standard.set(newValue.rawValue, forKey: "lyricsLanguage") }
+    }
     static var chosen: ModelSize {
         get { ModelSize(rawValue: UserDefaults.standard.string(forKey: "whisperModel") ?? "") ?? .base }
         set { UserDefaults.standard.set(newValue.rawValue, forKey: "whisperModel") }
@@ -95,8 +104,8 @@ enum WhisperEngine {
                 let threads = max(2, min(8, ProcessInfo.processInfo.activeProcessorCount))
                 p.arguments = ["-m", modelPath.path, "-f", wav.path, "-ml", "1", "-sow", "-ojf",
                                "-of", tmp.appendingPathComponent("out").path, "-np", "-pp", "-t", "\(threads)",
-                               // English-only models can't auto-detect the language
-                               "-l", modelPath.lastPathComponent.contains(".en") ? "en" : "auto"]
+                               // English-only models can only do English
+                               "-l", modelPath.lastPathComponent.contains(".en") ? "en" : language.code]
                 let err = Pipe()
                 p.standardError = err
                 p.standardOutput = FileHandle.nullDevice
