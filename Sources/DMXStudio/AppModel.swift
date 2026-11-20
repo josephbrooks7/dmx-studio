@@ -342,6 +342,11 @@ final class AppModel: ObservableObject {
         if let last { apply(last) }
         selectedSongID = songs.first?.id
         adoptExistingSongs()
+        // One time: remake learned shows so 38CH bars use their beams separately
+        if !UserDefaults.standard.bool(forKey: "showsRebuilt.perBeam2") {
+            UserDefaults.standard.set(true, forKey: "showsRebuilt.perBeam2")
+            DispatchQueue.main.async { self.rebuildShowsForCurrentLights() }
+        }
         // Songs that were still learning when the app closed: finish learning them now
         let unlearned = songs.filter { $0.analysis == nil && FileManager.default.fileExists(atPath: $0.path) }.map(\.id)
         if !unlearned.isEmpty {

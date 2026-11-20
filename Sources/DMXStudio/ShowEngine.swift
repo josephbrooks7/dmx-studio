@@ -195,15 +195,19 @@ enum ShowGenerator {
             if !movers { secs[i].movement = .none }
             // Many beams: swap about half the all-together looks for per-beam patterns, so the bars
             // actually use their 8 separate heads (alternating keeps contrast between sections).
-            if points >= 6, secs[i].name != "Silence", i % 2 == 0 || secs[i].level == .drop {
+            // Bars with 8 separate beams (38CH): every section uses the beams individually,
+            // with a mix of patterns so the song keeps changing.
+            if points >= 6, secs[i].name != "Silence" {
+                let v = i % 3
                 switch secs[i].effect {
-                case .pulse: secs[i].effect = .wave
+                case .pulse: secs[i].effect = [.wave, .bounce, .split][v]
                 case .steady: secs[i].effect = .gradient
                 case .breathe: secs[i].effect = .wave; secs[i].rate = min(secs[i].rate, 0.5)
-                case .kickFlash: secs[i].effect = .centerOut
-                case .snareHit: secs[i].effect = .split
-                case .colorBeat: secs[i].effect = (i / 2) % 2 == 0 ? .split : .pixelPop
-                case .chase: secs[i].effect = (i / 2) % 2 == 0 ? .chase : .bounce
+                case .kickFlash: secs[i].effect = [.centerOut, .pixelPop, .split][v]
+                case .snareHit: secs[i].effect = [.split, .centerOut, .bounce][v]
+                case .colorBeat: secs[i].effect = [.pixelPop, .split, .chase][v]
+                case .chase: secs[i].effect = [.chase, .bounce, .chase][v]
+                case .soundLevel: secs[i].effect = .wave
                 default: break
                 }
             }
@@ -525,10 +529,10 @@ struct ShowRenderer {
         let barN = Int(floor(c.beatPos * s.rate / 4))
         let pattern: Int
         switch s.level {
-        case .low: return 1
-        case .medium: pattern = [0, 1, 0, 2][((barN / 2) % 4 + 4) % 4]            // all, odd, all, even every 2 bars
-        case .high: pattern = (barN % 6 + 6) % 6                                   // a new pattern every bar
-        case .drop: pattern = (Int(floor(c.beatPos * s.rate)) % 6 + 6) % 6        // a new pattern every beat
+        case .low: pattern = [0, 1, 0, 2][((barN / 4) % 4 + 4) % 4]               // gentle: all / odd / all / even every 4 bars
+        case .medium: pattern = 1 + ((barN % 5) + 5) % 5                            // a new pattern every bar, never all on
+        case .high: pattern = 1 + ((Int(floor(c.beatPos * s.rate / 2)) % 5) + 5) % 5   // every 2 beats
+        case .drop: pattern = 1 + ((Int(floor(c.beatPos * s.rate)) % 5) + 5) % 5       // every beat
         }
         let half = n / 2
         let on: Bool
