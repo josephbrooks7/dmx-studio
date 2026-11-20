@@ -423,8 +423,10 @@ struct TimelineView: View {
                     }
                 }
                 if model.playingSongID == song.id {
+                    LiveReader(model.live) {
                     Rectangle().fill(Color.white).frame(width: 2, height: h)
                         .offset(x: CGFloat(model.currentTime / dur) * w)
+                    }
                 }
             }
             .contentShape(Rectangle())
@@ -442,7 +444,9 @@ struct TimelineView: View {
 struct StagePreview: View {
     @EnvironmentObject var model: AppModel
 
-    var body: some View {
+    var body: some View { LiveReader(model.live) { inner } }
+
+    private var inner: some View {
         Card {
             VStack(alignment: .leading, spacing: 10) {
                 Text("Live Preview").font(.headline)
@@ -1015,7 +1019,7 @@ struct TransportBar: View {
             VStack(alignment: .leading, spacing: 2) {
                 Text(nowPlaying).font(.headline).lineLimit(1)
                 if let id = model.playingSongID, let a = model.song(id)?.analysis {
-                    Text("\(formatTime(model.currentTime)) / \(formatTime(a.duration))").font(.caption).monospacedDigit().foregroundColor(.secondary)
+                    LiveReader(model.live) { Text("\(formatTime(model.currentTime)) / \(formatTime(a.duration))").font(.caption).monospacedDigit().foregroundColor(.secondary) }
                 } else if let lid = model.playingLineupID, let l = model.lineups.first(where: { $0.id == lid }) {
                     Text(l.name).font(.caption).foregroundColor(.secondary)
                 }

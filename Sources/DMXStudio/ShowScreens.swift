@@ -232,6 +232,7 @@ struct NowPlayingCard: View {
                 Text(model.inGap ? "Next song starting…" : (song?.displayName ?? "Nothing playing"))
                     .font(.system(size: 13, weight: .semibold)).lineLimit(1)
                 if let a = song?.analysis {
+                    LiveReader(model.live) {
                     GeometryReader { g in
                         ZStack(alignment: .leading) {
                             Capsule().fill(Color.white.opacity(0.12))
@@ -239,7 +240,10 @@ struct NowPlayingCard: View {
                         }
                     }
                     .frame(height: 4)
+                    }
+                    LiveReader(model.live) {
                     Text("\(formatTime(model.currentTime)) / \(formatTime(a.duration))").font(.caption2).monospacedDigit().foregroundColor(Theme.subtle)
+                    }
                 } else {
                     Text(model.activePresetID != nil ? "Live look running" : "Idle look on").font(.caption2).foregroundColor(Theme.subtle)
                 }
@@ -300,7 +304,7 @@ struct BeatPill: View {
     var body: some View {
         Button { open.toggle() } label: {
             HStack(spacing: 8) {
-                Circle().fill(model.beatOn ? Theme.accent : Color.white.opacity(0.15)).frame(width: 10, height: 10)
+                LiveReader(model.live) { Circle().fill(model.beatOn ? Theme.accent : Color.white.opacity(0.15)).frame(width: 10, height: 10) }
                 VStack(alignment: .trailing, spacing: 0) {
                     Text("\(Int(model.displayBPM.rounded()))").font(.system(size: 20, weight: .bold)).monospacedDigit()
                     Text(model.playingSongID != nil && model.activePresetID == nil ? "BPM · song" :
@@ -338,7 +342,7 @@ struct BeatPopover: View {
                         Text("Tap to sync").font(.caption2).foregroundColor(.secondary)
                     }
                     .frame(width: 130, height: 56)
-                    .background(RoundedRectangle(cornerRadius: 12).fill(model.beatOn ? Theme.accent.opacity(0.5) : Color.white.opacity(0.08)))
+                    .background(LiveReader(model.live) { RoundedRectangle(cornerRadius: 12).fill(model.beatOn ? Theme.accent.opacity(0.5) : Color.white.opacity(0.08)) })
                 }
                 .buttonStyle(.plain)
                 Button { model.nudgeBPM(1) } label: { Image(systemName: "plus") }
@@ -366,7 +370,7 @@ struct AudioSourcePicker: View {
             }
             HStack {
                 Image(systemName: "waveform")
-                ProgressView(value: model.micLevel).frame(width: 180)
+                LiveReader(model.live) { ProgressView(value: model.micLevel).frame(width: 180) }
             }
             Toggle("Auto Lighting (picks looks from the music's energy)", isOn: $model.autoLighting)
             Button(showHelp ? "Hide computer-audio setup" : "How to light up music playing on this Mac") { showHelp.toggle() }
@@ -428,9 +432,9 @@ struct ShowScreen: View {
                                     if i > 0, model.canLink(model.fixtures[i - 1], fx) {
                                         LinkToggle(prev: model.fixtures[i - 1], next: fx)
                                     }
-                                    FixtureRing(fixture: fx, rendered: i < model.preview.count ? model.preview[i] : nil,
+                                    LiveReader(model.live) { FixtureRing(fixture: fx, rendered: i < model.preview.count ? model.preview[i] : nil,
                                                 manual: model.manual[fx.id] != nil,
-                                                onPower: { model.setLightOn(fx.id, !fx.isOn) })
+                                                onPower: { model.setLightOn(fx.id, !fx.isOn) }) }
                                         .onTapGesture { controlling = fx.id }
                                         .popover(isPresented: Binding(get: { controlling == fx.id }, set: { if !$0 { controlling = nil } }),
                                                  arrowEdge: .bottom) {
@@ -893,7 +897,7 @@ struct LiveScreen: View {
                         Spacer()
                         Button { model.tapTempo() } label: {
                             HStack {
-                                Circle().fill(model.beatOn ? Theme.accent : Color.white.opacity(0.2)).frame(width: 10, height: 10)
+                                LiveReader(model.live) { Circle().fill(model.beatOn ? Theme.accent : Color.white.opacity(0.2)).frame(width: 10, height: 10) }
                                 Text("TAP  \(Int(model.displayBPM.rounded())) BPM").monospacedDigit()
                             }
                         }
@@ -1121,6 +1125,8 @@ struct SetupScreen: View {
             Group {
                 switch page ?? .wireless {
                 case .wireless: WirelessView()
+                        .onAppear { model.wirelessPageOpen = true }
+                        .onDisappear { model.wirelessPageOpen = false }
                 case .lights: LightsView()
                 case .idle: IdleView()
                 case .problems: ProblemsView()

@@ -43,11 +43,14 @@ final class AppModel: ObservableObject {
     private var presetStart: Double = 0
     @Published var beatSource: BeatSource = .manual { didSet { beatSourceChanged(oldValue) } }
     @Published var displayBPM: Double = 120
-    @Published var beatOn = false                 // pulses on each beat (for the BPM light)
-    @Published var micLevel: Double = 0
+    var beatOn: Bool { get { live.beatOn } set { live.beatOn = newValue } }   // pulses on each beat (for the BPM light)
+    var micLevel: Double { get { live.micLevel } set { live.micLevel = newValue } }
     @Published var audioInputs: [AudioInputDevice] = []
     @Published var autoLighting = false { didSet { if autoLighting && beatSource != .mic { beatSource = .mic } } }  // pick looks from what it hears
     private var autoEnergy = 0.0
+    private var windowShowing = true
+    private var scanTicks = 0
+    var wirelessPageOpen = false
     private var lastAutoChange: Double = 0      // when Auto Lighting last switched looks
     private var clock = BeatClock()
     private var tapTimes: [Double] = []
@@ -82,9 +85,12 @@ final class AppModel: ObservableObject {
     @Published var playingEntryIndex: Int?
     @Published var inGap = false          // waiting between lineup songs
     @Published var isPlaying = false
-    @Published var currentTime: Double = 0
+    var currentTime: Double { get { live.currentTime } set { if live.currentTime != newValue { live.currentTime = newValue } } }
     @Published var learning: [UUID: Double] = [:]
-    @Published var preview: [RenderedFixture] = []
+    var preview: [RenderedFixture] { get { live.preview } set { live.preview = newValue } }
+    /// Fast-changing state (light preview, playhead, beat light, mic level) lives in its own object, so only
+    /// the small views that show it redraw 20-40 times a second, not every screen of the app.
+    let live = LiveState()
     @Published var master: Double = 1
     @Published var blackout = false
     @Published var flashHeld = false     // hold: everything full white
@@ -149,8 +155,12 @@ final class AppModel: ObservableObject {
             DispatchQueue.main.asyncAfter(deadline: .now() + 2) { self.startLiveStress() }
         }
         // Bluetooth-style background scanning for wireless DMX devices
+        // Each scan runs a helper process, so: every 8 s on the Wireless page or while not connected,
+        // otherwise once a minute (just to notice new devices).
         scanTimer = Timer(timeInterval: 8, repeats: true) { [weak self] _ in
             guard let self, self.output.autoScan else { return }
+            self.scanTicks += 1
+            guard self.wirelessPageOpen || !self.connected || self.scanTicks % 8 == 0 else { return }
             self.findNodes()
         }
         RunLoop.main.add(scanTimer!, forMode: .common)
@@ -1203,7 +1213,9 @@ final class AppModel: ObservableObject {
         engine.setFrames(frames)
 
         tickCount += 1
-        if tickCount % 2 == 0 && rendered != preview { preview = rendered }
+        // Nothing on screen to update while the window is hidden or minimized: keep sending DMX, skip the UI
+        if tickCount % 20 == 0 { windowShowing = NSApp.windows.contains { $0.isVisible && !$0.isMiniaturized && $0.occlusionState.contains(.visible) } }
+        if windowShowing && tickCount % 2 == 0 && rendered != preview { preview = rendered }
     }
 
     private func testFrame(_ t: Double) -> [RenderedFixture] {
@@ -1230,4 +1242,20 @@ final class AppModel: ObservableObject {
             return rf
         }
     }
+}
+
+/// Fast-changing values the UI shows. Separate from AppModel so updating them doesn't redraw every screen.
+final class LiveState: ObservableObject {
+    @Published var preview: [RenderedFixture] = []
+    @Published var currentTime: Double = 0
+    @Published var beatOn = false
+    @Published var micLevel: Double = 0
+}
+
+/// Redraws only its contents when the live values change.
+struct LiveReader<Content: View>: View {
+    @ObservedObject var live: LiveState
+    let content: () -> Content
+    init(_ live: LiveState, @ViewBuilder content: @escaping () -> Content) { self.live = live; self.content = content }
+    var body: some View { content() }
 }
