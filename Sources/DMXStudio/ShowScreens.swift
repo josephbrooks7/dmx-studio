@@ -577,11 +577,12 @@ struct RingShape: Shape {
     var segments: Int
     var gap: Double = 0.03
     var index: Int? = nil   // draw only this segment
+    var inset: CGFloat = 0  // pull the ring in so a thick stroke stays inside the frame
 
     func path(in rect: CGRect) -> Path {
         var p = Path()
         let c = CGPoint(x: rect.midX, y: rect.midY)
-        let r = max(1, min(rect.width, rect.height) / 2 - 10)    // keep the 18 pt stroke inside the frame
+        let r = max(1, min(rect.width, rect.height) / 2 - inset)
         let startA = 125.0, sweep = 290.0                         // open at the bottom
         let n = max(segments, 1)
         let each = sweep / Double(n)
@@ -639,7 +640,7 @@ struct FixtureRing: View {
                 ForEach(0..<max(1, heads.count), id: \.self) { h in
                     let st = h < heads.count ? heads[h] : .off
                     let lit = max(0.12, st.intensity)
-                    RingShape(segments: max(1, heads.count), gap: heads.count > 1 ? 0.12 : 0, index: h)
+                    RingShape(segments: max(1, heads.count), gap: heads.count > 1 ? 0.12 : 0, index: h, inset: 10)
                         .stroke(st.color.color.opacity(lit), style: StrokeStyle(lineWidth: 18, lineCap: heads.count > 1 ? .butt : .round))
                         .shadow(color: st.color.color.opacity(st.intensity * 0.8), radius: 10 * st.intensity)
                 }
