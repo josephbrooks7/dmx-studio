@@ -1,3 +1,4 @@
+import AppKit
 import SwiftUI
 
 /// The separated parts of a song (Vocals, Drums, Bass, Other) as lanes: colored waveform, Solo, Mute and
@@ -10,6 +11,7 @@ struct StemsTab: View {
     @AppStorage("hqStems") private var highQuality = false
     @State private var downloading: Double?
     @State private var installedTick = 0
+    @State private var offlineNote = false
 
     var body: some View {
         VStack(alignment: .leading, spacing: 10) {
@@ -43,7 +45,8 @@ struct StemsTab: View {
                                 downloading = 0
                                 HQSplitter.download(progress: { downloading = $0 }) { err in
                                     downloading = nil
-                                    if let err { ErrorCenter.shared.report(area: "Stems", message: "Couldn't download the High Quality model: \(err.localizedDescription)", details: "\(err)") }
+                                    if let err, AppModel.isOffline(err) { offlineNote = true }
+                                    else if let err { ErrorCenter.shared.report(area: "Stems", message: "Couldn't download the High Quality model: \(err.localizedDescription)", details: "\(err)") }
                                     else { installedTick += 1 }
                                 }
                             }
@@ -55,6 +58,10 @@ struct StemsTab: View {
                         .help("Split this song again with the chosen quality, relearn it and rebuild its shows")
                 }
                 .id(installedTick)
+                if offlineNote {
+                    Text("No internet right now (on the lights' Wi-Fi?). Connect to the internet once to download the model, then press Download again.")
+                        .font(.caption).foregroundColor(.orange)
+                }
                 if highQuality {
                     Text("High Quality uses Meta's Demucs AI model on this Mac: much cleaner parts (and guitar + piano), a few minutes per song.")
                         .font(.caption).foregroundColor(.secondary)
@@ -366,6 +373,8 @@ struct LyricsTab: View {
                     if let p = model.lyricsProgress[song.id] {
                         ProgressView(value: p).frame(width: 90)
                         Text("Listening to the vocals…").font(.caption).foregroundColor(.secondary)
+                    } else if let st = model.lyricsStatus[song.id] {
+                        Text(st).font(.caption).foregroundColor(.orange).lineLimit(1)
                     } else if let ly = song.lyrics {
                         Text(ly.lines.isEmpty ? "no words understood" : ly.summary).font(.caption).foregroundColor(.secondary).lineLimit(1)
                     } else {
@@ -425,6 +434,15 @@ struct LyricsTab: View {
             }
             Spacer()
             if let s = model.lyricsStatus[song.id] { Text(s).font(.caption).foregroundColor(.secondary) }
+            if WhisperEngine.isAvailable && !WhisperEngine.isInstalled(WhisperEngine.chosen) {
+                Button("Use a Model File…") {
+                    let p = NSOpenPanel()
+                    p.allowsMultipleSelection = false
+                    p.message = "Pick a Whisper model file (\(WhisperEngine.chosen.file)) downloaded from huggingface.co/ggerganov/whisper.cpp"
+                    if p.runModal() == .OK, let u = p.url { model.installWhisperModel(from: u) }
+                }
+                .help("No internet here? Download \(WhisperEngine.chosen.file) on another network and pick it")
+            }
         }
         if let ly = song.lyrics {
             // lighting from lyrics: mode + weights

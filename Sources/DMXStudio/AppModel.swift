@@ -3,6 +3,7 @@ import AVFoundation
 import SwiftUI
 import AppKit
 import MediaPlayer
+import Network
 
 struct Library: Codable {
     var fixtures: [Fixture] = []
@@ -1375,6 +1376,56 @@ final class AppModel: ObservableObject {
     }
 
     @Published var lyricsStatus: [UUID: String] = [:]
+    /// Songs waiting for an internet connection to download the lyrics model (once)
+    private var waitingForNetwork: [UUID] = []
+    private var netMonitor: NWPathMonitor?
+    @Published var online = true
+
+    private func watchNetwork() {
+        guard netMonitor == nil else { return }
+        let m = NWPathMonitor()
+        m.pathUpdateHandler = { [weak self] path in
+            DispatchQueue.main.async {
+                guard let self else { return }
+                self.online = path.status == .satisfied
+                if self.online && !self.waitingForNetwork.isEmpty {
+                    let ids = self.waitingForNetwork
+                    self.waitingForNetwork = []
+                    for id in ids { self.lyricsStatus[id] = nil; self.learnLyrics(id) }
+                }
+            }
+        }
+        m.start(queue: DispatchQueue(label: "net"))
+        netMonitor = m
+    }
+
+    static func isOffline(_ e: Error) -> Bool {
+        let ns = e as NSError
+        return ns.domain == NSURLErrorDomain && [-1009, -1020, -1004, -1003, -1001, -1005, -1018].contains(ns.code)
+    }
+
+    private func waitForNetwork(_ id: UUID) {
+        watchNetwork()
+        lyricsBusy = false
+        lyricsProgress[id] = nil
+        if !waitingForNetwork.contains(id) { waitingForNetwork.append(id) }
+        lyricsStatus[id] = "Waiting for internet to get the lyrics model (once) — or use a model file"
+        nextLyrics()
+    }
+
+    /// Use a Whisper model file you already have (e.g. downloaded on another network).
+    func installWhisperModel(from url: URL) {
+        let dest = WhisperEngine.modelURL(WhisperEngine.chosen)
+        do {
+            try? FileManager.default.removeItem(at: dest)
+            try FileManager.default.copyItem(at: url, to: dest)
+            let ids = waitingForNetwork
+            waitingForNetwork = []
+            for id in ids { lyricsStatus[id] = nil; learnLyrics(id) }
+        } catch {
+            ErrorCenter.shared.report(area: "Lyrics", message: "Couldn't use that model file: \(error.localizedDescription)", details: "\(error)")
+        }
+    }
 
     private func nextLyrics() {
         guard !lyricsBusy, !lyricsQueue.isEmpty else { return }
@@ -1417,9 +1468,13 @@ final class AppModel: ObservableObject {
             }
             if WhisperEngine.isInstalled(size) { run() }
             else {
+                watchNetwork()
+                if !online { waitForNetwork(id); return }
                 lyricsStatus[id] = "Getting the lyrics model (once)…"
                 FileDownloader.fetch(size.url, to: WhisperEngine.modelURL(size), progress: progress) { err in
-                    if let err { finish(.failure(err), engine: "") } else { self.lyricsProgress[id] = 0; run() }
+                    if let err, AppModel.isOffline(err) { self.waitForNetwork(id) }
+                    else if let err { finish(.failure(err), engine: "") }
+                    else { self.lyricsProgress[id] = 0; run() }
                 }
             }
         } else {
