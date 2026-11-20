@@ -686,6 +686,12 @@ struct LineupRow: View {
         .padding(.vertical, 4)
         .contentShape(Rectangle())
         .simultaneousGesture(TapGesture(count: 2).onEnded { model.playLineup(lineupID, from: index) })   // double-click: play from here
+        .simultaneousGesture(TapGesture(count: 1).onEnded {
+            // single click: select it (Fade to in the top bar fades into it)
+            model.selectedSongID = entry.songID
+            model.selectedEntry = (lineupID, index)
+        })
+        .background(RoundedRectangle(cornerRadius: 6).fill(model.selectedEntry?.lineup == lineupID && model.selectedEntry?.index == index ? Color.pink.opacity(0.12) : .clear))
         .contextMenu {
             Button("Move Up") { model.moveEntry(lineupID: lineupID, from: index, by: -1) }
             Button("Move Down") { model.moveEntry(lineupID: lineupID, from: index, by: 1) }

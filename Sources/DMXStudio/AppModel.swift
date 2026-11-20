@@ -1726,6 +1726,8 @@ final class AppModel: ObservableObject {
         didSet { UserDefaults.standard.set(crossfadeSeconds, forKey: "crossfadeSeconds") }
     }
     var isCrossfading: Bool { crossFrom != nil }
+    /// A song picked in a set list (single click): Fade to plays it and the set carries on from there.
+    @Published var selectedEntry: (lineup: UUID, index: Int)?
 
     /// Fades from the song that's playing into `id`: music and lights blend over `crossfadeSeconds`.
     func fadeTo(_ id: UUID) {
@@ -1740,9 +1742,20 @@ final class AppModel: ObservableObject {
         fadingPlayer = p
         player = nil
         crossFrom = (cur, playingShowID, Date().timeIntervalSinceReferenceDate, len)
-        playingLineupID = nil; playingEntryIndex = nil
+        let entry = selectedEntry.flatMap { se -> (UUID, Int)? in
+            guard let li = lineupIndex(se.lineup), se.index < lineups[li].entries.count,
+                  lineups[li].entries[se.index].songID == id else { return nil }
+            return (se.lineup, se.index)
+        }
         selectedSongID = id
-        play(id, from: songStart(id), fadeIn: min(len, 4), keepBlock: true)
+        if let (lid, idx) = entry, let li = lineupIndex(lid) {
+            // continue the set from the song faded into
+            play(id, show: lineups[li].entries[idx].showID, from: songStart(id), keepLineup: true, fadeIn: min(len, 4), keepBlock: true)
+            playingLineupID = lid; playingEntryIndex = idx
+        } else {
+            playingLineupID = nil; playingEntryIndex = nil
+            play(id, from: songStart(id), fadeIn: min(len, 4), keepBlock: true)
+        }
         let w = DispatchWorkItem { [weak self] in self?.finishCrossfade() }
         crossWork = w
         DispatchQueue.main.asyncAfter(deadline: .now() + len, execute: w)
