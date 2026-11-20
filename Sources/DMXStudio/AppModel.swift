@@ -14,6 +14,47 @@ struct Library: Codable {
     var sessions: [Session]? = nil
     var lastSessionID: UUID? = nil
     var chainedBarsFix: Bool? = nil   // one-time: Beam Bar 2 moved to A.001 to match the real rig
+
+    init(fixtures: [Fixture] = [], songs: [Song] = [], lineups: [Lineup] = [], output: OutputSettings = OutputSettings(),
+         idle: IdleLook = IdleLook(), globalLatencyMs: Double = 0, rigMode: RigMode? = nil, sessions: [Session]? = nil,
+         lastSessionID: UUID? = nil, chainedBarsFix: Bool? = nil) {
+        self.fixtures = fixtures; self.songs = songs; self.lineups = lineups; self.output = output; self.idle = idle
+        self.globalLatencyMs = globalLatencyMs; self.rigMode = rigMode; self.sessions = sessions
+        self.lastSessionID = lastSessionID; self.chainedBarsFix = chainedBarsFix
+    }
+
+    /// Forgiving: one damaged song or session is skipped instead of losing the whole library.
+    init(from decoder: Decoder) throws {
+        let c = try decoder.container(keyedBy: CodingKeys.self)
+        fixtures = (try? c.decodeIfPresent([Lossy<Fixture>].self, forKey: .fixtures))?.compactMap(\.value) ?? []
+        songs = (try? c.decodeIfPresent([Lossy<Song>].self, forKey: .songs))?.compactMap(\.value) ?? []
+        lineups = (try? c.decodeIfPresent([Lossy<Lineup>].self, forKey: .lineups))?.compactMap(\.value) ?? []
+        output = (try? c.decodeIfPresent(OutputSettings.self, forKey: .output)) ?? OutputSettings()
+        idle = (try? c.decodeIfPresent(IdleLook.self, forKey: .idle)) ?? IdleLook()
+        globalLatencyMs = (try? c.decodeIfPresent(Double.self, forKey: .globalLatencyMs)) ?? 0
+        rigMode = try? c.decodeIfPresent(RigMode.self, forKey: .rigMode)
+        sessions = (try? c.decodeIfPresent([Lossy<Session>].self, forKey: .sessions))?.compactMap(\.value)
+        lastSessionID = try? c.decodeIfPresent(UUID.self, forKey: .lastSessionID)
+        chainedBarsFix = try? c.decodeIfPresent(Bool.self, forKey: .chainedBarsFix)
+    }
+
+    /// JSON that never refuses a value (an odd number in one song can't block saving everything).
+    static var encoder: JSONEncoder {
+        let e = JSONEncoder()
+        e.nonConformingFloatEncodingStrategy = .convertToString(positiveInfinity: "inf", negativeInfinity: "-inf", nan: "nan")
+        return e
+    }
+    static var decoder: JSONDecoder {
+        let d = JSONDecoder()
+        d.nonConformingFloatDecodingStrategy = .convertFromString(positiveInfinity: "inf", negativeInfinity: "-inf", nan: "nan")
+        return d
+    }
+}
+
+/// Decodes a value, or nil if that one item is damaged.
+struct Lossy<T: Decodable>: Decodable {
+    let value: T?
+    init(from decoder: Decoder) throws { value = try? T(from: decoder) }
 }
 
 enum TestMode: String, CaseIterable, Identifiable {
@@ -207,8 +248,29 @@ final class AppModel: ObservableObject {
 
     private func load() {
         defer { loading = false }
+        let fileThere = FileManager.default.fileExists(atPath: Self.storeURL.path)
         guard let data = try? Data(contentsOf: Self.storeURL),
-              let lib = try? JSONDecoder().decode(Library.self, from: data) else {
+              let lib = try? Library.decoder.decode(Library.self, from: data) else {
+            if fileThere {
+                // Never start over silently: keep the unreadable file, and rebuild from Documents/DMX Studio
+                let backup = Self.storeURL.deletingLastPathComponent()
+                    .appendingPathComponent("library-unreadable-\(Int(Date().timeIntervalSince1970)).json")
+                try? FileManager.default.copyItem(at: Self.storeURL, to: backup)
+                let rec = LibraryFiles.recover()
+                if !rec.sessions.isEmpty || !rec.songs.isEmpty {
+                    songs = rec.songs
+                    sessions = rec.sessions.isEmpty
+                        ? [Session(name: "My First Session", fixtures: Session.standardRig(), lineups: [Lineup(name: "My Set List")])]
+                        : rec.sessions
+                    output.kind = .artNet
+                    if let s = sessions.first { apply(s) }
+                    selectedSongID = songs.first?.id
+                    DispatchQueue.main.async {
+                        ErrorCenter.shared.report(area: "Library", message: "Your library file couldn't be read, so DMX Studio restored \(rec.songs.count) songs and \(rec.sessions.count) sessions from Documents › DMX Studio. The old file was kept as \(backup.lastPathComponent).")
+                    }
+                    return
+                }
+            }
             // First launch: one session with your rig (two SHEHDS bars + followspot)
             output.kind = .artNet
             let first = Session(name: "My First Session", fixtures: Session.standardRig(), lineups: [Lineup(name: "My Set List")])
@@ -242,6 +304,11 @@ final class AppModel: ObservableObject {
         if let last { apply(last) }
         selectedSongID = songs.first?.id
         adoptExistingSongs()
+        // Songs that were still learning when the app closed: finish learning them now
+        let unlearned = songs.filter { $0.analysis == nil && FileManager.default.fileExists(atPath: $0.path) }.map(\.id)
+        if !unlearned.isEmpty {
+            DispatchQueue.main.asyncAfter(deadline: .now() + 1.5) { for id in unlearned { self.learn(id) } }
+        }
     }
 
     private func scheduleSave() {
@@ -710,8 +777,13 @@ final class AppModel: ObservableObject {
         var seenPresets = Set<UUID>(), mine: [LookPreset] = []
         for p in allSessions.flatMap({ $0.presets ?? [] }) where !p.isBuiltIn && seenPresets.insert(p.id).inserted { mine.append(p) }
         let write = {
-            if let data = try? JSONEncoder().encode(lib) {
-                try? data.write(to: Self.storeURL, options: .atomic)
+            do {
+                let data = try Library.encoder.encode(lib)
+                try data.write(to: Self.storeURL, options: .atomic)
+            } catch {
+                DispatchQueue.main.async {
+                    ErrorCenter.shared.report(area: "Saving", message: "Your latest changes couldn't be saved: \(error.localizedDescription)", details: "\(error)")
+                }
             }
             LibraryFiles.mirror(sessions: allSessions, songs: allSongs, userPresets: mine, lineups: sets)
         }
@@ -974,7 +1046,7 @@ final class AppModel: ObservableObject {
             let out = FileManager.default.temporaryDirectory.appendingPathComponent("learn-\(id.uuidString).json")
             // Learn in a separate helper process: a bad file can't crash the app
             let r = Helper.run(["--learn", url.path, out.path], timeout: 600)
-            let analysis = (try? Data(contentsOf: out)).flatMap { try? JSONDecoder().decode(SongAnalysis.self, from: $0) }
+            let analysis = (try? Data(contentsOf: out)).flatMap { try? Library.decoder.decode(SongAnalysis.self, from: $0) }
             try? FileManager.default.removeItem(at: out)
             DispatchQueue.main.async {
                 self.learning[id] = nil

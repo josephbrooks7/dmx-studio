@@ -65,6 +65,7 @@ enum LibraryFiles {
         let enc = JSONEncoder()
         enc.outputFormatting = [.prettyPrinted, .sortedKeys]
         enc.dateEncodingStrategy = .iso8601
+        enc.nonConformingFloatEncodingStrategy = .convertToString(positiveInfinity: "inf", negativeInfinity: "-inf", nan: "nan")
 
         func writeAll<T: Encodable>(_ items: [T], folderName: String, name: (T) -> String, ext: String = "json") {
             let dir = folder(folderName)
@@ -165,6 +166,7 @@ enum LibraryFiles {
         let enc = JSONEncoder()
         enc.outputFormatting = [.prettyPrinted, .sortedKeys]
         enc.dateEncodingStrategy = .iso8601
+        enc.nonConformingFloatEncodingStrategy = .convertToString(positiveInfinity: "inf", negativeInfinity: "-inf", nan: "nan")
         try enc.encode(SessionPackage(session: session, songs: packed)).write(to: pkg.appendingPathComponent("session.json"))
 
         if fm.fileExists(atPath: dest.path) { try fm.removeItem(at: dest) }
@@ -188,6 +190,7 @@ enum LibraryFiles {
         }
         let dec = JSONDecoder()
         dec.dateDecodingStrategy = .iso8601
+        dec.nonConformingFloatDecodingStrategy = .convertFromString(positiveInfinity: "inf", negativeInfinity: "-inf", nan: "nan")
         let data = try Data(contentsOf: base.appendingPathComponent("session.json"))
         let pkg = try dec.decode(SessionPackage.self, from: data)
         var songs = pkg.songs
@@ -196,6 +199,22 @@ enum LibraryFiles {
             if fm.fileExists(atPath: src.path) { songs[i].path = adopt(audio: src).path }
         }
         return (pkg.session, songs)
+    }
+
+    /// Rebuilds songs and sessions from the files in Documents/DMX Studio (if the main library file is damaged).
+    static func recover() -> (songs: [Song], sessions: [Session]) {
+        let dec = JSONDecoder()
+        dec.dateDecodingStrategy = .iso8601
+        dec.nonConformingFloatDecodingStrategy = .convertFromString(positiveInfinity: "inf", negativeInfinity: "-inf", nan: "nan")
+        func load<T: Decodable>(_ folderName: String, suffix: String) -> [T] {
+            let dir = root.appendingPathComponent(folderName, isDirectory: true)
+            let files = (try? FileManager.default.contentsOfDirectory(at: dir, includingPropertiesForKeys: nil)) ?? []
+            return files.filter { $0.lastPathComponent.hasSuffix(suffix) }
+                .compactMap { try? Data(contentsOf: $0) }.compactMap { try? dec.decode(T.self, from: $0) }
+        }
+        let songs: [Song] = load("Songs", suffix: ".song.json")
+        let sessions: [Session] = load("Sessions", suffix: ".json")
+        return (songs, sessions)
     }
 
     private static func runDitto(_ args: [String]) throws {

@@ -122,6 +122,8 @@ jobs:
             exit 1
           fi
           echo "---- app output ----"; cat /tmp/app.log | head -50
+      - name: Library always saves and loads (odd values, a damaged song)
+        run: '"build/DMX Studio.app/Contents/MacOS/DMXStudio" --test-library'
       - name: Session export and import round trip
         run: |
           python3 packaging/make_test_song.py /tmp/pkg.wav >/dev/null

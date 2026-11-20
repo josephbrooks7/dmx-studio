@@ -34,6 +34,27 @@ struct DMXStudioApp: App {
                 print("ERROR: \(error)"); exit(2)
             }
         }
+        // Test hook: a library with an odd number in one song and one damaged song still saves and loads.
+        if args.contains("--test-library") {
+            var good = Song(title: "Keeps", path: "/tmp/a.wav", artist: "Test")
+            var a = SongAnalysis(duration: 10, bpm: .nan, beats: [0, 0.5], downbeatOffset: 0, frameRate: 1,
+                                 energy: [Float.nan, 0.5], bass: [0.1], mid: [0.1], high: [0.1],
+                                 kicks: [], snares: [], hats: [], detectedSections: [], silences: nil)
+            a.beatBase = 0
+            good.analysis = a
+            let lib = Library(songs: [good, Song(title: "Second", path: "/tmp/b.wav")], sessions: [])
+            do {
+                var data = try Library.encoder.encode(lib)
+                // damage the second song
+                var text = String(decoding: data, as: UTF8.self)
+                text = text.replacingOccurrences(of: "\"title\":\"Second\"", with: "\"title\":42")
+                data = Data(text.utf8)
+                let back = try Library.decoder.decode(Library.self, from: data)
+                let ok = back.songs.count == 1 && back.songs[0].title == "Keeps" && back.songs[0].analysis?.bpm.isNaN == true
+                print("library songs=\(back.songs.map(\.title)) ok=\(ok)")
+                exit(ok ? 0 : 1)
+            } catch { print("ERROR: \(error)"); exit(2) }
+        }
         if args.contains("--scan-artnet") {
             CrashGuard.install(writeToStderr: true)
             CrashGuard.breadcrumb("Scanning for wireless DMX devices")
@@ -48,7 +69,7 @@ struct DMXStudioApp: App {
                 let a = try AudioAnalyzer.analyze(url: URL(fileURLWithPath: args[i + 1])) { p in
                     print("progress=\(p)"); fflush(stdout)
                 }
-                try JSONEncoder().encode(a).write(to: URL(fileURLWithPath: args[i + 2]))
+                try Library.encoder.encode(a).write(to: URL(fileURLWithPath: args[i + 2]))
                 exit(0)
             } catch {
                 FileHandle.standardError.write(Data(error.localizedDescription.utf8))
