@@ -84,7 +84,7 @@ enum AudioAnalyzer {
         let snares = pickPeaks(snareScore, fps: fps, minGap: 0.15, sensitivity: 0.14).filter { t in
             let i = min(max(Int(((t * sampleRate - Double(fftSize) / 2) / Double(hop)).rounded()), 0), body.count - 1)
             let lo = max(0, i - 1), hi = min(body.count - 1, i + 1)
-            return (body[lo...hi].max() ?? 0) >= 0.5 && (crack[lo...hi].max() ?? 0) >= 0.7
+            return (body[lo...hi].max() ?? 0) >= 0.45 && (crack[lo...hi].max() ?? 0) >= 0.88
         }
         let hats = pickPeaks(highOnset, fps: fps, minGap: 0.07, sensitivity: 0.10)
 
