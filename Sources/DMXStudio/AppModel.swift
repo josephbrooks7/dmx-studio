@@ -343,8 +343,8 @@ final class AppModel: ObservableObject {
         selectedSongID = songs.first?.id
         adoptExistingSongs()
         // One time: remake learned shows so 38CH bars use their beams separately
-        if !UserDefaults.standard.bool(forKey: "showsRebuilt.perBeam5") {
-            UserDefaults.standard.set(true, forKey: "showsRebuilt.perBeam5")
+        if !UserDefaults.standard.bool(forKey: "showsRebuilt.perBeam6") {
+            UserDefaults.standard.set(true, forKey: "showsRebuilt.perBeam6")
             DispatchQueue.main.async { self.rebuildShowsForCurrentLights() }
         }
         // Songs that were still learning when the app closed: finish learning them now

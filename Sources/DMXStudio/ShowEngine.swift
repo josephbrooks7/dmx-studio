@@ -268,7 +268,13 @@ enum ShowGenerator {
         var out: [ShowSection] = []
         for d in a.detectedSections {
             if d.name == "Silence" {
-                // No music here: lights rest on the idle look
+                // A short break inside the song: keep the sequence going (repeat the section before)
+                let inside = d.start > a.musicStart + 1 && d.end < a.musicEnd - 1
+                if inside && d.end - d.start < 2.5, !out.isEmpty {
+                    out[out.count - 1].end = d.end
+                    continue
+                }
+                // Real silence: lights rest on the idle look
                 out.append(ShowSection(name: "Silence", start: d.start, end: d.end, level: .low,
                                        effect: .blackout, palette: pals[0], intensity: 1))
                 continue
@@ -350,6 +356,9 @@ struct ShowRenderer {
     func silenceAmount(_ t: Double) -> Double {
         if t < 0 || t > analysis.duration { return 1 }
         for s in analysis.silences ?? [] where t >= s.start && t <= s.end {
+            // short breaks inside the song don't stop the lights
+            let inside = s.start > analysis.musicStart + 1 && s.end < analysis.musicEnd - 1
+            if inside && s.end - s.start < 2.5 { continue }
             let fadeOut = s.start <= 0.01 ? 1 : (t - s.start) / 0.5
             let fadeIn = s.end >= analysis.duration - 0.01 ? 1 : (s.end - t) / 0.15
             return max(0, min(1, fadeOut, fadeIn))
@@ -369,16 +378,27 @@ struct ShowRenderer {
 
     func render(at t: Double) -> [RenderedFixture] {
         let ctx = context(t)
-        guard let si = sections.lastIndex(where: { $0.start <= t }) ?? (sections.isEmpty ? nil : 0) else {
+        guard let si0 = sections.lastIndex(where: { $0.start <= t }) ?? (sections.isEmpty ? nil : 0) else {
             return fixtures.map { RenderedFixture(heads: Array(repeating: .off, count: $0.headCount)) }
         }
+        var si = si0
+        // a short break merged away still points at the section before it
+        while si > 0 && sections[si].name == "Silence" && sections[si].end - sections[si].start < 2.5
+                && sections[si].start > analysis.musicStart + 1 { si -= 1 }
         let sec = sections[si]
         let next = si + 1 < sections.count ? sections[si + 1] : nil
         var out = renderSection(sec, ctx, next: next)
-        // Smooth crossfade into a new section
-        let xf = 0.35
+        // Brightness follows the song: verses lower, builds rise, choruses/drops brightest
+        let dyn = dynamics(at: t, si: si, ctx: ctx)
+        if dyn < 0.999 {
+            for f in out.indices { for h in out[f].heads.indices { out[f].heads[h].intensity *= dyn } }
+        }
+        // Crossfade into a new section: a beat-long fade, except a drop hits right away
+        let xf = sec.level == .drop ? 0.05 : max(0.35, ctx.beatLen)
         if si > 0, t - sec.start < xf {
-            let prev = renderSection(sections[si - 1], ctx, next: sec)
+            var prev = renderSection(sections[si - 1], ctx, next: sec)
+            let pd = Self.levelBrightness(sections[si - 1])
+            for f in prev.indices { for h in prev[f].heads.indices { prev[f].heads[h].intensity *= pd } }
             let k = max(0, (t - sec.start) / xf)
             for f in out.indices {
                 for h in out[f].heads.indices {
@@ -389,6 +409,45 @@ struct ShowRenderer {
             }
         }
         return out
+    }
+
+    // MARK: dynamics
+
+    /// How bright each kind of section runs (so the chorus/drop is the peak).
+    static func levelBrightness(_ s: ShowSection) -> Double {
+        if s.name.hasPrefix("Chorus") { return 1 }
+        switch s.level {
+        case .low: return 0.45
+        case .medium: return 0.7
+        case .high: return 0.9
+        case .drop: return 1
+        }
+    }
+
+    /// The brightness envelope at time t: the section's level, rising through a build toward the next,
+    /// easing in from the section before, and breathing a little with the music's loudness.
+    private func dynamics(at t: Double, si: Int, ctx: Ctx) -> Double {
+        let sec = sections[si]
+        if sec.name == "Silence" { return 1 }
+        var level = Self.levelBrightness(sec)
+        let len = max(0.1, sec.end - sec.start)
+        let into = max(0, min(1, (t - sec.start) / len))
+        // rising into a bigger section: ramp up over the second half (the build)
+        if si + 1 < sections.count {
+            let nxt = Self.levelBrightness(sections[si + 1])
+            if nxt > level {
+                let ramp = sec.name.hasPrefix("Build") ? into : max(0, (into - 0.5) * 2)
+                level += (nxt - level) * ramp * ramp
+            }
+        }
+        // coming down from a bigger section: ease down over 2 beats instead of dropping instantly
+        if si > 0 {
+            let prevL = Self.levelBrightness(sections[si - 1])
+            let fade = min(1, (t - sec.start) / max(0.2, ctx.beatLen * 2))
+            if prevL > level { level = prevL + (level - prevL) * fade }
+        }
+        // follow the loudness a little so quieter bars dip and louder bars lift
+        return min(1, level * (0.8 + 0.25 * ctx.energy))
     }
 
     // MARK: context
