@@ -1622,6 +1622,7 @@ final class AppModel: ObservableObject {
         CrashGuard.breadcrumb("Playing \(songs[i].title)")
         cancelGap()
         if !keepBlock {
+            activePresetID = nil      // playing a song: its own light show takes over from any live look
             activeBlock = nil
             blockEndWork?.cancel(); blockEndWork = nil
             fadingPlayer?.stop(); fadingPlayer = nil
@@ -1653,7 +1654,6 @@ final class AppModel: ObservableObject {
     func togglePlay() {
         if isPlaying { pause(); return }
         if pauseTime != nil, playingSongID == nil, activeBlock == nil, activePresetID != nil { resumeFromPause(); return }
-        if pauseTime == nil, playingSongID == nil, activeBlock == nil, cuedEntry == nil, activePresetID != nil { pause(); return }
         if goCued() { return }
         if var b = activeBlock, let remaining = b.pausedRemaining, let lid = playingLineupID, let idx = playingEntryIndex {
             // resume a paused block where it left off

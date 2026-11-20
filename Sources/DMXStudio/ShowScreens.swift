@@ -270,8 +270,18 @@ struct NowPlayingCard: View {
                     LiveReader(model.live) {
                     Text("\(formatTime(model.currentTime)) / \(formatTime(a.duration))").font(.caption2).monospacedDigit().foregroundColor(Theme.subtle)
                     }
+                } else if model.activePresetID != nil {
+                    HStack(spacing: 6) {
+                        Text("Live look running").font(.caption2).foregroundColor(Theme.subtle)
+                        Button { model.activePresetID = nil } label: {
+                            Text("Stop").font(.system(size: 10, weight: .bold)).padding(.horizontal, 6).padding(.vertical, 1)
+                                .background(Capsule().fill(Color.white.opacity(0.15)))
+                        }
+                        .buttonStyle(.plain)
+                        .help("Stop the live look (lights go back to the idle look)")
+                    }
                 } else {
-                    Text(model.activePresetID != nil ? "Live look running" : "Idle look on").font(.caption2).foregroundColor(Theme.subtle)
+                    Text("Idle look on").font(.caption2).foregroundColor(Theme.subtle)
                 }
             }
             .frame(width: 260, alignment: .leading)
@@ -1041,6 +1051,10 @@ struct SongsScreen: View {
                     ForEach(model.songs.filter { search.isEmpty || $0.displayName.localizedCaseInsensitiveContains(search) }) { s in
                         SongRow(song: s).tag(Optional(s.id))
                             .onDrag { NSItemProvider(object: s.id.uuidString as NSString) }
+                            .simultaneousGesture(TapGesture(count: 2).onEnded {
+                                model.selectedSongID = s.id
+                                model.play(s.id, from: model.songStart(s.id))   // double-click: music + lights
+                            })
                             .contextMenu {
                                 Button("Learn Again") { model.learn(s.id) }
                                 Menu("Add to Set List") {

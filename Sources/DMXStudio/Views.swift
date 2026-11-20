@@ -684,6 +684,8 @@ struct LineupRow: View {
                 .help("Start the set from here")
         }
         .padding(.vertical, 4)
+        .contentShape(Rectangle())
+        .simultaneousGesture(TapGesture(count: 2).onEnded { model.playLineup(lineupID, from: index) })   // double-click: play from here
         .contextMenu {
             Button("Move Up") { model.moveEntry(lineupID: lineupID, from: index, by: -1) }
             Button("Move Down") { model.moveEntry(lineupID: lineupID, from: index, by: 1) }
