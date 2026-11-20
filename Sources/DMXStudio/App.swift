@@ -55,6 +55,28 @@ struct DMXStudioApp: App {
                 exit(ok ? 0 : 1)
             } catch { print("ERROR: \(error)"); exit(2) }
         }
+        // Test hook: transcribe a vocal file with the bundled Whisper + a given model, then read its meaning
+        if let i = args.firstIndex(of: "--test-lyrics"), i + 2 < args.count {
+            WhisperEngine.overrideModel = URL(fileURLWithPath: args[i + 2])
+            var result: Result<[LyricWord], Error>?
+            WhisperEngine.transcribe(vocals: URL(fileURLWithPath: args[i + 1]), phrases: [], model: .base, progress: { _ in }) { result = $0 }
+            while result == nil { RunLoop.main.run(until: Date().addingTimeInterval(0.1)) }
+            switch result! {
+            case .success(let words):
+                print("words=" + words.map { String(format: "%@@%.2f(%.2f)", $0.text, $0.start, $0.confidence) }.joined(separator: " "))
+                var ly = LyricsLearner.build(words: words, phrases: [], source: "test")
+                LyricsInterpreter.interpret(&ly)
+                for (l, ins) in zip(ly.lines, ly.insights ?? []) {
+                    print("line=\(l.text) | emotions=\(ins.emotions.joined(separator: "+")) score=\(String(format: "%.2f", ins.emotionScore)) imagery=\(ins.imagery.joined(separator: "+")) delivery=\(ins.delivery)")
+                }
+                let a = SongAnalysis(duration: 10, bpm: 120, beats: [], downbeatOffset: 0, frameRate: 43, energy: [], bass: [], mid: [], high: [],
+                                     kicks: [], snares: [], hats: [], detectedSections: [])
+                for c in LyricLighting.cues(ly, analysis: a) { print("cue=\(c.kind):\(c.label) @\(String(format: "%.2f", c.start)) — \(c.reason)") }
+                exit(words.isEmpty ? 1 : 0)
+            case .failure(let e):
+                print("ERROR: \(e)"); exit(2)
+            }
+        }
         if args.contains("--scan-artnet") {
             CrashGuard.install(writeToStderr: true)
             CrashGuard.breadcrumb("Scanning for wireless DMX devices")

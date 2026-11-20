@@ -67,7 +67,8 @@ enum WhisperEngine {
         return u
     }
     static var isAvailable: Bool { binary != nil }
-    static func modelURL(_ m: ModelSize) -> URL { HQSplitter.modelsDir.appendingPathComponent(m.file) }
+    static var overrideModel: URL?   // tests
+    static func modelURL(_ m: ModelSize) -> URL { overrideModel ?? HQSplitter.modelsDir.appendingPathComponent(m.file) }
     static func isInstalled(_ m: ModelSize) -> Bool {
         ((try? FileManager.default.attributesOfItem(atPath: modelURL(m).path)[.size] as? Int) ?? 0) > 10_000_000
     }
