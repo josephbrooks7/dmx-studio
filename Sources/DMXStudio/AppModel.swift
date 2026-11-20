@@ -1278,8 +1278,42 @@ final class AppModel: ObservableObject {
                 self.songs[i].analysis = analysis
                 if self.songs[i].shows.isEmpty { self.createShow(for: id) }
                 else if rebuildShows { self.rebuildShows(for: id) }
+                self.makeLooks(from: id)
             }
         }
+    }
+
+    /// New looks made from a learned song: what its show does in each kind of part (drop, chorus,
+    /// verse, intro…), with that song's colors, beam effect, movement and speed. They go in their own
+    /// group named after the song, next to the built-in presets; making them again replaces them.
+    @discardableResult
+    func makeLooks(from songID: UUID) -> Int {
+        guard let i = index(of: songID), let show = songs[i].activeShow else { return 0 }
+        let title = songs[i].title
+        let group = "From Songs: \(title)"
+        var made: [LookPreset] = []
+        var seen = Set<String>()
+        let secs = show.sections.filter { $0.effect != .blackout && $0.end - $0.start >= 4 }
+        let icons: [EnergyLevel: String] = [.drop: "bolt.fill", .high: "flame.fill", .medium: "waveform", .low: "moon.stars.fill"]
+        let has38 = activeModes.contains("38CH")
+        outer: for lvl in [EnergyLevel.drop, .high, .medium, .low] {
+            for sec in secs where sec.level == lvl {
+                let key = "\(sec.effect)|\(sec.palette)|\(sec.movement)|\(sec.rate)"
+                guard !seen.contains(key) else { continue }
+                seen.insert(key)
+                let part = sec.name.components(separatedBy: CharacterSet.decimalDigits).joined()
+                    .trimmingCharacters(in: .whitespaces)
+                var name = "\(title) · \(part.isEmpty ? lvl.rawValue : part)"
+                if made.contains(where: { $0.name == name }) { name += " \(made.count + 1)" }
+                made.append(LookPreset(name: name, effect: sec.effect, palette: sec.palette, movement: sec.movement,
+                                       rate: sec.rate, intensity: max(0.6, sec.intensity), icon: icons[lvl] ?? "music.note",
+                                       group: group, mode: sec.effect.perBeam && has38 ? "38CH" : nil))
+                if made.count >= 6 { break outer }
+            }
+        }
+        presets.removeAll { $0.group == group }
+        presets += made
+        return made.count
     }
 
     /// Builds a new light show from what was learned, using the song's genre (or the one passed in).

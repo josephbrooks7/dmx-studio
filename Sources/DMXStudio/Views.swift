@@ -123,6 +123,15 @@ struct SongView: View {
                               systemImage: model.playingSongID == song.id && model.isPlaying ? "pause.fill" : "play.fill")
                     }
                     .controlSize(.large)
+                    if song.activeShow != nil {
+                        Button {
+                            model.makeLooks(from: song.id)
+                        } label: {
+                            Label("Make Looks", systemImage: "wand.and.stars")
+                        }
+                        .controlSize(.large)
+                        .help("Make new presets from this song's light show (they appear in their own group on the Live and Show screens)")
+                    }
                 }
                 HStack {
                     Text("Genre:").foregroundColor(.secondary)

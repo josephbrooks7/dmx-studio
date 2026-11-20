@@ -164,9 +164,10 @@ enum StemSplitter {
             return (min(a, b - 1), b)
         }
         let bands = [band(settings.kickLow, settings.kickHigh), band(settings.snareBodyLow, settings.snareBodyHigh),
-                     band(settings.snareSnapLow, settings.snareSnapHigh), band(settings.hatLow, settings.hatHigh)]
-        var flux = [[Float]](repeating: [Float](repeating: 0, count: frames), count: 4)
-        var level = [[Float]](repeating: [Float](repeating: 0, count: frames), count: 4)
+                     band(settings.snareSnapLow, settings.snareSnapHigh), band(settings.hatLow, settings.hatHigh),
+                     band(settings.kickLow, 4000)]   // wide: how much of a hit is low end
+        var flux = [[Float]](repeating: [Float](repeating: 0, count: frames), count: bands.count)
+        var level = [[Float]](repeating: [Float](repeating: 0, count: frames), count: bands.count)
         var prevLog = [Float](repeating: 0, count: bins), curLog = [Float](repeating: 0, count: bins)
         for t in 0..<frames {
             let base = t * bins
@@ -183,11 +184,13 @@ enum StemSplitter {
         }
         let kf = norm(flux[0]), bf = norm(flux[1]), sf = norm(flux[2]), hf = norm(flux[3])
         let kl = scaled(level[0], pct: 99), sl = scaled(level[2], pct: 99)
+        // A kick puts most of its punch in the low end; a snare or a chord starting is spread across
+        let lowShare = zip(level[0], level[4]).map { $0 / ($1 + 1e-9) }
         func mx(_ a: [Float], _ i: Int) -> Float { a[max(0, i - 1)...min(a.count - 1, i + 1)].max() ?? 0 }
         let off = settings.offsetMs / 1000
         var hits: [DrumHit] = []
         for p in peaks(kf, fps: fps, gap: settings.kickSpacing, sens: Float(0.12 / max(settings.kickSensitivity, 0.1)),
-                       extra: { mx(kl, $0) >= 0.2 }) {
+                       extra: { mx(kl, $0) >= 0.1 && mx(lowShare, $0) >= 0.3 }) {
             hits.append(DrumHit(type: .kick, time: frameTime(p.i) + off, confidence: p.conf))
         }
         let sScore = norm(zip(bf, sf).map { ($0 * $1).squareRoot() })
