@@ -437,12 +437,24 @@ struct ShowRenderer {
         for a in acc where t >= a.start - 0.001 && t < a.end {
             // the lighting mode decides how much accent use a part gets (Atmospheric: little, Club: lots)
             let amount = sections.last(where: { $0.start <= a.start + 0.01 })?.accents ?? 1
-            if amount < 0.25 || (a.kind != .blinder && amount < 0.6) { continue }
+            if amount < 0.25 || (a.kind != .blinder && a.kind != .swell && amount < 0.6) { continue }
             switch a.kind {
             case .blinder:
                 let dt = t - a.start
                 let soft = Self.maxFlashHz <= 0
                 let k = soft ? 0.6 * exp(-dt / 0.3) : exp(-dt / 0.13)
+                for f in out.indices {
+                    for h in out[f].heads.indices {
+                        out[f].heads[h].color = out[f].heads[h].color.mix(.white, k)
+                        out[f].heads[h].intensity = max(out[f].heads[h].intensity, k)
+                    }
+                }
+            case .swell:
+                // a single swell of white on the hit: fast rise, then fades back into the color
+                let dt = t - a.start
+                let rise = min(1, dt / 0.05)
+                var k = rise * exp(-max(0, dt - 0.05) / 0.32) * 0.8
+                if Self.maxFlashHz <= 0 { k *= 0.6 }
                 for f in out.indices {
                     for h in out[f].heads.indices {
                         out[f].heads[h].color = out[f].heads[h].color.mix(.white, k)

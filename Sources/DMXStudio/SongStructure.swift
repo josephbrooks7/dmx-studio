@@ -211,6 +211,10 @@ enum SongStructure {
         if let f = musical.first, segs[f].role == "Verse", segs[f].b - segs[f].a <= 4, musical.count > 3 { segs[f].role = "Intro" }
         if let l = musical.last, segs[l].role != "Chorus", segs[l].b - segs[l].a <= 8, e01(segs[l]) < 0.6, musical.count > 3 { segs[l].role = "Outro" }
 
+        if ProcessInfo.processInfo.environment["DMX_DEBUG_STRUCTURE"] != nil {
+            for s in segs { print(String(format: "seg %.1f-%.1f bars %d-%d e=%.2f vocal=%.2f group=%d role=%@", s.start, s.end, s.a, s.b, silent(s) ? 0 : e01(s), s.vocal, s.group, s.role)) }
+            print("chorusGroup=\(chorusGroup) verseGroup=\(verseGroup) sungSong=\(sungSong)")
+        }
         // ---- 4. merge neighbours that are the same part, number them, and set the energy level
         var merged: [Seg] = []
         for s in segs {

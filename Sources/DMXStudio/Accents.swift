@@ -2,7 +2,7 @@ import Foundation
 
 /// A big moment in the song that gets a white accent on top of the section's color look:
 /// a blinder hit, a strobe stutter on a drum fill, or a strobe that speeds up into a drop.
-enum AccentKind: String, Codable { case blinder, stutter, ramp }
+enum AccentKind: String, Codable { case blinder, stutter, ramp, swell }
 
 struct Accent: Codable, Hashable {
     var kind: AccentKind
@@ -68,6 +68,24 @@ enum AccentFinder {
             if now - before > 0.22 || (together && now > 0.85 && now - before > 0.1) {
                 out.append(Accent(kind: .blinder, start: t, end: t + 0.6, reason: together ? "kick + snare impact" : "big hit"))
                 lastBlinder = t
+            }
+        }
+        // 4. White swells on the drum hits that matter: the first kick of each 4-bar phrase and the
+        //    strongest snare/clap every couple of bars, in choruses, drops and big instrumental parts
+        let hits = (a.hits ?? []).filter { $0.type != .hat }.sorted { $0.time < $1.time }
+        var lastSwell = -99.0
+        for h in hits {
+            guard let s = section(at: h.time), rank(s.level) >= 2 || s.name.hasPrefix("Chorus") else { continue }
+            let gap = s.level == .drop ? bar : bar * 2
+            guard h.time - lastSwell >= gap, !out.contains(where: { abs($0.start - h.time) < beat * 2 }) else { continue }
+            let phraseStart: Bool = {
+                guard let p = a.beatPhase(h.time), p == 0, let bi = a.beats.firstIndex(where: { abs($0 - h.time) < beat * 0.25 }) else { return false }
+                return ((bi - a.downbeatOffset) / 4) % 4 == 0
+            }()
+            let bigSnare = h.type == .snare && h.confidence >= 0.65
+            if (h.type == .kick && phraseStart && h.confidence >= 0.4) || bigSnare {
+                out.append(Accent(kind: .swell, start: h.time, end: h.time + 0.9, reason: phraseStart ? "phrase starts" : "big snare"))
+                lastSwell = h.time
             }
         }
         return out.sorted { $0.start < $1.start }

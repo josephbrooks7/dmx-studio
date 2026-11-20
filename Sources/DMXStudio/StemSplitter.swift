@@ -215,29 +215,29 @@ enum StemSplitter {
         }
         hits.sort { $0.time < $1.time }
 
-        // ---- vocal phrases: tonal (not noisy) held sound in the voice range
+        // ---- vocal phrases: a voice keeps changing pitch and syllable, sits in the middle of the stereo
+        // image, and is held (not a drum hit). Pads and chords are held too but barely change, so they
+        // don't count: measure how much the centred, held sound in the voice range keeps moving.
         let (va, vb) = band(250, 3500)
-        var flat = [Float](repeating: 0, count: frames), vl = [Float](repeating: 0, count: frames)
+        var vflux = [Float](repeating: 0, count: frames)
+        var prevV = [Float](repeating: 0, count: bins), curV = [Float](repeating: 0, count: bins)
         for t in 0..<frames {
             let base = t * bins
-            var logSum: Float = 0, sum: Float = 0
+            var f: Float = 0
             for k in va..<vb {
-                let v = M[base + k] * (1 - mP[base + k]) + 1e-9
-                logSum += logf(v); sum += v
+                curV[k] = log1pf(M[base + k] * (1 - mP[base + k]) * centre[base + k] * 10)
+                if t > 0 { f += max(0, curV[k] - prevV[k]) }
             }
-            let cnt = Float(vb - va)
-            flat[t] = expf(logSum / cnt) / (sum / cnt)
-            vl[t] = sum
+            vflux[t] = f
+            swap(&prevV, &curV)
         }
-        let vln = scaled(vl, pct: 95)
-        let pres = AudioAnalyzer.smooth((0..<frames).map { min(max(vln[$0], 0), 1) * min(max(1 - flat[$0] * 3, 0), 1) },
-                                        radius: Int(0.12 * fps))
+        let pres = scaled(AudioAnalyzer.smooth(vflux, radius: Int(0.12 * fps)), pct: 95)
         var phrases: [TimeSpan] = []
         var i = 0
         while i < frames {
-            if pres[i] > 0.18 {
+            if pres[i] > 0.3 {
                 var j = i
-                while j < frames && pres[j] > 0.18 { j += 1 }
+                while j < frames && pres[j] > 0.3 { j += 1 }
                 let s = TimeSpan(start: frameTime(i), end: frameTime(j))
                 if let last = phrases.last, s.start - last.end < 0.35 { phrases[phrases.count - 1].end = s.end }
                 else { phrases.append(s) }
@@ -264,7 +264,7 @@ enum StemSplitter {
             let f = Double(k) * binHz
             return Float(min(max((f - 150) / 100, 0), 1) * min(max((6000 - f) / 1500, 0), 1))
         }
-        let vp: [Float] = pres.map { min(max(($0 - 0.1) / 0.15, 0), 1) }
+        let vp: [Float] = pres.map { min(max(($0 - 0.2) / 0.2, 0), 1) }
         let ns = stems.count
         // overlap-add accumulators [stem][channel]
         var acc = [[[Float]]](repeating: [[Float]](repeating: [Float](repeating: 0, count: n), count: 2), count: ns)

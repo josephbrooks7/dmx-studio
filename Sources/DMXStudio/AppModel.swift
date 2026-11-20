@@ -377,6 +377,15 @@ final class AppModel: ObservableObject {
         if !unlearned.isEmpty {
             DispatchQueue.main.asyncAfter(deadline: .now() + 1.5) { for id in unlearned { self.learn(id) } }
         }
+        // White accents are worked out from what was learned: refresh them with the latest rules
+        for i in songs.indices where songs[i].analysis != nil { songs[i].analysis!.accents = AccentFinder.find(songs[i].analysis!) }
+        // One time: relearn every song with the new song-structure detection (verse / pre-chorus /
+        // chorus / bridge…) and the better vocal detection, then rebuild its shows
+        if !UserDefaults.standard.bool(forKey: "relearn.structure1") {
+            UserDefaults.standard.set(true, forKey: "relearn.structure1")
+            let all = songs.filter { $0.analysis != nil && FileManager.default.fileExists(atPath: $0.path) }.map(\.id)
+            DispatchQueue.main.asyncAfter(deadline: .now() + 3) { for id in all { self.learn(id, rebuildShows: true) } }
+        }
         // Songs learned before the built-in stem splitter: split them and relearn from the stems
         // (one at a time in the background), then rebuild their light shows from the better hits
         let unsplit = songs.filter { $0.analysis != nil && $0.analysis?.stemsFolder == nil
