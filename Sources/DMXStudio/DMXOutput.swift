@@ -323,7 +323,10 @@ final class DMXEngine {
         outputs.removeAll()
         extraTargets.removeAll()
         lock.unlock()
-        for o in all { try? o.send([UInt8](repeating: 0, count: 512)); o.close() }
+        // Let the sending thread finish its current frame, then send dark frames so the lights go off
+        let deadline = Date().addingTimeInterval(0.3)
+        while thread?.isExecuting == true && Date() < deadline { Thread.sleep(forTimeInterval: 0.01) }
+        for o in all { for _ in 0..<3 { try? o.send([UInt8](repeating: 0, count: 512)) }; o.close() }
     }
 
     /// How many frames the main output has sent (for the "is it sending?" readout).

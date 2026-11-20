@@ -128,6 +128,7 @@ final class AppModel: ObservableObject {
     }
 
     init() {
+        AppModel.current = self
         load()
         engine.onError = { [weak self] msg in
             self?.statusMessage = "Output error: \(msg)"
@@ -561,16 +562,32 @@ final class AppModel: ObservableObject {
         manual[id] = m.isEmpty ? nil : m
     }
 
-    func saveNow() {
+    static weak var current: AppModel?
+
+    /// Quitting: stop music, listening and timers, darken the lights, and save, quickly and in order.
+    func prepareToQuit() {
+        timer?.invalidate(); timer = nil
+        scanTimer?.invalidate(); scanTimer = nil
+        stressTimer?.invalidate(); stressTimer = nil
+        gapWork?.cancel()
+        player?.stop(); player = nil
+        mic.stop()
+        engine.shutdown()
+        saveWork?.cancel()
+        saveNow(sync: true)
+    }
+
+    func saveNow(sync: Bool = false) {
         captureCurrentSession()
         let lib = Library(fixtures: fixtures, songs: songs, lineups: lineups, output: output,
                           idle: idle, globalLatencyMs: globalLatencyMs, rigMode: rigMode,
                           sessions: sessions, lastSessionID: currentSessionID, chainedBarsFix: true)
-        DispatchQueue.global(qos: .utility).async {
+        let write = {
             if let data = try? JSONEncoder().encode(lib) {
                 try? data.write(to: Self.storeURL, options: .atomic)
             }
         }
+        if sync { write() } else { DispatchQueue.global(qos: .utility).async(execute: write) }
     }
 
     // MARK: - Output

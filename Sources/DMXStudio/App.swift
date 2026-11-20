@@ -4,6 +4,7 @@ import UniformTypeIdentifiers
 
 @main
 struct DMXStudioApp: App {
+    @NSApplicationDelegateAdaptor(AppDelegate.self) private var appDelegate
     @StateObject private var model = AppModel()
 
     init() {
@@ -79,10 +80,6 @@ struct DMXStudioApp: App {
                 .environmentObject(model)
                 .frame(minWidth: 1180, minHeight: 760)
                 .preferredColorScheme(.dark)
-                .onReceive(NotificationCenter.default.publisher(for: NSApplication.willTerminateNotification)) { _ in
-                    model.saveNow()
-                    model.engine.shutdown()
-                }
         }
         .commands {
             CommandMenu("Playback") {
@@ -176,4 +173,17 @@ func loadDroppedURLs(_ providers: [NSItemProvider], completion: @escaping ([URL]
         }
     }
     group.notify(queue: .main) { completion(urls) }
+}
+
+
+/// Closing the window quits the app (music and lights stop), and quitting never hangs.
+final class AppDelegate: NSObject, NSApplicationDelegate {
+    func applicationShouldTerminateAfterLastWindowClosed(_ sender: NSApplication) -> Bool { true }
+
+    func applicationShouldTerminate(_ sender: NSApplication) -> NSApplication.TerminateReply {
+        // Safety net: if anything below gets stuck, leave anyway after 3 seconds.
+        DispatchQueue.global().asyncAfter(deadline: .now() + 3) { exit(0) }
+        AppModel.current?.prepareToQuit()
+        return .terminateNow
+    }
 }
