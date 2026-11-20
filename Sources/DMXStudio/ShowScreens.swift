@@ -179,6 +179,13 @@ struct MainShell: View {
     @State private var tab: MainTab = MainTab(rawValue: ProcessInfo.processInfo.environment["DMX_DEMO_TAB"] ?? "") ?? .show
 
     var body: some View {
+        shell
+            .sheet(isPresented: Binding(get: { model.setupWizardFor != nil }, set: { if !$0 { model.setupWizardFor = nil } })) {
+                LightSetupWizard(only: model.setupWizardFor ?? []).environmentObject(model)
+            }
+    }
+
+    private var shell: some View {
         VStack(spacing: 0) {
             TopBar()
             Divider().opacity(0.4)

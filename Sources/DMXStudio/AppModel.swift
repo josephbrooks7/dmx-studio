@@ -63,6 +63,7 @@ enum TestMode: String, CaseIterable, Identifiable {
     case white = "All White"
     case rainbow = "Rainbow Check"
     case identify = "Identify Fixture"
+    case beamTest = "Beam Test"     // one light (and its linked twins): every beam a different color
     var id: String { rawValue }
 }
 
@@ -157,6 +158,12 @@ final class AppModel: ObservableObject {
     @Published var strobeHeld = false    // hold: everything strobes
     @Published var testMode: TestMode = .off
     @Published var identifyFixtureID: UUID?
+    /// Opens the step-by-step light setup walkthrough (nil = closed; empty = all lights)
+    @Published var setupWizardFor: [UUID]? = nil
+
+    func beamTest(_ id: UUID?) {
+        if let id { identifyFixtureID = id; testMode = .beamTest } else { testMode = .off }
+    }
     @Published var connected = false
     @Published var statusMessage = "Not connected"
     @Published var discoveredNodes: [ArtNetNode] = []   // everything seen this session
@@ -403,6 +410,8 @@ final class AppModel: ObservableObject {
         let s = Session(name: n, fixtures: Session.standardRig(), lineups: [Lineup(name: "My Set List")])
         sessions.append(s)
         openSession(s.id)
+        // first time in a new session: walk through setting the real lights to match
+        DispatchQueue.main.asyncAfter(deadline: .now() + 0.6) { self.setupWizardFor = [] }
         return s.id
     }
 
@@ -1027,8 +1036,10 @@ final class AppModel: ObservableObject {
     func addFixture(profile: FixtureProfile) {
         let count = fixtures.filter { $0.profileName == profile.name }.count
         let base = profile.name.hasPrefix("SHEHDS") ? "Beam Bar" : (profile.name.contains("Followspot") ? "Followspot" : "Light")
-        fixtures.append(Fixture(name: "\(base) \(count + 1)", address: min(nextFreeAddress, 512),
-                                profileName: profile.name, layout: profile.layout))
+        let fx = Fixture(name: "\(base) \(count + 1)", address: min(nextFreeAddress, 512),
+                         profileName: profile.name, layout: profile.layout)
+        fixtures.append(fx)
+        setupWizardFor = [fx.id]     // walk through setting the new light
     }
 
     func addressConflicts(for fx: Fixture) -> [Fixture] {
@@ -1956,6 +1967,13 @@ final class AppModel: ObservableObject {
                 case .identify:
                     let on = fx.id == identifyFixtureID && Int(t * 3) % 2 == 0
                     heads.append(FixtureState(intensity: on ? 1 : 0, color: .white))
+                case .beamTest:
+                    // red, orange, yellow, green, cyan, blue, purple, pink across the beams; a colour wheel steps through its colours
+                    let target = identifyFixtureID.map { id in id == fx.id || sharesAddress(id).contains { $0.id == fx.id } } ?? false
+                    let h = Double(heads.count) / Double(max(1, fx.headCount))
+                    let col = fx.headCount > 1 ? RGB(h: h * 0.9, s: 1, v: 1)
+                                               : [RGB.white, RGB(h: 0, s: 1, v: 1), RGB(h: 0.33, s: 1, v: 1), RGB(h: 0.66, s: 1, v: 1)][Int(t) % 4]
+                    heads.append(FixtureState(intensity: target ? 1 : 0, color: col))
                 case .off:
                     heads.append(.off)
                 }

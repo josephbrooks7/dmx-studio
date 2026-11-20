@@ -1817,7 +1817,8 @@ struct LightSetupGuide: View {
                     Image(systemName: "slider.horizontal.3").foregroundColor(.pink)
                     Text("Set your lights to this").font(.headline)
                     Spacer()
-                    Text("Chained lights on the same address get the same settings").font(.caption).foregroundColor(.secondary)
+                    Button { model.setupWizardFor = [] } label: { Label("Walk Me Through It", systemImage: "list.number") }
+                        .controlSize(.small)
                 }
                 ForEach(model.fixtures) { fx in
                     VStack(alignment: .leading, spacing: 4) {
@@ -1855,4 +1856,180 @@ struct LightSetupGuide: View {
             }
         }
     }
+}
+
+// MARK: - Step-by-step light setup (what to press on each real light)
+
+struct SetupStep: Hashable {
+    var title: String
+    var detail: String
+    var display: String? = nil     // what the light's own display should show
+    var isTest = false
+}
+
+extension Fixture {
+    /// The walkthrough for this light's own menu, from its manual. `cable`: how it's wired into the chain.
+    func setupSteps(cable: String) -> [SetupStep] {
+        let n = String(format: "%03d", address)
+        if isShehdsBar {
+            let perBeam = profileName == FixtureProfile.shehdsBeam38.name
+            return [
+                SetupStep(title: "Power and DMX cable", detail: "Plug in the power and switch the bar on. " + cable),
+                SetupStep(title: "Channel mode: \(perBeam ? "38CH" : "9CH")",
+                          detail: "Press MENU until the display shows the channel mode (9CH or 38CH). Press UP or DOWN until it reads \(perBeam ? "38CH" : "9CH"), then press ENTER." + (perBeam ? " 38CH gives every one of the 8 beams its own color: the most control." : ""),
+                          display: perBeam ? "38CH" : "9CH"),
+                SetupStep(title: "Address: A.\(n)",
+                          detail: "Press MENU until the display shows Addr, press ENTER, then UP or DOWN until it reads A.\(n). Press ENTER to save.",
+                          display: "A.\(n)"),
+                SetupStep(title: "Listen to DMX (not Slave, Auto or Sound)",
+                          detail: "If the bar is running its own show or set as a Slave (SLAV), switch that off in the menu so it follows the app. A bar left in Slave or Auto ignores DMX."),
+                SetupStep(title: "Test it", detail: perBeam
+                          ? "Press Test. The 8 beams should each be a different color: red, orange, yellow, green, cyan, blue, purple, pink. All 8 the same color means it's still on 9CH. Red showing as green means the channel mode doesn't match."
+                          : "Press Test. All 8 beams light together and change color. (Switch to 38CH for separate beams.)",
+                          isTest: true),
+            ]
+        }
+        if profileName == FixtureProfile.chauvetFollowspot75ST.name {
+            return [
+                SetupStep(title: "Power and DMX cable", detail: "Plug in the power and switch the followspot on. " + cable),
+                SetupStep(title: "DMX address: \(n)",
+                          detail: "In the followspot's menu, set the DMX address to \(n). It uses 3 channels: dimmer, color wheel and strobe. Focus and iris stay on the knobs on the light.",
+                          display: n),
+                SetupStep(title: "Test it", detail: "Press Test. The followspot should turn on and step through white, red, green and blue on its color wheel.", isTest: true),
+            ]
+        }
+        return [
+            SetupStep(title: "Power and DMX cable", detail: "Plug in the power and switch the light on. " + cable),
+            SetupStep(title: "Channel mode: \(channelCount) channels", detail: "In the light's menu, choose its \(channelCount)-channel DMX mode.", display: "\(channelCount)CH"),
+            SetupStep(title: "DMX address: \(n)", detail: "Set the light's DMX address to \(n).", display: n),
+            SetupStep(title: "Test it", detail: "Press Test. The light should come on and change color.", isTest: true),
+        ]
+    }
+}
+
+struct LightSetupWizard: View {
+    @EnvironmentObject var model: AppModel
+    let only: [UUID]               // empty = every light
+    @State private var groupIndex = 0
+    @State private var step = 0
+    @State private var testing = false
+
+    /// Lights chained on the same address are set up together.
+    private var groups: [[Fixture]] {
+        var out: [[Fixture]] = [], seen = Set<UUID>()
+        for f in model.fixtures where (only.isEmpty || only.contains(f.id)) && !seen.contains(f.id) {
+            let twins = model.sharesAddress(f.id)
+            let g = [f] + twins
+            g.forEach { seen.insert($0.id) }
+            out.append(g)
+        }
+        return out
+    }
+
+    private func cable(for gi: Int) -> String {
+        let all = groups.flatMap { $0 }
+        guard let first = groups[gi].first, let pos = model.fixtures.firstIndex(where: { $0.id == first.id }) else { return "" }
+        if pos == 0 { return "DMX: PKnight (or your DMX box) → this light's DMX IN." + (groups[gi].count > 1 ? " Then its DMX OUT → the next light's DMX IN." : "") }
+        let prev = model.fixtures[pos - 1]
+        _ = all
+        return "DMX: \(prev.name)'s DMX OUT → this light's DMX IN."
+    }
+
+    var body: some View {
+        let gs = groups
+        VStack(spacing: 0) {
+            HStack {
+                Text("Set up your lights").font(.title2.bold())
+                Spacer()
+                Button("Close") { finish() }.keyboardShortcut(.cancelAction)
+            }
+            .padding(20)
+            Divider()
+            if gs.isEmpty {
+                Text("No lights in this session yet.").padding(40)
+            } else {
+                let g = gs[min(groupIndex, gs.count - 1)]
+                let lead = g[0]
+                let steps = lead.setupSteps(cable: cable(for: min(groupIndex, gs.count - 1)))
+                let st = steps[min(step, steps.count - 1)]
+                HStack(alignment: .top, spacing: 0) {
+                    // lights list
+                    VStack(alignment: .leading, spacing: 8) {
+                        ForEach(Array(gs.enumerated()), id: \.offset) { i, grp in
+                            HStack {
+                                Image(systemName: i < groupIndex ? "checkmark.circle.fill" : (i == groupIndex ? "circle.inset.filled" : "circle"))
+                                    .foregroundColor(i <= groupIndex ? .pink : .secondary)
+                                Text(grp.map(\.name).joined(separator: " + ")).font(.callout).lineLimit(2)
+                            }
+                            .onTapGesture { groupIndex = i; step = 0; stopTest() }
+                        }
+                        Spacer()
+                    }
+                    .frame(width: 210, alignment: .leading)
+                    .padding(20)
+                    Divider()
+                    // current step
+                    VStack(alignment: .leading, spacing: 16) {
+                        Text("\(g.map(\.name).joined(separator: " + ")) · step \(step + 1) of \(steps.count)")
+                            .font(.caption).foregroundColor(.secondary)
+                        Text(st.title).font(.title3.bold())
+                        if g.count > 1 && step == 0 {
+                            Label("These lights are chained and linked: do the same steps on each of them.", systemImage: "link")
+                                .font(.callout).foregroundColor(.pink)
+                        }
+                        Text(st.detail).font(.body).fixedSize(horizontal: false, vertical: true)
+                        if let d = st.display {
+                            HStack(spacing: 12) {
+                                Text("The display should read").foregroundColor(.secondary)
+                                Text(d).font(.system(size: 30, weight: .bold, design: .monospaced))
+                                    .foregroundColor(Color(red: 1, green: 0.25, blue: 0.2))
+                                    .padding(.horizontal, 14).padding(.vertical, 6)
+                                    .background(RoundedRectangle(cornerRadius: 6).fill(Color.black))
+                                    .overlay(RoundedRectangle(cornerRadius: 6).stroke(Color.white.opacity(0.2)))
+                            }
+                        }
+                        if st.isTest {
+                            Button { testing ? stopTest() : startTest(lead.id) } label: {
+                                Label(testing ? "Stop Test" : "Test", systemImage: testing ? "stop.fill" : "play.fill").frame(width: 120)
+                            }
+                            .controlSize(.large)
+                            if !model.connected {
+                                Text("No DMX device connected yet: set that up in Setup → Wireless DMX, then test.")
+                                    .font(.caption).foregroundColor(.orange)
+                            }
+                        }
+                        Spacer()
+                        HStack {
+                            Button("Back") { back() }.disabled(groupIndex == 0 && step == 0)
+                            Spacer()
+                            if st.isTest {
+                                Button(groupIndex + 1 < gs.count ? "It works · Next light" : "It works · Done") { next(steps.count) }
+                                    .keyboardShortcut(.defaultAction)
+                            } else {
+                                Button("Next") { next(steps.count) }.keyboardShortcut(.defaultAction)
+                            }
+                        }
+                    }
+                    .padding(24)
+                    .frame(maxWidth: .infinity, alignment: .leading)
+                }
+            }
+        }
+        .frame(width: 760, height: 480)
+        .onDisappear { stopTest() }
+    }
+
+    private func startTest(_ id: UUID) { model.beamTest(id); testing = true }
+    private func stopTest() { if testing { model.beamTest(nil) }; testing = false }
+
+    private func next(_ count: Int) {
+        if step + 1 < count { step += 1; return }
+        stopTest()
+        if groupIndex + 1 < groups.count { groupIndex += 1; step = 0 } else { finish() }
+    }
+    private func back() {
+        stopTest()
+        if step > 0 { step -= 1 } else if groupIndex > 0 { groupIndex -= 1; step = 0 }
+    }
+    private func finish() { stopTest(); model.setupWizardFor = nil }
 }

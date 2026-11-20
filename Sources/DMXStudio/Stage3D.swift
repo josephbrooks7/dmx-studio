@@ -640,6 +640,41 @@ struct Stage3DView: NSViewRepresentable {
             return root
         }
 
+        private static let haloImage: NSImage = {
+            let size = 128
+            let img = NSImage(size: NSSize(width: size, height: size))
+            img.lockFocus()
+            if let ctx = NSGraphicsContext.current?.cgContext,
+               let g = CGGradient(colorsSpace: CGColorSpaceCreateDeviceRGB(),
+                                  colors: [CGColor(gray: 1, alpha: 1), CGColor(gray: 1, alpha: 0.35), CGColor(gray: 1, alpha: 0)] as CFArray,
+                                  locations: [0, 0.25, 1]) {
+                let c = CGPoint(x: size / 2, y: size / 2)
+                ctx.drawRadialGradient(g, startCenter: c, startRadius: 0, endCenter: c, endRadius: CGFloat(size / 2), options: [])
+            }
+            img.unlockFocus()
+            return img
+        }()
+
+        /// A soft glow that always faces the camera, added once per lens.
+        static func makeHalo(on lens: SCNNode, big: Bool) -> SCNNode {
+            let plane = SCNPlane(width: big ? 0.7 : 0.32, height: big ? 0.7 : 0.32)
+            let m = SCNMaterial()
+            m.lightingModel = .constant
+            m.diffuse.contents = haloImage
+            m.multiply.contents = NSColor.black
+            m.blendMode = .add
+            m.writesToDepthBuffer = false
+            m.isDoubleSided = true
+            plane.firstMaterial = m
+            let node = SCNNode(geometry: plane)
+            node.name = "halo"
+            node.position = SCNVector3(0, 0.03, 0)
+            node.constraints = [SCNBillboardConstraint()]
+            node.castsShadow = false
+            lens.addChildNode(node)
+            return node
+        }
+
         /// 30 times a second: copy what every light is doing onto its 3D model.
         private func animate() {
             // Only draw while the Stage view is actually on screen (not minimized, hidden or covered)
@@ -653,6 +688,7 @@ struct Stage3DView: NSViewRepresentable {
             let performer = model.stage.items.first { $0.prop == .performer } ?? model.stage.items.first { $0.prop == .micStand }
             let aim = performer.map { SCNVector3($0.x, $0.y + 1.3, $0.z) } ?? SCNVector3(0, 1.8, -1)
 
+            var roomGlow = (r: 0.0, g: 0.0, b: 0.0, n: 0.0)
             SCNTransaction.begin()
             SCNTransaction.disableActions = true
             for item in model.stage.items {
@@ -677,6 +713,11 @@ struct Stage3DView: NSViewRepresentable {
                     let st = h < rf.heads.count ? rf.heads[h] : (rf.heads.first ?? .off)
                     let level = st.intensity * master * gate
                     let c = NSColor(calibratedRed: st.color.r, green: st.color.g, blue: st.color.b, alpha: 1)
+                    // Haze glow around each lens (light scattering in the air right in front of it)
+                    let halo = lens.childNode(withName: "halo", recursively: false) ?? Self.makeHalo(on: lens, big: fx.colorWheel != nil)
+                    let hk = level * haze * 0.55
+                    halo.geometry?.firstMaterial?.multiply.contents = NSColor(calibratedRed: st.color.r * hk, green: st.color.g * hk, blue: st.color.b * hk, alpha: 1)
+                    roomGlow.r += st.color.r * level; roomGlow.g += st.color.g * level; roomGlow.b += st.color.b * level; roomGlow.n += 1
                     if let glass = lens.childNode(withName: "lens", recursively: false)?.geometry?.firstMaterial {
                         glass.diffuse.contents = level > 0.02 ? (c.blended(withFraction: 0.35 * (1 - level), of: .black) ?? c) : NSColor(white: 0.12, alpha: 1)
                     }
@@ -700,6 +741,15 @@ struct Stage3DView: NSViewRepresentable {
                     l.intensity = lightPools ? CGFloat(avg.i / n * (fx.colorWheel != nil ? 3500 : 4000)) : 0
                 }
             }
+            // Haze in the room: the air takes on a little of the lights' color and swallows distance
+            let n = max(1, roomGlow.n)
+            let tint = (r: roomGlow.r / n, g: roomGlow.g / n, b: roomGlow.b / n)
+            let base = 0.035 + 0.05 * haze
+            scene.fogColor = NSColor(calibratedRed: base + tint.r * 0.10 * haze, green: base + tint.g * 0.10 * haze,
+                                     blue: base + tint.b * 0.10 * haze, alpha: 1)
+            scene.fogStartDistance = 2
+            scene.fogEndDistance = CGFloat(55 - 35 * haze)
+            scene.fogDensityExponent = 1.3
             SCNTransaction.commit()
         }
     }
