@@ -1,5 +1,6 @@
 import SwiftUI
 import SceneKit
+import Metal
 import AppKit
 
 // MARK: - Materials
@@ -229,7 +230,7 @@ private enum Build {
         for i in 0..<segs {
             let d0 = length * Double(i) / Double(segs), d1 = length * Double(i + 1) / Double(segs)
             let g = SCNCone(topRadius: CGFloat(0.02 + d1 * tanH * 0.7), bottomRadius: CGFloat(0.02 + d0 * tanH * 0.7), height: CGFloat(d1 - d0))
-            g.radialSegmentCount = 24
+            g.radialSegmentCount = 16
             g.materials = [Mat.beam()]
             let n = SCNNode(geometry: g)
             n.name = "seg\(i)"
@@ -313,7 +314,7 @@ private enum Build {
             for x in [-w / 2, w / 2] { let t = truss(length: d); t.eulerAngles.y = .pi / 2; t.position = SCNVector3(x, h + 0.15, 0); root.addChildNode(t) }
             return root
         case .ledWall:
-            // 1.5 m × 2.5 m video panel on a frame; its picture follows the show colors
+            // 1.5 m × 2.5 m video panel on a frame (shown dark so the light beams carry the color)
             let root = SCNNode()
             let frame = box(1.6 * s, 2.6 * s, 0.1, Mat.black); frame.position = SCNVector3(0, 1.3 * s, 0); root.addChildNode(frame)
             let screen = SCNNode(geometry: { let g = SCNPlane(width: 1.5 * s, height: 2.5 * s)
@@ -411,11 +412,18 @@ struct Stage3DView: NSViewRepresentable {
     func makeCoordinator() -> Coordinator { Coordinator(model: model) }
 
     func makeNSView(context: Context) -> StageSCNView {
-        let v = StageSCNView(frame: .zero)
+        // Draw on the built-in, low-power graphics chip when the Mac has two (2016-2019 MacBook Pros).
+        // The separate AMD chip in those models can restart the whole Mac under sustained 3D load.
+        var opts: [String: Any] = [:]
+        if let low = MTLCopyAllDevices().first(where: { $0.isLowPower }) {
+            opts[SCNView.Option.preferredDevice.rawValue] = low
+        }
+        opts[SCNView.Option.preferLowPowerDevice.rawValue] = true
+        let v = StageSCNView(frame: .zero, options: opts)
         v.scene = context.coordinator.scene
         v.backgroundColor = .black
         v.allowsCameraControl = true
-        v.antialiasingMode = .multisampling4X
+        context.coordinator.applyQuality(model.stageHighQuality, to: v)
         v.pointOfView = context.coordinator.camera
         v.onSelect = { [weak model] id in model?.selectedStageItem = id }
         v.onDrag = { [weak model] id, x, z in
@@ -428,6 +436,7 @@ struct Stage3DView: NSViewRepresentable {
 
     func updateNSView(_ v: StageSCNView, context: Context) {
         v.editing = model.stageEditing
+        context.coordinator.applyQuality(model.stageHighQuality, to: v)
         context.coordinator.sync()
     }
 
@@ -467,7 +476,20 @@ struct Stage3DView: NSViewRepresentable {
             sync()
         }
 
-        func stop() { timer?.invalidate(); timer = nil }
+        func stop() { timer?.invalidate(); timer = nil; view?.isPlaying = false; view?.scene = nil }
+
+        private var quality: Bool?
+        /// Light mode: no glow/HDR, no smoothing, 30 fps, fewer real light sources.
+        func applyQuality(_ high: Bool, to v: SCNView) {
+            guard quality != high else { return }
+            quality = high
+            v.antialiasingMode = high ? .multisampling4X : .none
+            v.preferredFramesPerSecond = high ? 60 : 30
+            camera.camera?.wantsHDR = high
+            camera.camera?.bloomIntensity = high ? 0.5 : 0
+            lightPools = high
+        }
+        private var lightPools = true
 
         func setCamera(_ name: String) {
             switch name {
@@ -612,7 +634,7 @@ struct Stage3DView: NSViewRepresentable {
                         glass.diffuse.contents = level > 0.02 ? (c.blended(withFraction: 0.35 * (1 - level), of: .black) ?? c) : NSColor(white: 0.12, alpha: 1)
                     }
                     if let beam = lens.childNode(withName: "beam", recursively: false) {
-                        for (k, fade) in [0.75, 0.42, 0.2, 0.07].enumerated() {
+                        for (k, fade) in [1.0, 0.62, 0.34, 0.13].enumerated() {
                             guard let m = beam.childNode(withName: "seg\(k)", recursively: false)?.geometry?.firstMaterial else { continue }
                             // Additive glow: brightness comes from the color itself, so dim the color.
                             // A followspot's narrow shaft is see-through in haze, not a solid bar.
@@ -627,23 +649,8 @@ struct Stage3DView: NSViewRepresentable {
                     let n = Double(max(1, parts.lenses.count))
                     let mx = max(avg.r, avg.g, avg.b, 0.0001)
                     l.color = NSColor(calibratedRed: avg.r / mx, green: avg.g / mx, blue: avg.b / mx, alpha: 1)
-                    l.intensity = CGFloat(avg.i / n * (fx.colorWheel != nil ? 3500 : 4000))
-                }
-            }
-            // LED video walls: animated color bands from what the lights are doing
-            let lit = model.preview.flatMap { $0.heads }.filter { $0.intensity > 0.05 }
-            for item in model.stage.items where item.prop == .ledWall {
-                guard let screen = itemNodes[item.id]?.childNode(withName: "ledscreen", recursively: true)?.geometry?.firstMaterial else { continue }
-                if lit.isEmpty || master == 0 {
-                    screen.diffuse.contents = NSColor(white: 0.04, alpha: 1)
-                } else {
-                    let k = Int(now * 2) % max(1, lit.count)
-                    let a = lit[k], b = lit[(k + lit.count / 2) % lit.count]
-                    let wave = 0.5 + 0.5 * sin(now * 2.5 + item.x)
-                    let r = (a.color.r * wave + b.color.r * (1 - wave)) * master
-                    let g = (a.color.g * wave + b.color.g * (1 - wave)) * master
-                    let bl = (a.color.b * wave + b.color.b * (1 - wave)) * master
-                    screen.diffuse.contents = NSColor(calibratedRed: r * 0.8, green: g * 0.8, blue: bl * 0.8, alpha: 1)
+                    // Light mode skips the floor pools: fewer real lights for the graphics chip
+                    l.intensity = lightPools ? CGFloat(avg.i / n * (fx.colorWheel != nil ? 3500 : 4000)) : 0
                 }
             }
             SCNTransaction.commit()

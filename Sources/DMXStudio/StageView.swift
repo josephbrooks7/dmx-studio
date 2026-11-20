@@ -64,6 +64,9 @@ struct StageScreen: View {
                     Slider(value: $model.haze, in: 0.1...1).frame(width: 90)
                 }
                 .help("Haze: how visible the beams are")
+                Toggle("HQ", isOn: $model.stageHighQuality)
+                    .toggleStyle(.switch).controlSize(.small)
+                    .help("High-quality 3D: glow, smoothing, light pools on the floor, 60 fps. Leave off on older Intel MacBooks, where heavy 3D can restart the Mac.")
                 Menu {
                     Section("Lights") {
                         ForEach(FixtureProfile.all) { p in Button(p.name) { model.stageEditing = true; model.addStageLight(p) } }

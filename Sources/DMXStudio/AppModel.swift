@@ -60,6 +60,18 @@ final class AppModel: ObservableObject {
     @Published var stage = StageLayout() { didSet { scheduleSave() } }
     @Published var selectedStageItem: UUID?
     @Published var stageEditing = false
+    /// Full-quality 3D (glow, smoothing, 60 fps). Off by default on Intel Macs: their graphics chips can
+    /// restart the whole Mac under heavy 3D load, so the Stage view runs light there.
+    @Published var stageHighQuality: Bool = UserDefaults.standard.object(forKey: "stageHighQuality") as? Bool ?? AppModel.isAppleSilicon {
+        didSet { UserDefaults.standard.set(stageHighQuality, forKey: "stageHighQuality") }
+    }
+    static var isAppleSilicon: Bool {
+        #if arch(arm64)
+        return true
+        #else
+        return false
+        #endif
+    }
     @Published var stageCameraRequest: (name: String, id: UUID)? = nil
 
     // Live
