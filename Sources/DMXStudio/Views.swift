@@ -225,6 +225,20 @@ struct SongView: View {
                         Button("Cancel") { renaming = nil }
                     }
                 }
+                if let si = song.activeShowIndex {
+                    let built = song.shows[si].builtFor
+                    let now = model.rigDescription
+                    HStack(spacing: 8) {
+                        Image(systemName: built == nil || built == now ? "checkmark.seal.fill" : "exclamationmark.triangle.fill")
+                            .foregroundColor(built == nil || built == now ? .green : .orange)
+                        Text(built.map { "Programmed for: \($0.isEmpty ? "no lights" : $0)" } ?? "Programmed for: \(now)")
+                            .font(.callout).foregroundColor(.secondary).lineLimit(1)
+                        if let b = built, b != now {
+                            Text("· your lights changed (now \(now))").font(.callout).foregroundColor(.orange).lineLimit(1)
+                            Button("Rebuild for my lights") { model.rebuildShows(for: song.id) }.controlSize(.small)
+                        }
+                    }
+                }
                 if let si = song.activeShowIndex, !model.fixtures.isEmpty {
                     HStack(spacing: 8) {
                         Text("Lights in this show").foregroundColor(.secondary)
@@ -788,7 +802,7 @@ struct FixtureCard: View {
                     }
                     .frame(width: 260)
                     .help("Which wireless DMX box this light is plugged into")
-                    Text("Uses \(fx.address)–\(fx.lastAddress) · \(fx.channelCount) ch · \(fx.headCount) head\(fx.headCount == 1 ? "" : "s")")
+                    Text("Channel mode \(fx.modeLabel) · uses \(fx.address)–\(fx.lastAddress) · \(fx.headCount) beam\(fx.headCount == 1 ? "" : "s")")
                         .foregroundColor(.secondary)
                 }
                 if let tip = fx.profile?.setupTip, !tip.isEmpty {
@@ -1872,20 +1886,26 @@ extension Fixture {
     func setupSteps(cable: String) -> [SetupStep] {
         let n = String(format: "%03d", address)
         if isShehdsBar {
+            // From the SHEHDS manual's menu table. Press MENU to step through: A.ddr, C.hnd, SL.nd, S.Hnd,
+            // S.Ped, S.ens, L.Ed, d.isP, r.PAn, r.ESt. ENTER opens a setting, UP/DOWN changes it, ENTER saves.
             let perBeam = profileName == FixtureProfile.shehdsBeam38.name
+            let mode = perBeam ? "38CH" : "9CH"
             return [
                 SetupStep(title: "Power and DMX cable", detail: "Plug in the power and switch the bar on. " + cable),
-                SetupStep(title: "Channel mode: \(perBeam ? "38CH" : "9CH")",
-                          detail: "Press MENU until the display shows the channel mode (9CH or 38CH). Press UP or DOWN until it reads \(perBeam ? "38CH" : "9CH"), then press ENTER." + (perBeam ? " 38CH gives every one of the 8 beams its own color: the most control." : ""),
-                          display: perBeam ? "38CH" : "9CH"),
-                SetupStep(title: "Address: A.\(n)",
-                          detail: "Press MENU until the display shows Addr, press ENTER, then UP or DOWN until it reads A.\(n). Press ENTER to save.",
+                SetupStep(title: "C.hnd: \(mode)",
+                          detail: "Press MENU until the display shows C.hnd. Press ENTER, then UP or DOWN until it reads \(mode), and press ENTER." + (perBeam ? " 38CH gives every one of the 8 beams its own color: the most control." : ""),
+                          display: mode),
+                SetupStep(title: "A.ddr: A.\(n)",
+                          detail: "Press MENU until the display shows A.ddr. Press ENTER, then UP or DOWN until it reads A.\(n), and press ENTER. Setting the address puts the bar in DMX mode, listening to the app.",
                           display: "A.\(n)"),
-                SetupStep(title: "Listen to DMX (not Slave, Auto or Sound)",
-                          detail: "If the bar is running its own show or set as a Slave (SLAV), switch that off in the menu so it follows the app. A bar left in Slave or Auto ignores DMX."),
+                SetupStep(title: "Leave SL.nd alone",
+                          detail: "SL.nd holds the bar's own modes: Auto, Soun (sound), SL 1 and SL 2 (slave). Those make it run its own show and ignore the app. If you picked one, go back to A.ddr and press ENTER on A.\(n) again."),
+                SetupStep(title: "r.PAn: no",
+                          detail: "r.PAn reverses the tilt. Leave it on no so the bar tilts the same way the app (and the 3D stage) shows. L.Ed and d.isP only change the display, set them however you like.",
+                          display: "no"),
                 SetupStep(title: "Test it", detail: perBeam
-                          ? "Press Test. The 8 beams should each be a different color: red, orange, yellow, green, cyan, blue, purple, pink. All 8 the same color means it's still on 9CH. Red showing as green means the channel mode doesn't match."
-                          : "Press Test. All 8 beams light together and change color. (Switch to 38CH for separate beams.)",
+                          ? "Press Test. The 8 beams should each be a different color: red, orange, yellow, green, cyan, blue, purple, pink. All 8 the same color means C.hnd is still on 9CH. Red showing as green means C.hnd doesn't match the app."
+                          : "Press Test. All 8 beams light together and change color. (Set C.hnd to 38CH for separate beams.)",
                           isTest: true),
             ]
         }

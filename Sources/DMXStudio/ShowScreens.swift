@@ -708,7 +708,7 @@ struct FixtureRing: View {
             }
             HStack(spacing: 4) {
                 Image(systemName: "lightbulb").font(.system(size: 9))
-                Text("\(fixture.headCount == 1 ? "1 light" : "\(fixture.headCount) heads") · ch \(fixture.address)")
+                Text("\(fixture.modeLabel) · \(fixture.headCount == 1 ? "1 light" : "\(fixture.headCount) beams") · ch \(fixture.address)")
                     .font(.system(size: 10))
             }
             .padding(.horizontal, 8).padding(.vertical, 3)
@@ -1223,15 +1223,15 @@ struct ShehdsModePicker: View {
     var body: some View {
         let perBeam = fixture.profileName == FixtureProfile.shehdsBeam38.name
         VStack(alignment: .leading, spacing: 6) {
-            Text("Channel mode on the light (MENU → CH)").font(.caption).foregroundColor(Theme.subtle)
+            Text("Channel Mode  ·  on the light: MENU → C.hnd").font(.callout.bold())
             Picker("", selection: Binding(get: { perBeam }, set: { model.setShehdsMode(fixture.id, perBeam: $0) })) {
                 Text("38ch · each beam").tag(true)
                 Text("9ch · all together").tag(false)
             }
             .pickerStyle(.segmented)
             .labelsHidden()
-            Text(perBeam ? "Set the light to 38CH. Every one of the 8 beams can do its own thing."
-                         : "Set the light to 9CH. All 8 beams do the same thing; choose 38CH on both for separate beams.")
+            Text(perBeam ? "Set C.hnd to 38CH on the light. Every one of the 8 beams can do its own thing."
+                         : "Set C.hnd to 9CH on the light. All 8 beams do the same thing; choose 38CH on both for separate beams.")
                 .font(.caption2).foregroundColor(Theme.subtle).fixedSize(horizontal: false, vertical: true)
             Text("If colors look wrong (red shows as green), this doesn't match the light.")
                 .font(.caption2).foregroundColor(.orange).fixedSize(horizontal: false, vertical: true)

@@ -200,13 +200,13 @@ struct FixtureProfile: Identifiable, Hashable {
         return FixtureProfile(
             name: "SHEHDS LED Beam 8x12W RGBW — 38ch (each head separate)",
             layout: parts.joined(separator: ","),
-            setupTip: "On the light: MENU to the channel mode and choose 38CH (every beam separate), ENTER. Then MENU to Addr and set A.xxx to the address shown here (A.001 for address 1). Chained bars on the same address mirror each other.")
+            setupTip: "On the light: MENU to C.hnd, ENTER, choose 38CH (every beam separate), ENTER. Then MENU to A.ddr, ENTER, set A.xxx to the address shown here (A.001 for address 1), ENTER. Don't use SL.nd (Auto/Sound/Slave). Chained bars on the same address mirror each other.")
     }()
 
     static let shehdsBeam9 = FixtureProfile(
         name: "SHEHDS LED Beam 8x12W RGBW — 9ch (all heads together)",
         layout: "T,SPD,0,0,D,R,G,B,W",
-        setupTip: "On the light: MENU to the channel mode and choose 9CH (all 8 beams do the same thing), then Addr A.xxx as shown here. For separate beams choose 38CH instead. No strobe channel in this mode, so the app strobes in software.")
+        setupTip: "On the light: MENU to C.hnd and choose 9CH (all 8 beams do the same thing), then A.ddr to A.xxx as shown here. For separate beams choose 38CH instead. No strobe channel in this mode, so the app strobes in software.")
 
     static let chauvetFollowspot75ST = FixtureProfile(
         name: "Chauvet DJ LED Followspot 75ST — 3ch",
@@ -267,7 +267,7 @@ struct Fixture: Identifiable, Codable, Hashable {
     var profile: FixtureProfile? { FixtureProfile.named(profileName) }
 
     /// What the light's own address display should show. SHEHDS bars: "A.001" is the address;
-    /// the channel mode is the separate C.hnd menu (9ch or 38ch).
+    /// the channel mode is the separate C.hnd menu (9CH or 38CH).
     var displayCode: String {
         let n = String(format: "%03d", address)
         if isShehdsBar { return "A.\(n)" }
@@ -282,15 +282,12 @@ struct Fixture: Identifiable, Codable, Hashable {
     /// What to set on the light itself so it matches the app (and gets the most control).
     var lightSettings: [(setting: String, value: String)] {
         let n = String(format: "%03d", address)
-        if profileName == FixtureProfile.shehdsBeam38.name {
-            return [("Channel mode (MENU → CH)", "38CH · every beam separate (most control)"),
-                    ("Address (MENU → Addr)", "A.\(n)"),
-                    ("Make sure it's not on", "Slave, Auto or Sound mode")]
-        }
-        if profileName == FixtureProfile.shehdsBeam9.name {
-            return [("Channel mode (MENU → CH)", "9CH · all beams together"),
-                    ("Address (MENU → Addr)", "A.\(n)"),
-                    ("Make sure it's not on", "Slave, Auto or Sound mode")]
+        if isShehdsBar {
+            let mode = profileName == FixtureProfile.shehdsBeam38.name ? "38CH · every beam separate (most control)" : "9CH · all beams together"
+            return [("C.hnd (channel mode)", mode),
+                    ("A.ddr (address)", "A.\(n)"),
+                    ("SL.nd (Auto, Soun, SL 1, SL 2)", "don't use: the bar would ignore the app"),
+                    ("r.PAn (reverse tilt)", "no")]
         }
         if profileName == FixtureProfile.chauvetFollowspot75ST.name {
             return [("DMX address", "\(n) (3-channel)"),
@@ -300,8 +297,11 @@ struct Fixture: Identifiable, Codable, Hashable {
     }
     /// A better mode the light offers (more control), if it isn't using it.
     var betterMode: String? {
-        profileName == FixtureProfile.shehdsBeam9.name ? "Set the light to 38CH so all 8 beams can do their own thing" : nil
+        profileName == FixtureProfile.shehdsBeam9.name ? "Set C.hnd to 38CH on the light so all 8 beams can do their own thing" : nil
     }
+
+    /// Channel mode shown in the app, e.g. "38CH" or "9CH".
+    var modeLabel: String { shehdsModeCode ?? "\(channelCount)CH" }
 
     var isShehdsBar: Bool { profileName == FixtureProfile.shehdsBeam38.name || profileName == FixtureProfile.shehdsBeam9.name }
 }
@@ -445,6 +445,7 @@ struct LightShow: Identifiable, Codable, Hashable {
     var variation: Int
     var sections: [ShowSection]
     var fixtureIDs: [UUID]? = nil   // lights linked to this show; nil = all lights
+    var builtFor: String? = nil      // lights + channel modes it was programmed for, e.g. "Beam Bar 1 · 38CH"
 
     func includes(_ fx: Fixture) -> Bool { fixtureIDs?.contains(fx.id) ?? true }
 }

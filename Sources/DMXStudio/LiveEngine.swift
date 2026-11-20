@@ -15,6 +15,7 @@ struct LookPreset: Identifiable, Codable, Hashable {
     var intensity: Double = 1
     var icon: String = "sparkles"
     var group: String? = nil      // theme heading on the presets screen; nil = Essentials
+    var mode: String? = nil       // "38CH" = needs separate beams, "9CH" = made for whole-bar mode, nil = any light
 
     func asSection(start: Double) -> ShowSection {
         ShowSection(name: name, start: start, end: start + 1e9, level: .high, effect: effect, palette: palette,
@@ -34,12 +35,29 @@ struct LookPreset: Identifiable, Codable, Hashable {
     var usesStrobe: Bool { effect == .strobe }
     var isBeatDriven: Bool { ![.steady, .breathe, .blackout].contains(effect) }
 
-    static var defaults: [LookPreset] { essentials + beamPack + themePack }
+    static var defaults: [LookPreset] { essentials + beamPack + barPack + themePack }
+
+    /// Looks made for bars in 9CH mode (the whole bar is one color): bold color changes, hits and tilt moves.
+    static let barPack: [LookPreset] = {
+        func p(_ n: String, _ e: LightEffect, _ pal: String, _ m: MoveEffect, rate: Double = 1, _ icon: String) -> LookPreset {
+            LookPreset(name: n, effect: e, palette: pal, movement: m, rate: rate, intensity: 1, icon: icon, group: "Whole-Bar (9CH)", mode: "9CH")
+        }
+        return [
+            p("Bar Pulse", .pulse, "Red Velvet", .beatNod, "heart.fill"),
+            p("Bar Kick Hits", .kickFlash, "Fire", .flip, "burst.fill"),
+            p("Bar Color Steps", .colorBeat, "Neon", .sweep, "square.stack.3d.up.fill"),
+            p("Bar Snare Hits", .snareHit, "Ice", .fan, "metronome.fill"),
+            p("Bar Breathe", .breathe, "Ocean", .sweep, rate: 0.5, "wind"),
+            p("Bar Strobe Hit", .strobe, "Full White", .none, "bolt.fill"),
+            p("Bar Tilt Sweep", .steady, "Purple Haze", .fullRotate, rate: 0.5, "arrow.up.and.down"),
+            p("Bar Party", .colorBeat, "Disco", .flip, rate: 2, "sparkles"),
+        ]
+    }()
 
     /// Looks that use each of the 8 beams on a bar separately.
     static let beamPack: [LookPreset] = {
         func p(_ n: String, _ e: LightEffect, _ pal: String, _ m: MoveEffect, rate: Double = 1, _ icon: String) -> LookPreset {
-            LookPreset(name: n, effect: e, palette: pal, movement: m, rate: rate, intensity: 1, icon: icon, group: "Beam Patterns")
+            LookPreset(name: n, effect: e, palette: pal, movement: m, rate: rate, intensity: 1, icon: icon, group: "Beam Patterns", mode: "38CH")
         }
         return [
             p("Wave", .wave, "Ocean", .sweep, "water.waves"),
@@ -53,7 +71,7 @@ struct LookPreset: Identifiable, Codable, Hashable {
         ]
     }()
 
-    static let groupOrder = ["Essentials", "Beam Patterns", "Fairy & Fantasy", "EDM & Electronic", "Dubstep & Bass", "Techno & Rave",
+    static let groupOrder = ["Essentials", "Beam Patterns", "Whole-Bar (9CH)", "Fairy & Fantasy", "EDM & Electronic", "Dubstep & Bass", "Techno & Rave",
                              "Dance & Disco", "Pop & Hyperpop", "Psychedelic", "Holiday"]
 
     /// Themed looks: the name says the vibe, the palette and movement do the rest.

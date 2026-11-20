@@ -365,7 +365,10 @@ final class AppModel: ObservableObject {
         presets = s.presets ?? LookPreset.defaults
         if !presets.contains(where: { $0.effect == .soundLevel }), let fs = LookPreset.essentials.last { presets.append(fs) }
         // One time per session: add the themed looks (Fairy, EDM, Dubstep, Techno, Disco, Pop, Psychedelic…)
-        for (pack, list) in [("themes1", LookPreset.themePack), ("beams1", LookPreset.beamPack)] {
+        for i in presets.indices where presets[i].mode == nil {
+            if let d = (LookPreset.beamPack + LookPreset.barPack).first(where: { $0.name == presets[i].name }) { presets[i].mode = d.mode }
+        }
+        for (pack, list) in [("themes1", LookPreset.themePack), ("beams1", LookPreset.beamPack), ("bars9ch1", LookPreset.barPack)] {
             let packKey = "presetPack.\(pack).\(s.id.uuidString)"
             if !UserDefaults.standard.bool(forKey: packKey) {
                 let have = Set(presets.map(\.name))
@@ -612,13 +615,40 @@ final class AppModel: ObservableObject {
 
     // MARK: - Live looks & beat
 
-    /// Presets grouped by theme, in a fixed order (custom groups after the built-in ones).
+    /// Channel modes in use by SHEHDS bars that are on ("38CH", "9CH").
+    var activeModes: Set<String> { Set(fixtures.filter { $0.isOn && $0.isShehdsBar }.map(\.modeLabel)) }
+
+    /// Presets grouped by theme, in a fixed order. Looks made for a channel mode only show when a light is in
+    /// that mode (38CH looks need separate beams; 9CH looks are for whole bars).
     var presetGroups: [(name: String, presets: [LookPreset])] {
+        let modes = activeModes
+        let usable = presets.filter { p in
+            guard let m = p.mode else { return true }
+            return modes.isEmpty ? m == "38CH" : modes.contains(m)
+        }
         var order = LookPreset.groupOrder
-        for p in presets { let g = p.group ?? "Essentials"; if !order.contains(g) { order.append(g) } }
+        for p in usable { let g = p.group ?? "Essentials"; if !order.contains(g) { order.append(g) } }
         return order.compactMap { g in
-            let list = presets.filter { ($0.group ?? "Essentials") == g }
+            let list = usable.filter { ($0.group ?? "Essentials") == g }
             return list.isEmpty ? nil : (g, list)
+        }
+    }
+
+    /// The lights a new show is programmed for, in words (also stored on the show).
+    var rigDescription: String {
+        fixtures.filter { $0.isOn && $0.effectiveBehavior == .sequence }.map { "\($0.name) · \($0.modeLabel)" }.joined(separator: ", ")
+    }
+
+    /// Remakes one song's shows for the lights and channel modes in use now.
+    func rebuildShows(for songID: UUID) {
+        guard let i = index(of: songID), let a = songs[i].analysis else { return }
+        let onLights = fixtures.filter { $0.isOn }
+        for j in songs[i].shows.indices {
+            var secs = ShowGenerator.generate(a, style: songs[i].shows[j].style, variation: songs[i].shows[j].variation)
+            ShowGenerator.fit(&secs, to: onLights.filter { $0.effectiveBehavior == .sequence })
+            songs[i].shows[j].sections = secs
+            songs[i].shows[j].fixtureIDs = onLights.isEmpty ? nil : onLights.map(\.id)
+            songs[i].shows[j].builtFor = rigDescription
         }
     }
 
@@ -1170,8 +1200,9 @@ final class AppModel: ObservableObject {
         let onLights = fixtures.filter { $0.isOn }
         var sections = ShowGenerator.generate(a, style: st, variation: variation)
         ShowGenerator.fit(&sections, to: onLights.filter { $0.effectiveBehavior == .sequence })
-        let show = LightShow(name: name, style: st, variation: variation, sections: sections,
+        var show = LightShow(name: name, style: st, variation: variation, sections: sections,
                              fixtureIDs: onLights.isEmpty ? nil : onLights.map(\.id))
+        show.builtFor = rigDescription
         songs[i].shows.append(show)
         songs[i].activeShowID = show.id
     }
@@ -1324,6 +1355,7 @@ final class AppModel: ObservableObject {
                 ShowGenerator.fit(&secs, to: seq)
                 songs[i].shows[j].sections = secs
                 songs[i].shows[j].fixtureIDs = onLights.isEmpty ? nil : onLights.map(\.id)
+                songs[i].shows[j].builtFor = rigDescription
             }
         }
     }
