@@ -595,10 +595,6 @@ struct ShowRenderer {
 
         let accentOn = s.accentStrobe && (c.t - s.start) < c.beatLen * 4
         // Movement runs a little ahead so the heads (motor + smoothing) arrive right on the beat
-        let moveLead = 0.2 / max(c.beatLen, 0.1)
-        let mBeats = (c.beatPos + moveLead) * s.rate
-        let mBar = mBeats / 4
-        let mIdx = Int(floor(mBeats))
         var result: [RenderedFixture] = []
         var p = 0
         let moverCount = max(1, fixtures.filter { $0.isMover }.count)
@@ -637,6 +633,12 @@ struct ShowRenderer {
                 rf.strobe = 0.6 + 0.4 * c.energy
             }
             if fx.isMover {
+                // Each light's motor needs its own head start (set per light: Movement Timing),
+                // plus the app's own smoothing of the move (~70 ms)
+                let lead = ((fx.moveLeadMs ?? 300) / 1000 + 0.07) / max(c.beatLen, 0.1)
+                let mBeats = (c.beatPos + lead) * s.rate
+                let mBar = mBeats / 4
+                let mIdx = Int(floor(mBeats))
                 switch rig {
                 case .together:
                     let m = movement(s.movement, barPos: mBar, idx: mIdx, fi: 0, n: 1)

@@ -295,6 +295,9 @@ final class AppModel: ObservableObject {
             case 123: // ← = back to the start of the song (twice: the song before)
                 if down && !e.isARepeat { self.previousInLineup() }
                 return nil
+            case 125, 126: // ↓ / ↑ = pick the song to play next (in the set list or the library)
+                if down { self.moveSelection(e.keyCode == 125 ? 1 : -1) }
+                return nil
             case 17: // T = tap tempo
                 if down && !e.isARepeat { self.tapTempo() }
                 return nil
@@ -549,6 +552,11 @@ final class AppModel: ObservableObject {
 
     /// Switches a SHEHDS bar (and the bars linked to it) between 38-channel (each beam) and 10-channel mode.
     /// Tilt speed channel value for a bar and the bars linked to it.
+    func setMoveLead(_ id: UUID, _ ms: Double) {
+        let ids = Set([id] + sharesAddress(id).map(\.id))
+        for i in fixtures.indices where ids.contains(fixtures[i].id) { fixtures[i].moveLeadMs = ms }
+    }
+
     func setTiltSpeed(_ id: UUID, _ v: Double) {
         let ids = Set([id] + sharesAddress(id).map(\.id))
         for i in fixtures.indices where ids.contains(fixtures[i].id) { fixtures[i].tiltSpeed = v }
@@ -1302,6 +1310,8 @@ final class AppModel: ObservableObject {
                 if self.songs[i].shows.isEmpty { self.createShow(for: id) }
                 else if rebuildShows { self.rebuildShows(for: id) }
                 self.makeLooks(from: id)
+                // then learn the words from the separated vocals (keeps lyrics you pasted yourself)
+                if analysis.vocalShare > 0.03, self.songs[i].lyrics?.source != "Pasted" { self.learnLyrics(id) }
             }
         }
     }
@@ -1337,6 +1347,62 @@ final class AppModel: ObservableObject {
         presets.removeAll { $0.group == group }
         presets += made
         return made.count
+    }
+
+    // MARK: - Lyrics
+
+    @Published var lyricsProgress: [UUID: Double] = [:]
+    private var lyricsQueue: [UUID] = []
+    private var lyricsBusy = false
+
+    /// Learns the words from the song's separated vocals (one song at a time).
+    func learnLyrics(_ id: UUID) {
+        guard lyricsProgress[id] == nil else { return }
+        lyricsProgress[id] = 0
+        lyricsQueue.append(id)
+        nextLyrics()
+    }
+
+    private func nextLyrics() {
+        guard !lyricsBusy, !lyricsQueue.isEmpty else { return }
+        let id = lyricsQueue.removeFirst()
+        guard let i = index(of: id), let a = songs[i].analysis, let folder = a.stemsFolder else {
+            lyricsProgress[id] = nil; nextLyrics(); return
+        }
+        let vocals = URL(fileURLWithPath: folder).appendingPathComponent("vocals.m4a")
+        let title = songs[i].title
+        lyricsBusy = true
+        LyricsLearner.transcribe(vocals: vocals, phrases: a.vocalPhrases ?? [], duration: a.duration,
+                                 progress: { p in if self.lyricsProgress[id] != nil { self.lyricsProgress[id] = p } }) { result in
+            self.lyricsBusy = false
+            self.lyricsProgress[id] = nil
+            switch result {
+            case .success(let words):
+                if let i = self.index(of: id), self.songs[i].lyrics?.source != "Pasted" {
+                    self.songs[i].lyrics = LyricsLearner.build(words: words, phrases: a.vocalPhrases ?? [], source: "Heard from the vocals")
+                }
+            case .failure(let e):
+                ErrorCenter.shared.report(area: "Lyrics", message: "Couldn't learn the lyrics of \"\(title)\": \(e.localizedDescription)", details: "\(e)")
+                if (e as? LyricsError) == .notAllowed { self.lyricsQueue.forEach { self.lyricsProgress[$0] = nil }; self.lyricsQueue = [] }
+            }
+            self.nextLyrics()
+        }
+    }
+
+    /// Official lyrics pasted in: placed on the sung parts and analyzed for topic and mood.
+    func pasteLyrics(_ id: UUID, text: String) {
+        guard let i = index(of: id), let a = songs[i].analysis else { return }
+        let heard = songs[i].lyrics?.source == "Pasted" ? [] : (songs[i].lyrics?.words ?? [])
+        songs[i].lyrics = LyricsLearner.align(text: text, heard: heard, phrases: a.vocalPhrases ?? [], duration: a.duration)
+    }
+
+    /// Colors the active show to fit what the lyrics are about (drops keep their genre colors).
+    func applyLyricColors(_ id: UUID) {
+        guard let i = index(of: id), let pal = LyricsLearner.palette(for: songs[i].lyrics?.themes ?? []),
+              let j = songs[i].activeShowIndex else { return }
+        for k in songs[i].shows[j].sections.indices where songs[i].shows[j].sections[k].level != .drop {
+            songs[i].shows[j].sections[k].palette = pal
+        }
     }
 
     /// Changes the lighting mode(s) of a show and re-programs it.
@@ -1739,7 +1805,33 @@ final class AppModel: ObservableObject {
     }
 
     /// ⏭ / →: start the cued song, else the next one in the set, else the next song in the library.
+    /// ↑ / ↓: moves the selection in the set list (if a set-list row is selected) or in the song library.
+    func moveSelection(_ d: Int) {
+        if let sel = selectedEntry, let li = lineupIndex(sel.lineup), li < lineups.count {
+            let n = lineups[li].entries.count
+            guard n > 0 else { return }
+            let ni = min(max(sel.index + d, 0), n - 1)
+            selectedEntry = (sel.lineup, ni)
+            if lineups[li].entries[ni].block == nil { selectedSongID = lineups[li].entries[ni].songID }
+            return
+        }
+        guard !songs.isEmpty else { return }
+        let i = selectedSongID.flatMap { id in songs.firstIndex { $0.id == id } } ?? -1
+        selectedSongID = songs[min(max(i + d, 0), songs.count - 1)].id
+    }
+
     func nextInLineup() {
+        // A song you picked (click or ↑/↓) plays next, instead of the next one in order
+        if let sel = selectedEntry, let lid = playingLineupID, sel.lineup == lid, sel.index != playingEntryIndex {
+            cancelGap()
+            selectedEntry = nil
+            playLineup(lid, from: sel.index)
+            return
+        }
+        if playingLineupID == nil, isPlaying, let sel = selectedSongID, sel != playingSongID, song(sel) != nil {
+            play(sel, from: songStart(sel))
+            return
+        }
         if goCued() { return }
         if let lid = playingLineupID, let idx = playingEntryIndex {
             cancelGap()

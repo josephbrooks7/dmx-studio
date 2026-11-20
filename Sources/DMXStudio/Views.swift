@@ -59,6 +59,7 @@ struct SongView: View {
             VStack(alignment: .leading, spacing: 16) {
                 header(song)
                 StemsTab(song: song)
+                LyricsTab(song: song)
                 if let a = song.analysis {
                     showsBar(binding, a)
                     if let si = song.activeShowIndex {
@@ -677,6 +678,7 @@ struct LineupRow: View {
                 .foregroundColor(isNow ? .pink : .secondary)
             VStack(alignment: .leading) {
                 Text(song?.title ?? "Missing song").font(.headline)
+                    .onTapGesture { model.selectedSongID = entry.songID; model.selectedEntry = (lineupID, index) }
                 if let a = song?.artist, !a.isEmpty { Text(a).font(.caption).foregroundColor(.secondary) }
                 if let a = song?.analysis {
                     Text("\(Int(a.bpm.rounded())) BPM · \(formatTime(a.duration))").font(.caption).foregroundColor(.secondary)
@@ -1420,8 +1422,11 @@ struct SetListLibraryPanel: View {
                             .buttonStyle(.borderless)
                             .help("Add to the end of the set")
                         }
+                        .padding(.horizontal, 4)
+                        .background(RoundedRectangle(cornerRadius: 5).fill(model.selectedSongID == s.id && model.selectedEntry == nil ? Color.pink.opacity(0.14) : .clear))
                         .contentShape(Rectangle())
                         .onTapGesture(count: 2) { model.addToLineup(lineupID, songID: s.id, showID: s.activeShow?.id) }
+                        .simultaneousGesture(TapGesture().onEnded { model.selectedSongID = s.id; model.selectedEntry = nil })
                         .onDrag { NSItemProvider(object: s.id.uuidString as NSString) }
                     }
                 }

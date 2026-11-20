@@ -248,6 +248,7 @@ struct Fixture: Identifiable, Codable, Hashable {
     var stageMount: StageMount? = nil
     var off: Bool? = nil                // switched off in the app (sends dark), nil/false = on
     var tiltSpeed: Double? = nil        // raw value for the light's tilt-speed channel (SHEHDS ch 2), nil = 0
+    var moveLeadMs: Double? = nil       // send moves this early so the motor lands on the hit (nil = 300 ms)
 
     /// Spotlights (color-wheel lights) default to Stationary; everything else to Sequence.
     var isOn: Bool { off != true }
@@ -488,6 +489,7 @@ struct Song: Identifiable, Codable {
     var shows: [LightShow] = []
     var activeShowID: UUID?
     var detection: DetectionSettings? = nil   // per-song drum detection settings (nil = standard)
+    var lyrics: Lyrics? = nil                 // words learned from the vocals (or pasted), timed to the song
 
     var url: URL { URL(fileURLWithPath: path) }
     var isLearned: Bool { analysis != nil }

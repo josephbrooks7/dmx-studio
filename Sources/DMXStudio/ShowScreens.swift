@@ -1056,6 +1056,10 @@ struct SongsScreen: View {
                                 model.selectedSongID = s.id
                                 model.play(s.id, from: model.songStart(s.id))   // double-click: music + lights
                             })
+                            .simultaneousGesture(TapGesture(count: 1).onEnded {
+                                model.selectedSongID = s.id   // single click on the title selects it too
+                                model.selectedEntry = nil
+                            })
                             .contextMenu {
                                 Button("Learn Again") { model.learn(s.id) }
                                 Menu("Add to Set List") {
@@ -1279,6 +1283,15 @@ struct TiltSpeedControl: View {
                 Text("\(Int(v))").font(.caption).monospacedDigit().frame(width: 30)
             }
             Text("Press Tilt Test: the bar swings end to end. Slide until it moves fastest and reaches both ends.")
+                .font(.caption2).foregroundColor(Theme.subtle).fixedSize(horizontal: false, vertical: true)
+            let lead = fixture.moveLeadMs ?? 300
+            HStack {
+                Text("Movement Timing").font(.callout.bold())
+                Spacer()
+                Text("\(Int(lead)) ms early").font(.caption).monospacedDigit()
+            }
+            Slider(value: Binding(get: { lead }, set: { model.setMoveLead(fixture.id, ($0 / 10).rounded() * 10) }), in: 0...900)
+            Text("If the bar turns after the hit, slide right (moves are sent earlier). If it turns before the hit, slide left.")
                 .font(.caption2).foregroundColor(Theme.subtle).fixedSize(horizontal: false, vertical: true)
         }
         .padding(.top, 4)

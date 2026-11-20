@@ -113,6 +113,8 @@ struct StemMixerView: View {
                         .frame(width: Self.cardWidth, height: 44)
                     LaneLabel(title: "VOCAL PHRASES", subtitle: "where someone sings", icon: "text.quote")
                         .frame(width: Self.cardWidth, height: 30)
+                    LaneLabel(title: "LYRICS", subtitle: song.lyrics == nil ? "not learned yet" : "words heard / pasted", icon: "character.bubble")
+                        .frame(width: Self.cardWidth, height: 30)
                 }
                 GeometryReader { geo in
                     let w = geo.size.width
@@ -125,6 +127,7 @@ struct StemMixerView: View {
                             }
                             HitsLane(hits: analysis.hits ?? [], duration: analysis.duration).frame(height: 44)
                             PhraseLane(phrases: analysis.vocalPhrases ?? [], duration: analysis.duration).frame(height: 30)
+                            LyricsLane(lines: song.lyrics?.lines ?? [], duration: analysis.duration).frame(height: 30)
                         }
                         LiveReader(model.live) {
                             let t = model.playingSongID == song.id ? model.currentTime : 0
@@ -138,7 +141,7 @@ struct StemMixerView: View {
                         if model.playingSongID == song.id { model.seek(to: t) } else { model.play(song.id, from: t) }
                     })
                 }
-                .frame(height: Self.laneHeight * 4 + 8 * 5 + 44 + 30)
+                .frame(height: Self.laneHeight * 4 + 8 * 6 + 44 + 30 + 30)
                 .padding(.leading, 8)
             }
         }
@@ -297,5 +300,121 @@ struct PhraseLane: View {
             }
             ctx.fill(p, with: .color(Color(red: 1, green: 0.42, blue: 0).opacity(0.8)))
         }
+    }
+}
+
+/// The words of the song (heard from the separated vocals, or pasted), what it's about, and its mood.
+/// Closed until you click it.
+struct LyricsTab: View {
+    @EnvironmentObject var model: AppModel
+    let song: Song
+    @AppStorage("lyricsTabOpen") private var open = false
+    @State private var pasting = false
+    @State private var pasteText = ""
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 10) {
+            Button { withAnimation(.easeInOut(duration: 0.2)) { open.toggle() } } label: {
+                HStack(spacing: 8) {
+                    Image(systemName: open ? "chevron.down" : "chevron.right").font(.caption.bold())
+                    Image(systemName: "text.quote")
+                    Text("Lyrics").font(.headline)
+                    if let p = model.lyricsProgress[song.id] {
+                        ProgressView(value: p).frame(width: 90)
+                        Text("Listening to the vocals…").font(.caption).foregroundColor(.secondary)
+                    } else if let ly = song.lyrics {
+                        Text(ly.lines.isEmpty ? "no words understood" : ly.summary).font(.caption).foregroundColor(.secondary).lineLimit(1)
+                    } else {
+                        Text("not learned yet").font(.caption).foregroundColor(.secondary)
+                    }
+                    Spacer()
+                }
+                .contentShape(Rectangle())
+            }
+            .buttonStyle(.plain)
+            if open { content }
+        }
+        .padding(12)
+        .background(RoundedRectangle(cornerRadius: 12).fill(Color.primary.opacity(0.04)))
+        .sheet(isPresented: $pasting) {
+            VStack(alignment: .leading, spacing: 10) {
+                Text("Paste the official lyrics").font(.headline)
+                Text("One line per sung line. Labels like [Chorus] are skipped. They'll be placed on the sung parts of the song.")
+                    .font(.caption).foregroundColor(.secondary)
+                TextEditor(text: $pasteText).font(.body).frame(minWidth: 460, minHeight: 320)
+                    .overlay(RoundedRectangle(cornerRadius: 6).stroke(Color.secondary.opacity(0.3)))
+                HStack {
+                    Spacer()
+                    Button("Cancel") { pasting = false }
+                    Button("Use These Lyrics") { model.pasteLyrics(song.id, text: pasteText); pasting = false }
+                        .keyboardShortcut(.defaultAction).disabled(pasteText.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty)
+                }
+            }
+            .padding(18)
+        }
+    }
+
+    @ViewBuilder var content: some View {
+        HStack {
+            Button { model.learnLyrics(song.id) } label: { Label("Listen for Lyrics", systemImage: "waveform.and.mic") }
+                .disabled(model.lyricsProgress[song.id] != nil || song.analysis?.stemsFolder == nil)
+                .help("Listens to the separated vocals and writes down the words with their timing")
+            Button { pasteText = song.lyrics?.source == "Pasted" ? song.lyrics!.lines.map(\.text).joined(separator: "\n") : ""; pasting = true } label: {
+                Label("Paste Lyrics", systemImage: "doc.on.clipboard")
+            }
+            if let ly = song.lyrics, let pal = LyricsLearner.palette(for: ly.themes), song.activeShow != nil {
+                Button { model.applyLyricColors(song.id) } label: { Label("Use Lyric Colors (\(pal))", systemImage: "paintpalette") }
+                    .help("Colors the show to fit what the song is about (drops keep their colors)")
+            }
+            Spacer()
+        }
+        if let ly = song.lyrics {
+            VStack(alignment: .leading, spacing: 4) {
+                if !ly.themes.isEmpty { Text("About: " + ly.themes.joined(separator: ", ")).font(.callout.bold()) }
+                Text("Mood: \(ly.moodLabel)   ·   \(ly.source)").font(.caption).foregroundColor(.secondary)
+                if !ly.keywords.isEmpty { Text("Key words: " + ly.keywords.joined(separator: ", ")).font(.caption).foregroundColor(.secondary) }
+            }
+            ScrollView {
+                VStack(alignment: .leading, spacing: 3) {
+                    ForEach(ly.lines) { line in
+                        HStack(alignment: .firstTextBaseline, spacing: 10) {
+                            Text(StemMixerView.clock(line.start).dropLast(4)).font(.caption.monospacedDigit()).foregroundColor(.secondary)
+                                .frame(width: 44, alignment: .leading)
+                            Text(line.text)
+                                .foregroundColor(line.confidence < 0.4 ? .secondary : .primary)
+                                .help(line.confidence < 0.4 ? "Not sure about this line (or its timing)" : "")
+                            Circle().fill(line.sentiment > 0.25 ? Color.yellow : line.sentiment < -0.25 ? Color.blue : Color.gray.opacity(0.5))
+                                .frame(width: 6, height: 6).help(String(format: "line mood %.2f", line.sentiment))
+                        }
+                        .contentShape(Rectangle())
+                        .onTapGesture { model.play(song.id, from: max(0, line.start - 0.5)) }
+                    }
+                }
+            }
+            .frame(maxHeight: 260)
+            Text("Gray lines: not sure of the words or timing. Click a line to play from there.").font(.caption2).foregroundColor(.secondary)
+        }
+    }
+}
+
+struct LyricsLane: View {
+    let lines: [LyricLine]
+    let duration: Double
+    var body: some View {
+        Canvas { ctx, size in
+            ctx.fill(Path(CGRect(origin: .zero, size: size)), with: .color(Color(white: 0.05)))
+            var lastX: CGFloat = -1000
+            for l in lines {
+                let x = CGFloat(l.start / max(duration, 0.01)) * size.width
+                let x1 = CGFloat(l.end / max(duration, 0.01)) * size.width
+                ctx.fill(Path(CGRect(x: x, y: size.height - 4, width: max(2, x1 - x), height: 3)),
+                         with: .color(Color(red: 1, green: 0.42, blue: 0).opacity(l.confidence < 0.4 ? 0.4 : 0.9)))
+                guard x - lastX > 60 else { continue }
+                ctx.draw(Text(l.text).font(.system(size: 10)).foregroundColor(.white.opacity(l.confidence < 0.4 ? 0.5 : 0.9)),
+                         at: CGPoint(x: x + 2, y: size.height / 2 - 2), anchor: .leading)
+                lastX = x
+            }
+        }
+        .clipped()
     }
 }
