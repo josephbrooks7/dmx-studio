@@ -12,7 +12,10 @@ def add(t0, gen, length, amp):
         if i0 + i < n: x[i0 + i] += amp * gen(i / sr)
 kick = lambda t: math.sin(2 * math.pi * (50 + 80 * math.exp(-t * 40)) * t) * math.exp(-t * 12)
 snare = lambda t: (random.uniform(-1, 1) * 0.7 + 0.3 * math.sin(2 * math.pi * 190 * t)) * math.exp(-t * 18)
-hat = lambda t: random.uniform(-1, 1) * math.exp(-t * 90)
+# Real hi-hats are bright: high-passed noise (difference of white noise pushes energy up top)
+_hn = [random.uniform(-1, 1) for _ in range(int(0.06 * sr) + 3)]
+_hp = [(_hn[i] - 2 * _hn[i + 1] + _hn[i + 2]) / 4 for i in range(len(_hn) - 2)]
+hat = lambda t: _hp[min(int(t * sr), len(_hp) - 1)] * math.exp(-t * 90)
 bass = lambda t: math.sin(2 * math.pi * 55 * t) * min(1, t * 50) * math.exp(-t * 3)
 t = lead
 for b in range((intro_bars + loud_bars) * 4):

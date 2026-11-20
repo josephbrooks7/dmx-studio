@@ -69,13 +69,14 @@ enum AudioAnalyzer {
 
         // ---- Drum hits ----------------------------------------------------------
         let kicks = pickPeaks(bassOnset, fps: fps, minGap: 0.18, sensitivity: 0.12)
-        // Snares: mid-band hits that aren't just a kick or a hi-hat bleeding into the mids
-        let snareCandidates = pickPeaks(midOnset, fps: fps, minGap: 0.15, sensitivity: 0.14)
-        let snares = snareCandidates.filter { t in
-            let i = min(max(Int((t * sampleRate - Double(fftSize) / 2) / Double(hop)), 0), midOnset.count - 1)
-            let m = midOnset[i], b = bassOnset[i], h = highOnset[i]
-            let nearKick = kicks.contains { abs($0 - t) < 0.035 }
-            return m >= 0.35 && m >= b * 0.9 && m >= h * 0.75 && (!nearKick || m > 0.8)
+        // Snares: need both "body" (150-600 Hz) and "crack" (600-2500 Hz). High frequencies are
+        // ignored on purpose, because that's where hi-hats live. Kicks have body but little crack.
+        let body = normalize(f.bodyFlux), crack = normalize(f.crackFlux)
+        let snareScore = normalize(zip(body, crack).map { 0.6 * $0 + 0.4 * $1 })
+        let snares = pickPeaks(snareScore, fps: fps, minGap: 0.15, sensitivity: 0.14).filter { t in
+            let i = min(max(Int(((t * sampleRate - Double(fftSize) / 2) / Double(hop)).rounded()), 0), body.count - 1)
+            let lo = max(0, i - 1), hi = min(body.count - 1, i + 1)
+            return (body[lo...hi].max() ?? 0) >= 0.5 && (crack[lo...hi].max() ?? 0) >= 0.7
         }
         let hats = pickPeaks(highOnset, fps: fps, minGap: 0.07, sensitivity: 0.10)
 
@@ -162,6 +163,7 @@ enum AudioAnalyzer {
 
     struct Features {
         var flux: [Float] = [], bassFlux: [Float] = [], midFlux: [Float] = [], highFlux: [Float] = []
+        var bodyFlux: [Float] = [], crackFlux: [Float] = []   // snare body (150-600 Hz) and crack (600-2500 Hz)
         var bassLevel: [Float] = [], midLevel: [Float] = [], highLevel: [Float] = []
         var rms: [Float] = []
     }
@@ -178,6 +180,7 @@ enum AudioAnalyzer {
         let binHz = sampleRate / Double(n)
         let bassEnd = Int(150 / binHz)          // ~20-150 Hz: kick, bass
         let midEnd = Int(2500 / binHz)          // 150-2500 Hz: snare body, vocals
+        let bodyEnd = Int(600 / binHz)          // snare "body" up to here, "crack" above
         // above: hats, cymbals
 
         let frameCount = (samples.count - n) / hop + 1
@@ -211,7 +214,7 @@ enum AudioAnalyzer {
                 }
                 mags[0] = 0 // packed DC / Nyquist
 
-                var flux: Float = 0, bF: Float = 0, mF: Float = 0, hF: Float = 0
+                var flux: Float = 0, bF: Float = 0, mF: Float = 0, hF: Float = 0, bodyF: Float = 0, crackF: Float = 0
                 var bL: Float = 0, mL: Float = 0, hL: Float = 0
                 for k in 1..<half {
                     let lm = log1pf(mags[k] * 10)
@@ -219,7 +222,10 @@ enum AudioAnalyzer {
                     let d = max(0, lm - prevLog[k])
                     flux += d
                     if k <= bassEnd { bF += d; bL += mags[k] }
-                    else if k <= midEnd { mF += d; mL += mags[k] }
+                    else if k <= midEnd {
+                        mF += d; mL += mags[k]
+                        if k <= bodyEnd { bodyF += d } else { crackF += d }
+                    }
                     else { hF += d; hL += mags[k] }
                 }
                 swap(&logMag, &prevLog)
@@ -228,6 +234,8 @@ enum AudioAnalyzer {
                 out.bassFlux.append(bF)
                 out.midFlux.append(mF)
                 out.highFlux.append(hF)
+                out.bodyFlux.append(bodyF)
+                out.crackFlux.append(crackF)
                 out.bassLevel.append(log1pf(bL))
                 out.midLevel.append(log1pf(mL))
                 out.highLevel.append(log1pf(hL))

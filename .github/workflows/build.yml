@@ -41,7 +41,7 @@ jobs:
           check(127.2 <= bpm <= 128.8, f'tempo {bpm} ~ 128')
           kicks = int(re.search(r'kicks=(\d+)', o).group(1)); snares = int(re.search(r'snares=(\d+)', o).group(1))
           check(120 <= kicks <= 136, f'{kicks} kicks ~ 128')
-          print(f'INFO {snares} snares (true count 32) - snare detection still being tuned')
+          check(26 <= snares <= 38, f'{snares} snares ~ 32')
           check(abs(beats[0] - 2.0) < 0.06, f'first beat {beats[0]:.3f}s ~ 2.000s (on the kick)')
           check(re.search(r'silences=0\.00-', o) is not None, 'silent lead-in detected')
           ms, me = [float(v) for v in re.search(r'musicStart=([\d.]+) musicEnd=([\d.]+)', o).groups()]
