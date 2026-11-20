@@ -675,7 +675,7 @@ struct StageLayout: Codable, Hashable {
         var bar = 0
         for fx in fixtures {
             if fx.colorWheel != nil {
-                items.append(StageItem(fixtureID: fx.id, x: 0, z: 7, y: 0, rotation: 0))
+                items.append(StageItem(fixtureID: fx.id, x: 2.6, z: 4.5, y: 0, rotation: 0))
             } else {
                 let side: Double = bar % 2 == 0 ? -1 : 1
                 let row = Double(bar / 2)

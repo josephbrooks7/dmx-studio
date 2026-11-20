@@ -156,7 +156,7 @@ private enum Build {
         let tanH = tan(spreadDeg / 2 * .pi / 180)
         for i in 0..<segs {
             let d0 = length * Double(i) / Double(segs), d1 = length * Double(i + 1) / Double(segs)
-            let g = SCNCone(topRadius: CGFloat(0.03 + d1 * tanH), bottomRadius: CGFloat(0.03 + d0 * tanH), height: CGFloat(d1 - d0))
+            let g = SCNCone(topRadius: CGFloat(0.02 + d1 * tanH * 0.7), bottomRadius: CGFloat(0.02 + d0 * tanH * 0.7), height: CGFloat(d1 - d0))
             g.radialSegmentCount = 24
             g.materials = [Mat.beam()]
             let n = SCNNode(geometry: g)
@@ -347,8 +347,8 @@ struct Stage3DView: NSViewRepresentable {
             camera.camera?.zFar = 200
             camera.camera?.fieldOfView = 50
             camera.camera?.wantsHDR = true
-            camera.camera?.bloomIntensity = 1.2
-            camera.camera?.bloomThreshold = 0.6
+            camera.camera?.bloomIntensity = 0.5
+            camera.camera?.bloomThreshold = 0.8
             setCamera("Audience")
             scene.rootNode.addChildNode(camera)
         }
@@ -365,7 +365,7 @@ struct Stage3DView: NSViewRepresentable {
             switch name {
             case "Top": camera.position = SCNVector3(0, 16, 1); camera.look(at: SCNVector3(0, 0, -1))
             case "Side": camera.position = SCNVector3(12, 3, -1); camera.look(at: SCNVector3(0, 1.8, -1.5))
-            default: camera.position = SCNVector3(0, 2.2, 11); camera.look(at: SCNVector3(0, 2.0, -2))
+            default: camera.position = SCNVector3(0, 2.3, 8.2); camera.look(at: SCNVector3(0, 2.2, -2))
             }
             view?.pointOfView = camera
         }
@@ -502,7 +502,7 @@ struct Stage3DView: NSViewRepresentable {
                         glass.diffuse.contents = level > 0.02 ? (c.blended(withFraction: 0.35 * (1 - level), of: .black) ?? c) : NSColor(white: 0.12, alpha: 1)
                     }
                     if let beam = lens.childNode(withName: "beam", recursively: false) {
-                        for (k, fade) in [0.55, 0.32, 0.16, 0.06].enumerated() {
+                        for (k, fade) in [0.30, 0.15, 0.07, 0.025].enumerated() {
                             guard let m = beam.childNode(withName: "seg\(k)", recursively: false)?.geometry?.firstMaterial else { continue }
                             m.diffuse.contents = c
                             m.transparency = CGFloat(level * fade * haze)
