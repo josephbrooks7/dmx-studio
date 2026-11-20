@@ -234,12 +234,18 @@ enum WhisperEngine {
                                                             AVNumberOfChannelsKey: 1, AVLinearPCMBitDepthKey: 16,
                                                             AVLinearPCMIsFloatKey: false],
                                 commonFormat: .pcmFormatFloat32, interleaved: false)
-        guard let buf = AVAudioPCMBuffer(pcmFormat: outFmt, frameCapacity: AVAudioFrameCount(max(all.count, 1))), let ch = buf.floatChannelData else {
-            throw LyricsError.unavailable
+        if ProcessInfo.processInfo.environment["DMX_DEBUG_WHISPER"] != nil { print("speech samples: \(all.count)") }
+        // write in blocks (one huge buffer isn't written reliably)
+        let block = 16384
+        guard let buf = AVAudioPCMBuffer(pcmFormat: w.processingFormat, frameCapacity: AVAudioFrameCount(block)),
+              let ch = buf.floatChannelData else { throw LyricsError.unavailable }
+        var pos = 0
+        while pos < all.count {
+            let n = min(block, all.count - pos)
+            for k in 0..<n { ch[0][k] = all[pos + k] }
+            buf.frameLength = AVAudioFrameCount(n)
+            try w.write(from: buf)
+            pos += n
         }
-        buf.frameLength = AVAudioFrameCount(all.count)
-        guard !all.isEmpty else { return }
-        all.withUnsafeBufferPointer { ch[0].assign(from: $0.baseAddress!, count: all.count) }
-        try w.write(from: buf)
     }
 }
