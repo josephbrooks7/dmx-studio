@@ -71,7 +71,8 @@ struct DMXStudioApp: App {
                 let settings = i + 4 < args.count
                     ? ((try? Data(contentsOf: URL(fileURLWithPath: args[i + 4]))).flatMap { try? JSONDecoder().decode(DetectionSettings.self, from: $0) } ?? DetectionSettings())
                     : DetectionSettings()
-                let a = try AudioAnalyzer.analyze(url: URL(fileURLWithPath: args[i + 1]), settings: settings, stemsDir: stems) { p in
+                let hq = i + 5 < args.count && args[i + 5] == "hq"
+                let a = try AudioAnalyzer.analyze(url: URL(fileURLWithPath: args[i + 1]), settings: settings, stemsDir: stems, highQuality: hq) { p in
                     print("progress=\(p)"); fflush(stdout)
                 }
                 try Library.encoder.encode(a).write(to: URL(fileURLWithPath: args[i + 2]))
@@ -91,7 +92,9 @@ struct DMXStudioApp: App {
             let meta = SongMetadata.read(url)
             let args = CommandLine.arguments
             let stems = args.firstIndex(of: "--stems").flatMap { $0 + 1 < args.count ? URL(fileURLWithPath: args[$0 + 1]) : nil }
-            let a = try AudioAnalyzer.analyze(url: url, stemsDir: stems) { _ in }
+            let hqModel = args.firstIndex(of: "--hq-model").flatMap { $0 + 1 < args.count ? args[$0 + 1] : nil }
+            if let hqModel { HQSplitter.overrideModel = URL(fileURLWithPath: hqModel) }
+            let a = try AudioAnalyzer.analyze(url: url, stemsDir: stems, highQuality: hqModel != nil) { _ in }
             let show = ShowGenerator.generateShaped(a, style: a.suggestedStyle, variation: 1, design: nil)
             let g = a.groove
             print(String(format: "groove=%@ confidence=%.2f feltBPM=%.1f fourOnFloor=%.2f", g.feel.rawValue, g.confidence, a.feltBPM, a.fourOnTheFloor))

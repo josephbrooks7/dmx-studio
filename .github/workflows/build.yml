@@ -68,6 +68,8 @@ jobs:
           done
           grep -q "title=Test Groove artist=Red Velvet Test" <("$BIN" --analyze /tmp/test.wav) && echo "PASS tags read (title + artist)"
       - name: Stem splitter test - bass-heavy, sparse vocal, drums + vocals
+        env:
+          GH_TOKEN: ${{ github.token }}
         run: |
           python3 -m pip install --quiet numpy 2>/dev/null || python3 -m pip install --quiet --break-system-packages numpy
           BIN="build/DMX Studio.app/Contents/MacOS/DMXStudio"
@@ -80,6 +82,14 @@ jobs:
           DMX_DEBUG_KICK=1 "$BIN" --analyze /tmp/v/verify.wav | grep "^dbg" > /tmp/v/dbg.txt || true
           head -3 /tmp/v/dbg.txt; grep -E "t=(42\.4|49\.5|49\.6|54\.4|40\.0|44\.8)" /tmp/v/dbg.txt || true
           python3 packaging/check_stems.py /tmp/v/out.txt /tmp/v/verify.wav /tmp/v/stems
+          echo "--- High Quality (AI) split"
+          if gh release download hq-model-1 -R "$GITHUB_REPOSITORY" -p "DemucsHQ.mlmodelc.zip" -p "check.json" -D /tmp/hq 2>/dev/null; then
+            (cd /tmp/hq && ditto -x -k DemucsHQ.mlmodelc.zip .)
+            START=$(date +%s)
+            "$BIN" --analyze /tmp/v/verify.wav --stems /tmp/v/hqstems --hq-model /tmp/hq/DemucsHQ.mlmodelc | grep -E "kicks=|vocalPhrases|stems="
+            echo "high quality split + learn took $(( $(date +%s) - START )) s for a 60 s song"
+            python3 packaging/check_hq.py /tmp/v/verify.wav /tmp/v/hqstems /tmp/hq/check.json
+          else echo "model not published yet: skipped"; fi
           python3 packaging/make_structure_song.py /tmp/v/pop.wav
           DMX_DEBUG_STRUCTURE=1 "$BIN" --analyze /tmp/v/pop.wav > /tmp/v/pop.txt; grep -E "bpm=|vocalPhrases|^seg|Group" /tmp/v/pop.txt | cut -c1-200
           python3 packaging/check_structure.py /tmp/v/pop.txt /tmp/v/pop.truth.json

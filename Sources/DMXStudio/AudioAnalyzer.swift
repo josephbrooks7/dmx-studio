@@ -19,12 +19,22 @@ enum AudioAnalyzer {
         }
     }
 
-    static func analyze(url: URL, settings: DetectionSettings = DetectionSettings(), stemsDir: URL? = nil,
+    static func analyze(url: URL, settings: DetectionSettings = DetectionSettings(), stemsDir: URL? = nil, highQuality: Bool = false,
                         progress: @escaping (Double) -> Void) throws -> SongAnalysis {
         var (a, chroma) = try analyzeMix(url: url) { progress($0 * 0.3) }
         // Split into vocals / drums / bass / other, then find the hits and sung phrases on those parts
         do {
-            let out = try StemSplitter.run(url: url, settings: settings, stemsDir: stemsDir) { progress(0.3 + $0 * 0.7) }
+            var out: StemSplitter.Output
+            if highQuality, HQSplitter.isInstalled, let stemsDir {
+                // AI split into 6 parts, then hits from the clean drum part and phrases from the clean vocals
+                try HQSplitter.separate(url: url, outDir: stemsDir) { progress(0.3 + $0 * 0.55) }
+                let drums = try StemSplitter.run(url: stemsDir.appendingPathComponent("drums.m4a"), settings: settings, stemsDir: nil) { progress(0.85 + $0 * 0.07) }
+                let vox = try StemSplitter.run(url: stemsDir.appendingPathComponent("vocals.m4a"), settings: settings, stemsDir: nil) { progress(0.92 + $0 * 0.07) }
+                let phrases = audible(vox.vocalPhrases, part: stemsDir.appendingPathComponent("vocals.m4a"), mix: url)
+                out = StemSplitter.Output(hits: drums.hits, vocalPhrases: phrases, stemsFolder: stemsDir.path)
+            } else {
+                out = try StemSplitter.run(url: url, settings: settings, stemsDir: stemsDir) { progress(0.3 + $0 * 0.7) }
+            }
             a.hits = out.hits
             a.vocalPhrases = out.vocalPhrases
             a.stemsFolder = out.stemsFolder
@@ -40,6 +50,20 @@ enum AudioAnalyzer {
         a.accents = AccentFinder.find(a)
         progress(1)
         return a
+    }
+
+    /// Keeps only phrases where the separated part is actually loud enough to hear in the mix
+    /// (a backing track's vocal part is mostly faint leftovers).
+    static func audible(_ spans: [TimeSpan], part: URL, mix: URL) -> [TimeSpan] {
+        guard let p = try? loadMono(url: part), let m = try? loadMono(url: mix) else { return spans }
+        func power(_ x: [Float], _ s: TimeSpan) -> Double {
+            let a = max(0, Int(s.start * sampleRate)), b = min(x.count, Int(s.end * sampleRate))
+            guard b > a else { return 0 }
+            var v: Float = 0
+            x.withUnsafeBufferPointer { vDSP_measqv($0.baseAddress! + a, 1, &v, vDSP_Length(b - a)) }
+            return Double(v)
+        }
+        return spans.filter { power(p, $0) >= 0.02 * power(m, $0) }
     }
 
     /// Tempo, beats, energy and sections from the full mix (plus first-guess drum hits).

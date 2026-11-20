@@ -7,6 +7,9 @@ struct StemsTab: View {
     @EnvironmentObject var model: AppModel
     let song: Song
     @AppStorage("stemsTabOpen") private var open = false
+    @AppStorage("hqStems") private var highQuality = false
+    @State private var downloading: Double?
+    @State private var installedTick = 0
 
     var body: some View {
         VStack(alignment: .leading, spacing: 10) {
@@ -24,6 +27,38 @@ struct StemsTab: View {
             }
             .buttonStyle(.plain)
             if open {
+                HStack(spacing: 10) {
+                    Text("Splitting").foregroundColor(.secondary)
+                    Picker("", selection: $highQuality) {
+                        Text("Fast (4 parts)").tag(false)
+                        Text("High Quality AI (6 parts)").tag(true)
+                    }
+                    .pickerStyle(.segmented).frame(width: 330)
+                    if highQuality && !HQSplitter.isInstalled {
+                        if let p = downloading {
+                            ProgressView(value: p).frame(width: 120)
+                            Text("Getting the AI model…").font(.caption).foregroundColor(.secondary)
+                        } else {
+                            Button("Download AI Model (~70 MB)") {
+                                downloading = 0
+                                HQSplitter.download(progress: { downloading = $0 }) { err in
+                                    downloading = nil
+                                    if let err { ErrorCenter.shared.report(area: "Stems", message: "Couldn't download the High Quality model: \(err.localizedDescription)", details: "\(err)") }
+                                    else { installedTick += 1 }
+                                }
+                            }
+                        }
+                    }
+                    Spacer()
+                    Button { model.learn(song.id, rebuildShows: true) } label: { Label("Split Again", systemImage: "arrow.triangle.2.circlepath") }
+                        .disabled(model.learning[song.id] != nil || (highQuality && !HQSplitter.isInstalled))
+                        .help("Split this song again with the chosen quality, relearn it and rebuild its shows")
+                }
+                .id(installedTick)
+                if highQuality {
+                    Text("High Quality uses Meta's Demucs AI model on this Mac: much cleaner parts (and guitar + piano), a few minutes per song.")
+                        .font(.caption).foregroundColor(.secondary)
+                }
                 if let a = song.analysis, let folder = a.stemsFolder {
                     StemMixerView(song: song, analysis: a, folder: folder)
                 } else if model.learning[song.id] != nil {
@@ -58,6 +93,10 @@ struct StemStyle {
                   colors: [Color(red: 1.0, green: 0.04, blue: 0.24), Color(red: 1.0, green: 0.1, blue: 0.3)]),
         StemStyle(name: "bass", label: "BASS", icon: "guitars.fill",
                   colors: [Color(red: 0.82, green: 0.0, blue: 0.43), Color(red: 0.9, green: 0.0, blue: 0.62)]),
+        StemStyle(name: "guitar", label: "GUITAR", icon: "guitars",
+                  colors: [Color(red: 0.55, green: 1.0, blue: 0.0), Color(red: 0.2, green: 1.0, blue: 0.45)]),
+        StemStyle(name: "piano", label: "PIANO", icon: "pianokeys",
+                  colors: [Color(red: 1.0, green: 0.82, blue: 0.0), Color(red: 1.0, green: 0.62, blue: 0.0)]),
         StemStyle(name: "other", label: "OTHER", icon: "music.note.list",
                   colors: [Color(red: 0.1, green: 0.24, blue: 1.0), Color(red: 0.05, green: 0.4, blue: 1.0)]),
     ]
@@ -73,6 +112,11 @@ struct StemMixerView: View {
     static let laneHeight: CGFloat = 74
 
     var isThisPlaying: Bool { model.playingSongID == song.id && model.isPlaying }
+    /// The parts this song was split into (4 with Fast, 6 with High Quality)
+    var styles: [StemStyle] {
+        let have = overview.map { Set($0.peaks.keys) } ?? Set(StemSplitter.stems)
+        return StemStyle.all.filter { have.contains($0.name) }
+    }
 
     var body: some View {
         VStack(spacing: 8) {
@@ -105,7 +149,7 @@ struct StemMixerView: View {
 
             HStack(alignment: .top, spacing: 0) {
                 VStack(spacing: 8) {
-                    ForEach(StemStyle.all, id: \.name) { st in
+                    ForEach(styles, id: \.name) { st in
                         StemCard(style: st, channel: model.stemChannel(song.id, st.name))
                             .frame(width: Self.cardWidth, height: Self.laneHeight)
                     }
@@ -120,7 +164,7 @@ struct StemMixerView: View {
                     let w = geo.size.width
                     ZStack(alignment: .topLeading) {
                         VStack(spacing: 8) {
-                            ForEach(StemStyle.all, id: \.name) { st in
+                            ForEach(styles, id: \.name) { st in
                                 StemWave(peaks: overview?.peaks[st.name] ?? [], colors: st.colors,
                                          dim: model.stemGain(song.id, st.name) == 0)
                                     .frame(height: Self.laneHeight)
@@ -141,7 +185,7 @@ struct StemMixerView: View {
                         if model.playingSongID == song.id { model.seek(to: t) } else { model.play(song.id, from: t) }
                     })
                 }
-                .frame(height: Self.laneHeight * 4 + 8 * 6 + 44 + 30 + 30)
+                .frame(height: Self.laneHeight * CGFloat(styles.count) + 8 * CGFloat(styles.count + 2) + 44 + 30 + 30)
                 .padding(.leading, 8)
             }
         }

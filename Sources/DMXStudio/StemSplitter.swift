@@ -495,6 +495,7 @@ final class FFT {
         buf = [Float](repeating: 0, count: n)
     }
     deinit { vDSP_destroy_fftsetup(setup) }
+    @inline(__always) func windowValue(_ j: Int) -> Float { window[j] }
 
     /// Windowed forward transform of src[0..<n] (values are 2× the textbook DFT, as vDSP gives them).
     func forward(_ src: UnsafePointer<Float>, _ re: inout [Float], _ im: inout [Float]) {

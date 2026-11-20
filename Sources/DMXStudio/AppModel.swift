@@ -1254,7 +1254,7 @@ final class AppModel: ObservableObject {
         }
         if stemPlayersSong != id {
             stopStems()
-            for name in StemSplitter.stems {
+            for name in StemStyle.all.map(\.name) {
                 let u = URL(fileURLWithPath: folder).appendingPathComponent("\(name).m4a")
                 if let sp = try? AVAudioPlayer(contentsOf: u) { sp.prepareToPlay(); stemPlayers[name] = sp }
             }
@@ -1299,7 +1299,8 @@ final class AppModel: ObservableObject {
             try? JSONEncoder().encode(settings).write(to: settingsFile)
             // Learn in a separate helper process: a bad file can't crash the app.
             // It splits the song into stems first, then learns from those parts.
-            let r = Helper.run(["--learn", url.path, out.path, stems.path, settingsFile.path], timeout: 1200) { p in
+            let hq = UserDefaults.standard.bool(forKey: "hqStems") && HQSplitter.isInstalled
+            let r = Helper.run(["--learn", url.path, out.path, stems.path, settingsFile.path, hq ? "hq" : "fast"], timeout: 3600) { p in
                 DispatchQueue.main.async { if self.learning[id] != nil { self.learning[id] = max(0.05, min(0.99, p)) } }
             }
             let analysis = (try? Data(contentsOf: out)).flatMap { try? Library.decoder.decode(SongAnalysis.self, from: $0) }
