@@ -12,6 +12,29 @@ struct DMXStudioApp: App {
         if let i = args.firstIndex(of: "--analyze"), i + 1 < args.count {
             Self.runAnalyzeAndExit(path: args[i + 1])
         }
+        // Helper modes: risky work runs in a separate process so a failure can't crash the app
+        if args.contains("--scan-artnet") {
+            CrashGuard.install(writeToStderr: true)
+            CrashGuard.breadcrumb("Scanning for wireless DMX devices")
+            let nodes = ArtNetDiscovery.discover(timeout: 1.5)
+            FileHandle.standardOutput.write((try? JSONEncoder().encode(nodes)) ?? Data("[]".utf8))
+            exit(0)
+        }
+        if let i = args.firstIndex(of: "--learn"), i + 2 < args.count {
+            CrashGuard.install(writeToStderr: true)
+            CrashGuard.breadcrumb("Learning \(URL(fileURLWithPath: args[i + 1]).lastPathComponent)")
+            do {
+                let a = try AudioAnalyzer.analyze(url: URL(fileURLWithPath: args[i + 1])) { p in
+                    print("progress=\(p)"); fflush(stdout)
+                }
+                try JSONEncoder().encode(a).write(to: URL(fileURLWithPath: args[i + 2]))
+                exit(0)
+            } catch {
+                FileHandle.standardError.write(Data(error.localizedDescription.utf8))
+                exit(3)
+            }
+        }
+        CrashGuard.install()
         NSApplication.shared.setActivationPolicy(.regular)
     }
 
@@ -81,6 +104,7 @@ enum SidebarItem: Hashable {
     case lights
     case wireless
     case idle
+    case problems
 }
 
 struct RootView: View {
@@ -88,6 +112,8 @@ struct RootView: View {
     @State private var selection: SidebarItem? = .wireless
     @State private var importing = false
     @State private var dropTargeted = false
+    @ObservedObject private var errors = ErrorCenter.shared
+    @State private var crashReport: String?
 
     var body: some View {
         VStack(spacing: 0) {
@@ -104,6 +130,16 @@ struct RootView: View {
                         .tag(SidebarItem.wireless)
                         Label("My Lights", systemImage: "light.beacon.max").tag(SidebarItem.lights)
                         Label("Idle Look", systemImage: "moon.stars").tag(SidebarItem.idle)
+                        Label {
+                            HStack {
+                                Text("Problems")
+                                Spacer()
+                                if !errors.problems.isEmpty {
+                                    Text("\(errors.problems.count)").font(.caption).foregroundColor(.orange)
+                                }
+                            }
+                        } icon: { Image(systemName: "exclamationmark.triangle") }
+                        .tag(SidebarItem.problems)
                     }
                     Section("Set Lists") {
                         ForEach(model.lineups) { l in
@@ -173,6 +209,7 @@ struct RootView: View {
                     case .lineup(let id): LineupView(lineupID: id).id(id)
                     case .lights: LightsView()
                     case .idle: IdleView()
+                    case .problems: ProblemsView()
                     case .wireless, .none: WirelessView()
                     }
                 }
@@ -190,10 +227,20 @@ struct RootView: View {
         .onChange(of: selection) { sel in
             if case .song(let id) = sel { model.selectedSongID = id }
         }
-        .alert("Heads up", isPresented: Binding(get: { model.alert != nil }, set: { if !$0 { model.alert = nil } })) {
-            Button("OK") { model.alert = nil }
+        .alert(errors.current.map { "Something didn't work: \($0.area)" } ?? "",
+               isPresented: Binding(get: { errors.current != nil }, set: { if !$0 { errors.current = nil } })) {
+            Button("Report Problem") {
+                if let p = errors.current { errors.sendReport(p) }
+                errors.current = nil
+            }
+            Button("OK", role: .cancel) { errors.current = nil }
         } message: {
-            Text(model.alert ?? "")
+            Text((errors.current?.message ?? "") + "\n\nThe app is still running. You can report this so it gets fixed.")
+        }
+        .onAppear {
+            if let r = CrashGuard.takePendingReport() {
+                ErrorCenter.shared.report(area: "Crash", message: "DMX Studio closed unexpectedly last time.", details: r)
+            }
         }
     }
 }

@@ -62,6 +62,16 @@ jobs:
           PY
           done
           grep -q "title=Test Groove artist=Red Velvet Test" <("$BIN" --analyze /tmp/test.wav) && echo "PASS tags read (title + artist)"
+      - name: Helper processes (Wi-Fi scan + Learn run outside the app)
+        run: |
+          BIN="build/DMX Studio.app/Contents/MacOS/DMXStudio"
+          OUT=$("$BIN" --scan-artnet); echo "scan output: $OUT"
+          echo "$OUT" | python3 -c "import json,sys; json.load(sys.stdin); print('PASS scan helper returns device list')"
+          python3 packaging/make_test_song.py /tmp/h.wav >/dev/null
+          "$BIN" --learn /tmp/h.wav /tmp/h.json | tail -1
+          python3 -c "import json; a=json.load(open('/tmp/h.json')); assert 127 < a['bpm'] < 129; print('PASS learn helper wrote analysis, bpm', round(a['bpm'],1))"
+          set +e; "$BIN" --learn /tmp/does-not-exist.wav /tmp/x.json; code=$?; set -e
+          [ $code -ne 0 ] && echo "PASS learn helper reports a missing file instead of crashing (exit $code)"
       - name: Snare diagnostics
         if: always()
         run: |

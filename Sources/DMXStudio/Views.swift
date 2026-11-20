@@ -1099,3 +1099,59 @@ struct HoldButton: View {
                 .onEnded { _ in isHeld = false })
     }
 }
+
+// MARK: - Problems
+
+struct ProblemsView: View {
+    @ObservedObject var errors = ErrorCenter.shared
+    @State private var expanded: UUID?
+
+    var body: some View {
+        ScrollView {
+            VStack(alignment: .leading, spacing: 16) {
+                HStack {
+                    PageHeader(title: "Problems", subtitle: "Anything that didn't work. Report a problem and it goes straight to the DMX Studio GitHub so it can be fixed.")
+                    Spacer()
+                    if !errors.problems.isEmpty {
+                        Button("Clear All") { errors.problems.removeAll() }
+                    }
+                }
+                if errors.problems.isEmpty {
+                    Card { Label("Everything's working. No problems so far.", systemImage: "checkmark.seal.fill").foregroundColor(.green) }
+                }
+                ForEach(errors.problems) { p in
+                    Card {
+                        VStack(alignment: .leading, spacing: 8) {
+                            HStack(alignment: .top) {
+                                Image(systemName: "exclamationmark.triangle.fill").foregroundColor(.orange)
+                                VStack(alignment: .leading, spacing: 4) {
+                                    Text(p.area).font(.headline)
+                                    Text(p.message)
+                                    Text(p.date, style: .time).font(.caption).foregroundColor(.secondary)
+                                }
+                                Spacer()
+                                if p.reported {
+                                    Label("Reported", systemImage: "checkmark").foregroundColor(.green)
+                                }
+                                Button(p.reported ? "Report Again" : "Report Problem") { errors.sendReport(p) }
+                            }
+                            if !p.details.isEmpty {
+                                DisclosureGroup("Technical details", isExpanded: Binding(
+                                    get: { expanded == p.id }, set: { expanded = $0 ? p.id : nil })) {
+                                    ScrollView {
+                                        Text(p.details).font(.system(.caption, design: .monospaced)).textSelection(.enabled)
+                                            .frame(maxWidth: .infinity, alignment: .leading)
+                                    }
+                                    .frame(maxHeight: 200)
+                                }
+                            }
+                        }
+                    }
+                }
+                Text("Report Problem opens a pre-filled issue on GitHub (you just click Submit) and copies the full report to your clipboard.")
+                    .font(.caption).foregroundColor(.secondary)
+            }
+            .padding(24)
+        }
+    }
+}

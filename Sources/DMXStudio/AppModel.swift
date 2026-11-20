@@ -53,7 +53,12 @@ final class AppModel: ObservableObject {
     @Published var discoveredNodes: [ArtNetNode] = []   // everything seen this session
     @Published var searchingNodes = false
     @Published var lastScan: Date?
-    @Published var alert: String?
+    private var scanFailures = 0
+    /// Setting this shows a friendly error with a Report button (it never crashes the app).
+    var alert: String? {
+        get { nil }
+        set { if let m = newValue { ErrorCenter.shared.report(area: "DMX Studio", message: m) } }
+    }
 
     let engine = DMXEngine()
     private var player: AVAudioPlayer?
@@ -162,6 +167,7 @@ final class AppModel: ObservableObject {
     // MARK: - Output
 
     func connect(quiet: Bool = false) {
+        CrashGuard.breadcrumb("Connecting to DMX output")
         do {
             if output.kind != .artNet && output.serialPath.isEmpty {
                 throw DMXError.openFailed("choose a USB port first")
@@ -189,9 +195,34 @@ final class AppModel: ObservableObject {
     func findNodes() {
         guard !searchingNodes else { return }
         searchingNodes = true
+        let manual = lastScan == nil ? false : true
         DispatchQueue.global(qos: .utility).async {
-            let nodes = ArtNetDiscovery.discover(timeout: 1.5)
-            DispatchQueue.main.async { self.mergeScan(nodes) }
+            // Scan in a separate helper process: if anything goes wrong, the app keeps running
+            let r = Helper.run(["--scan-artnet"], timeout: 8)
+            var nodes: [ArtNetNode] = []
+            var problem: (String, String)? = nil
+            if r.crashed || r.status != 0 {
+                problem = ("The Wi-Fi scan for DMX devices stopped unexpectedly. Your lights and shows are fine; you can still connect by typing the PKnight's IP (192.168.4.1 on its own hotspot).",
+                           "exit \(r.status)\n\(r.stderr)")
+            } else if let decoded = try? JSONDecoder().decode([ArtNetNode].self, from: r.stdout) {
+                nodes = decoded
+            } else {
+                problem = ("The Wi-Fi scan returned something unreadable.", String(decoding: r.stdout.prefix(500), as: UTF8.self) + "\n" + r.stderr)
+            }
+            DispatchQueue.main.async {
+                if let problem {
+                    self.searchingNodes = false
+                    self.lastScan = Date()
+                    self.scanFailures += 1
+                    // Don't nag every 8 s: show once, then just log quietly
+                    ErrorCenter.shared.report(area: "Wi-Fi scan", message: problem.0, details: problem.1,
+                                              show: self.scanFailures == 1 || manual)
+                    if self.scanFailures >= 3 { self.output.autoScan = false }
+                    return
+                }
+                self.scanFailures = 0
+                self.mergeScan(nodes)
+            }
         }
     }
 
@@ -373,23 +404,31 @@ final class AppModel: ObservableObject {
     func learn(_ id: UUID) {
         guard let i = index(of: id), learning[id] == nil else { return }
         let url = songs[i].url
-        learning[id] = 0
+        let title = songs[i].title
+        learning[id] = 0.05
+        guard FileManager.default.fileExists(atPath: url.path) else {
+            learning[id] = nil
+            ErrorCenter.shared.report(area: "Learn", message: "Couldn't find the file for \"\(title)\". It may have been moved or deleted.", details: url.path)
+            return
+        }
         DispatchQueue.global(qos: .userInitiated).async {
-            do {
-                let analysis = try AudioAnalyzer.analyze(url: url) { p in
-                    DispatchQueue.main.async { if self.learning[id] != nil { self.learning[id] = p } }
+            let out = FileManager.default.temporaryDirectory.appendingPathComponent("learn-\(id.uuidString).json")
+            // Learn in a separate helper process: a bad file can't crash the app
+            let r = Helper.run(["--learn", url.path, out.path], timeout: 600)
+            let analysis = (try? Data(contentsOf: out)).flatMap { try? JSONDecoder().decode(SongAnalysis.self, from: $0) }
+            try? FileManager.default.removeItem(at: out)
+            DispatchQueue.main.async {
+                self.learning[id] = nil
+                guard let analysis, r.status == 0 else {
+                    let msg = r.crashed
+                        ? "Learning \"\(title)\" stopped unexpectedly. The app is fine; please report this so it can be fixed."
+                        : "Couldn't learn \"\(title)\": \(r.stderr.isEmpty ? "the file couldn't be read" : r.stderr)"
+                    ErrorCenter.shared.report(area: "Learn", message: msg, details: "file: \(url.lastPathComponent)\nexit \(r.status)\n\(r.stderr)")
+                    return
                 }
-                DispatchQueue.main.async {
-                    self.learning[id] = nil
-                    guard let i = self.index(of: id) else { return }
-                    self.songs[i].analysis = analysis
-                    if self.songs[i].shows.isEmpty { self.createShow(for: id) }
-                }
-            } catch {
-                DispatchQueue.main.async {
-                    self.learning[id] = nil
-                    self.alert = "Couldn't learn \"\(url.lastPathComponent)\": \(error.localizedDescription)"
-                }
+                guard let i = self.index(of: id) else { return }
+                self.songs[i].analysis = analysis
+                if self.songs[i].shows.isEmpty { self.createShow(for: id) }
             }
         }
     }
@@ -524,6 +563,7 @@ final class AppModel: ObservableObject {
 
     func play(_ id: UUID, show: UUID? = nil, from start: Double? = nil, keepLineup: Bool = false) {
         guard let i = index(of: id) else { return }
+        CrashGuard.breadcrumb("Playing \(songs[i].title)")
         cancelGap()
         if !keepLineup { playingLineupID = nil; playingEntryIndex = nil }
         if playingSongID != id || player == nil {
