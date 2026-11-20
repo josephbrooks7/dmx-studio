@@ -132,6 +132,8 @@ final class AppModel: ObservableObject {
     private var cueStart: Double = 0
     private var fadingPlayer: AVAudioPlayer?   // the song fading out under a transition
     private var blockEndWork: DispatchWorkItem? // ends a transition that blends into the next song
+    @Published var pauseTime: Double?           // set while paused: the moment the lights froze
+    private var pausedPresetElapsed: Double?
     private var lastSongBPM: Double = 120
     @Published var isPlaying = false
     var currentTime: Double { get { live.currentTime } set { if live.currentTime != newValue { live.currentTime = newValue } } }
@@ -579,6 +581,7 @@ final class AppModel: ObservableObject {
     }
 
     func togglePreset(_ id: UUID) {
+        if pauseTime != nil && playingSongID == nil && activeBlock == nil { resumeFromPause() }
         if activePresetID == id { activePresetID = nil; return }
         activePresetID = id
         if presets.first(where: { $0.id == id })?.effect == .soundLevel && beatSource != .mic { beatSource = .mic }
@@ -1482,6 +1485,7 @@ final class AppModel: ObservableObject {
         playingShowID = show ?? songs[i].activeShow?.id
         if let start { player?.currentTime = start }
         testMode = .off
+        resumeFromPause()
         if fadeIn > 0 { player?.volume = 0 }
         player?.play()
         if fadeIn > 0 { player?.setVolume(1, fadeDuration: fadeIn) } else { player?.volume = 1 }
@@ -1490,12 +1494,15 @@ final class AppModel: ObservableObject {
 
     func togglePlay() {
         if isPlaying { pause(); return }
+        if pauseTime != nil, playingSongID == nil, activeBlock == nil, activePresetID != nil { resumeFromPause(); return }
+        if pauseTime == nil, playingSongID == nil, activeBlock == nil, cuedEntry == nil, activePresetID != nil { pause(); return }
         if goCued() { return }
         if var b = activeBlock, let remaining = b.pausedRemaining, let lid = playingLineupID, let idx = playingEntryIndex {
             // resume a paused block where it left off
             b.start = Date().timeIntervalSinceReferenceDate - (b.length - remaining)
             b.pausedRemaining = nil
             activeBlock = b
+            resumeFromPause()
             fadingPlayer?.play()
             isPlaying = true
             scheduleBlockEnd(after: remaining, lineup: lid, index: idx)
@@ -1512,6 +1519,10 @@ final class AppModel: ObservableObject {
             fadingPlayer?.stop(); fadingPlayer = nil
             activeBlock = nil
         }
+        if pauseTime == nil, isPlaying || activePresetID != nil || activeBlock != nil {
+            pauseTime = Date().timeIntervalSinceReferenceDate
+            pausedPresetElapsed = activePresetID != nil ? pauseTime! - presetStart : nil
+        }
         player?.pause()
         if var b = activeBlock, b.pausedRemaining == nil {
             gapWork?.cancel(); gapWork = nil
@@ -1523,7 +1534,16 @@ final class AppModel: ObservableObject {
         isPlaying = false
     }
 
+    /// Un-freezes the lights; a live look carries on from where it was.
+    private func resumeFromPause() {
+        guard pauseTime != nil else { return }
+        if let e = pausedPresetElapsed { presetStart = Date().timeIntervalSinceReferenceDate - e }
+        pauseTime = nil
+        pausedPresetElapsed = nil
+    }
+
     func stop() {
+        resumeFromPause()
         cancelGap()
         activeBlock = nil
         blockEndWork?.cancel(); blockEndWork = nil
@@ -1577,7 +1597,8 @@ final class AppModel: ObservableObject {
     // MARK: - Frame loop (40 Hz)
 
     private func tick() {
-        let now = Date().timeIntervalSinceReferenceDate
+        // Paused: the lights freeze exactly where they are (same frame every tick) until play
+        let now = pauseTime ?? Date().timeIntervalSinceReferenceDate
         var rendered: [RenderedFixture]
         var t: Double = now
 
@@ -1671,7 +1692,7 @@ final class AppModel: ObservableObject {
             }
 
             // Smoothly ramp between show and idle when a song starts, pauses or stops
-            let target: Double = (showFrame != nil && (isPlaying || activePresetID != nil || cuedEntry != nil)) ? 0 : 1
+            let target: Double = (showFrame != nil && (isPlaying || activePresetID != nil || cuedEntry != nil || pauseTime != nil)) ? 0 : 1
             let step = 1.0 / (40 * 0.8)   // ~0.8 s fade
             if idleBlend < target { idleBlend = min(target, idleBlend + step) }
             if idleBlend > target { idleBlend = max(target, idleBlend - step * 4) } // come in fast on play
