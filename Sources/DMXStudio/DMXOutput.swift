@@ -182,28 +182,61 @@ final class ArtNetOutput: DMXOutput {
     func close() { Darwin.close(sock) }
 }
 
-// MARK: - Engine: sends the current frame ~40 times a second on its own thread
+// MARK: - Engine: sends every output's frame ~40 times a second on its own thread
 
 final class DMXEngine {
+    static let mainKey = "main"
     private let lock = NSLock()
-    private var frame = [UInt8](repeating: 0, count: 512)
-    private var output: DMXOutput?
+    private var frames: [String: [UInt8]] = [:]
+    private var outputs: [String: DMXOutput] = [:]
+    private var extraTargets: [String: String] = [:]   // key -> ip
     private var thread: Thread?
     private var running = false
     var onError: ((String) -> Void)?
 
-    var isConnected: Bool { lock.lock(); defer { lock.unlock() }; return output != nil }
+    var isConnected: Bool { lock.lock(); defer { lock.unlock() }; return outputs[DMXEngine.mainKey] != nil }
 
     func connect(_ settings: OutputSettings) throws {
-        disconnect()
         let out: DMXOutput
         switch settings.kind {
         case .enttecPro: out = try EnttecProOutput(path: settings.serialPath)
         case .openDMX: out = try OpenDMXOutput(path: settings.serialPath)
         case .artNet: out = try ArtNetOutput(ip: settings.artNetIP, universe: settings.artNetUniverse)
         }
-        lock.lock(); output = out; running = true; lock.unlock()
+        lock.lock()
+        let old = outputs[DMXEngine.mainKey]
+        outputs[DMXEngine.mainKey] = out
+        lock.unlock()
+        old?.close()
+        startLoop()
+    }
 
+    /// Extra Art-Net devices (universe 0) for lights wired to other wireless boxes.
+    func setExtraDevices(_ devices: [(key: String, ip: String)]) {
+        lock.lock()
+        var stale: [DMXOutput] = []
+        let wanted = Dictionary(devices.map { ($0.key, $0.ip) }, uniquingKeysWith: { a, _ in a })
+        for (key, ip) in extraTargets where wanted[key] != ip {
+            if let o = outputs.removeValue(forKey: key) { stale.append(o) }
+            extraTargets[key] = nil
+        }
+        for (key, ip) in wanted where extraTargets[key] == nil && key != DMXEngine.mainKey {
+            if let o = try? ArtNetOutput(ip: ip, universe: 0) {
+                outputs[key] = o
+                extraTargets[key] = ip
+            }
+        }
+        lock.unlock()
+        stale.forEach { $0.close() }
+        if !wanted.isEmpty { startLoop() }
+    }
+
+    private func startLoop() {
+        lock.lock()
+        let already = running
+        running = true
+        lock.unlock()
+        guard !already else { return }
         let t = Thread { [weak self] in self?.loop() }
         t.qualityOfService = .userInteractive
         t.name = "DMX output"
@@ -213,44 +246,54 @@ final class DMXEngine {
 
     func disconnect() {
         lock.lock()
-        running = false
-        let out = output
-        output = nil
+        let out = outputs.removeValue(forKey: DMXEngine.mainKey)
+        if outputs.isEmpty { running = false }
         lock.unlock()
         if let out {
             try? out.send([UInt8](repeating: 0, count: 512))
             out.close()
         }
-        thread = nil
     }
 
-    func setFrame(_ f: [UInt8]) {
-        lock.lock(); frame = f; lock.unlock()
+    func shutdown() {
+        lock.lock()
+        running = false
+        let all = Array(outputs.values)
+        outputs.removeAll()
+        extraTargets.removeAll()
+        lock.unlock()
+        for o in all { try? o.send([UInt8](repeating: 0, count: 512)); o.close() }
+    }
+
+    func setFrames(_ f: [String: [UInt8]]) {
+        lock.lock(); frames = f; lock.unlock()
     }
 
     private func loop() {
         let interval = 1.0 / 40.0
         var next = Date().timeIntervalSinceReferenceDate
         var failures = 0
+        let blank = [UInt8](repeating: 0, count: 512)
         while true {
             lock.lock()
-            guard running, let out = output else { lock.unlock(); return }
-            let f = frame
+            guard running else { lock.unlock(); return }
+            let outs = outputs
+            let f = frames
             lock.unlock()
-            do {
-                try out.send(f)
-                failures = 0
-            } catch {
-                failures += 1
-                if failures == 20 {
-                    let msg = error.localizedDescription
-                    DispatchQueue.main.async { self.onError?(msg) }
-                }
+            var failed = false
+            for (key, out) in outs {
+                do { try out.send(f[key] ?? blank) } catch { failed = true; if failures == 20 { report(error) } }
             }
+            failures = failed ? failures + 1 : 0
             next += interval
             let wait = next - Date().timeIntervalSinceReferenceDate
             if wait > 0 { Thread.sleep(forTimeInterval: wait) } else { next = Date().timeIntervalSinceReferenceDate }
         }
+    }
+
+    private func report(_ error: Error) {
+        let msg = error.localizedDescription
+        DispatchQueue.main.async { self.onError?(msg) }
     }
 }
 

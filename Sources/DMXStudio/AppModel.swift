@@ -79,6 +79,7 @@ final class AppModel: ObservableObject {
         timer = Timer(timeInterval: 1.0 / 40.0, repeats: true) { [weak self] _ in self?.tick() }
         RunLoop.main.add(timer!, forMode: .common)
         if output.autoConnect { connect(quiet: true) }
+        syncExtraOutputs()
         // Bluetooth-style background scanning for wireless DMX devices
         scanTimer = Timer(timeInterval: 8, repeats: true) { [weak self] _ in
             guard let self, self.output.autoScan else { return }
@@ -183,6 +184,13 @@ final class AppModel: ObservableObject {
 
     private func mergeScan(_ nodes: [ArtNetNode]) {
         searchingNodes = false
+        if var extras = output.extraDevices {
+            var changed = false
+            for (i, e) in extras.enumerated() {
+                if let m = nodes.first(where: { $0.id == e.id }), m.ip != e.ip { extras[i] = m; changed = true }
+            }
+            if changed { output.extraDevices = extras; syncExtraOutputs() }
+        }
         lastScan = Date()
         for n in nodes {
             if let i = discoveredNodes.firstIndex(where: { $0.id == n.id }) { discoveredNodes[i] = n }
@@ -217,6 +225,36 @@ final class AppModel: ObservableObject {
         output.artNetIP = node.ip
         output.rememberedDevice = node
         connect()
+    }
+
+    /// Every device a light can be wired to: the main one plus extra wireless boxes.
+    var outputChoices: [(key: String, name: String)] {
+        var out: [(key: String, name: String)] = [(key: DMXEngine.mainKey, name: "Main device" + (output.rememberedDevice.map { " (\($0.name))" } ?? ""))]
+        var seen = Set<String>()
+        for n in (output.extraDevices ?? []) + discoveredNodes
+        where n.ip != output.artNetIP && !seen.contains(n.id) {
+            seen.insert(n.id)
+            out.append((key: n.id, name: "\(n.name) · \(n.ip)"))
+        }
+        return out
+    }
+
+    func assignOutput(fixtureID: UUID, key: String) {
+        guard let i = fixtures.firstIndex(where: { $0.id == fixtureID }) else { return }
+        fixtures[i].outputKey = key == DMXEngine.mainKey ? nil : key
+        if key != DMXEngine.mainKey, let node = discoveredNodes.first(where: { $0.id == key }) ?? output.extraDevices?.first(where: { $0.id == key }) {
+            var extras = output.extraDevices ?? []
+            extras.removeAll { $0.id == node.id }
+            extras.append(node)
+            output.extraDevices = extras
+        }
+        syncExtraOutputs()
+    }
+
+    func syncExtraOutputs() {
+        let used = Set(fixtures.compactMap { $0.outputKey })
+        let devices = (output.extraDevices ?? []).filter { used.contains($0.id) }.map { (key: $0.id, ip: $0.ip) }
+        engine.setExtraDevices(devices)
     }
 
     func forgetDevice() {
@@ -537,7 +575,7 @@ final class AppModel: ObservableObject {
         if testMode != .off {
             rendered = testFrame(now)
         } else {
-            let idleFrame = idle.render(fixtures: fixtures, time: now)
+            let idleFrame = idle.render(fixtures: fixtures, time: now)  // all lights, same order as `fixtures`
             var showFrame: [RenderedFixture]? = nil
 
             if let id = playingSongID, let i = index(of: id), let p = player {
@@ -549,10 +587,15 @@ final class AppModel: ObservableObject {
                 let showID = playingShowID ?? songs[i].activeShow?.id
                 if let a = songs[i].analysis, let show = songs[i].shows.first(where: { $0.id == showID }) ?? songs[i].activeShow {
                     t = p.currentTime + (songs[i].syncOffsetMs + globalLatencyMs) / 1000
-                    var r = ShowRenderer(analysis: a, sections: show.sections, fixtures: fixtures)
+                    // Only the lights linked to this show run it; the rest stay on the idle look
+                    let linked = fixtures.indices.filter { show.includes(fixtures[$0]) && fixtures[$0].effectiveBehavior == .sequence }
+                    var r = ShowRenderer(analysis: a, sections: show.sections, fixtures: linked.map { fixtures[$0] })
                     r.idle = idle
                     r.rig = rigMode
-                    showFrame = r.renderWithIdle(at: t)
+                    let part = r.renderWithIdle(at: t)
+                    var full = idleFrame
+                    for (j, fi) in linked.enumerated() where j < part.count { full[fi] = part[j] }
+                    showFrame = full
                 }
             }
 
@@ -579,8 +622,15 @@ final class AppModel: ObservableObject {
             }
         }
 
-        let frame = DMXMapper.frame(fixtures: fixtures, rendered: rendered, master: master, blackout: blackout, time: t)
-        engine.setFrame(frame)
+        // One DMX frame per output device
+        var frames: [String: [UInt8]] = [:]
+        let keys = Set(fixtures.map { $0.outputKey ?? DMXEngine.mainKey })
+        for key in keys {
+            let idx = fixtures.indices.filter { (fixtures[$0].outputKey ?? DMXEngine.mainKey) == key && $0 < rendered.count }
+            frames[key] = DMXMapper.frame(fixtures: idx.map { fixtures[$0] }, rendered: idx.map { rendered[$0] },
+                                          master: master, blackout: blackout, time: t)
+        }
+        engine.setFrames(frames)
 
         tickCount += 1
         if tickCount % 2 == 0 && rendered != preview { preview = rendered }

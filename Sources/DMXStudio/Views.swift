@@ -218,6 +218,25 @@ struct SongView: View {
                         Button("Cancel") { renaming = nil }
                     }
                 }
+                if let si = song.activeShowIndex, !model.fixtures.isEmpty {
+                    HStack(spacing: 8) {
+                        Text("Lights in this show").foregroundColor(.secondary)
+                        ForEach(model.fixtures) { fx in
+                            let on = song.shows[si].includes(fx)
+                            Button {
+                                var ids = song.shows[si].fixtureIDs ?? model.fixtures.map(\.id)
+                                if on { ids.removeAll { $0 == fx.id } } else { ids.append(fx.id) }
+                                binding.wrappedValue.shows[si].fixtureIDs = ids
+                            } label: {
+                                Label(fx.name, systemImage: on ? "checkmark.circle.fill" : "circle")
+                                    .padding(.horizontal, 10).padding(.vertical, 4)
+                                    .background(Capsule().fill(on ? Color.pink.opacity(0.3) : Color.white.opacity(0.06)))
+                            }
+                            .buttonStyle(.plain)
+                            .help(fx.effectiveBehavior == .stationary ? "Stationary lights hold their own settings" : "Tap to include or leave out")
+                        }
+                    }
+                }
                 HStack {
                     Text("Sync nudge").foregroundColor(.secondary)
                     Slider(value: binding.syncOffsetMs, in: -300...300, step: 10).frame(width: 220)
@@ -644,6 +663,12 @@ struct FixtureCard: View {
                     }
                     .frame(width: 420)
                     Stepper("Start address: \(fx.address)", value: b.address, in: 1...512)
+                    Picker("Output", selection: Binding(get: { fx.outputKey ?? DMXEngine.mainKey },
+                                                        set: { model.assignOutput(fixtureID: fx.id, key: $0) })) {
+                        ForEach(model.outputChoices, id: \.key) { c in Text(c.name).tag(c.key) }
+                    }
+                    .frame(width: 260)
+                    .help("Which wireless DMX box this light is plugged into")
                     Text("Uses \(fx.address)–\(fx.lastAddress) · \(fx.channelCount) ch · \(fx.headCount) head\(fx.headCount == 1 ? "" : "s")")
                         .foregroundColor(.secondary)
                 }

@@ -18,7 +18,7 @@ struct DMXStudioApp: App {
                 .preferredColorScheme(.dark)
                 .onReceive(NotificationCenter.default.publisher(for: NSApplication.willTerminateNotification)) { _ in
                     model.saveNow()
-                    model.disconnect()
+                    model.engine.shutdown()
                 }
         }
         .commands {

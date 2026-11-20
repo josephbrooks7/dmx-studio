@@ -221,6 +221,7 @@ struct Fixture: Identifiable, Codable, Hashable {
     var wheelFollowsShow: Bool? = nil   // color-wheel lights in Sequence mode: follow show colors (default) or stay white
     var behavior: LightBehavior? = nil
     var stationary: StationaryLook? = nil
+    var outputKey: String? = nil        // which DMX device this light is wired to; nil = main device
 
     /// Spotlights (color-wheel lights) default to Stationary; everything else to Sequence.
     var effectiveBehavior: LightBehavior { behavior ?? (colorWheel != nil ? .stationary : .sequence) }
@@ -363,6 +364,9 @@ struct LightShow: Identifiable, Codable, Hashable {
     var style: ShowStyle
     var variation: Int
     var sections: [ShowSection]
+    var fixtureIDs: [UUID]? = nil   // lights linked to this show; nil = all lights
+
+    func includes(_ fx: Fixture) -> Bool { fixtureIDs?.contains(fx.id) ?? true }
 }
 
 struct Song: Identifiable, Codable {
@@ -419,7 +423,8 @@ struct OutputSettings: Codable, Equatable {
     var artNetIP: String = "255.255.255.255"
     var artNetUniverse: Int = 0
     var autoConnect: Bool = true
-    var rememberedDevice: ArtNetNode? = nil   // the wireless box you paired with
+    var rememberedDevice: ArtNetNode? = nil   // the wireless box you paired with (main output)
+    var extraDevices: [ArtNetNode]? = nil      // more wireless boxes, for lights wired to them
     var autoScan: Bool = true                  // keep looking for wireless devices in the background
 }
 
@@ -532,7 +537,7 @@ enum LightBehavior: String, CaseIterable, Codable, Identifiable {
     }
 }
 
-struct StationaryLook: Codable, Equatable {
+struct StationaryLook: Codable, Hashable {
     var brightness: Double = 1
     var color: RGB = .white
     var strobe: Double = 0          // 0 = off
