@@ -80,6 +80,9 @@ jobs:
           DMX_DEBUG_KICK=1 "$BIN" --analyze /tmp/v/verify.wav | grep "^dbg" > /tmp/v/dbg.txt || true
           head -3 /tmp/v/dbg.txt; grep -E "t=(42\.4|49\.5|49\.6|54\.4|40\.0|44\.8)" /tmp/v/dbg.txt || true
           python3 packaging/check_stems.py /tmp/v/out.txt /tmp/v/verify.wav /tmp/v/stems
+          python3 packaging/make_structure_song.py /tmp/v/pop.wav
+          "$BIN" --analyze /tmp/v/pop.wav > /tmp/v/pop.txt; grep -E "bpm=|vocalPhrases" /tmp/v/pop.txt | cut -c1-200
+          python3 packaging/check_structure.py /tmp/v/pop.txt /tmp/v/pop.truth.json
           python3 packaging/make_halftime_song.py /tmp/v/half.wav
           "$BIN" --analyze /tmp/v/half.wav | grep -E "bpm=|groove=|genres=" | tee /tmp/v/half.txt
           grep -q "groove=Half-time" /tmp/v/half.txt && echo "PASS half-time groove detected (140 BPM felt as 70)" || { echo "FAIL half-time groove not detected"; exit 1; }

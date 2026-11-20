@@ -157,13 +157,16 @@ enum ShowGenerator {
         for i in secs.indices {
             // Move only where the music calls for it: quiet parts hold still, medium parts sweep gently,
             // big moves (flips, full swings) are saved for the high points.
+            // Beams carry the show; tilting is an accent. Quiet and mid parts (verses, pre-choruses, builds)
+            // hold still and let the beams cycle; choruses tilt only on every other phrase; drops move.
+            let calm = ["Verse", "Pre-Chorus", "Build", "Intro", "Outro", "Breakdown", "Bridge"].contains { secs[i].name.hasPrefix($0) }
             switch secs[i].level {
-            case .low: secs[i].movement = .none
-            case .medium:
-                if [.flip, .beatNod, .fullRotate, .fan].contains(secs[i].movement) { secs[i].movement = .sweep }
+            case .low, .medium: secs[i].movement = .none
             case .high:
-                if secs[i].movement == .flip { secs[i].movement = .fan }
-            case .drop: break
+                if calm || i % 2 == 1 { secs[i].movement = .none }
+                else if [.flip, .fullRotate, .beatNod].contains(secs[i].movement) { secs[i].movement = .sweep }
+            case .drop:
+                if secs[i].movement == .fullRotate { secs[i].movement = .fan }
             }
             // Tilt-only bars (like the SHEHDS beam bars): moves that need pan become tilt moves
             if movers && !canPan {
@@ -279,8 +282,9 @@ enum ShowGenerator {
                                        effect: .blackout, palette: pals[0], intensity: 1))
                 continue
             }
-            let isBuild = d.name.hasPrefix("Build")
-            let l = lookFor(d.level, isBuild)
+            let isBuild = d.name.hasPrefix("Build") || d.name.hasPrefix("Pre-Chorus")
+            // a bridge gets a contrasting look; everything else keeps one look per kind of part
+            let l = d.name.hasPrefix("Bridge") ? altFor(d.level, lookFor(d.level, false)) : lookFor(d.level, isBuild)
             let levelSlot: Int
             switch d.level {
             case .high: levelSlot = 0
@@ -503,7 +507,7 @@ struct ShowRenderer {
         if si + 1 < sections.count {
             let nxt = Self.levelBrightness(sections[si + 1])
             if nxt > level {
-                let ramp = sec.name.hasPrefix("Build") ? into : max(0, (into - 0.5) * 2)
+                let ramp = (sec.name.hasPrefix("Build") || sec.name.hasPrefix("Pre-Chorus")) ? into : max(0, (into - 0.5) * 2)
                 level += (nxt - level) * ramp * ramp
             }
         }

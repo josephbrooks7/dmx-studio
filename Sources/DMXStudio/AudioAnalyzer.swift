@@ -21,7 +21,7 @@ enum AudioAnalyzer {
 
     static func analyze(url: URL, settings: DetectionSettings = DetectionSettings(), stemsDir: URL? = nil,
                         progress: @escaping (Double) -> Void) throws -> SongAnalysis {
-        var a = try analyzeMix(url: url) { progress($0 * 0.3) }
+        var (a, chroma) = try analyzeMix(url: url) { progress($0 * 0.3) }
         // Split into vocals / drums / bass / other, then find the hits and sung phrases on those parts
         do {
             let out = try StemSplitter.run(url: url, settings: settings, stemsDir: stemsDir) { progress(0.3 + $0 * 0.7) }
@@ -31,7 +31,10 @@ enum AudioAnalyzer {
             a.kicks = out.hits.filter { $0.type == .kick }.map(\.time)
             a.snares = out.hits.filter { $0.type == .snare }.map(\.time)
             a.hats = out.hits.filter { $0.type == .hat }.map(\.time)
+            // Song structure from chords, loudness, repetition and where the vocals are
+            a.detectedSections = SongStructure.sections(a, chroma: chroma, vocals: out.vocalPhrases)
         } catch {
+            a.detectedSections = SongStructure.sections(a, chroma: chroma, vocals: nil)
             FileHandle.standardError.write(Data("stem split skipped: \(error.localizedDescription)\n".utf8))
         }
         a.accents = AccentFinder.find(a)
@@ -40,7 +43,7 @@ enum AudioAnalyzer {
     }
 
     /// Tempo, beats, energy and sections from the full mix (plus first-guess drum hits).
-    static func analyzeMix(url: URL, progress: @escaping (Double) -> Void) throws -> SongAnalysis {
+    static func analyzeMix(url: URL, progress: @escaping (Double) -> Void) throws -> (SongAnalysis, [[Float]]) {
         let samples = try loadMono(url: url)
         progress(0.2)
         guard samples.count > fftSize * 8 else { throw AnalyzeError.tooShort }
@@ -124,11 +127,11 @@ enum AudioAnalyzer {
                                       musicStart: musicStart, musicEnd: musicEnd)
         progress(1.0)
 
-        return SongAnalysis(duration: duration, bpm: (bpm * 10).rounded() / 10, beats: beats,
+        return (SongAnalysis(duration: duration, bpm: (bpm * 10).rounded() / 10, beats: beats,
                             downbeatOffset: downbeatOffset, frameRate: fps,
                             energy: energy, bass: bassLvl, mid: midLvl, high: highLvl,
                             kicks: kicks, snares: snares, hats: hats, detectedSections: sections,
-                            silences: silences)
+                            silences: silences), f.chroma)
     }
 
     static func frameTime(_ frame: Int) -> Double {
@@ -195,6 +198,7 @@ enum AudioAnalyzer {
         var bodyFlux: [Float] = [], crackFlux: [Float] = []   // snare body (150-600 Hz) and crack (600-2500 Hz)
         var bassLevel: [Float] = [], midLevel: [Float] = [], highLevel: [Float] = []
         var rms: [Float] = []
+        var chroma: [[Float]] = []   // per frame: energy of each of the 12 notes (C, C#, … B), for chord changes
     }
 
     static func spectralFeatures(_ samples: [Float]) -> Features {
@@ -221,6 +225,14 @@ enum AudioAnalyzer {
         var mags = [Float](repeating: 0, count: half)
         var logMag = [Float](repeating: 0, count: half)
         var prevLog = [Float](repeating: 0, count: half)
+        // which of the 12 notes each frequency bin belongs to (80 Hz - 5 kHz)
+        let binHz2 = sampleRate / Double(n)
+        let pitchClass: [Int] = (0..<half).map { k in
+            let f = Double(k) * binHz2
+            guard f >= 80, f <= 5000 else { return -1 }
+            let midi = Int((12 * log2(f / 440) + 69).rounded())
+            return ((midi % 12) + 12) % 12
+        }
 
         samples.withUnsafeBufferPointer { sp in
             for fi in 0..<frameCount {
@@ -258,6 +270,11 @@ enum AudioAnalyzer {
                     else { hF += d; hL += mags[k] }
                 }
                 swap(&logMag, &prevLog)
+                var ch = [Float](repeating: 0, count: 12)
+                for k in 1..<half where pitchClass[k] >= 0 { ch[pitchClass[k]] += mags[k] }
+                let tot = ch.reduce(0, +)
+                if tot > 0 { for c in 0..<12 { ch[c] /= tot } }
+                out.chroma.append(ch)
 
                 out.flux.append(flux)
                 out.bassFlux.append(bF)
