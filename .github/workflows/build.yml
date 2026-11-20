@@ -89,6 +89,8 @@ jobs:
             "$BIN" --analyze /tmp/v/verify.wav --stems /tmp/v/hqstems --hq-model /tmp/hq/DemucsHQ.mlmodelc | grep -E "kicks=|vocalPhrases|stems="
             echo "high quality split + learn took $(( $(date +%s) - START )) s for a 60 s song"
             python3 packaging/check_hq.py /tmp/v/verify.wav /tmp/v/hqstems /tmp/hq/check.json
+            "$BIN" --analyze /tmp/v/verify.wav --stems /tmp/v/hqstems2 --hq-model /tmp/hq/DemucsHQ.mlmodelc > /tmp/v/hqout.txt
+            python3 packaging/check_stems.py /tmp/v/hqout.txt /tmp/v/verify.wav /tmp/v/hqstems2 2>&1 | grep -E "kick|snare|hat|vocal phrases"
           else echo "model not published yet: skipped"; fi
           python3 packaging/make_structure_song.py /tmp/v/pop.wav
           DMX_DEBUG_STRUCTURE=1 "$BIN" --analyze /tmp/v/pop.wav > /tmp/v/pop.txt; grep -E "bpm=|vocalPhrases|^seg|Group" /tmp/v/pop.txt | cut -c1-200

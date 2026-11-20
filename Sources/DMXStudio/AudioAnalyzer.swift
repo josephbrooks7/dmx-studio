@@ -28,7 +28,8 @@ enum AudioAnalyzer {
             if highQuality, HQSplitter.isInstalled, let stemsDir {
                 // AI split into 6 parts, then hits from the clean drum part and phrases from the clean vocals
                 try HQSplitter.separate(url: url, outDir: stemsDir) { progress(0.3 + $0 * 0.55) }
-                let drums = try StemSplitter.run(url: stemsDir.appendingPathComponent("drums.m4a"), settings: settings, stemsDir: nil) { progress(0.85 + $0 * 0.07) }
+                // drum hits: the tested method on the full song (on the AI drum part it over-counts kicks)
+                let drums = try StemSplitter.run(url: url, settings: settings, stemsDir: nil) { progress(0.85 + $0 * 0.07) }
                 let vox = try StemSplitter.run(url: stemsDir.appendingPathComponent("vocals.m4a"), settings: settings, stemsDir: nil) { progress(0.92 + $0 * 0.07) }
                 let phrases = audible(vox.vocalPhrases, part: stemsDir.appendingPathComponent("vocals.m4a"), mix: url)
                 out = StemSplitter.Output(hits: drums.hits, vocalPhrases: phrases, stemsFolder: stemsDir.path)
