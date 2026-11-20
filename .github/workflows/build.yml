@@ -65,6 +65,17 @@ jobs:
           PY
           done
           grep -q "title=Test Groove artist=Red Velvet Test" <("$BIN" --analyze /tmp/test.wav) && echo "PASS tags read (title + artist)"
+      - name: Stem splitter test - bass-heavy, sparse vocal, drums + vocals
+        run: |
+          python3 -m pip install --quiet numpy 2>/dev/null || python3 -m pip install --quiet --break-system-packages numpy
+          BIN="build/DMX Studio.app/Contents/MacOS/DMXStudio"
+          mkdir -p /tmp/v
+          python3 packaging/make_verify_song.py /tmp/v/verify.wav --parts
+          START=$(date +%s)
+          "$BIN" --analyze /tmp/v/verify.wav --stems /tmp/v/stems | tee /tmp/v/out.txt
+          echo "split + learn took $(( $(date +%s) - START )) s for a 60 s song"
+          ls -la /tmp/v/stems
+          python3 packaging/check_stems.py /tmp/v/out.txt /tmp/v/verify.wav /tmp/v/stems
       - name: Helper processes (Wi-Fi scan + Learn run outside the app)
         run: |
           BIN="build/DMX Studio.app/Contents/MacOS/DMXStudio"

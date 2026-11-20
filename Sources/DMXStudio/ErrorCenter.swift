@@ -136,7 +136,7 @@ enum Helper {
     }
 
     /// Runs this same app binary with `args` (a hidden helper mode) and waits for it.
-    static func run(_ args: [String], timeout: Double) -> Result {
+    static func run(_ args: [String], timeout: Double, progress: ((Double) -> Void)? = nil) -> Result {
         let p = Process()
         p.executableURL = URL(fileURLWithPath: Bundle.main.executablePath ?? CommandLine.arguments[0])
         p.arguments = args
@@ -145,7 +145,22 @@ enum Helper {
         p.standardError = err
         var outData = Data(), errData = Data()
         let group = DispatchGroup()
-        group.enter(); DispatchQueue.global().async { outData = out.fileHandleForReading.readDataToEndOfFile(); group.leave() }
+        group.enter(); DispatchQueue.global().async {
+            // read as it comes, passing on "progress=0.42" lines
+            var pending = ""
+            while true {
+                let chunk = out.fileHandleForReading.availableData
+                if chunk.isEmpty { break }
+                outData.append(chunk)
+                guard let progress else { continue }
+                pending += String(decoding: chunk, as: UTF8.self)
+                while let nl = pending.firstIndex(of: "\n") {
+                    let line = String(pending[..<nl]); pending = String(pending[pending.index(after: nl)...])
+                    if line.hasPrefix("progress="), let v = Double(line.dropFirst(9)) { progress(v) }
+                }
+            }
+            group.leave()
+        }
         group.enter(); DispatchQueue.global().async { errData = err.fileHandleForReading.readDataToEndOfFile(); group.leave() }
         do {
             try p.run()

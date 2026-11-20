@@ -66,7 +66,12 @@ struct DMXStudioApp: App {
             CrashGuard.install(writeToStderr: true)
             CrashGuard.breadcrumb("Learning \(URL(fileURLWithPath: args[i + 1]).lastPathComponent)")
             do {
-                let a = try AudioAnalyzer.analyze(url: URL(fileURLWithPath: args[i + 1])) { p in
+                // optional: where to save the separated parts, and the song's detection settings (JSON)
+                let stems = i + 3 < args.count && !args[i + 3].isEmpty ? URL(fileURLWithPath: args[i + 3]) : nil
+                let settings = i + 4 < args.count
+                    ? ((try? Data(contentsOf: URL(fileURLWithPath: args[i + 4]))).flatMap { try? JSONDecoder().decode(DetectionSettings.self, from: $0) } ?? DetectionSettings())
+                    : DetectionSettings()
+                let a = try AudioAnalyzer.analyze(url: URL(fileURLWithPath: args[i + 1]), settings: settings, stemsDir: stems) { p in
                     print("progress=\(p)"); fflush(stdout)
                 }
                 try Library.encoder.encode(a).write(to: URL(fileURLWithPath: args[i + 2]))
@@ -84,12 +89,18 @@ struct DMXStudioApp: App {
         let url = URL(fileURLWithPath: path)
         do {
             let meta = SongMetadata.read(url)
-            let a = try AudioAnalyzer.analyze(url: url) { _ in }
+            let args = CommandLine.arguments
+            let stems = args.firstIndex(of: "--stems").flatMap { $0 + 1 < args.count ? URL(fileURLWithPath: args[$0 + 1]) : nil }
+            let a = try AudioAnalyzer.analyze(url: url, stemsDir: stems) { _ in }
             let show = ShowGenerator.generate(a, style: a.suggestedStyle, variation: 1)
             print("title=\(meta.title) artist=\(meta.artist ?? "-")")
             print(String(format: "duration=%.2f bpm=%.2f beats=%d downbeat=%d kicks=%d snares=%d hats=%d",
                          a.duration, a.bpm, a.beats.count, a.downbeatOffset, a.kicks.count, a.snares.count, a.hats.count))
             print("snareTimes=" + a.snares.map { String(format: "%.3f", $0) }.joined(separator: ","))
+            print("kickTimes=" + a.kicks.map { String(format: "%.3f", $0) }.joined(separator: ","))
+            print("hatTimes=" + a.hats.map { String(format: "%.3f", $0) }.joined(separator: ","))
+            print("vocalPhrases=" + (a.vocalPhrases ?? []).map { String(format: "%.2f-%.2f", $0.start, $0.end) }.joined(separator: ","))
+            print("stems=\(a.stemsFolder ?? "-")")
             print("firstBeats=" + a.beats.prefix(6).map { String(format: "%.3f", $0) }.joined(separator: ","))
             print("silences=" + (a.silences ?? []).map { String(format: "%.2f-%.2f", $0.start, $0.end) }.joined(separator: ","))
             print(String(format: "musicStart=%.2f musicEnd=%.2f", a.musicStart, a.musicEnd))

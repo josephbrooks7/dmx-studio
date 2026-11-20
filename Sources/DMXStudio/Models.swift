@@ -430,6 +430,9 @@ struct SongAnalysis: Codable {
     var detectedSections: [DetectedSection]
     var silences: [SilenceSpan]? = nil   // stretches with no music (start, gaps, end)
     var beatBase: Int? = nil             // live mode: global number of beats[0]
+    var hits: [DrumHit]? = nil           // drum hits found on the separated drum part (type, time, confidence)
+    var vocalPhrases: [TimeSpan]? = nil  // where someone is singing (from the separated vocals)
+    var stemsFolder: String? = nil       // the separated parts (vocals/drums/bass/other .m4a)
 
     func value(_ arr: [Float], at t: Double) -> Double {
         guard !arr.isEmpty else { return 0 }
@@ -474,6 +477,7 @@ struct Song: Identifiable, Codable {
     var analysis: SongAnalysis?      // what the app learned
     var shows: [LightShow] = []
     var activeShowID: UUID?
+    var detection: DetectionSettings? = nil   // per-song drum detection settings (nil = standard)
 
     var url: URL { URL(fileURLWithPath: path) }
     var isLearned: Bool { analysis != nil }

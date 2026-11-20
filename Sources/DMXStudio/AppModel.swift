@@ -352,6 +352,13 @@ final class AppModel: ObservableObject {
         if !unlearned.isEmpty {
             DispatchQueue.main.asyncAfter(deadline: .now() + 1.5) { for id in unlearned { self.learn(id) } }
         }
+        // Songs learned before the built-in stem splitter: split them and relearn from the stems
+        // (one at a time in the background), then rebuild their light shows from the better hits
+        let unsplit = songs.filter { $0.analysis != nil && $0.analysis?.stemsFolder == nil
+            && FileManager.default.fileExists(atPath: $0.path) }.map(\.id)
+        if !unsplit.isEmpty {
+            DispatchQueue.main.asyncAfter(deadline: .now() + 3) { for id in unsplit { self.learn(id, rebuildShows: true) } }
+        }
     }
 
     private func scheduleSave() {
@@ -1169,22 +1176,95 @@ final class AppModel: ObservableObject {
     }
 
     /// Listens to the song and learns its structure. Creates a first show automatically.
-    func learn(_ id: UUID) {
+    // MARK: - Stems: listen to the separated parts (Solo / Mute / volume per part)
+
+    struct StemChannel: Equatable { var volume: Double = 1; var solo = false; var mute = false }
+    @Published var stemMixes: [UUID: [String: StemChannel]] = [:]
+    private var stemPlayers: [String: AVAudioPlayer] = [:]
+    private var stemPlayersSong: UUID?
+
+    func stemChannel(_ songID: UUID, _ name: String) -> Binding<StemChannel> {
+        Binding(get: { self.stemMixes[songID]?[name] ?? StemChannel() },
+                set: { self.stemMixes[songID, default: [:]][name] = $0 })
+    }
+
+    func stemGain(_ songID: UUID, _ name: String) -> Double {
+        let mix = stemMixes[songID] ?? [:]
+        let c = mix[name] ?? StemChannel()
+        if c.mute { return 0 }
+        if mix.values.contains(where: { $0.solo }) && !c.solo { return 0 }
+        return c.volume
+    }
+
+    private func stopStems() {
+        for p in stemPlayers.values { p.stop() }
+        stemPlayers = [:]
+        stemPlayersSong = nil
+    }
+
+    /// While a part is soloed, muted or turned down, the four parts play in step with the song
+    /// (the song keeps running silently as the clock) instead of the original file.
+    private func syncStems(_ i: Int, _ p: AVAudioPlayer) {
+        let id = songs[i].id
+        let mix = stemMixes[id] ?? [:]
+        let active = mix.values.contains { $0.solo || $0.mute || $0.volume < 0.999 }
+        guard active, let folder = songs[i].analysis?.stemsFolder else {
+            if !stemPlayers.isEmpty { stopStems(); p.volume = Float(musicVolume) }
+            return
+        }
+        if stemPlayersSong != id {
+            stopStems()
+            for name in StemSplitter.stems {
+                let u = URL(fileURLWithPath: folder).appendingPathComponent("\(name).m4a")
+                if let sp = try? AVAudioPlayer(contentsOf: u) { sp.prepareToPlay(); stemPlayers[name] = sp }
+            }
+            stemPlayersSong = id
+            if stemPlayers.isEmpty { return }
+        }
+        p.volume = 0
+        for (name, sp) in stemPlayers {
+            sp.volume = Float(musicVolume * stemGain(id, name))
+            if p.isPlaying {
+                if !sp.isPlaying { sp.currentTime = p.currentTime; sp.play() }
+                else if abs(sp.currentTime - p.currentTime) > 0.06 { sp.currentTime = p.currentTime }
+            } else if sp.isPlaying { sp.pause() }
+        }
+    }
+
+    /// Where a song's separated parts (vocals / drums / bass / other) are saved.
+    func stemsFolder(for song: Song) -> URL {
+        LibraryFiles.folder("Songs/Stems")
+            .appendingPathComponent("\(LibraryFiles.safeName(song.title)) \(song.id.uuidString.prefix(8))", isDirectory: true)
+    }
+
+    /// One song learns at a time (splitting into stems uses a lot of the computer).
+    private let learnQueue = DispatchQueue(label: "learn", qos: .userInitiated)
+
+    func learn(_ id: UUID, rebuildShows: Bool = false) {
         guard let i = index(of: id), learning[id] == nil else { return }
         let url = songs[i].url
         let title = songs[i].title
-        learning[id] = 0.05
+        let stems = stemsFolder(for: songs[i])
+        let settings = songs[i].detection ?? DetectionSettings()
+        learning[id] = 0.02
         guard FileManager.default.fileExists(atPath: url.path) else {
             learning[id] = nil
             ErrorCenter.shared.report(area: "Learn", message: "Couldn't find the file for \"\(title)\". It may have been moved or deleted.", details: url.path)
             return
         }
-        DispatchQueue.global(qos: .userInitiated).async {
+        learnQueue.async {
+            DispatchQueue.main.async { if self.learning[id] != nil { self.learning[id] = 0.05 } }
             let out = FileManager.default.temporaryDirectory.appendingPathComponent("learn-\(id.uuidString).json")
-            // Learn in a separate helper process: a bad file can't crash the app
-            let r = Helper.run(["--learn", url.path, out.path], timeout: 600)
+            let settingsFile = FileManager.default.temporaryDirectory.appendingPathComponent("learn-\(id.uuidString)-settings.json")
+            try? JSONEncoder().encode(settings).write(to: settingsFile)
+            // Learn in a separate helper process: a bad file can't crash the app.
+            // It splits the song into stems first, then learns from those parts.
+            let r = Helper.run(["--learn", url.path, out.path, stems.path, settingsFile.path], timeout: 1200) { p in
+                DispatchQueue.main.async { if self.learning[id] != nil { self.learning[id] = max(0.05, min(0.99, p)) } }
+            }
             let analysis = (try? Data(contentsOf: out)).flatMap { try? Library.decoder.decode(SongAnalysis.self, from: $0) }
             try? FileManager.default.removeItem(at: out)
+            try? FileManager.default.removeItem(at: settingsFile)
             DispatchQueue.main.async {
                 self.learning[id] = nil
                 guard let analysis, r.status == 0 else {
@@ -1197,6 +1277,7 @@ final class AppModel: ObservableObject {
                 guard let i = self.index(of: id) else { return }
                 self.songs[i].analysis = analysis
                 if self.songs[i].shows.isEmpty { self.createShow(for: id) }
+                else if rebuildShows { self.rebuildShows(for: id) }
             }
         }
     }
@@ -1855,8 +1936,10 @@ final class AppModel: ObservableObject {
             let idleFrame = idle.render(fixtures: fixtures, time: now)  // all lights, same order as `fixtures`
             var showFrame: [RenderedFixture]? = nil
 
+            if player == nil, !stemPlayers.isEmpty { stopStems() }
             if let id = playingSongID, let i = index(of: id), let p = player {
                 currentTime = p.currentTime
+                syncStems(i, p)
                 if isPlaying && !p.isPlaying {
                     // Stopped before the end = the sound was paused from outside (media key, headphones
                     // unplugged, another app): pause the lights too instead of skipping ahead.

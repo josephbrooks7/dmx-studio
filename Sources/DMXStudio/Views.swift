@@ -58,6 +58,7 @@ struct SongView: View {
         ScrollView {
             VStack(alignment: .leading, spacing: 16) {
                 header(song)
+                StemsTab(song: song)
                 if let a = song.analysis {
                     showsBar(binding, a)
                     if let si = song.activeShowIndex {

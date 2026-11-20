@@ -19,7 +19,27 @@ enum AudioAnalyzer {
         }
     }
 
-    static func analyze(url: URL, progress: @escaping (Double) -> Void) throws -> SongAnalysis {
+    static func analyze(url: URL, settings: DetectionSettings = DetectionSettings(), stemsDir: URL? = nil,
+                        progress: @escaping (Double) -> Void) throws -> SongAnalysis {
+        var a = try analyzeMix(url: url) { progress($0 * 0.3) }
+        // Split into vocals / drums / bass / other, then find the hits and sung phrases on those parts
+        do {
+            let out = try StemSplitter.run(url: url, settings: settings, stemsDir: stemsDir) { progress(0.3 + $0 * 0.7) }
+            a.hits = out.hits
+            a.vocalPhrases = out.vocalPhrases
+            a.stemsFolder = out.stemsFolder
+            a.kicks = out.hits.filter { $0.type == .kick }.map(\.time)
+            a.snares = out.hits.filter { $0.type == .snare }.map(\.time)
+            a.hats = out.hits.filter { $0.type == .hat }.map(\.time)
+        } catch {
+            FileHandle.standardError.write(Data("stem split skipped: \(error.localizedDescription)\n".utf8))
+        }
+        progress(1)
+        return a
+    }
+
+    /// Tempo, beats, energy and sections from the full mix (plus first-guess drum hits).
+    static func analyzeMix(url: URL, progress: @escaping (Double) -> Void) throws -> SongAnalysis {
         let samples = try loadMono(url: url)
         progress(0.2)
         guard samples.count > fftSize * 8 else { throw AnalyzeError.tooShort }
