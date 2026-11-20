@@ -21,6 +21,14 @@ struct LookPreset: Identifiable, Codable, Hashable {
                     intensity: intensity, rate: rate, movement: movement, accentStrobe: false)
     }
 
+    /// True if this is one of the looks that ship with the app, unchanged.
+    var isBuiltIn: Bool {
+        LookPreset.defaults.contains { d in
+            d.name == name && d.effect == effect && d.palette == palette && d.movement == movement
+                && d.rate == rate && d.intensity == intensity && d.icon == icon
+        }
+    }
+
     /// What this look controls, for the little icons on its tile.
     var usesMovement: Bool { movement != .none }
     var usesStrobe: Bool { effect == .strobe }

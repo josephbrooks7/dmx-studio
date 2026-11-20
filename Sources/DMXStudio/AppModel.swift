@@ -231,6 +231,7 @@ final class AppModel: ObservableObject {
         let last = sessions.first { $0.id == lib.lastSessionID } ?? sessions.sorted { $0.modified > $1.modified }.first
         if let last { apply(last) }
         selectedSongID = songs.first?.id
+        adoptExistingSongs()
     }
 
     private func scheduleSave() {
@@ -581,6 +582,99 @@ final class AppModel: ObservableObject {
 
     static weak var current: AppModel?
 
+    // MARK: - Library folder, export & import
+
+    /// Songs imported before the library folder existed get copied into it (in the background).
+    func adoptExistingSongs() {
+        let list = songs.map { ($0.id, $0.url) }
+        DispatchQueue.global(qos: .utility).async {
+            var moved: [UUID: String] = [:]
+            for (id, url) in list {
+                let kept = LibraryFiles.adopt(audio: url)
+                if kept.path != url.path { moved[id] = kept.path }
+            }
+            guard !moved.isEmpty else { return }
+            DispatchQueue.main.async {
+                for i in self.songs.indices { if let p = moved[self.songs[i].id] { self.songs[i].path = p } }
+            }
+        }
+    }
+
+    func showLibraryFolder() {
+        saveNow()
+        _ = LibraryFiles.folder("Sessions")
+        NSWorkspace.shared.activateFileViewerSelecting([LibraryFiles.root])
+    }
+
+    /// Asks where to save, then writes the session (with its songs) as one .dmxsession file.
+    func exportSessionWithPanel(_ id: UUID? = nil) {
+        saveNow()
+        guard let s = sessions.first(where: { $0.id == (id ?? currentSessionID) }) else { return }
+        let panel = NSSavePanel()
+        panel.title = "Export Session"
+        panel.message = "Saves the lights, presets, set lists, stage and songs of \"\(s.name)\" as one file you can open on another computer."
+        panel.nameFieldStringValue = LibraryFiles.safeName(s.name) + "." + LibraryFiles.sessionExtension
+        panel.allowedFileTypes = [LibraryFiles.sessionExtension]
+        panel.directoryURL = LibraryFiles.folder("Exports")
+        guard panel.runModal() == .OK, let url = panel.url else { return }
+        let all = songs
+        DispatchQueue.global(qos: .userInitiated).async {
+            do {
+                try LibraryFiles.exportSession(s, songs: all, to: url)
+                DispatchQueue.main.async {
+                    NSWorkspace.shared.activateFileViewerSelecting([url])
+                }
+            } catch {
+                DispatchQueue.main.async {
+                    ErrorCenter.shared.report(area: "Export", message: "Couldn't export \(s.name): \(error.localizedDescription)", details: "\(error)")
+                }
+            }
+        }
+    }
+
+    func importSessionWithPanel() {
+        let panel = NSOpenPanel()
+        panel.title = "Import Session"
+        panel.allowedFileTypes = [LibraryFiles.sessionExtension]
+        panel.allowsMultipleSelection = true
+        guard panel.runModal() == .OK else { return }
+        for url in panel.urls { importSessionFile(url) }
+    }
+
+    /// Opens a .dmxsession file: adds its songs (audio + learned shows) and the session, then opens it.
+    func importSessionFile(_ url: URL) {
+        DispatchQueue.global(qos: .userInitiated).async {
+            do {
+                let (session, newSongs) = try LibraryFiles.importSession(from: url)
+                DispatchQueue.main.async {
+                    for song in newSongs {
+                        if let i = self.songs.firstIndex(where: { $0.id == song.id }) {
+                            if !FileManager.default.fileExists(atPath: self.songs[i].path), !song.path.isEmpty { self.songs[i].path = song.path }
+                            // bring over shows we don't have yet
+                            for show in song.shows where !self.songs[i].shows.contains(where: { $0.id == show.id }) { self.songs[i].shows.append(show) }
+                            if self.songs[i].analysis == nil { self.songs[i].analysis = song.analysis }
+                        } else {
+                            self.songs.append(song)
+                        }
+                    }
+                    var s = session
+                    if self.sessions.contains(where: { $0.id == s.id }) {
+                        s.id = UUID()
+                        s.name += " (imported)"
+                    }
+                    s.modified = Date()
+                    self.sessions.insert(s, at: 0)
+                    self.openSession(s.id)
+                    self.saveNow()
+                }
+            } catch {
+                DispatchQueue.main.async {
+                    ErrorCenter.shared.report(area: "Import", message: "Couldn't open \(url.lastPathComponent): \(error.localizedDescription)", details: "\(error)")
+                }
+            }
+        }
+    }
+
     /// Quitting: stop music, listening and timers, darken the lights, and save, quickly and in order.
     func prepareToQuit() {
         timer?.invalidate(); timer = nil
@@ -599,10 +693,17 @@ final class AppModel: ObservableObject {
         let lib = Library(fixtures: fixtures, songs: songs, lineups: lineups, output: output,
                           idle: idle, globalLatencyMs: globalLatencyMs, rigMode: rigMode,
                           sessions: sessions, lastSessionID: currentSessionID, chainedBarsFix: true)
+        // Also keep readable files in Documents/DMX Studio (sessions, your presets, set lists, songs)
+        let allSessions = sessions, allSongs = songs
+        var seenSets = Set<UUID>(), sets: [Lineup] = []
+        for l in allSessions.flatMap(\.lineups) where seenSets.insert(l.id).inserted { sets.append(l) }
+        var seenPresets = Set<UUID>(), mine: [LookPreset] = []
+        for p in allSessions.flatMap({ $0.presets ?? [] }) where !p.isBuiltIn && seenPresets.insert(p.id).inserted { mine.append(p) }
         let write = {
             if let data = try? JSONEncoder().encode(lib) {
                 try? data.write(to: Self.storeURL, options: .atomic)
             }
+            LibraryFiles.mirror(sessions: allSessions, songs: allSongs, userPresets: mine, lineups: sets)
         }
         if sync { write() } else { DispatchQueue.global(qos: .utility).async(execute: write) }
     }
@@ -790,7 +891,10 @@ final class AppModel: ObservableObject {
         for url in files {
             if let existing = songs.first(where: { $0.path == url.path }) { ids.append(existing.id); continue }
             let meta = SongMetadata.read(url)
-            let song = Song(title: meta.title, path: url.path, artist: meta.artist)
+            // Keep a copy in Documents/DMX Studio/Songs so the library (and exported sessions) never lose the audio
+            let kept = LibraryFiles.adopt(audio: url)
+            if let existing = songs.first(where: { $0.path == kept.path }) { ids.append(existing.id); continue }
+            let song = Song(title: meta.title, path: kept.path, artist: meta.artist)
             songs.append(song)
             ids.append(song.id)
             learn(song.id)

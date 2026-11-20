@@ -14,6 +14,26 @@ struct DMXStudioApp: App {
             Self.runAnalyzeAndExit(path: args[i + 1])
         }
         // Helper modes: risky work runs in a separate process so a failure can't crash the app
+        // Test hook: export a session with one song to a .dmxsession file, import it back, check it matches.
+        if let i = args.firstIndex(of: "--test-package"), i + 1 < args.count {
+            let audio = URL(fileURLWithPath: args[i + 1])
+            var song = Song(title: "Package Test", path: audio.path, artist: "Red Velvet Test")
+            song.shows = [LightShow(name: "Test", style: .club, variation: 1, sections: [])]
+            var session = Session(name: "Package Test", fixtures: Session.standardRig(), lineups: [Lineup(name: "Set")])
+            session.lineups[0].entries = [LineupEntry(songID: song.id, showID: nil)]
+            let dest = FileManager.default.temporaryDirectory.appendingPathComponent("pkg-test.dmxsession")
+            do {
+                try LibraryFiles.exportSession(session, songs: [song], to: dest)
+                let (s2, songs2) = try LibraryFiles.importSession(from: dest)
+                let ok = s2.id == session.id && s2.fixtures.count == 3 && s2.lineups.first?.entries.first?.songID == song.id
+                    && songs2.count == 1 && songs2[0].shows.count == 1 && FileManager.default.fileExists(atPath: songs2[0].path)
+                    && songs2[0].path.contains("DMX Studio/Songs")
+                print("package size=\((try? FileManager.default.attributesOfItem(atPath: dest.path)[.size] as? Int) ?? -1) imported audio=\(songs2.first?.path ?? "-") ok=\(ok)")
+                exit(ok ? 0 : 1)
+            } catch {
+                print("ERROR: \(error)"); exit(2)
+            }
+        }
         if args.contains("--scan-artnet") {
             CrashGuard.install(writeToStderr: true)
             CrashGuard.breadcrumb("Scanning for wireless DMX devices")
@@ -82,6 +102,12 @@ struct DMXStudioApp: App {
                 .preferredColorScheme(.dark)
         }
         .commands {
+            CommandGroup(after: .newItem) {
+                Button("Import Session…") { model.importSessionWithPanel() }.keyboardShortcut("o", modifiers: .command)
+                Button("Export Session…") { model.exportSessionWithPanel() }.keyboardShortcut("e", modifiers: .command)
+                Divider()
+                Button("Show Files in Finder") { model.showLibraryFolder() }
+            }
             CommandMenu("Playback") {
                 Button("Play / Pause  (Space)") { model.togglePlay() }
                 Button("Stop") { model.stop() }.keyboardShortcut(".", modifiers: .command)
@@ -179,6 +205,14 @@ func loadDroppedURLs(_ providers: [NSItemProvider], completion: @escaping ([URL]
 /// Closing the window quits the app (music and lights stop), and quitting never hangs.
 final class AppDelegate: NSObject, NSApplicationDelegate {
     func applicationShouldTerminateAfterLastWindowClosed(_ sender: NSApplication) -> Bool { true }
+
+    /// Double-clicking a .dmxsession file opens it here.
+    func application(_ application: NSApplication, open urls: [URL]) {
+        for url in urls where url.pathExtension.lowercased() == LibraryFiles.sessionExtension {
+            if let m = AppModel.current { m.importSessionFile(url) }
+            else { DispatchQueue.main.asyncAfter(deadline: .now() + 1) { AppModel.current?.importSessionFile(url) } }
+        }
+    }
 
     func applicationShouldTerminate(_ sender: NSApplication) -> NSApplication.TerminateReply {
         // Safety net: if anything below gets stuck, leave anyway after 3 seconds.

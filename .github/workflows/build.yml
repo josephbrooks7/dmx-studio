@@ -122,6 +122,11 @@ jobs:
             exit 1
           fi
           echo "---- app output ----"; cat /tmp/app.log | head -50
+      - name: Session export and import round trip
+        run: |
+          python3 packaging/make_test_song.py /tmp/pkg.wav >/dev/null
+          "build/DMX Studio.app/Contents/MacOS/DMXStudio" --test-package /tmp/pkg.wav
+          ls -la ~/Documents/DMX\ Studio/Songs/ | head
       - name: Live mode stress test (3 minutes of random live use)
         run: |
           BIN="build/DMX Studio.app/Contents/MacOS/DMXStudio"

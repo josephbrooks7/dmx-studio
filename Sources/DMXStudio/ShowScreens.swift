@@ -64,7 +64,16 @@ struct SessionsScreen: View {
                                 .font(.caption).foregroundColor(Theme.subtle)
                         }
                     }
-                    Text("Your Sessions").font(.system(size: 20, weight: .bold))
+                    HStack {
+                        Text("Your Sessions").font(.system(size: 20, weight: .bold))
+                        Spacer()
+                        Button { model.importSessionWithPanel() } label: { Label("Import Session…", systemImage: "square.and.arrow.down") }
+                            .buttonStyle(PillButtonStyle())
+                            .help("Open a .dmxsession file exported from DMX Studio on any computer")
+                        Button { model.showLibraryFolder() } label: { Label("Show Files", systemImage: "folder") }
+                            .buttonStyle(PillButtonStyle())
+                            .help("Your sessions, presets, set lists and songs are saved in Documents › DMX Studio")
+                    }
                     LazyVGrid(columns: cols, alignment: .leading, spacing: 22) {
                         Button { model.newSession() } label: {
                             VStack(spacing: 14) {
@@ -86,6 +95,7 @@ struct SessionsScreen: View {
                                     Button("Open") { model.openSession(s.id) }
                                     Button("Rename…") { renaming = s.id; renameText = s.name }
                                     Button("Duplicate") { model.duplicateSession(s.id) }
+                                    Button("Export…") { model.exportSessionWithPanel(s.id) }
                                     Divider()
                                     Button("Delete", role: .destructive) { model.deleteSession(s.id) }
                                 }
