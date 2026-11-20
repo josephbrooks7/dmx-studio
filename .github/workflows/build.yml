@@ -38,7 +38,10 @@ jobs:
           def check(cond, msg):
               global ok
               print(('PASS ' if cond else 'FAIL ') + msg); ok = ok and cond
-          check(126.5 <= bpm <= 129.5, f'tempo {bpm} ~ 128')
+          check(127.2 <= bpm <= 128.8, f'tempo {bpm} ~ 128')
+          kicks = int(re.search(r'kicks=(\d+)', o).group(1)); snares = int(re.search(r'snares=(\d+)', o).group(1))
+          check(120 <= kicks <= 136, f'{kicks} kicks ~ 128')
+          check(20 <= snares <= 48, f'{snares} snares ~ 32')
           check(abs(beats[0] - 2.0) < 0.06, f'first beat {beats[0]:.3f}s ~ 2.000s (on the kick)')
           check(re.search(r'silences=0\.00-', o) is not None, 'silent lead-in detected')
           secs = re.findall(r'section (.+?) ([\d.]+)-([\d.]+) (\w+)', o)

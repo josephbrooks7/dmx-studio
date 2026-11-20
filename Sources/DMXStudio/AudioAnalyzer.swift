@@ -47,10 +47,16 @@ enum AudioAnalyzer {
             beats = stride(from: 0.0, to: duration, by: 0.5).map { $0 }
             beatFrames = beats.map { Int($0 * fps) }
         } else {
-            // Refine BPM from the median beat spacing
-            let gaps = zip(beats.dropFirst(), beats).map { $0 - $1 }.sorted()
-            let med = gaps[gaps.count / 2]
-            if med > 0 { bpm = 60 / med }
+            // Refine BPM with a straight-line fit through all beat times (finer than one analysis frame)
+            let n = Double(beats.count)
+            let meanI = (n - 1) / 2
+            let meanT = beats.reduce(0, +) / n
+            var num = 0.0, den = 0.0
+            for (i, t) in beats.enumerated() {
+                num += (Double(i) - meanI) * (t - meanT)
+                den += (Double(i) - meanI) * (Double(i) - meanI)
+            }
+            if den > 0, num > 0 { bpm = 60 / (num / den) }
         }
 
         // Downbeat: the beat phase (of 4) that gets the most kick energy
@@ -63,7 +69,14 @@ enum AudioAnalyzer {
 
         // ---- Drum hits ----------------------------------------------------------
         let kicks = pickPeaks(bassOnset, fps: fps, minGap: 0.18, sensitivity: 0.12)
-        let snares = pickPeaks(midOnset, fps: fps, minGap: 0.15, sensitivity: 0.14)
+        // Snares: mid-band hits that aren't just a kick or a hi-hat bleeding into the mids
+        let snareCandidates = pickPeaks(midOnset, fps: fps, minGap: 0.15, sensitivity: 0.14)
+        let snares = snareCandidates.filter { t in
+            let i = min(max(Int((t * sampleRate - Double(fftSize) / 2) / Double(hop)), 0), midOnset.count - 1)
+            let m = midOnset[i], b = bassOnset[i], h = highOnset[i]
+            let nearKick = kicks.contains { abs($0 - t) < 0.035 }
+            return m >= 0.35 && m >= b * 0.9 && m >= h * 0.75 && (!nearKick || m > 0.8)
+        }
         let hats = pickPeaks(highOnset, fps: fps, minGap: 0.07, sensitivity: 0.10)
 
         // ---- Energy curves (smoothed, 0-1) -------------------------------------
