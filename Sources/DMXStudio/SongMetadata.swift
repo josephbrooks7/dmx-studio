@@ -35,7 +35,20 @@ enum SongMetadata {
 
         // File-name fallback
         let fromName = parseFileName(url.deletingPathExtension().lastPathComponent)
-        return (title ?? fromName.title, artist ?? fromName.artist)
+        let finalArtist = artist ?? fromName.artist
+        return (cleanTitle(title ?? fromName.title, artist: finalArtist), finalArtist)
+    }
+
+    /// "01 Song (Artist)" -> "Song": drops a leading track number and a trailing repeat of the artist.
+    static func cleanTitle(_ raw: String, artist: String?) -> String {
+        var t = raw.trimmingCharacters(in: .whitespaces)
+        if let r = t.range(of: #"^\s*\d{1,3}\s*[-.)]?\s+"#, options: .regularExpression) { t.removeSubrange(r) }
+        if let a = artist, !a.isEmpty {
+            for wrap in ["(\(a))", "[\(a)]", "- \(a)", "– \(a)"] where t.lowercased().hasSuffix(wrap.lowercased()) {
+                t = String(t.dropLast(wrap.count)).trimmingCharacters(in: .whitespaces)
+            }
+        }
+        return t.isEmpty ? raw : t
     }
 
     /// "Artist - Title", "01 - Title", "01. Title", "Title (Official Audio)"

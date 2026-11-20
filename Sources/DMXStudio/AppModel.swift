@@ -491,6 +491,21 @@ final class AppModel: ObservableObject {
         playingEntryIndex = entry
     }
 
+    /// Moves a set-list entry up (negative) or down (positive); big numbers go to the top/bottom.
+    func moveEntry(lineupID: UUID, from index: Int, by delta: Int) {
+        guard let li = lineupIndex(lineupID), lineups[li].entries.indices.contains(index) else { return }
+        let target = max(0, min(lineups[li].entries.count - 1, index + delta))
+        guard target != index else { return }
+        let e = lineups[li].entries.remove(at: index)
+        lineups[li].entries.insert(e, at: target)
+        // Keep "now playing" pointing at the same song
+        if playingLineupID == lineupID, let p = playingEntryIndex {
+            if p == index { playingEntryIndex = target }
+            else if index < p && target >= p { playingEntryIndex = p - 1 }
+            else if index > p && target <= p { playingEntryIndex = p + 1 }
+        }
+    }
+
     func nextInLineup() {
         guard let lid = playingLineupID, let idx = playingEntryIndex else { return }
         cancelGap()

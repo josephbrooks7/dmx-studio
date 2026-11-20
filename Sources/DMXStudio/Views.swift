@@ -531,7 +531,7 @@ struct LineupView: View {
                     .onDelete { set in binding.wrappedValue.entries.remove(atOffsets: set) }
                 }
                 .listStyle(.inset(alternatesRowBackgrounds: true))
-                Text("Drag to reorder. Select and press Delete to remove.").font(.caption).foregroundColor(.secondary)
+                Text("Drag songs up or down (or use ▲▼) to reorder. Each song plays with the light show linked to it.").font(.caption).foregroundColor(.secondary)
             }
         }
         .padding(24)
@@ -570,7 +570,8 @@ struct LineupRow: View {
             }
             Spacer()
             if let song, !song.shows.isEmpty {
-                Picker("Show", selection: Binding(
+                Image(systemName: "link").foregroundColor(.pink).help("This song is linked to the light show picked here")
+                Picker("Light show", selection: Binding(
                     get: { entry.showID ?? song.activeShow?.id },
                     set: { new in
                         if let li = model.lineupIndex(lineupID), li < model.lineups.count, index < model.lineups[li].entries.count {
@@ -581,11 +582,31 @@ struct LineupRow: View {
                 }
                 .frame(width: 220)
             }
+            VStack(spacing: 2) {
+                Button { model.moveEntry(lineupID: lineupID, from: index, by: -1) } label: { Image(systemName: "chevron.up") }
+                    .disabled(index == 0)
+                Button { model.moveEntry(lineupID: lineupID, from: index, by: 1) } label: { Image(systemName: "chevron.down") }
+                    .disabled(index >= (model.lineups.first { $0.id == lineupID }?.entries.count ?? 1) - 1)
+            }
+            .buttonStyle(.borderless)
+            .help("Move up / down (or drag the row)")
             Button { model.playLineup(lineupID, from: index) } label: { Image(systemName: "play.circle") }
                 .buttonStyle(.borderless)
                 .help("Start the set from here")
         }
         .padding(.vertical, 4)
+        .contextMenu {
+            Button("Move Up") { model.moveEntry(lineupID: lineupID, from: index, by: -1) }
+            Button("Move Down") { model.moveEntry(lineupID: lineupID, from: index, by: 1) }
+            Button("Move to Top") { model.moveEntry(lineupID: lineupID, from: index, by: -1000) }
+            Button("Move to Bottom") { model.moveEntry(lineupID: lineupID, from: index, by: 1000) }
+            Divider()
+            Button("Remove from Set", role: .destructive) {
+                if let li = model.lineupIndex(lineupID), index < model.lineups[li].entries.count {
+                    model.lineups[li].entries.remove(at: index)
+                }
+            }
+        }
     }
 }
 
@@ -762,7 +783,7 @@ struct WirelessView: View {
                         if model.discoveredNodes.isEmpty {
                             VStack(alignment: .leading, spacing: 6) {
                                 Text(model.searchingNodes ? "Looking for devices…" : "No wireless DMX devices found yet.")
-                                Text("• Make sure the PKnight is powered on and its screen shows an IP address.\n• Your MacBook must be on the same Wi-Fi/router as the PKnight.\n• If your PKnight uses Ethernet, plug it into the same router your Mac uses.")
+                                Text("• PKnight WiFi-DMX EasyNode (factory setting): on your Mac's Wi-Fi menu, join the network named \"PKNIGHT.WIFI+…\" (default password: PKNIGHT.WIFI). It will then appear here.\n• If you set the PKnight to join your router instead, your MacBook must be on that same Wi-Fi.\n• For a wired PKnight, plug it into the same router your Mac uses.")
                                     .font(.callout).foregroundColor(.secondary)
                             }
                         }
@@ -783,6 +804,10 @@ struct WirelessView: View {
                                         .font(.caption).foregroundColor(.secondary)
                                 }
                                 Spacer()
+                                if node.ip.hasPrefix("192.168.4.") {
+                                    Button("PKnight Settings") { NSWorkspace.shared.open(URL(string: "http://\(node.ip)")!) }
+                                        .help("Opens the PKnight's own setup page")
+                                }
                                 if model.isCurrentDevice(node) {
                                     Label("Connected", systemImage: "checkmark.circle.fill").foregroundColor(.green)
                                     Button("Forget") { model.forgetDevice() }

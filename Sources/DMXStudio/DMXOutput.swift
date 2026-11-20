@@ -309,6 +309,31 @@ struct ArtNetNode: Identifiable, Hashable, Codable {
 }
 
 enum ArtNetDiscovery {
+    /// The Mac's own IPv4 addresses (used to spot a PKnight hotspot network).
+    static func localIPv4Addresses() -> [String] {
+        var result: [String] = []
+        var ifaddr: UnsafeMutablePointer<ifaddrs>?
+        guard getifaddrs(&ifaddr) == 0, let first = ifaddr else { return [] }
+        defer { freeifaddrs(ifaddr) }
+        var p: UnsafeMutablePointer<ifaddrs>? = first
+        while let cur = p {
+            if let sa = cur.pointee.ifa_addr, sa.pointee.sa_family == UInt8(AF_INET) {
+                var host = [CChar](repeating: 0, count: Int(NI_MAXHOST))
+                if getnameinfo(sa, socklen_t(sa.pointee.sa_len), &host, socklen_t(host.count), nil, 0, NI_NUMERICHOST) == 0 {
+                    result.append(String(cString: host))
+                }
+            }
+            p = cur.pointee.ifa_next
+        }
+        return result
+    }
+
+    /// PKnight WiFi-DMX EasyNode in hotspot mode: Mac gets 192.168.4.x, the node is 192.168.4.1.
+    static var pknightHotspotNode: ArtNetNode? {
+        guard localIPv4Addresses().contains(where: { $0.hasPrefix("192.168.4.") && $0 != "192.168.4.1" }) else { return nil }
+        return ArtNetNode(ip: "192.168.4.1", name: "PKnight EasyNode (hotspot)", longName: "Found by its Wi-Fi network", mac: "pknight-hotspot")
+    }
+
     /// Broadcasts an ArtPoll and collects ArtPollReply packets for `timeout` seconds. Blocking — call off the main thread.
     static func discover(timeout: Double = 2.0) -> [ArtNetNode] {
         let sock = socket(AF_INET, SOCK_DGRAM, IPPROTO_UDP)
@@ -366,6 +391,10 @@ enum ArtNetDiscovery {
             if mac == "00:00:00:00:00:00" { mac = "" }
             let node = ArtNetNode(ip: ip, name: name.isEmpty ? "Art-Net device" : name, longName: longName, mac: mac)
             found[node.id] = node
+        }
+        // EasyNode may not answer discovery; if we're on its hotspot, list it anyway
+        if !found.values.contains(where: { $0.ip == "192.168.4.1" }), let hs = pknightHotspotNode {
+            found[hs.id] = hs
         }
         return found.values.sorted { $0.ip < $1.ip }
     }
