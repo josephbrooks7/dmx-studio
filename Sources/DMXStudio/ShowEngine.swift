@@ -142,6 +142,12 @@ enum ShowGenerator {
 
         var out: [ShowSection] = []
         for d in a.detectedSections {
+            if d.name == "Silence" {
+                // No music here: lights rest on the idle look
+                out.append(ShowSection(name: "Silence", start: d.start, end: d.end, level: .low,
+                                       effect: .blackout, palette: pals[0], intensity: 1))
+                continue
+            }
             let isBuild = d.name.hasPrefix("Build")
             let l = lookFor(d.level, isBuild)
             let levelSlot: Int

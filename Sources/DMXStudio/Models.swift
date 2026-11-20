@@ -395,6 +395,17 @@ struct Song: Identifiable, Codable {
 }
 
 extension SongAnalysis {
+    /// When the music actually starts (end of any silent lead-in).
+    var musicStart: Double {
+        if let s = silences?.first, s.start <= 0.05 { return min(s.end, duration) }
+        return 0
+    }
+    /// When the music actually ends (start of any silent tail).
+    var musicEnd: Double {
+        if let s = silences?.last, s.end >= duration - 0.05, s.start > musicStart { return s.start }
+        return duration
+    }
+
     /// A best guess at the genre from tempo and how bass-heavy / bright / dynamic the song is.
     var suggestedStyle: ShowStyle {
         func avg(_ a: [Float]) -> Double { a.isEmpty ? 0 : Double(a.reduce(0, +)) / Double(a.count) }
@@ -443,6 +454,7 @@ struct Lineup: Identifiable, Codable, Hashable {
     var name: String
     var entries: [LineupEntry] = []
     var gapSeconds: Double = 2     // idle look between songs
+    var skipDeadAir: Bool? = nil   // start each song where the music starts, move on when it ends (default on)
 }
 
 // MARK: - Idle look (no music: before play, between songs, silences)

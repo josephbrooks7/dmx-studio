@@ -90,6 +90,13 @@ struct SongView: View {
                         Label("\(a.kicks.count) kicks", systemImage: "circle.fill")
                     }
                     .font(.callout).foregroundColor(.secondary)
+                    HStack(spacing: 14) {
+                        Label("Music starts \(formatTime(a.musicStart))" + (a.musicStart >= 0.3 ? String(format: " (%.1f s lead-in)", a.musicStart) : ""),
+                              systemImage: "arrow.right.to.line")
+                        Label("ends \(formatTime(a.musicEnd))" + (a.duration - a.musicEnd >= 0.3 ? String(format: " (%.1f s silent tail)", a.duration - a.musicEnd) : ""),
+                              systemImage: "arrow.left.to.line")
+                    }
+                    .font(.callout).foregroundColor(.secondary)
                 }
             }
             Spacer()
@@ -389,6 +396,14 @@ struct TimelineView: View {
                         path.closeSubpath()
                         ctx.fill(path, with: .color(.white.opacity(0.16)))
                     }
+                    // Music start / end markers
+                    for (t, label) in [(analysis.musicStart, "▶ music"), (analysis.musicEnd, "end ◀")]
+                    where t > 0.25 && t < dur - 0.25 {
+                        let x = CGFloat(t / dur) * size.width
+                        ctx.fill(Path(CGRect(x: x - 1, y: 0, width: 2, height: size.height)), with: .color(.green.opacity(0.8)))
+                        ctx.draw(Text(label).font(.caption2.bold()).foregroundColor(.green),
+                                 at: CGPoint(x: x, y: size.height - 26), anchor: label.hasPrefix("▶") ? .leading : .trailing)
+                    }
                     // Kicks
                     for k in analysis.kicks {
                         let x = CGFloat(k / dur) * size.width
@@ -490,7 +505,9 @@ struct LineupView: View {
                 Spacer()
                 Text("Gap between songs").foregroundColor(.secondary)
                 Stepper("\(Int(lineup.gapSeconds)) s", value: binding.gapSeconds, in: 0...30, step: 1)
-                Text("The idle look shows during the gap.").font(.caption).foregroundColor(.secondary)
+                Toggle("Skip dead air", isOn: Binding(get: { lineup.skipDeadAir ?? true },
+                                                      set: { binding.wrappedValue.skipDeadAir = $0 }))
+                    .help("Start each song where its music starts and move on as soon as the music ends")
             }
 
             if lineup.entries.isEmpty {

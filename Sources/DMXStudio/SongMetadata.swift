@@ -50,6 +50,15 @@ enum SongMetadata {
             if let r = name.range(of: junk, options: .caseInsensitive) { name.removeSubrange(r) }
         }
         name = name.trimmingCharacters(in: .whitespaces)
+        // "LastChristmas" -> "Last Christmas" (only when the name has no spaces at all)
+        if !name.contains(" ") {
+            var spaced = ""
+            for (i, ch) in name.enumerated() {
+                if i > 0, ch.isUppercase, let prev = spaced.last, prev.isLowercase || prev.isNumber { spaced.append(" ") }
+                spaced.append(ch)
+            }
+            name = spaced
+        }
         for sep in [" - ", " – ", " — "] {
             if let r = name.range(of: sep) {
                 let a = String(name[..<r.lowerBound]).trimmingCharacters(in: .whitespaces)

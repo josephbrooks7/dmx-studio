@@ -481,7 +481,12 @@ final class AppModel: ObservableObject {
         guard let li = lineupIndex(id), lineups[li].entries.indices.contains(entry) else { stop(); return }
         let e = lineups[li].entries[entry]
         guard song(e.songID) != nil else { playLineup(id, from: entry + 1); return }
-        play(e.songID, show: e.showID, from: 0, keepLineup: true)
+        // Skip the silent lead-in baked into the file (keep a hair of it so the first hit isn't clipped)
+        var start = 0.0
+        if lineups[li].skipDeadAir ?? true, let a = song(e.songID)?.analysis {
+            start = max(0, a.musicStart - 0.15)
+        }
+        play(e.songID, show: e.showID, from: start, keepLineup: true)
         playingLineupID = id
         playingEntryIndex = entry
     }
@@ -594,6 +599,12 @@ final class AppModel: ObservableObject {
             if let id = playingSongID, let i = index(of: id), let p = player {
                 currentTime = p.currentTime
                 if isPlaying && !p.isPlaying {
+                    songFinished()
+                    return
+                }
+                // In a set list, move on as soon as the music ends instead of playing out silent tails
+                if isPlaying, let lid = playingLineupID, let li = lineupIndex(lid), lineups[li].skipDeadAir ?? true,
+                   let a = songs[i].analysis, a.musicEnd < a.duration - 0.5, p.currentTime > a.musicEnd + 0.3 {
                     songFinished()
                     return
                 }

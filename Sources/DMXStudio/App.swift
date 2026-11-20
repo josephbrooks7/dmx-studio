@@ -26,6 +26,7 @@ struct DMXStudioApp: App {
                          a.duration, a.bpm, a.beats.count, a.downbeatOffset, a.kicks.count, a.snares.count, a.hats.count))
             print("firstBeats=" + a.beats.prefix(6).map { String(format: "%.3f", $0) }.joined(separator: ","))
             print("silences=" + (a.silences ?? []).map { String(format: "%.2f-%.2f", $0.start, $0.end) }.joined(separator: ","))
+            print(String(format: "musicStart=%.2f musicEnd=%.2f", a.musicStart, a.musicEnd))
             for d in a.detectedSections {
                 print(String(format: "section %@ %.1f-%.1f %@ energy=%.2f", d.name, d.start, d.end, d.level.rawValue, d.energy))
             }

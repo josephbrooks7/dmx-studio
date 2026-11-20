@@ -86,9 +86,12 @@ enum AudioAnalyzer {
         let highLvl = normalize(smooth(f.highLevel, radius: 2))
 
         // ---- Sections -----------------------------------------------------------
-        let sections = detectSections(beats: beats, downbeatOffset: downbeatOffset, duration: duration, fps: fps,
-                                      energy: normalize(f.rms), bass: bassLvl, mid: midLvl, high: highLvl)
         let silences = detectSilences(rms: f.rms, fps: fps, duration: duration)
+        let musicStart = (silences.first.map { $0.start <= 0.05 ? $0.end : 0 }) ?? 0
+        let musicEnd = (silences.last.map { $0.end >= duration - 0.05 && $0.start > musicStart ? $0.start : duration }) ?? duration
+        let sections = detectSections(beats: beats, downbeatOffset: downbeatOffset, duration: duration, fps: fps,
+                                      energy: normalize(f.rms), bass: bassLvl, mid: midLvl, high: highLvl,
+                                      musicStart: musicStart, musicEnd: musicEnd)
         progress(1.0)
 
         return SongAnalysis(duration: duration, bpm: (bpm * 10).rounded() / 10, beats: beats,
@@ -348,7 +351,9 @@ enum AudioAnalyzer {
     // MARK: - Sections
 
     static func detectSections(beats: [Double], downbeatOffset: Int, duration: Double, fps: Double,
-                               energy: [Float], bass: [Float], mid: [Float], high: [Float]) -> [DetectedSection] {
+                               energy: [Float], bass: [Float], mid: [Float], high: [Float],
+                               musicStart: Double = 0, musicEnd: Double? = nil) -> [DetectedSection] {
+        let mEnd = musicEnd ?? duration
         // Bars of 4 beats starting at the first downbeat
         var barStarts: [Double] = []
         var i = downbeatOffset
@@ -400,37 +405,56 @@ enum AudioAnalyzer {
         }
         chosen.sort()
 
-        var bounds: [Double] = [0]
-        bounds += chosen.map { barStarts[$0] }
-        bounds.append(duration)
+        // Section edges: detected changes inside the music, plus where the music starts and ends
+        var edges: [Double] = [0]
+        edges += chosen.map { barStarts[$0] }.filter { $0 > musicStart + 2 && $0 < mEnd - 2 }
+        if musicStart > 0.3 { edges.append(musicStart) }
+        edges.append(mEnd)
+        if mEnd < duration - 0.3 { edges.append(duration) }
+        edges = Array(Set(edges.map { ($0 * 1000).rounded() / 1000 })).sorted()
+        // Fold slivers shorter than 4 s into the previous section
+        var bounds: [Double] = [edges[0]]
+        for b in edges.dropFirst() {
+            let keep = abs(b - musicStart) < 0.01 || abs(b - mEnd) < 0.01 || abs(b - duration) < 0.01
+            if b - bounds[bounds.count - 1] < 4 && !keep && bounds.count > 1 { bounds[bounds.count - 1] = b } else { bounds.append(b) }
+        }
+        func isSilent(_ a: Double, _ b: Double) -> Bool { b <= musicStart + 0.01 || a >= mEnd - 0.01 }
 
         // Measure each section
         var raw: [(start: Double, end: Double, energy: Double, bass: Double)] = []
         for s in 0..<(bounds.count - 1) {
             raw.append((bounds[s], bounds[s + 1], meanOf(energy, bounds[s], bounds[s + 1]), meanOf(bass, bounds[s], bounds[s + 1])))
         }
-        let eMin = raw.map { $0.energy }.min() ?? 0, eMax = raw.map { $0.energy }.max() ?? 1
+        // Compare loudness only across the music (silence would make everything look loud)
+        let musical = raw.filter { !isSilent($0.start, $0.end) }
+        let eMin = musical.map { $0.energy }.min() ?? 0, eMax = musical.map { $0.energy }.max() ?? 1
         let range = max(eMax - eMin, 0.0001)
 
         var result: [DetectedSection] = []
         var counts: [String: Int] = [:]
+        var prevE: Double? = nil
         for (idx, r) in raw.enumerated() {
-            let e = raw.count == 1 ? 0.6 : (r.energy - eMin) / range
-            var level: EnergyLevel = e < 0.34 ? .low : (e < 0.7 ? .medium : .high)
-            if level == .high, idx > 0 {
-                let prevE = (raw[idx - 1].energy - eMin) / range
-                if e - prevE > 0.35 { level = .drop }
+            if isSilent(r.start, r.end) {
+                result.append(DetectedSection(start: r.start, end: r.end, energy: 0, level: .low, name: "Silence"))
+                continue
             }
+            let e = musical.count == 1 ? 0.6 : (r.energy - eMin) / range
+            var level: EnergyLevel = e < 0.34 ? .low : (e < 0.7 ? .medium : .high)
+            if level == .high, let p = prevE, e - p > 0.35 { level = .drop }
+            prevE = e
+            let firstMusical = result.allSatisfy { $0.name == "Silence" }
+            let lastMusical = raw[(idx + 1)...].allSatisfy { isSilent($0.start, $0.end) }
             var name: String
             switch level {
-            case .low: name = idx == 0 ? "Intro" : (idx == raw.count - 1 ? "Outro" : "Breakdown")
+            case .low: name = firstMusical ? "Intro" : (lastMusical ? "Outro" : "Breakdown")
             case .medium:
-                let nextE = idx + 1 < raw.count ? (raw[idx + 1].energy - eMin) / range : 0
-                name = idx == 0 ? "Intro" : (nextE - e > 0.25 ? "Build" : "Verse")
+                let nextE = idx + 1 < raw.count && !isSilent(raw[idx + 1].start, raw[idx + 1].end)
+                    ? (raw[idx + 1].energy - eMin) / range : 0
+                name = firstMusical ? "Intro" : (nextE - e > 0.25 ? "Build" : "Verse")
             case .high: name = "Chorus"
             case .drop: name = "Drop"
             }
-            if idx == raw.count - 1 && level != .high && level != .drop && idx > 0 { name = "Outro" }
+            if lastMusical && level != .high && level != .drop && !firstMusical { name = "Outro" }
             counts[name, default: 0] += 1
             let c = counts[name]!
             if c > 1 { name += " \(c)" }
