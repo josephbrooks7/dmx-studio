@@ -397,6 +397,13 @@ struct ShowScreen: View {
     private let cols = [GridItem(.adaptive(minimum: 170, maximum: 220), spacing: 12)]
 
     var body: some View {
+        content
+            .alert("Lights", isPresented: Binding(get: { model.linkNotice != nil }, set: { if !$0 { model.linkNotice = nil } })) {
+                Button("OK") { model.linkNotice = nil }
+            } message: { Text(model.linkNotice ?? "") }
+    }
+
+    private var content: some View {
         HStack(alignment: .top, spacing: 16) {
             MasterColumn()
             VStack(alignment: .leading, spacing: 16) {
@@ -417,6 +424,10 @@ struct ShowScreen: View {
                         ScrollView(.horizontal, showsIndicators: false) {
                             HStack(spacing: 26) {
                                 ForEach(Array(model.fixtures.enumerated()), id: \.element.id) { i, fx in
+                                  HStack(spacing: 26) {
+                                    if i > 0, model.canLink(model.fixtures[i - 1], fx) {
+                                        LinkToggle(prev: model.fixtures[i - 1], next: fx)
+                                    }
                                     FixtureRing(fixture: fx, rendered: i < model.preview.count ? model.preview[i] : nil,
                                                 manual: model.manual[fx.id] != nil,
                                                 onPower: { model.setLightOn(fx.id, !fx.isOn) })
@@ -425,6 +436,7 @@ struct ShowScreen: View {
                                                  arrowEdge: .bottom) {
                                             FixtureControlPanel(fixtureID: fx.id).environmentObject(model)
                                         }
+                                  }
                                 }
                             }
                             .padding(.vertical, 6)
@@ -580,6 +592,35 @@ struct RingShape: Shape {
     }
 }
 
+/// The chain-link button between two lights of the same model: linked = they mirror on one address.
+struct LinkToggle: View {
+    @EnvironmentObject var model: AppModel
+    let prev: Fixture
+    let next: Fixture
+
+    var body: some View {
+        let linked = model.isLinked(prev, next)
+        Button {
+            if linked { model.unlink(prev.id, next.id) } else { model.link(prev.id, next.id) }
+        } label: {
+            VStack(spacing: 4) {
+                Image(systemName: "link")
+                    .font(.system(size: 15, weight: .bold))
+                    .overlay(linked ? nil : Rectangle().frame(width: 2, height: 22).rotationEffect(.degrees(45)))
+                    .foregroundColor(linked ? .white : Theme.subtle)
+                    .frame(width: 36, height: 36)
+                    .background(Circle().fill(linked ? Theme.accent : Color.white.opacity(0.1)))
+                    .overlay(Circle().stroke(Color.white.opacity(linked ? 0 : 0.2), lineWidth: 1))
+                Text(linked ? "Linked" : "Unlinked").font(.system(size: 9, weight: .semibold)).foregroundColor(Theme.subtle)
+            }
+        }
+        .buttonStyle(.plain)
+        .padding(.bottom, 30)
+        .help(linked ? "\(prev.name) and \(next.name) are chained on one address and mirror each other. Click to unlink."
+                     : "Click to link: \(next.name) mirrors \(prev.name) on the same address (daisy-chained).")
+    }
+}
+
 struct FixtureRing: View {
     let fixture: Fixture
     let rendered: RenderedFixture?
@@ -667,8 +708,8 @@ struct FixtureControlPanel: View {
             }
             let twins = model.sharesAddress(fixtureID)
             if !twins.isEmpty {
-                Text("\(twins.map(\.name).joined(separator: ", ")) is on the same address (\(fx?.displayCode ?? "")), so the real lights get the same signal: they only go dark when both are off. To switch them separately, give one a different address on the light and in Setup → Lights.")
-                    .font(.caption2).foregroundColor(.orange).fixedSize(horizontal: false, vertical: true)
+                Label("Linked with \(twins.map(\.name).joined(separator: ", ")) on \(fx?.displayCode ?? ""): they mirror each other and turn on and off together. Use the link button between them to unlink.", systemImage: "link")
+                    .font(.caption2).foregroundColor(Theme.subtle).fixedSize(horizontal: false, vertical: true)
             }
             if let wheel = fx?.colorWheel {
                 Text("Color wheel").font(.caption).foregroundColor(.secondary)

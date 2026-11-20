@@ -301,9 +301,44 @@ final class AppModel: ObservableObject {
 
     // MARK: - Turning single lights on and off
 
+    /// Linked lights (same address, chained with a DMX cable) turn on and off together.
     func setLightOn(_ id: UUID, _ on: Bool) {
-        guard let i = fixtures.firstIndex(where: { $0.id == id }) else { return }
-        fixtures[i].off = on ? nil : true
+        let ids = Set([id] + sharesAddress(id).map(\.id))
+        for i in fixtures.indices where ids.contains(fixtures[i].id) { fixtures[i].off = on ? nil : true }
+    }
+
+    // MARK: - Linking chained lights
+
+    @Published var linkNotice: String?
+
+    /// Two lights of the same model on the same device can be linked (mirrored on one address).
+    func canLink(_ a: Fixture, _ b: Fixture) -> Bool { a.layout == b.layout && a.outputKey == b.outputKey }
+    func isLinked(_ a: Fixture, _ b: Fixture) -> Bool { canLink(a, b) && a.address == b.address }
+
+    func link(_ aID: UUID, _ bID: UUID) {
+        guard let a = fixtures.first(where: { $0.id == aID }), let j = fixtures.firstIndex(where: { $0.id == bID }) else { return }
+        fixtures[j].address = a.address
+        fixtures[j].off = a.off
+        linkNotice = "\(fixtures[j].name) is linked to \(a.name). They now mirror each other on \(a.displayCode).\n\nOn the real light, set \(fixtures[j].name) to \(a.displayCode) too (MENU → address → UP/DOWN → ENTER)."
+    }
+
+    func unlink(_ aID: UUID, _ bID: UUID) {
+        guard let a = fixtures.first(where: { $0.id == aID }), let j = fixtures.firstIndex(where: { $0.id == bID }) else { return }
+        let size = max(fixtures[j].channelCount, 1)
+        func free(_ start: Int) -> Bool {
+            let end = start + size - 1
+            guard start >= 1, end <= 512 else { return false }
+            return !fixtures.indices.contains { k in k != j && fixtures[k].address <= end && fixtures[k].lastAddress >= start }
+        }
+        var addr = a.lastAddress + 1
+        if !free(addr) { addr = (fixtures.indices.filter { $0 != j }.map { fixtures[$0].lastAddress }.max() ?? 0) + 1 }
+        guard free(addr) else {
+            ErrorCenter.shared.report(area: "Lights", message: "There's no room left in the 512 channels to give \(fixtures[j].name) its own address.")
+            return
+        }
+        fixtures[j].address = addr
+        let code = fixtures[j].displayCode
+        linkNotice = "\(fixtures[j].name) is unlinked and now has its own address: \(code).\n\nOn the real light, set \(fixtures[j].name) to \(code) (MENU → address → UP/DOWN → ENTER). Until you do, it keeps copying \(a.name)."
     }
     var anyLightOff: Bool { fixtures.contains { !$0.isOn } }
     func turnAllLightsOn() { for i in fixtures.indices { fixtures[i].off = nil } }
