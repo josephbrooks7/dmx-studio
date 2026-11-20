@@ -801,6 +801,7 @@ struct FixtureCard: View {
                 HStack(spacing: 6) {
                     Image(systemName: "display")
                     Text("The light's display should read ").foregroundColor(.secondary) + Text(fx.displayCode).bold().monospacedDigit()
+                        + Text(fx.shehdsModeCode.map { ", C.hnd \($0)" } ?? "").bold()
                 }
                 .font(.callout)
                 if fx.isShehdsBar { ShehdsModePicker(fixture: fx).frame(maxWidth: 420) }
@@ -931,7 +932,7 @@ struct WirelessView: View {
                         Text("If the lights don't respond:").font(.subheadline.bold()).padding(.top, 4)
                         Text("""
                         1. Look at the PKnight's channel light. Blinking quickly means DMX is coming out (PKnight manual). If it's not blinking, the Mac isn't reaching it: make sure the Mac's Wi-Fi is on the PKNIGHT.WIFI network and the PKnight shows as Connected above.
-                        2. If it IS blinking quickly but the lights do nothing: check the DMX cable (PKnight → Bar 1 DMX IN, Bar 1 DMX OUT → Bar 2 DMX IN) and that each bar's display reads d.001 (38-channel DMX mode, every beam separate) or A.001 (10-channel) matching the mode picked on the light's card, not Auto or Sound mode.
+                        2. If it IS blinking quickly but the lights do nothing: check the DMX cable (PKnight → Bar 1 DMX IN, Bar 1 DMX OUT → Bar 2 DMX IN) and that each bar's address reads A.001 and its C.hnd channel mode matches the mode picked on the light's card (38ch or 9ch), not Auto or Sound mode.
                         3. Close Photon or any other lighting app; two apps sending at once fight each other.
                         """)
                         .font(.callout).foregroundColor(.secondary).fixedSize(horizontal: false, vertical: true)

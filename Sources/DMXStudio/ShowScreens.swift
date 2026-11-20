@@ -1205,25 +1205,26 @@ struct VolumeControl: View {
 }
 
 
-/// Which mode the SHEHDS bar is set to on its own display. Must match, or colors land on the wrong channels.
+/// The SHEHDS bar's channel mode (its C.hnd menu). Must match the light, or colors land on the wrong channels.
 struct ShehdsModePicker: View {
     @EnvironmentObject var model: AppModel
     let fixture: Fixture
 
     var body: some View {
         let perBeam = fixture.profileName == FixtureProfile.shehdsBeam38.name
-        let n = String(format: "%03d", fixture.address)
         VStack(alignment: .leading, spacing: 6) {
-            Text("The light's display shows").font(.caption).foregroundColor(Theme.subtle)
+            Text("Channel mode on the light (C.hnd menu)").font(.caption).foregroundColor(Theme.subtle)
             Picker("", selection: Binding(get: { perBeam }, set: { model.setShehdsMode(fixture.id, perBeam: $0) })) {
-                Text("d.\(n) · 38 ch, each beam").tag(true)
-                Text("A.\(n) · 10 ch, all together").tag(false)
+                Text("38ch · each beam").tag(true)
+                Text("9ch · all together").tag(false)
             }
             .pickerStyle(.segmented)
             .labelsHidden()
-            Text(perBeam ? "Best: every one of the 8 beams can do its own thing."
-                         : "All 8 beams do the same thing. Switch the light to d.\(n) (MENU until d shows, then ENTER) for separate beams.")
+            Text(perBeam ? "Set the light's C.hnd to 38ch. Every one of the 8 beams can do its own thing."
+                         : "Set the light's C.hnd to 9ch. All 8 beams do the same thing; choose 38ch on both for separate beams.")
                 .font(.caption2).foregroundColor(Theme.subtle).fixedSize(horizontal: false, vertical: true)
+            Text("If colors look wrong (red shows as green), this doesn't match the light.")
+                .font(.caption2).foregroundColor(.orange).fixedSize(horizontal: false, vertical: true)
         }
     }
 }
