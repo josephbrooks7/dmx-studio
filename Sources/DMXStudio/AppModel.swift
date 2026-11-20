@@ -1402,7 +1402,12 @@ final class AppModel: ObservableObject {
     func pasteLyrics(_ id: UUID, text: String) {
         guard let i = index(of: id), let a = songs[i].analysis else { return }
         let heard = songs[i].lyrics?.source == "Pasted" ? [] : (songs[i].lyrics?.words ?? [])
-        songs[i].lyrics = LyricsLearner.align(text: text, heard: heard, phrases: a.vocalPhrases ?? [], duration: a.duration)
+        // Tracks made to be sung over have little lead vocal: place the words on the sung parts of the
+        // song structure (verses, pre-choruses, choruses, bridge) instead
+        let sungParts = a.detectedSections.filter { d in ["Verse", "Pre-Chorus", "Chorus", "Post-Chorus", "Bridge"].contains { d.name.hasPrefix($0) } }
+            .map { TimeSpan(start: $0.start, end: $0.end) }
+        let spans = a.vocalShare > 0.15 ? (a.vocalPhrases ?? []) : sungParts
+        songs[i].lyrics = LyricsLearner.align(text: text, heard: heard, phrases: spans, duration: a.duration)
     }
 
     /// Colors the active show to fit what the lyrics are about (drops keep their genre colors).

@@ -62,7 +62,7 @@ for name, nbars, key in plan:
             if key not in ("I",) and q % 2 == 1: put(t0 + q * beat, snare(), 0.45 * loud)
             for h in ((0, 0.5) if key == "C" else (0.5,)):
                 put(t0 + (q + h) * beat, hat(), 0.08 * loud, 0.6)
-        if key in MEL and b % 2 == 0:   # a sung line over two bars (1.75 bars sung, then a breath)
+        if key in MEL and b % 2 == 0 and "--no-vocals" not in sys.argv:   # a sung line over two bars (1.75 bars sung, then a breath)
             put(t0, sing(MEL[key], bar * 1.75), 0.9 * (0.8 + 0.4 * loud))
     t += nbars * bar
 mix = np.stack([L, R], 1); mix = mix / np.max(np.abs(mix)) * 0.9

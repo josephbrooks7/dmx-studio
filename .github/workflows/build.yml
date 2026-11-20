@@ -83,6 +83,10 @@ jobs:
           python3 packaging/make_structure_song.py /tmp/v/pop.wav
           DMX_DEBUG_STRUCTURE=1 "$BIN" --analyze /tmp/v/pop.wav > /tmp/v/pop.txt; grep -E "bpm=|vocalPhrases|^seg|Group" /tmp/v/pop.txt | cut -c1-200
           python3 packaging/check_structure.py /tmp/v/pop.txt /tmp/v/pop.truth.json
+          echo "--- same song as a performance track (no lead vocal)"
+          python3 packaging/make_structure_song.py /tmp/v/track.wav --no-vocals
+          DMX_DEBUG_STRUCTURE=1 "$BIN" --analyze /tmp/v/track.wav > /tmp/v/track.txt; grep -E "^seg|Group" /tmp/v/track.txt
+          python3 packaging/check_structure.py /tmp/v/track.txt /tmp/v/track.truth.json
           python3 packaging/make_halftime_song.py /tmp/v/half.wav
           "$BIN" --analyze /tmp/v/half.wav | grep -E "bpm=|groove=|genres=" | tee /tmp/v/half.txt
           grep -q "groove=Half-time" /tmp/v/half.txt && echo "PASS half-time groove detected (140 BPM felt as 70)" || { echo "FAIL half-time groove not detected"; exit 1; }

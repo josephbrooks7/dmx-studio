@@ -81,7 +81,7 @@ enum SongStructure {
             var c = 0.0
             for j in 0..<n { c += cosine(chromaBar[x.a + j], chromaBar[y.a + j]) }
             let de = abs(avg(x, eng) - avg(y, eng)) / max(eMaxB - eMinB, 1e-4)
-            return c / Double(n) - 0.35 * de - 0.5 * abs(avg(x, voc) - avg(y, voc))
+            return c / Double(n) - 0.35 * de - 0.25 * abs(avg(x, voc) - avg(y, voc))
         }
         var bgroup = [Int](repeating: -1, count: blocks.count)
         var ng = 0
@@ -114,63 +114,54 @@ enum SongStructure {
         let eRange = max(eMax - eMin, 1e-4)
         func e01(_ s: Seg) -> Double { musical.count == 1 ? 0.6 : (s.energy - eMin) / eRange }
 
-        // ---- 3. name them
-        let sungSong = vocals != nil && an.vocalShare > 0.08
-        let sung = musical.filter { segs[$0].vocal >= 0.3 }
-        var chorusGroup = -1, verseGroup = -1
-        if sungSong && !sung.isEmpty {
-            var groups: [Int: (count: Int, energy: Double, len: Double, first: Double)] = [:]
-            for i in sung {
-                let g = segs[i].group, cur = groups[g] ?? (0, 0, 0, segs[i].start)
-                groups[g] = (cur.count + 1, cur.energy + e01(segs[i]), cur.len + segs[i].end - segs[i].start, min(cur.first, segs[i].start))
-            }
-            let median = sung.map { e01(segs[$0]) }.sorted()[sung.count / 2]
-            chorusGroup = groups.max { a, b in
-                let sa = a.value.energy / Double(a.value.count) + 0.12 * Double(min(a.value.count, 4))
-                let sb = b.value.energy / Double(b.value.count) + 0.12 * Double(min(b.value.count, 4))
-                return sa < sb
-            }.map { g in g.value.energy / Double(g.value.count) >= median - 0.05 ? g.key : -1 } ?? -1
-            let firstChorus = groups[chorusGroup]?.first ?? duration
-            verseGroup = groups.filter { $0.key != chorusGroup }
-                .max { a, b in
-                    let pa = (a.value.first < firstChorus ? 1.0 : 0.0) * 1000 + a.value.len
-                    let pb = (b.value.first < firstChorus ? 1.0 : 0.0) * 1000 + b.value.len
-                    return pa < pb
-                }?.key ?? -1
-        }
-        let chorusE = chorusGroup >= 0 ? sung.filter { segs[$0].group == chorusGroup }.map { e01(segs[$0]) }.reduce(0, +)
-            / Double(max(1, sung.filter { segs[$0].group == chorusGroup }.count)) : 0.8
-        let groupCount = Dictionary(grouping: musical, by: { segs[$0].group }).mapValues(\.count)
-        var chorusesSoFar = 0
+        // ---- 3. name them. Works from the music itself (chord pattern, repetition, loudness), so
+        //         backing / performance tracks made to be sung over get verses and choruses too;
+        //         singing, when there is some, only nudges the choice.
         let firstM = musical.first!, lastM = musical.last!
+        func once(_ i: Int) -> Bool { musical.filter { segs[$0].group == segs[i].group }.count == 1 }
+        let introI: Int? = musical.count > 2 && (e01(segs[firstM]) < 0.5 || once(firstM)) ? firstM : nil
+        let outroI: Int? = musical.count > 3 && (e01(segs[lastM]) < 0.6 || once(lastM)) ? lastM : nil
+        let body = musical.filter { $0 != introI && $0 != outroI }
+        var groups: [Int: (count: Int, energy: Double, len: Double, first: Double, vocal: Double)] = [:]
+        for i in body {
+            let g = segs[i].group, cur = groups[g] ?? (0, 0, 0, segs[i].start, 0)
+            groups[g] = (cur.count + 1, cur.energy + e01(segs[i]), cur.len + segs[i].end - segs[i].start,
+                         min(cur.first, segs[i].start), cur.vocal + segs[i].vocal)
+        }
+        let anyRepeat = groups.values.contains { $0.count >= 2 }
+        let chorusGroup = groups.filter { !anyRepeat || $0.value.count >= 2 }.max { a, b in
+            func score(_ v: (count: Int, energy: Double, len: Double, first: Double, vocal: Double)) -> Double {
+                v.energy / Double(v.count) + 0.12 * Double(min(v.count, 4)) + 0.1 * v.vocal / Double(v.count)
+            }
+            return score(a.value) < score(b.value)
+        }?.key ?? -1
+        let firstChorus = groups[chorusGroup]?.first ?? duration
+        let verseGroup = groups.filter { $0.key != chorusGroup }.max { a, b in
+            let pa = (a.value.first < firstChorus ? 1.0 : 0.0) * 1000 + a.value.len
+            let pb = (b.value.first < firstChorus ? 1.0 : 0.0) * 1000 + b.value.len
+            return pa < pb
+        }?.key ?? -1
+        let chorusE = groups[chorusGroup].map { $0.energy / Double($0.count) } ?? 0.8
+        var chorusesSoFar = 0
         for (n, i) in musical.enumerated() {
             let s = segs[i], e = e01(s)
             let nextI = n + 1 < musical.count ? musical[n + 1] : nil
-            let nextE = nextI.map { e01(segs[$0]) } ?? 0
             let barsLong = s.b - s.a
             var role: String
-            if sungSong && s.vocal >= 0.3 {
-                if s.group == chorusGroup { role = "Chorus" }
-                else if s.group == verseGroup && chorusesSoFar < 3 { role = "Verse" }
-                else if let ni = nextI, segs[ni].group == chorusGroup, barsLong <= 12, segs[ni].vocal >= 0.3 { role = "Pre-Chorus" }
-                else if n > 0, segs[musical[n - 1]].role == "Chorus", e >= chorusE - 0.15, barsLong <= 8 { role = "Post-Chorus" }
-                else if chorusesSoFar >= 2 && (groupCount[s.group] ?? 1) == 1 { role = "Bridge" }
-                else if chorusGroup >= 0 && e >= chorusE - 0.1 { role = "Chorus" }
-                else { role = "Verse" }
-            } else {
-                // no singing here
-                if i == firstM { role = "Intro" }
-                else if i == lastM { role = "Outro" }
-                else if barsLong <= 16, nextE - e > 0.2, e < 0.75 { role = "Build" }
-                else if e >= 0.7 {
-                    let prevE = n > 0 ? e01(segs[musical[n - 1]]) : 0
-                    role = (e - prevE > 0.3 || !sungSong) ? "Drop" : "Instrumental"
-                } else if e < 0.34 { role = "Breakdown" }
-                else { role = sungSong ? "Instrumental" : "Groove" }
-            }
+            if i == introI { role = "Intro" }
+            else if i == outroI { role = "Outro" }
+            else if s.group == chorusGroup { role = "Chorus" }
+            else if s.group == verseGroup && chorusesSoFar < 3 { role = "Verse" }
+            else if let ni = nextI, segs[ni].group == chorusGroup, barsLong <= 12 { role = "Pre-Chorus" }
+            else if n > 0, segs[musical[n - 1]].role == "Chorus", e >= chorusE - 0.15, barsLong <= 8 { role = "Post-Chorus" }
+            else if chorusesSoFar >= 2 && once(i) { role = "Bridge" }
+            else if e < 0.25 { role = "Breakdown" }
+            else if e >= chorusE - 0.1 { role = "Chorus" }
+            else { role = "Verse" }
             if role == "Chorus" { chorusesSoFar += 1 }
             segs[i].role = role
         }
+        let sungSong = vocals != nil && an.vocalShare > 0.08
         // a short sung part at the very start/end is still the intro/outro
         if let f = musical.first, segs[f].role == "Verse", segs[f].b - segs[f].a <= 4, musical.count > 3 { segs[f].role = "Intro" }
         if let l = musical.last, segs[l].role != "Chorus", segs[l].b - segs[l].a <= 8, e01(segs[l]) < 0.6, musical.count > 3 { segs[l].role = "Outro" }

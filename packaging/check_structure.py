@@ -13,4 +13,5 @@ for name, a, b in truth:
     if not good: bad.append(name)
 v2 = [n for n, s, e in secs if s <= (truth[4][1] + truth[4][2]) / 2 < e]
 print(f"{ok}/{len(truth)} parts named right")
-sys.exit(0 if ok >= len(truth) - 2 and not (v2 and v2[0].startswith("Chorus")) else 1)
+need = int(sys.argv[3]) if len(sys.argv) > 3 else len(truth) - 2
+sys.exit(0 if ok >= need and not (v2 and v2[0].startswith("Chorus")) else 1)
