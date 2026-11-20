@@ -259,9 +259,12 @@ final class AppModel: ObservableObject {
             case 1:  // S
                 if self.strobeHeld != down { self.strobeHeld = down }
                 return nil
-            case 124: // → = start the cued song, or skip to the next one in the set
-                if down && !e.isARepeat, self.playingLineupID != nil { self.nextInLineup(); return nil }
-                return e
+            case 124: // → = start the cued song, or the next one
+                if down && !e.isARepeat { self.nextInLineup() }
+                return nil
+            case 123: // ← = back to the start of the song (twice: the song before)
+                if down && !e.isARepeat { self.previousInLineup() }
+                return nil
             case 17: // T = tap tempo
                 if down && !e.isARepeat { self.tapTempo() }
                 return nil
@@ -1523,17 +1526,46 @@ final class AppModel: ObservableObject {
         }
     }
 
+    /// ⏭ / →: start the cued song, else the next one in the set, else the next song in the library.
     func nextInLineup() {
         if goCued() { return }
-        guard let lid = playingLineupID, let idx = playingEntryIndex else { return }
-        cancelGap()
-        playLineup(lid, from: idx + 1)
+        if let lid = playingLineupID, let idx = playingEntryIndex {
+            cancelGap()
+            playLineup(lid, from: idx + 1)
+            return
+        }
+        guard !songs.isEmpty else { return }
+        let cur = playingSongID ?? selectedSongID
+        let i = cur.flatMap { id in songs.firstIndex { $0.id == id } } ?? -1
+        let next = songs[(i + 1) % songs.count]
+        selectedSongID = next.id
+        play(next.id, from: songStart(next.id))
     }
 
+    /// ⏮ / ←: back to the beginning of this song; pressed again right away, the song before.
     func previousInLineup() {
-        guard let lid = playingLineupID, let idx = playingEntryIndex else { return }
-        cancelGap()
-        playLineup(lid, from: max(0, idx - 1))
+        let into = (player?.currentTime ?? 0) - (playingSongID.map(songStart) ?? 0)
+        if let id = playingSongID, player != nil, into > 3 {
+            player?.currentTime = songStart(id)
+            currentTime = player?.currentTime ?? 0
+            return
+        }
+        if let lid = playingLineupID, let idx = playingEntryIndex {
+            cancelGap()
+            playLineup(lid, from: max(0, idx - 1))
+            return
+        }
+        guard !songs.isEmpty else { return }
+        let cur = playingSongID ?? selectedSongID
+        let i = cur.flatMap { id in songs.firstIndex { $0.id == id } } ?? 0
+        let prev = songs[(i - 1 + songs.count) % songs.count]
+        selectedSongID = prev.id
+        play(prev.id, from: songStart(prev.id))
+    }
+
+    /// Where a song's music actually starts (skipping silence at the top).
+    func songStart(_ id: UUID) -> Double {
+        songs.first { $0.id == id }?.analysis.map { max(0, $0.musicStart - 0.15) } ?? 0
     }
 
     private func cancelGap() { gapWork?.cancel(); gapWork = nil; inGap = false }

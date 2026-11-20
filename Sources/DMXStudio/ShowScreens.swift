@@ -233,8 +233,10 @@ struct NowPlayingCard: View {
     var body: some View {
         let song = model.playingSongID.flatMap { model.song($0) }
         HStack(spacing: 12) {
-            Button { model.previousInLineup() } label: { Image(systemName: "backward.fill") }
-                .buttonStyle(.plain).disabled(model.playingLineupID == nil).opacity(model.playingLineupID == nil ? 0.3 : 1)
+            let canSkip = !model.songs.isEmpty
+            Button { model.previousInLineup() } label: { Image(systemName: "backward.fill").frame(width: 24, height: 24).contentShape(Rectangle()) }
+                .buttonStyle(.plain).disabled(!canSkip).opacity(canSkip ? 1 : 0.3)
+                .help("Back to the start of the song (←). Click again for the song before.")
             Button { model.togglePlay() } label: {
                 Image(systemName: model.isPlaying ? "pause.fill" : "play.fill")
                     .font(.system(size: 16, weight: .bold))
@@ -242,8 +244,9 @@ struct NowPlayingCard: View {
                     .background(Circle().fill(Theme.accent))
             }
             .buttonStyle(.plain)
-            Button { model.nextInLineup() } label: { Image(systemName: "forward.fill") }
-                .buttonStyle(.plain).disabled(model.playingLineupID == nil).opacity(model.playingLineupID == nil ? 0.3 : 1)
+            Button { model.nextInLineup() } label: { Image(systemName: "forward.fill").frame(width: 24, height: 24).contentShape(Rectangle()) }
+                .buttonStyle(.plain).disabled(!canSkip).opacity(canSkip ? 1 : 0.3)
+                .help("Next song (→)")
             VStack(alignment: .leading, spacing: 3) {
                 Text(model.cuedLabel.map { "Ready: \($0) · Space / →" } ?? model.activeBlock.map { $0.entry.blockLabel } ?? (model.inGap ? "Next song starting…" : (song?.displayName ?? "Nothing playing")))
                     .font(.system(size: 13, weight: .semibold)).lineLimit(1)
