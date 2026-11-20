@@ -64,6 +64,7 @@ enum TestMode: String, CaseIterable, Identifiable {
     case rainbow = "Rainbow Check"
     case identify = "Identify Fixture"
     case beamTest = "Beam Test"     // one light (and its linked twins): every beam a different color
+    case tiltTest = "Tilt Test"     // all moving lights swing end to end, white
     var id: String { rawValue }
 }
 
@@ -512,6 +513,12 @@ final class AppModel: ObservableObject {
     // MARK: - SHEHDS bar mode (must match the light's display: d.xxx = 38 ch, A.xxx = 10 ch)
 
     /// Switches a SHEHDS bar (and the bars linked to it) between 38-channel (each beam) and 10-channel mode.
+    /// Tilt speed channel value for a bar and the bars linked to it.
+    func setTiltSpeed(_ id: UUID, _ v: Double) {
+        let ids = Set([id] + sharesAddress(id).map(\.id))
+        for i in fixtures.indices where ids.contains(fixtures[i].id) { fixtures[i].tiltSpeed = v }
+    }
+
     func setShehdsMode(_ id: UUID, perBeam: Bool) {
         let p = perBeam ? FixtureProfile.shehdsBeam38 : FixtureProfile.shehdsBeam9
         let ids = Set([id] + sharesAddress(id).map(\.id))
@@ -1999,6 +2006,8 @@ final class AppModel: ObservableObject {
                 case .identify:
                     let on = fx.id == identifyFixtureID && Int(t * 3) % 2 == 0
                     heads.append(FixtureState(intensity: on ? 1 : 0, color: .white))
+                case .tiltTest:
+                    heads.append(FixtureState(intensity: 1, color: .white))
                 case .beamTest:
                     // red, orange, yellow, green, cyan, blue, purple, pink across the beams; a colour wheel steps through its colours
                     let target = identifyFixtureID.map { id in id == fx.id || sharesAddress(id).contains { $0.id == fx.id } } ?? false
@@ -2013,6 +2022,7 @@ final class AppModel: ObservableObject {
             }
             var rf = RenderedFixture(heads: heads)
             if testMode == .rainbow { rf.tilt = 0.5 + 0.3 * sin(t) }
+            if testMode == .tiltTest { rf.tilt = Int(t / 1.5) % 2 == 0 ? 0.02 : 0.98; rf.pan = rf.tilt }
             return rf
         }
     }

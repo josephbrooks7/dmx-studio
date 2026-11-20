@@ -1249,6 +1249,37 @@ struct ShehdsModePicker: View {
                 .font(.caption2).foregroundColor(Theme.subtle).fixedSize(horizontal: false, vertical: true)
             Text("If colors look wrong (red shows as green), this doesn't match the light.")
                 .font(.caption2).foregroundColor(.orange).fixedSize(horizontal: false, vertical: true)
+            TiltSpeedControl(fixture: fixture)
         }
+    }
+}
+
+
+/// The bar's tilt-speed channel. The manual doesn't say which end is fast, so: Tilt Test swings the bars
+/// end to end, and you slide until they move quickest and reach both ends.
+struct TiltSpeedControl: View {
+    @EnvironmentObject var model: AppModel
+    let fixture: Fixture
+
+    var body: some View {
+        let v = fixture.tiltSpeed ?? 0
+        let testing = model.testMode == .tiltTest
+        VStack(alignment: .leading, spacing: 4) {
+            HStack {
+                Text("Tilt Speed").font(.callout.bold())
+                Spacer()
+                Button(testing ? "Stop Test" : "Tilt Test") { model.testMode = testing ? .off : .tiltTest }
+                    .controlSize(.small)
+            }
+            HStack {
+                Text("0").font(.caption2).foregroundColor(Theme.subtle)
+                Slider(value: Binding(get: { v }, set: { model.setTiltSpeed(fixture.id, ($0 / 5).rounded() * 5) }), in: 0...255)
+                Text("255").font(.caption2).foregroundColor(Theme.subtle)
+                Text("\(Int(v))").font(.caption).monospacedDigit().frame(width: 30)
+            }
+            Text("Press Tilt Test: the bar swings end to end. Slide until it moves fastest and reaches both ends.")
+                .font(.caption2).foregroundColor(Theme.subtle).fixedSize(horizontal: false, vertical: true)
+        }
+        .padding(.top, 4)
     }
 }

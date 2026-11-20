@@ -242,6 +242,7 @@ struct Fixture: Identifiable, Codable, Hashable {
     var stageY: Double? = nil           // (0 = top, 1 = bottom)
     var stageMount: StageMount? = nil
     var off: Bool? = nil                // switched off in the app (sends dark), nil/false = on
+    var tiltSpeed: Double? = nil        // raw value for the light's tilt-speed channel (SHEHDS ch 2), nil = 0
 
     /// Spotlights (color-wheel lights) default to Stationary; everything else to Sequence.
     var isOn: Bool { off != true }

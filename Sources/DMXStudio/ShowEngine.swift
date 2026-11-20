@@ -468,7 +468,7 @@ struct ShowRenderer {
                 } else {
                     st = effect(s.effect, pal: pal, c: c, rb: rb, idx: idx, ph: ph, p: pixel, n: totalPixels)
                 }
-                st.intensity = min(1, max(0, st.intensity * s.intensity))
+                st.intensity = min(1, max(0, st.intensity * s.intensity * beamMask(s, c: c, head: h, of: fx.headCount)))
                 if let on = fillOn {
                     st.intensity = on ? 1 : 0.1
                     st.color = st.color.mix(.white, 0.35)
@@ -506,6 +506,33 @@ struct ShowRenderer {
         return result
     }
 
+    /// Which beams of a multi-beam bar are lit right now. Bigger song sections switch patterns
+    /// (odd/even, outside/inside, left/right…) so beams turn on and off instead of all glowing at once.
+    private func beamMask(_ s: ShowSection, c: Ctx, head h: Int, of n: Int) -> Double {
+        guard n >= 4 else { return 1 }
+        // effects that already pick their own beams
+        if [.chase, .bounce, .pixelPop, .centerOut, .sparkle, .alternate, .split, .wave, .blackout].contains(s.effect) { return 1 }
+        let barN = Int(floor(c.beatPos * s.rate / 4))
+        let pattern: Int
+        switch s.level {
+        case .low: return 1
+        case .medium: pattern = [0, 1, 0, 2][((barN / 2) % 4 + 4) % 4]            // all, odd, all, even every 2 bars
+        case .high: pattern = (barN % 6 + 6) % 6                                   // a new pattern every bar
+        case .drop: pattern = (Int(floor(c.beatPos * s.rate)) % 6 + 6) % 6        // a new pattern every beat
+        }
+        let half = n / 2
+        let on: Bool
+        switch pattern {
+        case 1: on = h % 2 == 0                         // odd beams (1, 3, 5, 7)
+        case 2: on = h % 2 == 1                         // even beams
+        case 3: on = h < 2 || h >= n - 2                // the outside beams
+        case 4: on = h >= half - 1 && h <= half         // the middle beams
+        case 5: on = (h < half) == ((barN % 2) == 0)   // left half / right half
+        default: on = true
+        }
+        return on ? 1 : 0
+    }
+
     private func effect(_ e: LightEffect, pal: Palette, c: Ctx, rb: Double, idx: Int, ph: Double, p: Int, n: Int) -> FixtureState {
         let bar = Int(floor(rb / 4))
         switch e {
@@ -520,11 +547,11 @@ struct ShowRenderer {
             return FixtureState(intensity: 0.25 + 0.75 * s, color: col)
 
         case .pulse:
-            return FixtureState(intensity: 0.2 + 0.8 * exp(-ph * 5), color: pal.color(bar))
+            return FixtureState(intensity: exp(-ph * 4), color: pal.color(bar))
 
         case .kickFlash:
             let k = exp(-c.sinceKick * 9)
-            return FixtureState(intensity: 0.1 + 0.9 * k, color: pal.color(bar + (p % 2)))
+            return FixtureState(intensity: k, color: pal.color(bar + (p % 2)))
 
         case .snareHit:
             let k = exp(-c.sinceSnare * 8)
@@ -545,7 +572,7 @@ struct ShowRenderer {
             return FixtureState(intensity: on ? 1 : 0.06, color: pal.color(idx / 2 + (on ? 0 : 1)))
 
         case .colorBeat:
-            return FixtureState(intensity: 0.55 + 0.45 * exp(-ph * 4), color: pal.color(idx + p))
+            return FixtureState(intensity: 0.3 + 0.7 * exp(-ph * 4), color: pal.color(idx + p))
 
         case .rainbow:
             let hue = rb / 16 + Double(p) / Double(n)
@@ -578,7 +605,7 @@ struct ShowRenderer {
             let s = 0.5 + 0.5 * sin(2 * .pi * (rb / 4 - x))
             let base = Int(floor(rb / 8))
             let col = pal.color(base).mix(pal.color(base + 1), x)
-            return FixtureState(intensity: 0.1 + 0.9 * s * s, color: col)
+            return FixtureState(intensity: s * s * s, color: col)
 
         case .centerOut:
             // every kick bursts from the middle beams out to the ends
@@ -592,7 +619,9 @@ struct ShowRenderer {
             // left half one color, right half another; they swap every bar and pulse on the beat
             let left = p < (n + 1) / 2
             let swap = (idx / 4) % 2 == 1
-            return FixtureState(intensity: 0.35 + 0.65 * exp(-ph * 3), color: pal.color(left != swap ? 0 : 1))
+            // one half lights on the beat, the other half on the off-beat
+            let lit = (left != swap) == (idx % 2 == 0)
+            return FixtureState(intensity: lit ? exp(-ph * 2.5) : 0, color: pal.color(left != swap ? 0 : 1))
 
         case .pixelPop:
             // random beams pop on every 8th note
@@ -628,17 +657,17 @@ struct ShowRenderer {
             return (0.5, 0.5)
         case .sweep:
             let a = 2 * .pi * barPos / 2 + phase
-            return (0.5 + 0.35 * sin(a), 0.5 + 0.3 * sin(a))
+            return (0.5 + 0.45 * sin(a), 0.5 + 0.45 * sin(a))
         case .circle:
             let a = 2 * .pi * barPos + phase
-            return (0.5 + 0.3 * sin(a), 0.5 + 0.3 * cos(a))
+            return (0.5 + 0.42 * sin(a), 0.5 + 0.42 * cos(a))
         case .fan:
             let s = 0.5 - 0.5 * cos(2 * .pi * barPos / 2)
             let dir: Double = fi % 2 == 0 ? 1 : -1
-            return (0.5 + dir * 0.3 * s, 0.5 + dir * 0.3 * s)
+            return (0.5 + dir * 0.45 * s, 0.5 + dir * 0.45 * s)
         case .beatNod:
             let up = (idx + fi) % 2 == 0
-            return (0.5, up ? 0.7 : 0.3)
+            return (0.5, up ? 0.85 : 0.15)
         case .fullRotate:
             // Uses the full range (the SHEHDS bar's whole 180°), one sweep across every 2 bars
             let a = 2 * .pi * barPos / 4 + phase
@@ -710,7 +739,7 @@ enum DMXMapper {
                     case .tilt: out[addr] = UInt8(clamping: Int(rf.tilt * 65535) >> 8)
                     case .panFine: out[addr] = UInt8(clamping: Int(rf.pan * 65535) & 0xFF)
                     case .tiltFine: out[addr] = UInt8(clamping: Int(rf.tilt * 65535) & 0xFF)
-                    case .speed: out[addr] = 230      // tilt speed runs slow→fast on the SHEHDS bars: keep it quick
+                    case .speed: out[addr] = UInt8(clamping: Int(fx.tiltSpeed ?? 0))   // set per light (Tilt Speed + Tilt Test)
                     }
                 }
             }
