@@ -439,6 +439,19 @@ struct TimelineView: View {
                         ctx.fill(Path(CGRect(x: x0, y: size.height - 6, width: max(1, x1 - x0), height: 6)),
                                  with: .color(.gray.opacity(0.6)))
                     }
+                    // Lyric phrases (with their words) along the bottom
+                    for l in song.lyrics?.lines ?? [] {
+                        let x0 = CGFloat(l.start / dur) * size.width
+                        let x1 = CGFloat(l.end / dur) * size.width
+                        let r = CGRect(x: x0, y: size.height - 40, width: max(2, x1 - x0), height: 14)
+                        ctx.fill(Path(roundedRect: r, cornerRadius: 3),
+                                 with: .color((l.vocalist == "Background" ? Color.purple : Color.orange).opacity(l.confidence < 0.4 ? 0.35 : 0.75)))
+                        if x1 - x0 > 30 {
+                            var c = ctx
+                            c.clip(to: Path(r))
+                            c.draw(Text(l.text).font(.system(size: 9)).foregroundColor(.white), at: CGPoint(x: x0 + 3, y: r.midY), anchor: .leading)
+                        }
+                    }
                     // Bar lines
                     var bi = analysis.downbeatOffset
                     while bi < analysis.beats.count {

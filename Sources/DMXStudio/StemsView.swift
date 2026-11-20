@@ -409,6 +409,16 @@ struct LyricsTab: View {
 
     @State private var editing: UUID?
     @State private var editText = ""
+    @State private var editStart = ""
+    @State private var editEnd = ""
+
+    static func tc(_ t: Double) -> String { String(format: "%d:%04.1f", Int(max(0, t)) / 60, max(0, t).truncatingRemainder(dividingBy: 60)) }
+    static func parseTC(_ s: String) -> Double? {
+        let p = s.trimmingCharacters(in: .whitespaces).split(separator: ":")
+        if p.count == 2, let m = Double(p[0]), let sec = Double(p[1]) { return m * 60 + sec }
+        return Double(s.trimmingCharacters(in: .whitespaces))
+    }
+    var playhead: Double { model.playingSongID == song.id ? model.currentTime : 0 }
     @State private var showCues = true
     @AppStorage("lyricWeightsOpen") private var weightsOpen = false
 
@@ -429,6 +439,13 @@ struct LyricsTab: View {
             }
             .frame(width: 120)
             .help("Language of the lyrics")
+            Button {
+                if let nid = model.addLyricLine(song.id, at: playhead) {
+                    editing = nid; editText = "New line"; editStart = Self.tc(playhead); editEnd = Self.tc(playhead + 2.5)
+                }
+            } label: { Label("Add Line", systemImage: "plus") }
+                .disabled(song.analysis == nil)
+                .help("Add a lyric line at the playhead (or at the start)")
             Button { pasteText = song.lyrics.map { $0.lines.map(\.text).joined(separator: "\n") } ?? ""; pasting = true } label: {
                 Label("Paste / Edit All", systemImage: "doc.on.clipboard")
             }
@@ -477,7 +494,7 @@ struct LyricsTab: View {
                 }
                 .frame(maxHeight: 300)
             }
-            Text("Gray: not sure of the words or timing. Click a line to play from there; ✎ to fix the words, ‹ › to nudge timing.")
+            Text("Click a line to play from there · double-click or ✎ to edit its words and start / end time · ‹ › nudge timing · gray = not sure")
                 .font(.caption2).foregroundColor(.secondary)
             if let cues = ly.cues, !cues.isEmpty {
                 DisclosureGroup(isExpanded: $showCues) {
@@ -494,15 +511,38 @@ struct LyricsTab: View {
     @ViewBuilder func lineRow(_ ly: Lyrics, _ idx: Int, _ line: LyricLine, now t: Double) -> some View {
         let ins = (ly.insights?.count ?? 0) > idx ? ly.insights![idx] : nil
         let current = t >= line.start && t < line.end
-        HStack(alignment: .firstTextBaseline, spacing: 8) {
-            Text(StemMixerView.clock(line.start).dropLast(4)).font(.caption.monospacedDigit()).foregroundColor(.secondary)
-                .frame(width: 44, alignment: .leading)
-            if editing == line.id {
-                TextField("", text: $editText, onCommit: {
-                    model.editLyricLine(song.id, lineID: line.id, text: editText); editing = nil
-                })
-                .textFieldStyle(.roundedBorder)
-            } else {
+        if editing == line.id {
+            // editor: words, start / end time, delete
+            VStack(alignment: .leading, spacing: 6) {
+                TextField("Words", text: $editText).textFieldStyle(.roundedBorder)
+                HStack(spacing: 8) {
+                    Text("Start").font(.caption).foregroundColor(.secondary)
+                    TextField("0:00.0", text: $editStart).textFieldStyle(.roundedBorder).frame(width: 72)
+                    Button("Playhead") { editStart = Self.tc(playhead) }.help("Set the start to where the song is now")
+                    Text("End").font(.caption).foregroundColor(.secondary)
+                    TextField("0:00.0", text: $editEnd).textFieldStyle(.roundedBorder).frame(width: 72)
+                    Button("Playhead") { editEnd = Self.tc(playhead) }.help("Set the end to where the song is now")
+                    Button { model.play(song.id, from: max(0, (Self.parseTC(editStart) ?? line.start) - 0.5)) } label: { Image(systemName: "play.fill") }
+                        .help("Play from this line")
+                    Spacer()
+                    Button(role: .destructive) { model.deleteLyricLine(song.id, lineID: line.id); editing = nil } label: { Image(systemName: "trash") }
+                        .help("Delete this line")
+                    Button("Cancel") { editing = nil }
+                    Button("Save") {
+                        model.editLyricLine(song.id, lineID: line.id, text: editText,
+                                            start: Self.parseTC(editStart), end: Self.parseTC(editEnd))
+                        editing = nil
+                    }
+                    .keyboardShortcut(.defaultAction)
+                }
+                .controlSize(.small)
+            }
+            .padding(8)
+            .background(RoundedRectangle(cornerRadius: 6).fill(Color.pink.opacity(0.08)))
+        } else {
+            HStack(alignment: .firstTextBaseline, spacing: 8) {
+                Text("\(Self.tc(line.start))–\(Self.tc(line.end))").font(.caption.monospacedDigit()).foregroundColor(.secondary)
+                    .frame(width: 92, alignment: .leading)
                 // the word being sung lights up, like karaoke captions
                 let ws = ly.words.filter { $0.start >= line.start - 0.01 && $0.end <= line.end + 0.01 }
                 if current && !ws.isEmpty {
@@ -514,25 +554,28 @@ struct LyricsTab: View {
                 } else {
                     Text(line.text).foregroundColor(line.confidence < 0.4 ? .secondary : .primary)
                 }
+                if line.vocalist == "Background" { chip("background vocal", color: .purple) }
+                if let ins {
+                    ForEach(ins.emotions, id: \.self) { e in chip(e, color: LyricEmotion(rawValue: e).map { $0.color.color } ?? .gray) }
+                    ForEach(ins.imagery, id: \.self) { e in chip(e, color: LyricImagery(rawValue: e).map { $0.color.color } ?? .gray) }
+                    if ins.delivery != "Normal" && !ins.delivery.isEmpty { chip(ins.delivery, color: .gray) }
+                    if ins.repeated { chip("repeated", color: .gray) }
+                }
+                Spacer(minLength: 4)
+                HStack(spacing: 2) {
+                    Button("‹") { model.editLyricLine(song.id, lineID: line.id, shift: -0.1) }.help("0.1 s earlier")
+                    Button("›") { model.editLyricLine(song.id, lineID: line.id, shift: 0.1) }.help("0.1 s later")
+                    Button("✎") { editText = line.text; editStart = Self.tc(line.start); editEnd = Self.tc(line.end); editing = line.id }
+                        .help("Edit the words and timing")
+                }
+                .buttonStyle(.borderless).font(.caption)
             }
-            if let ins {
-                ForEach(ins.emotions, id: \.self) { e in chip(e, color: LyricEmotion(rawValue: e).map { $0.color.color } ?? .gray) }
-                ForEach(ins.imagery, id: \.self) { e in chip(e, color: LyricImagery(rawValue: e).map { $0.color.color } ?? .gray) }
-                if ins.delivery != "Normal" && !ins.delivery.isEmpty { chip(ins.delivery, color: .gray) }
-                if ins.repeated { chip("repeated", color: .gray) }
-            }
-            Spacer(minLength: 4)
-            HStack(spacing: 2) {
-                Button("‹") { model.editLyricLine(song.id, lineID: line.id, shift: -0.1) }.help("0.1 s earlier")
-                Button("›") { model.editLyricLine(song.id, lineID: line.id, shift: 0.1) }.help("0.1 s later")
-                Button("✎") { editText = line.text; editing = line.id }.help("Fix the words")
-            }
-            .buttonStyle(.borderless).font(.caption)
+            .padding(.vertical, 1)
+            .background(RoundedRectangle(cornerRadius: 4).fill(current ? Color.pink.opacity(0.12) : .clear))
+            .contentShape(Rectangle())
+            .onTapGesture(count: 2) { editText = line.text; editStart = Self.tc(line.start); editEnd = Self.tc(line.end); editing = line.id }
+            .onTapGesture { model.play(song.id, from: max(0, line.start - 0.5)) }
         }
-        .padding(.vertical, 1)
-        .background(RoundedRectangle(cornerRadius: 4).fill(current ? Color.pink.opacity(0.12) : .clear))
-        .contentShape(Rectangle())
-        .onTapGesture { model.play(song.id, from: max(0, line.start - 0.5)) }
     }
 
     func chip(_ s: String, color: Color) -> some View {

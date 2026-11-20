@@ -1479,7 +1479,18 @@ final class AppModel: ObservableObject {
             let run = {
                 self.lyricsStatus[id] = "Listening (Whisper \(size.rawValue))…"
                 WhisperEngine.transcribe(vocals: vocals, phrases: phrases, model: size, progress: progress) { r in
-                    finish(r, engine: "Whisper \(size.rawValue)")
+                    // Hardly any lead vocal (backing / performance track)? Listen again for the
+                    // background vocals: turned up, whole vocal part, a bit less strict
+                    if case .success(let lead) = r, lead.count < 8 {
+                        self.lyricsStatus[id] = "No lead vocal — listening for background vocals…"
+                        self.lyricsProgress[id] = 0
+                        WhisperEngine.transcribe(vocals: vocals, phrases: phrases, model: size, background: true, progress: progress) { r2 in
+                            if case .success(let bg) = r2, bg.count > lead.count { finish(.success(bg), engine: "Whisper \(size.rawValue) · background vocals") }
+                            else { finish(r, engine: "Whisper \(size.rawValue)") }
+                        }
+                    } else {
+                        finish(r, engine: "Whisper \(size.rawValue)")
+                    }
                 }
             }
             if WhisperEngine.isInstalled(size) { run() }
@@ -1535,6 +1546,36 @@ final class AppModel: ObservableObject {
         }
         ly.words.sort { $0.start < $1.start }
         ly.lines[li] = line
+        ly.lines.sort { $0.start < $1.start }
+        ly.source = "Edited"
+        songs[i].lyrics = ly
+        refreshLyricLighting(id)
+    }
+
+    /// Adds a lyric line (e.g. at the playhead); starts lyrics from scratch if there are none.
+    func addLyricLine(_ id: UUID, at t: Double, text: String = "New line") -> UUID? {
+        guard let i = index(of: id) else { return nil }
+        var ly = songs[i].lyrics ?? Lyrics(lines: [], words: [], source: "Edited")
+        let line = LyricLine(text: text, start: max(0, t), end: max(0, t) + 2.5, confidence: 1)
+        ly.lines.append(line)
+        ly.lines.sort { $0.start < $1.start }
+        let ws = text.split(separator: " ").map(String.init)
+        for (k, w) in ws.enumerated() {
+            let step = 2.5 / Double(max(ws.count, 1))
+            ly.words.append(LyricWord(text: w, start: line.start + Double(k) * step, end: line.start + Double(k + 1) * step, confidence: 1))
+        }
+        ly.words.sort { $0.start < $1.start }
+        ly.source = "Edited"
+        songs[i].lyrics = ly
+        refreshLyricLighting(id)
+        return line.id
+    }
+
+    func deleteLyricLine(_ id: UUID, lineID: UUID) {
+        guard let i = index(of: id), var ly = songs[i].lyrics, let li = ly.lines.firstIndex(where: { $0.id == lineID }) else { return }
+        let l = ly.lines[li]
+        ly.words.removeAll { $0.start >= l.start - 0.01 && $0.end <= l.end + 0.01 }
+        ly.lines.remove(at: li)
         ly.source = "Edited"
         songs[i].lyrics = ly
         refreshLyricLighting(id)

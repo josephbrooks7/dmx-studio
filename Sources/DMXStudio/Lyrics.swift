@@ -10,6 +10,7 @@ struct LyricWord: Codable, Hashable {
     var start: Double
     var end: Double
     var confidence: Double          // 0…1 (how sure the listener is; pasted words that were placed by estimate are low)
+    var vocalist: String? = nil     // "Lead" or "Background"
 }
 
 struct LyricLine: Codable, Hashable, Identifiable {
@@ -19,6 +20,7 @@ struct LyricLine: Codable, Hashable, Identifiable {
     var end: Double
     var confidence: Double
     var sentiment: Double = 0       // -1 (dark) … +1 (bright)
+    var vocalist: String? = nil     // "Lead" or "Background"
 }
 
 struct Lyrics: Codable, Hashable {
@@ -136,7 +138,8 @@ enum LyricsLearner {
         func flush() {
             guard let f = cur.first, let l = cur.last else { return }
             lines.append(LyricLine(text: cur.map(\.text).joined(separator: " "), start: f.start, end: l.end,
-                                   confidence: cur.map(\.confidence).reduce(0, +) / Double(cur.count)))
+                                   confidence: cur.map(\.confidence).reduce(0, +) / Double(cur.count),
+                                   vocalist: cur.first?.vocalist))
             cur = []
         }
         for w in words.sorted(by: { $0.start < $1.start }) {

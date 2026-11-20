@@ -1,5 +1,6 @@
 import Foundation
 import AVFoundation
+import Accelerate
 
 /// Downloads a file once, with progress (used for the AI models).
 final class FileDownloader: NSObject, URLSessionDownloadDelegate {
@@ -92,7 +93,7 @@ enum WhisperEngine {
     }
 
     /// Transcribes the vocals. Runs in the background; `done` is called on the main thread.
-    static func transcribe(vocals: URL, phrases: [TimeSpan], model: ModelSize,
+    static func transcribe(vocals: URL, phrases: [TimeSpan], model: ModelSize, background: Bool = false,
                            progress: @escaping (Double) -> Void,
                            done: @escaping (Result<[LyricWord], Error>) -> Void) {
         guard let bin = binary else { done(.failure(LyricsError.unavailable)); return }
@@ -107,8 +108,8 @@ enum WhisperEngine {
                 // faint or partial vocals, let Whisper hear the whole vocal part
                 let dur = (try? AVAudioFile(forReading: vocals)).map { Double($0.length) / $0.processingFormat.sampleRate } ?? 0
                 let sung = phrases.reduce(0) { $0 + $1.end - $1.start }
-                let trusted = dur > 0 && sung / dur >= 0.15 ? phrases : []
-                try writeSpeechWav(vocals, to: wav, keep: trusted)
+                let trusted = !background && dur > 0 && sung / dur >= 0.15 ? phrases : []
+                try writeSpeechWav(vocals, to: wav, keep: trusted, boost: background)
                 let p = Process()
                 p.executableURL = bin
                 let threads = max(2, min(8, ProcessInfo.processInfo.activeProcessorCount))
@@ -141,7 +142,8 @@ enum WhisperEngine {
                 p.waitUntilExit()
                 guard p.terminationStatus == 0 else { throw LyricsError.unavailable }
                 let data = try Data(contentsOf: tmp.appendingPathComponent("out.json"))
-                let words = parse(data, phrases: trusted)
+                var words = parse(data, phrases: trusted, minConfidence: background ? 0.2 : 0.3)
+                for k in words.indices { words[k].vocalist = background ? "Background" : "Lead" }
                 if ProcessInfo.processInfo.environment["DMX_DEBUG_WHISPER"] != nil {
                     print("whisper stderr: \(errLog.suffix(3000))")
                     print("whisper json: \(String(decoding: data.prefix(1500), as: UTF8.self))")
@@ -156,7 +158,7 @@ enum WhisperEngine {
     }
 
     /// whisper.cpp "full" JSON: one segment per word (-ml 1 -sow), with token probabilities.
-    static func parse(_ data: Data, phrases: [TimeSpan]) -> [LyricWord] {
+    static func parse(_ data: Data, phrases: [TimeSpan], minConfidence: Double = 0.3) -> [LyricWord] {
         guard let root = try? JSONSerialization.jsonObject(with: data) as? [String: Any],
               let segs = root["transcription"] as? [[String: Any]] else { return [] }
         var out: [LyricWord] = []
@@ -171,7 +173,7 @@ enum WhisperEngine {
                 if let p = t["p"] as? Double { ps.append(p) }
             }
             let conf = ps.isEmpty ? 0.5 : ps.reduce(0, +) / Double(ps.count)
-            if conf < 0.3 { continue }      // very unsure: probably hearing words in the music
+            if conf < minConfidence { continue }      // very unsure: probably hearing words in the music
             let w = LyricWord(text: text, start: a / 1000, end: max(a, b) / 1000, confidence: conf)
             // Whisper sometimes invents words in silence: keep only words where someone is singing
             if !phrases.isEmpty && !phrases.contains(where: { w.start < $0.end + 0.6 && w.end > $0.start - 0.6 }) { continue }
@@ -182,18 +184,14 @@ enum WhisperEngine {
 
     /// 16 kHz mono WAV of the vocals (what Whisper takes). Outside the sung phrases it's silent, so the
     /// timing stays the same but Whisper isn't tempted to "hear" words in the music.
-    static func writeSpeechWav(_ src: URL, to dst: URL, keep: [TimeSpan]) throws {
+    static func writeSpeechWav(_ src: URL, to dst: URL, keep: [TimeSpan], boost: Bool = false) throws {
         let f = try AVAudioFile(forReading: src)
         guard let outFmt = AVAudioFormat(commonFormat: .pcmFormatFloat32, sampleRate: 16000, channels: 1, interleaved: false),
               let conv = AVAudioConverter(from: f.processingFormat, to: outFmt) else { throw LyricsError.unavailable }
         conv.downmix = true
-        let w = try AVAudioFile(forWriting: dst, settings: [AVFormatIDKey: kAudioFormatLinearPCM, AVSampleRateKey: 16000,
-                                                            AVNumberOfChannelsKey: 1, AVLinearPCMBitDepthKey: 16,
-                                                            AVLinearPCMIsFloatKey: false],
-                                commonFormat: .pcmFormatFloat32, interleaved: false)
         guard let inBuf = AVAudioPCMBuffer(pcmFormat: f.processingFormat, frameCapacity: 32768) else { throw LyricsError.unavailable }
         var ended = false
-        var written: Int64 = 0
+        var all: [Float] = []
         while true {
             guard let outBuf = AVAudioPCMBuffer(pcmFormat: outFmt, frameCapacity: 16384) else { break }
             var e: NSError?
@@ -206,15 +204,42 @@ enum WhisperEngine {
             }
             if let e { throw e }
             let n = Int(outBuf.frameLength)
-            if n > 0, let ch = outBuf.floatChannelData, !keep.isEmpty {
-                for i in 0..<n {
-                    let t = Double(written + Int64(i)) / 16000
-                    if !keep.contains(where: { t >= $0.start - 0.4 && t <= $0.end + 0.4 }) { ch[0][i] = 0 }
-                }
-            }
-            if n > 0 { try w.write(from: outBuf) }
-            written += Int64(n)
+            if n > 0, let ch = outBuf.floatChannelData { all.append(contentsOf: UnsafeBufferPointer(start: ch[0], count: n)) }
             if st == .endOfStream || st == .error || (ended && n == 0) { break }
         }
+        if !keep.isEmpty {
+            for i in all.indices {
+                let t = Double(i) / 16000
+                if !keep.contains(where: { t >= $0.start - 0.4 && t <= $0.end + 0.4 }) { all[i] = 0 }
+            }
+        }
+        // Level the vocals so quiet singing (and background vocals) is loud enough for Whisper:
+        // bring the louder sung stretches to a steady level, with a soft limit on peaks
+        let win = 8000
+        var rms: [Float] = []
+        var i = 0
+        while i < all.count {
+            let e = min(all.count, i + win)
+            var v: Float = 0
+            all[i..<e].withUnsafeBufferPointer { vDSP_rmsqv($0.baseAddress!, 1, &v, vDSP_Length(e - i)) }
+            rms.append(v); i = e
+        }
+        let loud = rms.filter { $0 > 1e-5 }.sorted()
+        if !loud.isEmpty {
+            let ref = loud[min(loud.count - 1, Int(Double(loud.count) * (boost ? 0.9 : 0.8)))]
+            let gain = min(boost ? 60 : 12, max(1, (boost ? 0.15 : 0.1) / max(ref, 1e-6)))
+            if gain > 1.05 { for k in all.indices { all[k] = tanhf(all[k] * gain) } }
+        }
+        let w = try AVAudioFile(forWriting: dst, settings: [AVFormatIDKey: kAudioFormatLinearPCM, AVSampleRateKey: 16000,
+                                                            AVNumberOfChannelsKey: 1, AVLinearPCMBitDepthKey: 16,
+                                                            AVLinearPCMIsFloatKey: false],
+                                commonFormat: .pcmFormatFloat32, interleaved: false)
+        guard let buf = AVAudioPCMBuffer(pcmFormat: outFmt, frameCapacity: AVAudioFrameCount(max(all.count, 1))), let ch = buf.floatChannelData else {
+            throw LyricsError.unavailable
+        }
+        buf.frameLength = AVAudioFrameCount(all.count)
+        guard !all.isEmpty else { return }
+        all.withUnsafeBufferPointer { ch[0].assign(from: $0.baseAddress!, count: all.count) }
+        try w.write(from: buf)
     }
 }
