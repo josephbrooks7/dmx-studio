@@ -718,7 +718,17 @@ struct FixtureCard: View {
                     .font(.callout).foregroundColor(.secondary)
                 }
                 BehaviorEditor(fixtureID: fx.id)
-                if !conflicts.isEmpty {
+                HStack(spacing: 6) {
+                    Image(systemName: "display")
+                    Text("The light's display should read ").foregroundColor(.secondary) + Text(fx.displayCode).bold().monospacedDigit()
+                }
+                .font(.callout)
+                if let src = conflicts.first(where: { $0.address == fx.address && $0.layout == fx.layout }),
+                   model.fixtures.firstIndex(where: { $0.id == src.id }) ?? 0 < model.fixtures.firstIndex(where: { $0.id == fx.id }) ?? 0 {
+                    Label("Same address as \(src.name) (\(fx.displayCode)). Chained lights on the same address always do the same thing, so this one mirrors \(src.name).",
+                          systemImage: "link")
+                        .foregroundColor(.green)
+                } else if conflicts.contains(where: { !($0.address == fx.address && $0.layout == fx.layout) }) {
                     Label("Overlaps with \(conflicts.map(\.name).joined(separator: ", ")). Change the start address.", systemImage: "exclamationmark.triangle.fill")
                         .foregroundColor(.orange)
                 }
@@ -822,6 +832,33 @@ struct WirelessView: View {
 
                 Card {
                     VStack(alignment: .leading, spacing: 10) {
+                        HStack {
+                            Text("Test your lights").font(.headline)
+                            Spacer()
+                            Text(model.connected ? "Sending \(model.packetsPerSecond) frames/sec" : "Not sending")
+                                .font(.caption).monospacedDigit().foregroundColor(model.connected && model.packetsPerSecond > 0 ? .green : .orange)
+                        }
+                        HStack {
+                            Button { model.stop(); model.activePresetID = nil; model.testMode = .white } label: { Label("All White", systemImage: "sun.max.fill") }
+                            Button { model.stop(); model.activePresetID = nil; model.testMode = .rainbow } label: { Label("Rainbow", systemImage: "paintpalette.fill") }
+                            Button { model.testMode = .off } label: { Label("Stop Test", systemImage: "stop.fill") }
+                        }
+                        Toggle("Send on universes 0 and 1 (works with any PKnight setting)", isOn: Binding(
+                            get: { model.output.universeAuto ?? true }, set: { model.output.universeAuto = $0; model.connect(quiet: true) }))
+                        Toggle("Also send sACN (the other protocol the PKnight understands)", isOn: Binding(
+                            get: { model.output.alsoSendSACN ?? true }, set: { model.output.alsoSendSACN = $0; model.connect(quiet: true) }))
+                        Text("If the lights don't respond:").font(.subheadline.bold()).padding(.top, 4)
+                        Text("""
+                        1. Look at the PKnight's channel light. Blinking quickly means DMX is coming out (PKnight manual). If it's not blinking, the Mac isn't reaching it: make sure the Mac's Wi-Fi is on the PKNIGHT.WIFI network and the PKnight shows as Connected above.
+                        2. If it IS blinking quickly but the lights do nothing: check the DMX cable (PKnight → Bar 1 DMX IN, Bar 1 DMX OUT → Bar 2 DMX IN) and that each bar's display reads A.001 (38-channel DMX mode), not Auto or Sound mode.
+                        3. Close Photon or any other lighting app; two apps sending at once fight each other.
+                        """)
+                        .font(.callout).foregroundColor(.secondary).fixedSize(horizontal: false, vertical: true)
+                    }
+                }
+
+                Card {
+                    VStack(alignment: .leading, spacing: 10) {
                         Text("Can't find it? Enter it manually").font(.headline)
                         HStack {
                             TextField("IP address shown on the PKnight screen (e.g. 192.168.1.50)", text: $manualIP)
@@ -834,7 +871,7 @@ struct WirelessView: View {
                             }
                             .disabled(manualIP.isEmpty)
                         }
-                        Text("Universe 0 is right for a PKnight with factory settings.")
+                        Text("With \"Send on universes 0 and 1\" on, the universe here only matters for other setups.")
                             .font(.caption).foregroundColor(.secondary)
                     }
                 }

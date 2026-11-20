@@ -13,6 +13,7 @@ struct Library: Codable {
     var rigMode: RigMode? = nil
     var sessions: [Session]? = nil
     var lastSessionID: UUID? = nil
+    var chainedBarsFix: Bool? = nil   // one-time: Beam Bar 2 moved to A.001 to match the real rig
 }
 
 enum TestMode: String, CaseIterable, Identifiable {
@@ -49,6 +50,8 @@ final class AppModel: ObservableObject {
     private let mic = MicBeatTracker()
     @Published var manual: [UUID: ManualControl] = [:]   // hands-on control per light
     @Published var outputEnabled = true          // off = simulate only, real lights stay dark
+    @Published var packetsPerSecond = 0
+    private var lastPacketCount = 0
     @Published var haze: Double = 0.6            // beam visibility in the Stage simulation
     @Published var stage = StageLayout() { didSet { scheduleSave() } }
     @Published var selectedStageItem: UUID?
@@ -179,6 +182,16 @@ final class AppModel: ObservableObject {
                                 lineups: lib.lineups.isEmpty ? [Lineup(name: "My Set List")] : lib.lineups,
                                 presets: nil, idle: lib.idle, rigMode: lib.rigMode)]
         }
+        // One-time fix: the old default put Beam Bar 2 at 39, but the real bars are chained on A.001
+        if lib.chainedBarsFix == nil {
+            for si in sessions.indices {
+                let f = sessions[si].fixtures
+                if f.contains(where: { $0.name == "Beam Bar 1" && $0.address == 1 && $0.profileName == FixtureProfile.shehdsBeam38.name }),
+                   let j = f.firstIndex(where: { $0.name == "Beam Bar 2" && $0.address == 39 && $0.profileName == FixtureProfile.shehdsBeam38.name }) {
+                    sessions[si].fixtures[j].address = 1
+                }
+            }
+        }
         // Load the last session's lights so the idle look runs while you're on the Sessions screen
         let last = sessions.first { $0.id == lib.lastSessionID } ?? sessions.sorted { $0.modified > $1.modified }.first
         if let last { apply(last) }
@@ -266,6 +279,15 @@ final class AppModel: ObservableObject {
     }
 
     var currentSessionName: String { sessions.first { $0.id == currentSessionID }?.name ?? "Session" }
+
+    // MARK: - Lights sharing an address (daisy-chained copies)
+
+    /// Index of the light this one copies (same address + same model), or nil if it's independent.
+    func copySource(of i: Int) -> Int? {
+        guard i < fixtures.count else { return nil }
+        let f = fixtures[i]
+        return fixtures.indices.first { $0 < i && fixtures[$0].address == f.address && fixtures[$0].layout == f.layout && fixtures[$0].outputKey == f.outputKey }
+    }
 
     // MARK: - 3D venue
 
@@ -375,7 +397,7 @@ final class AppModel: ObservableObject {
         captureCurrentSession()
         let lib = Library(fixtures: fixtures, songs: songs, lineups: lineups, output: output,
                           idle: idle, globalLatencyMs: globalLatencyMs, rigMode: rigMode,
-                          sessions: sessions, lastSessionID: currentSessionID)
+                          sessions: sessions, lastSessionID: currentSessionID, chainedBarsFix: true)
         DispatchQueue.global(qos: .utility).async {
             if let data = try? JSONEncoder().encode(lib) {
                 try? data.write(to: Self.storeURL, options: .atomic)
@@ -394,7 +416,9 @@ final class AppModel: ObservableObject {
             try engine.connect(output)
             connected = true
             switch output.kind {
-            case .artNet: statusMessage = "Sending Art-Net to \(output.artNetIP), universe \(output.artNetUniverse)"
+            case .artNet:
+                let u = output.sendUniverses.map(String.init).joined(separator: " + ")
+                statusMessage = "Sending to \(output.artNetIP) · Art-Net universe \(u)\((output.alsoSendSACN ?? true) ? " + sACN 1" : "")"
             default: statusMessage = "Connected to \(output.serialPath)"
             }
         } catch {
@@ -886,7 +910,7 @@ final class AppModel: ObservableObject {
                 if let a = songs[i].analysis, let show = songs[i].shows.first(where: { $0.id == showID }) ?? songs[i].activeShow {
                     t = p.currentTime + (songs[i].syncOffsetMs + globalLatencyMs) / 1000
                     // Only the lights linked to this show run it; the rest stay on the idle look
-                    let linked = fixtures.indices.filter { show.includes(fixtures[$0]) && fixtures[$0].effectiveBehavior == .sequence }
+                    let linked = fixtures.indices.filter { show.includes(fixtures[$0]) && fixtures[$0].effectiveBehavior == .sequence && copySource(of: $0) == nil }
                     var r = ShowRenderer(analysis: a, sections: show.sections, fixtures: linked.map { fixtures[$0] })
                     r.idle = idle
                     r.rig = rigMode
@@ -907,7 +931,7 @@ final class AppModel: ObservableObject {
                     onsets = snap.onsets; level = max(0.3, snap.level)
                 }
                 let la = clock.liveAnalysis(now: now, onsets: onsets, level: level, useOnsetsAsKicks: beatSource == .mic)
-                let linked = fixtures.indices.filter { fixtures[$0].effectiveBehavior == .sequence }
+                let linked = fixtures.indices.filter { fixtures[$0].effectiveBehavior == .sequence && copySource(of: $0) == nil }
                 var r = ShowRenderer(analysis: la, sections: [preset.asSection(start: presetStart)], fixtures: linked.map { fixtures[$0] })
                 r.rig = rigMode
                 let part = r.render(at: now)
@@ -957,9 +981,18 @@ final class AppModel: ObservableObject {
             }
         }
 
+        // Chained lights on the same address physically do the same thing: mirror them
+        for i in rendered.indices { if let src = copySource(of: i), src < rendered.count { rendered[i] = rendered[src] } }
+
         // Beat light + BPM readout
         if beatSource == .mic && activePresetID == nil {
             let snap = mic.snapshot(); clock.bpm = snap.bpm; clock.anchor = snap.anchor
+        }
+        if tickCount % 40 == 0 {
+            let c = engine.mainPacketsSent
+            let pps = max(0, c - lastPacketCount)
+            lastPacketCount = c
+            if pps != packetsPerSecond { packetsPerSecond = pps }
         }
         if tickCount % 4 == 0 {
             let bpmNow: Double

@@ -134,15 +134,21 @@ final class OpenDMXOutput: DMXOutput {
     func close() { port.close() }
 }
 
-// MARK: - Art-Net
+// MARK: - Art-Net (+ sACN), sent to every universe the node might be listening on
 
 final class ArtNetOutput: DMXOutput {
     private let sock: Int32
     private var addr = sockaddr_in()
-    private let universe: Int
+    private var sacnAddr = sockaddr_in()
+    private let universes: [Int]
+    private let sendSACN: Bool
     private var sequence: UInt8 = 1
+    private let cid: [UInt8] = Array(withUnsafeBytes(of: UUID().uuid) { Array($0) })
+    private(set) var packetsSent = 0
 
-    init(ip: String, universe: Int) throws {
+    /// - universes: Art-Net universes to send the same frame on (e.g. [0, 1] when unsure)
+    /// - sendSACN: also send sACN (E1.31) universe 1 to the same device
+    init(ip: String, universes: [Int], sendSACN: Bool) throws {
         sock = socket(AF_INET, SOCK_DGRAM, IPPROTO_UDP)
         guard sock >= 0 else { throw DMXError.socketFailed("socket()") }
         var yes: Int32 = 1
@@ -155,28 +161,74 @@ final class ArtNetOutput: DMXOutput {
             Darwin.close(sock)
             throw DMXError.socketFailed("bad IP address \(ip)")
         }
-        self.universe = universe
+        sacnAddr = addr
+        sacnAddr.sin_port = in_port_t(5568).bigEndian
+        self.universes = universes.isEmpty ? [0] : universes
+        self.sendSACN = sendSACN
+    }
+
+    convenience init(ip: String, universe: Int) throws {
+        try self.init(ip: ip, universes: [universe], sendSACN: false)
     }
 
     func send(_ frame: [UInt8]) throws {
-        var p: [UInt8] = Array("Art-Net".utf8) + [0]
-        p += [0x00, 0x50]                              // OpOutput / ArtDmx (little endian 0x5000)
-        p += [0x00, 14]                                // protocol version 14
-        p += [sequence, 0]                             // sequence, physical
-        p += [UInt8(universe & 0xFF), UInt8((universe >> 8) & 0x7F)] // SubUni, Net
-        p += [0x02, 0x00]                              // length 512 (big endian)
-        p += frame.prefix(512)
-        if frame.count < 512 { p += [UInt8](repeating: 0, count: 512 - frame.count) }
+        var data = Array(frame.prefix(512))
+        if data.count < 512 { data += [UInt8](repeating: 0, count: 512 - data.count) }
+        var failed = false
+        for u in universes {
+            var p: [UInt8] = Array("Art-Net".utf8) + [0]
+            p += [0x00, 0x50]                              // OpOutput / ArtDmx (0x5000, little endian)
+            p += [0x00, 14]                                // protocol version 14
+            p += [sequence, 0]                             // sequence, physical
+            p += [UInt8(u & 0xFF), UInt8((u >> 8) & 0x7F)] // SubUni, Net
+            p += [0x02, 0x00]                              // length 512 (big endian)
+            p += data
+            if !sendPacket(p, to: addr) { failed = true }
+        }
+        if sendSACN && !sendPacket(sacnPacket(universe: 1, data: data), to: sacnAddr) { failed = true }
         sequence = sequence == 255 ? 1 : sequence + 1
+        packetsSent += 1
+        if failed { throw DMXError.socketFailed(String(cString: strerror(errno))) }
+    }
 
+    private func sendPacket(_ p: [UInt8], to dest: sockaddr_in) -> Bool {
+        var d = dest
         let sent = p.withUnsafeBytes { buf -> Int in
-            withUnsafePointer(to: &addr) { ap in
+            withUnsafePointer(to: &d) { ap in
                 ap.withMemoryRebound(to: sockaddr.self, capacity: 1) { sa in
                     sendto(sock, buf.baseAddress, buf.count, 0, sa, socklen_t(MemoryLayout<sockaddr_in>.size))
                 }
             }
         }
-        if sent < 0 { throw DMXError.socketFailed(String(cString: strerror(errno))) }
+        return sent >= 0
+    }
+
+    /// sACN / E1.31 data packet (638 bytes for a full universe).
+    private func sacnPacket(universe: Int, data: [UInt8]) -> [UInt8] {
+        func u16(_ v: Int) -> [UInt8] { [UInt8((v >> 8) & 0xFF), UInt8(v & 0xFF)] }
+        var p: [UInt8] = []
+        // Root layer
+        p += u16(0x0010) + u16(0x0000)
+        p += [0x41, 0x53, 0x43, 0x2D, 0x45, 0x31, 0x2E, 0x31, 0x37, 0x00, 0x00, 0x00]  // "ASC-E1.17"
+        p += u16(0x7000 | (638 - 16))
+        p += [0x00, 0x00, 0x00, 0x04]
+        p += cid
+        // Framing layer
+        p += u16(0x7000 | (638 - 38))
+        p += [0x00, 0x00, 0x00, 0x02]
+        var name = Array("DMX Studio".utf8); name += [UInt8](repeating: 0, count: 64 - name.count)
+        p += name
+        p += [100]                    // priority
+        p += u16(0)                   // sync address
+        p += [sequence, 0]            // sequence, options
+        p += u16(universe)
+        // DMP layer
+        p += u16(0x7000 | (638 - 115))
+        p += [0x02, 0xA1]
+        p += u16(0x0000) + u16(0x0001) + u16(513)
+        p += [0x00]                   // start code
+        p += data
+        return p
     }
 
     func close() { Darwin.close(sock) }
@@ -201,7 +253,8 @@ final class DMXEngine {
         switch settings.kind {
         case .enttecPro: out = try EnttecProOutput(path: settings.serialPath)
         case .openDMX: out = try OpenDMXOutput(path: settings.serialPath)
-        case .artNet: out = try ArtNetOutput(ip: settings.artNetIP, universe: settings.artNetUniverse)
+        case .artNet: out = try ArtNetOutput(ip: settings.artNetIP, universes: settings.sendUniverses,
+                                             sendSACN: settings.alsoSendSACN ?? true)
         }
         lock.lock()
         let old = outputs[DMXEngine.mainKey]
@@ -221,7 +274,7 @@ final class DMXEngine {
             extraTargets[key] = nil
         }
         for (key, ip) in wanted where extraTargets[key] == nil && key != DMXEngine.mainKey {
-            if let o = try? ArtNetOutput(ip: ip, universe: 0) {
+            if let o = try? ArtNetOutput(ip: ip, universes: [0, 1], sendSACN: true) {
                 outputs[key] = o
                 extraTargets[key] = ip
             }
@@ -263,6 +316,12 @@ final class DMXEngine {
         extraTargets.removeAll()
         lock.unlock()
         for o in all { try? o.send([UInt8](repeating: 0, count: 512)); o.close() }
+    }
+
+    /// How many frames the main output has sent (for the "is it sending?" readout).
+    var mainPacketsSent: Int {
+        lock.lock(); defer { lock.unlock() }
+        return (outputs[DMXEngine.mainKey] as? ArtNetOutput)?.packetsSent ?? 0
     }
 
     func setFrames(_ f: [String: [UInt8]]) {

@@ -184,7 +184,7 @@ struct FixtureProfile: Identifiable, Hashable {
         return FixtureProfile(
             name: "SHEHDS LED Beam 8x12W RGBW — 38ch (each head separate)",
             layout: parts.joined(separator: ","),
-            setupTip: "On the light's menu choose \"a001\" (38-channel mode) and set it to the start address shown here.")
+            setupTip: "On the light's menu choose the \"A\" setting (38-channel mode) and set the address shown here — the display reads A.001 for address 1. Chained bars set to the same address mirror each other.")
     }()
 
     static let shehdsBeam9 = FixtureProfile(
@@ -247,6 +247,13 @@ struct Fixture: Identifiable, Codable, Hashable {
         }
     }
     var profile: FixtureProfile? { FixtureProfile.named(profileName) }
+
+    /// What the light's own display should show, e.g. "A.001" for SHEHDS 38-channel mode.
+    var displayCode: String {
+        let n = String(format: "%03d", address)
+        if profileName == FixtureProfile.shehdsBeam38.name { return "A.\(n)" }
+        return n
+    }
 }
 
 /// What a fixture should be doing right now, independent of its channel layout.
@@ -443,6 +450,12 @@ struct OutputSettings: Codable, Equatable {
     var rememberedDevice: ArtNetNode? = nil   // the wireless box you paired with (main output)
     var extraDevices: [ArtNetNode]? = nil      // more wireless boxes, for lights wired to them
     var autoScan: Bool = true                  // keep looking for wireless devices in the background
+    var universeAuto: Bool? = nil              // send on universes 0 AND 1 (default) so any PKnight setting works
+    var alsoSendSACN: Bool? = nil              // also send sACN universe 1 (default on)
+
+    var sendUniverses: [Int] {
+        (universeAuto ?? true) ? Array(Set([0, 1, artNetUniverse])).sorted() : [artNetUniverse]
+    }
 }
 
 // MARK: - Lineups
@@ -586,10 +599,10 @@ struct Session: Identifiable, Codable {
     var rigMode: RigMode? = nil
     var stage: StageLayout? = nil
 
-    /// Your standard rig: two daisy-chained SHEHDS bars + the Chauvet followspot.
+    /// Your standard rig: two daisy-chained SHEHDS bars (both set to A.001) + the Chauvet followspot.
     static func standardRig() -> [Fixture] {
         [Fixture(name: "Beam Bar 1", address: 1, profileName: FixtureProfile.shehdsBeam38.name, layout: FixtureProfile.shehdsBeam38.layout),
-         Fixture(name: "Beam Bar 2", address: 39, profileName: FixtureProfile.shehdsBeam38.name, layout: FixtureProfile.shehdsBeam38.layout),
+         Fixture(name: "Beam Bar 2", address: 1, profileName: FixtureProfile.shehdsBeam38.name, layout: FixtureProfile.shehdsBeam38.layout),
          Fixture(name: "Followspot", address: 77, profileName: FixtureProfile.chauvetFollowspot75ST.name, layout: FixtureProfile.chauvetFollowspot75ST.layout)]
     }
 }
