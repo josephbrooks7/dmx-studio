@@ -200,13 +200,13 @@ struct FixtureProfile: Identifiable, Hashable {
         return FixtureProfile(
             name: "SHEHDS LED Beam 8x12W RGBW — 38ch (each head separate)",
             layout: parts.joined(separator: ","),
-            setupTip: "On the light's menu choose the \"A\" setting (38-channel mode) and set the address shown here — the display reads A.001 for address 1. Chained bars set to the same address mirror each other.")
+            setupTip: "On the light press MENU until the display shows d.xxx (38-channel mode: every beam separate), then UP/DOWN to the address shown here and ENTER: d.001 for address 1. A.xxx on the display is the 10-channel mode instead. Chained bars on the same address mirror each other.")
     }()
 
     static let shehdsBeam9 = FixtureProfile(
         name: "SHEHDS LED Beam 8x12W RGBW — 9ch (all heads together)",
         layout: "T,SPD,0,0,D,R,G,B,W",
-        setupTip: "On the light's menu choose \"addr\" (9-channel mode) and set it to the start address shown here. This mode has no strobe channel, so the app strobes it in software.")
+        setupTip: "The light's display shows A.xxx in this mode (10-channel: all 8 beams do the same thing). Set it to the address shown here: A.001 for address 1. For separate beams use d.xxx (38-channel) instead. No strobe channel here, so the app strobes in software.")
 
     static let chauvetFollowspot75ST = FixtureProfile(
         name: "Chauvet DJ LED Followspot 75ST — 3ch",
@@ -266,12 +266,15 @@ struct Fixture: Identifiable, Codable, Hashable {
     }
     var profile: FixtureProfile? { FixtureProfile.named(profileName) }
 
-    /// What the light's own display should show, e.g. "A.001" for SHEHDS 38-channel mode.
+    /// What the light's own display should show. SHEHDS bars: "d.001" = 38-channel mode (each beam
+    /// separate), "A.001" = 10-channel mode (all beams together).
     var displayCode: String {
         let n = String(format: "%03d", address)
-        if profileName == FixtureProfile.shehdsBeam38.name { return "A.\(n)" }
+        if profileName == FixtureProfile.shehdsBeam38.name { return "d.\(n)" }
+        if profileName == FixtureProfile.shehdsBeam9.name { return "A.\(n)" }
         return n
     }
+    var isShehdsBar: Bool { profileName == FixtureProfile.shehdsBeam38.name || profileName == FixtureProfile.shehdsBeam9.name }
 }
 
 /// What a fixture should be doing right now, independent of its channel layout.

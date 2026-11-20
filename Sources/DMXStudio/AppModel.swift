@@ -494,6 +494,18 @@ final class AppModel: ObservableObject {
         for i in fixtures.indices where ids.contains(fixtures[i].id) { fixtures[i].off = on ? nil : true }
     }
 
+    // MARK: - SHEHDS bar mode (must match the light's display: d.xxx = 38 ch, A.xxx = 10 ch)
+
+    /// Switches a SHEHDS bar (and the bars linked to it) between 38-channel (each beam) and 10-channel mode.
+    func setShehdsMode(_ id: UUID, perBeam: Bool) {
+        let p = perBeam ? FixtureProfile.shehdsBeam38 : FixtureProfile.shehdsBeam9
+        let ids = Set([id] + sharesAddress(id).map(\.id))
+        for i in fixtures.indices where ids.contains(fixtures[i].id) && fixtures[i].isShehdsBar {
+            fixtures[i].profileName = p.name
+            fixtures[i].layout = p.layout
+        }
+    }
+
     // MARK: - Linking chained lights
 
     @Published var linkNotice: String?

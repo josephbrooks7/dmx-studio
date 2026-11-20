@@ -733,6 +733,9 @@ struct FixtureControlPanel: View {
                 Button("Follow show") { model.manual[fixtureID] = nil }
                     .buttonStyle(PillButtonStyle(active: model.manual[fixtureID] == nil))
             }
+            if let fx, fx.isShehdsBar {
+                ShehdsModePicker(fixture: fx)
+            }
             let twins = model.sharesAddress(fixtureID)
             if !twins.isEmpty {
                 Label("Linked with \(twins.map(\.name).joined(separator: ", ")) on \(fx?.displayCode ?? ""): they mirror each other and turn on and off together. Use the link button between them to unlink.", systemImage: "link")
@@ -1197,6 +1200,30 @@ struct VolumeControl: View {
         case ..<0.34: return "speaker.wave.1.fill"
         case ..<0.67: return "speaker.wave.2.fill"
         default: return "speaker.wave.3.fill"
+        }
+    }
+}
+
+
+/// Which mode the SHEHDS bar is set to on its own display. Must match, or colors land on the wrong channels.
+struct ShehdsModePicker: View {
+    @EnvironmentObject var model: AppModel
+    let fixture: Fixture
+
+    var body: some View {
+        let perBeam = fixture.profileName == FixtureProfile.shehdsBeam38.name
+        let n = String(format: "%03d", fixture.address)
+        VStack(alignment: .leading, spacing: 6) {
+            Text("The light's display shows").font(.caption).foregroundColor(Theme.subtle)
+            Picker("", selection: Binding(get: { perBeam }, set: { model.setShehdsMode(fixture.id, perBeam: $0) })) {
+                Text("d.\(n) · 38 ch, each beam").tag(true)
+                Text("A.\(n) · 10 ch, all together").tag(false)
+            }
+            .pickerStyle(.segmented)
+            .labelsHidden()
+            Text(perBeam ? "Best: every one of the 8 beams can do its own thing."
+                         : "All 8 beams do the same thing. Switch the light to d.\(n) (MENU until d shows, then ENTER) for separate beams.")
+                .font(.caption2).foregroundColor(Theme.subtle).fixedSize(horizontal: false, vertical: true)
         }
     }
 }
