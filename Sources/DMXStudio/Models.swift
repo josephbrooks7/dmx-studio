@@ -498,6 +498,7 @@ struct LineupEntry: Identifiable, Codable, Hashable {
     var transition: TransitionStyle? = nil
     var palette: String? = nil
     var fadeMusic: Bool? = nil   // transitions: fade the song before out, and the next one in
+    var waitForCue: Bool? = nil  // continuous sets: stop before this entry and wait for Space / →
 
     var isBlock: Bool { block != nil }
     var blockSeconds: Double { seconds ?? (block == .silence ? 5 : 8) }
@@ -519,6 +520,19 @@ struct LineupEntry: Identifiable, Codable, Hashable {
 }
 
 enum SetBlockKind: String, Codable, Hashable { case silence, transition }
+
+/// How a set list moves from one song to the next.
+enum SetPlayMode: String, Codable, CaseIterable, Identifiable, Hashable {
+    case continuous = "Continuous"
+    case cued = "Cued"
+    var id: String { rawValue }
+    var help: String {
+        switch self {
+        case .continuous: return "Plays straight through: each song (and block) starts on its own"
+        case .cued: return "You're in control: after each song the next one waits, ready, until you press Space or →"
+        }
+    }
+}
 
 /// Built-in transitions you can drop between songs in a set list.
 enum TransitionStyle: String, CaseIterable, Codable, Identifiable, Hashable {
@@ -583,6 +597,10 @@ struct Lineup: Identifiable, Codable, Hashable {
     var entries: [LineupEntry] = []
     var gapSeconds: Double = 2     // idle look between songs
     var skipDeadAir: Bool? = nil   // start each song where the music starts, move on when it ends (default on)
+    var playMode: SetPlayMode? = nil   // continuous (default) or cued: wait for Space / → before each next song
+    var mode: SetPlayMode { playMode ?? .continuous }
+    /// Lights while a cued song waits for Space / →: "idle" (default), "dark", or a preset's name.
+    var waitLook: String? = nil
 }
 
 // MARK: - Idle look (no music: before play, between songs, silences)

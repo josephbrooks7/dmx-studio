@@ -239,7 +239,7 @@ struct NowPlayingCard: View {
             Button { model.nextInLineup() } label: { Image(systemName: "forward.fill") }
                 .buttonStyle(.plain).disabled(model.playingLineupID == nil).opacity(model.playingLineupID == nil ? 0.3 : 1)
             VStack(alignment: .leading, spacing: 3) {
-                Text(model.activeBlock.map { $0.entry.blockLabel } ?? (model.inGap ? "Next song starting…" : (song?.displayName ?? "Nothing playing")))
+                Text(model.cuedLabel.map { "Ready: \($0) · Space / →" } ?? model.activeBlock.map { $0.entry.blockLabel } ?? (model.inGap ? "Next song starting…" : (song?.displayName ?? "Nothing playing")))
                     .font(.system(size: 13, weight: .semibold)).lineLimit(1)
                 if let a = song?.analysis {
                     LiveReader(model.live) {

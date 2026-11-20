@@ -85,6 +85,10 @@ final class AppModel: ObservableObject {
     @Published var playingEntryIndex: Int?
     @Published var inGap = false          // waiting between lineup songs
     @Published var activeBlock: ActiveBlock?   // a silence or transition block in a set list is running
+    @Published var cuedEntry: Int? {            // cued set: this entry is ready and waits for Space / →
+        didSet { if cuedEntry != nil && oldValue == nil { cueStart = Date().timeIntervalSinceReferenceDate } }
+    }
+    private var cueStart: Double = 0
     private var fadingPlayer: AVAudioPlayer?   // the song fading out under a transition
     private var lastSongBPM: Double = 120
     @Published var isPlaying = false
@@ -187,6 +191,9 @@ final class AppModel: ObservableObject {
             case 1:  // S
                 if self.strobeHeld != down { self.strobeHeld = down }
                 return nil
+            case 124: // → = start the cued song, or skip to the next one in the set
+                if down && !e.isARepeat, self.playingLineupID != nil { self.nextInLineup(); return nil }
+                return e
             case 17: // T = tap tempo
                 if down && !e.isARepeat { self.tapTempo() }
                 return nil
@@ -1097,6 +1104,7 @@ final class AppModel: ObservableObject {
     func playLineup(_ id: UUID, from entry: Int = 0) {
         guard let li = lineupIndex(id), lineups[li].entries.indices.contains(entry) else { stop(); return }
         let e = lineups[li].entries[entry]
+        cuedEntry = nil
         if e.isBlock { startBlock(e, lineup: id, index: entry); return }
         guard song(e.songID) != nil else { playLineup(id, from: entry + 1); return }
         // Coming out of a transition that fades the music: bring this song in gently
@@ -1115,6 +1123,41 @@ final class AppModel: ObservableObject {
     }
 
     // MARK: - Set list blocks (silence & transitions)
+
+    /// Moves a set on to entry `index`: starts it, or (cued set / "wait for cue") holds it ready for Space or →.
+    private func advance(_ lineup: UUID, to index: Int) {
+        guard let li = lineupIndex(lineup), index < lineups[li].entries.count else {
+            playingLineupID = nil; playingEntryIndex = nil; cuedEntry = nil; isPlaying = false
+            return
+        }
+        let next = lineups[li].entries[index]
+        if lineups[li].mode == .cued || (next.waitForCue ?? false) {
+            player?.stop(); player = nil
+            playingSongID = nil; playingShowID = nil; currentTime = 0
+            activeBlock = nil; inGap = false
+            playingLineupID = lineup
+            playingEntryIndex = index
+            cuedEntry = index
+            isPlaying = false
+            return
+        }
+        playLineup(lineup, from: index)
+    }
+
+    /// Starts the cued entry (Space / →). Returns false if nothing is cued.
+    @discardableResult
+    func goCued() -> Bool {
+        guard let lid = playingLineupID, let idx = cuedEntry else { return false }
+        cuedEntry = nil
+        playLineup(lid, from: idx)
+        return true
+    }
+
+    var cuedLabel: String? {
+        guard let idx = cuedEntry, let lid = playingLineupID, let li = lineupIndex(lid), idx < lineups[li].entries.count else { return nil }
+        let e = lineups[li].entries[idx]
+        return e.isBlock ? e.blockLabel : (song(e.songID)?.displayName ?? "Next song")
+    }
 
     /// Runs a silence or transition block, then moves on to the next entry.
     /// `keepPlayer`: the song before keeps playing and fades out underneath (a music transition).
@@ -1144,13 +1187,30 @@ final class AppModel: ObservableObject {
             self.fadingPlayer?.stop(); self.fadingPlayer = nil
             self.activeBlock = nil
             if let li = self.lineupIndex(lineup), index + 1 < self.lineups[li].entries.count {
-                self.playLineup(lineup, from: index + 1)
+                self.advance(lineup, to: index + 1)
             } else {
                 self.stop()
             }
         }
         gapWork = work
         DispatchQueue.main.asyncAfter(deadline: .now() + max(0.1, seconds), execute: work)
+    }
+
+    /// Lights while a cued song waits: idle look, dark, or one of your presets running on the beat.
+    private func renderWaitLook(_ choice: String?, now: Double, idleFrame: [RenderedFixture]) -> [RenderedFixture] {
+        let c = choice ?? "idle"
+        if c == "idle" { return idleFrame }
+        if c == "dark" { return fixtures.map { RenderedFixture(heads: Array(repeating: .off, count: $0.headCount)) } }
+        guard let preset = presets.first(where: { $0.name == c }) else { return idleFrame }
+        let linked = fixtures.indices.filter { fixtures[$0].isOn && fixtures[$0].effectiveBehavior == .sequence && copySource(of: $0) == nil }
+        var bc = BeatClock(); bc.bpm = lastSongBPM; bc.anchor = cueStart
+        let la = bc.liveAnalysis(now: now, onsets: [], level: 0.7, useOnsetsAsKicks: false)
+        var r = ShowRenderer(analysis: la, sections: [preset.asSection(start: cueStart)], fixtures: linked.map { fixtures[$0] })
+        r.rig = rigMode
+        let part = r.render(at: now)
+        var full = idleFrame
+        for (j, fi) in linked.enumerated() where j < part.count { full[fi] = part[j] }
+        return full
     }
 
     /// Lights for a running block.
@@ -1209,6 +1269,7 @@ final class AppModel: ObservableObject {
     }
 
     func nextInLineup() {
+        if goCued() { return }
         guard let lid = playingLineupID, let idx = playingEntryIndex else { return }
         cancelGap()
         playLineup(lid, from: idx + 1)
@@ -1255,6 +1316,7 @@ final class AppModel: ObservableObject {
 
     func togglePlay() {
         if isPlaying { pause(); return }
+        if goCued() { return }
         if var b = activeBlock, let remaining = b.pausedRemaining, let lid = playingLineupID, let idx = playingEntryIndex {
             // resume a paused block where it left off
             b.start = Date().timeIntervalSinceReferenceDate - (b.entry.blockSeconds - remaining)
@@ -1283,6 +1345,7 @@ final class AppModel: ObservableObject {
     func stop() {
         cancelGap()
         activeBlock = nil
+        cuedEntry = nil
         fadingPlayer?.stop(); fadingPlayer = nil
         player?.stop()
         player = nil
@@ -1313,8 +1376,11 @@ final class AppModel: ObservableObject {
             playingLineupID = nil; playingEntryIndex = nil
             return
         }
+        // Cued set (or a song marked "wait for cue"): hold the next one ready for Space / →
+        let nextEntry = lineups[li].entries[idx + 1]
+        if lineups[li].mode == .cued || (nextEntry.waitForCue ?? false) { advance(lineup, to: idx + 1); return }
         // A block next in line replaces the gap
-        if lineups[li].entries[idx + 1].isBlock { playLineup(lineup, from: idx + 1); return }
+        if nextEntry.isBlock { playLineup(lineup, from: idx + 1); return }
         // Idle look during the gap, then the next song
         inGap = true
         playingEntryIndex = idx + 1
@@ -1355,7 +1421,7 @@ final class AppModel: ObservableObject {
                 if isPlaying, let lid = playingLineupID, let li = lineupIndex(lid), let idx = playingEntryIndex,
                    idx + 1 < lineups[li].entries.count {
                     let nx = lineups[li].entries[idx + 1]
-                    if nx.block == .transition, nx.fadeMusic ?? false {
+                    if nx.block == .transition, nx.fadeMusic ?? false, lineups[li].mode == .continuous, !(nx.waitForCue ?? false) {
                         let end = (lineups[li].skipDeadAir ?? true) ? (songs[i].analysis?.musicEnd ?? p.duration) : p.duration
                         if p.currentTime >= end - nx.blockSeconds {
                             startBlock(nx, lineup: lid, index: idx + 1, keepPlayer: true)
@@ -1399,6 +1465,12 @@ final class AppModel: ObservableObject {
                 t = now
             }
 
+            // Cued set waiting for Space / →: the set's "while waiting" look
+            if cuedEntry != nil, activePresetID == nil, let lid = playingLineupID, let li = lineupIndex(lid) {
+                showFrame = renderWaitLook(lineups[li].waitLook, now: now, idleFrame: idleFrame)
+                t = now
+            }
+
             // Set list block (silence / transition) between songs
             if let b = activeBlock, activePresetID == nil {
                 showFrame = renderBlock(b, now: now, idleFrame: idleFrame)
@@ -1406,7 +1478,7 @@ final class AppModel: ObservableObject {
             }
 
             // Smoothly ramp between show and idle when a song starts, pauses or stops
-            let target: Double = (showFrame != nil && (isPlaying || activePresetID != nil)) ? 0 : 1
+            let target: Double = (showFrame != nil && (isPlaying || activePresetID != nil || cuedEntry != nil)) ? 0 : 1
             let step = 1.0 / (40 * 0.8)   // ~0.8 s fade
             if idleBlend < target { idleBlend = min(target, idleBlend + step) }
             if idleBlend > target { idleBlend = max(target, idleBlend - step * 4) } // come in fast on play
@@ -1420,7 +1492,7 @@ final class AppModel: ObservableObject {
 
         // Stationary lights (like the spotlight) hold their own settings
         if testMode == .off {
-            let showRunning = playingSongID != nil || inGap || activeBlock != nil
+            let showRunning = playingSongID != nil || inGap || activeBlock != nil || cuedEntry != nil
             for (i, fx) in fixtures.enumerated() where i < rendered.count && fx.effectiveBehavior == .stationary {
                 let look = fx.stationaryLook
                 rendered[i] = (showRunning || look.onWhenIdle) ? look.render(fx)

@@ -509,6 +509,14 @@ struct LineupView: View {
                     .font(.largeTitle.bold())
                     .textFieldStyle(.plain)
                 Spacer()
+                if model.playingLineupID == lineupID, let ready = model.cuedLabel {
+                    Button { model.goCued() } label: {
+                        Label("Go: \(ready)", systemImage: "forward.fill").lineLimit(1).frame(maxWidth: 280)
+                    }
+                    .controlSize(.large)
+                    .keyboardShortcut(.defaultAction)
+                    .help("Start the next song (Space or →)")
+                }
                 Button {
                     if model.playingLineupID == lineupID && model.isPlaying { model.pause() }
                     else if model.playingLineupID == lineupID { model.togglePlay() }
@@ -533,6 +541,27 @@ struct LineupView: View {
                 Toggle("Skip dead air", isOn: Binding(get: { lineup.skipDeadAir ?? true },
                                                       set: { binding.wrappedValue.skipDeadAir = $0 }))
                     .help("Start each song where its music starts and move on as soon as the music ends")
+            }
+            HStack(spacing: 12) {
+                Text("Playback").foregroundColor(.secondary)
+                Picker("", selection: Binding(get: { lineup.mode }, set: { binding.wrappedValue.playMode = $0 })) {
+                    ForEach(SetPlayMode.allCases) { m in Text(m == .cued ? "Cued (Space / →)" : "Continuous").tag(m) }
+                }
+                .pickerStyle(.segmented)
+                .frame(width: 260)
+                .help(lineup.mode.help)
+                if lineup.mode == .cued || lineup.entries.contains(where: { $0.waitForCue ?? false }) {
+                    Picker("While waiting", selection: Binding(get: { lineup.waitLook ?? "idle" },
+                                                               set: { binding.wrappedValue.waitLook = $0 == "idle" ? nil : $0 })) {
+                        Text("Idle look").tag("idle")
+                        Text("Dark").tag("dark")
+                        Divider()
+                        ForEach(model.presets.filter { $0.effect != .soundLevel }) { p in Text(p.name).tag(p.name) }
+                    }
+                    .frame(width: 230)
+                    .help("What the lights do while the next song waits for Space / →")
+                }
+                Spacer()
             }
 
             if lineup.entries.isEmpty {
@@ -585,8 +614,9 @@ struct LineupRow: View {
         let song = model.song(entry.songID)
         let isNow = model.playingLineupID == lineupID && model.playingEntryIndex == index
         HStack(spacing: 12) {
+            let isCued = isNow && model.cuedEntry == index
             Text("\(index + 1)").monospacedDigit().foregroundColor(.secondary).frame(width: 24)
-            Image(systemName: isNow ? (model.inGap ? "hourglass" : "speaker.wave.2.fill") : "music.note")
+            Image(systemName: isCued ? "hand.raised.fill" : (isNow ? (model.inGap ? "hourglass" : "speaker.wave.2.fill") : "music.note"))
                 .foregroundColor(isNow ? .pink : .secondary)
             VStack(alignment: .leading) {
                 Text(song?.title ?? "Missing song").font(.headline)
@@ -597,7 +627,20 @@ struct LineupRow: View {
                     Text("Not learned yet: lights will use the idle look").font(.caption).foregroundColor(.orange)
                 }
             }
+            if isCued {
+                Text("READY · Space / →").font(.system(size: 10, weight: .heavy)).padding(.horizontal, 6).padding(.vertical, 2)
+                    .background(Capsule().fill(Color.pink)).foregroundColor(.white)
+            }
             Spacer()
+            if model.lineups.first(where: { $0.id == lineupID })?.mode == .continuous {
+                Button { model.updateEntry(lineupID, entry.id) { $0.waitForCue = ($0.waitForCue ?? false) ? nil : true } } label: {
+                    Image(systemName: (entry.waitForCue ?? false) ? "hand.raised.fill" : "hand.raised")
+                        .foregroundColor((entry.waitForCue ?? false) ? .pink : .secondary)
+                }
+                .buttonStyle(.borderless)
+                .help((entry.waitForCue ?? false) ? "Waits for Space / → before this song. Click to play it automatically."
+                                                   : "Click to make the set stop before this song and wait for Space / →")
+            }
             if let song, !song.shows.isEmpty {
                 Image(systemName: "link").foregroundColor(.pink).help("This song is linked to the light show picked here")
                 Picker("Light show", selection: Binding(
@@ -1013,6 +1056,7 @@ struct TransportBar: View {
     @EnvironmentObject var model: AppModel
 
     var nowPlaying: String {
+        if let r = model.cuedLabel { return "Ready: \(r) · press Space or →" }
         if let b = model.activeBlock { return b.entry.blockLabel }
         if model.inGap { return "Next song starting…" }
         if let id = model.playingSongID, let s = model.song(id) { return s.displayName }
@@ -1359,6 +1403,7 @@ struct BlockRow: View {
 
     var body: some View {
         let isNow = model.playingLineupID == lineupID && model.playingEntryIndex == index
+        let isCued = isNow && model.cuedEntry == index
         let isSilence = entry.block == .silence
         HStack(spacing: 12) {
             Text("").frame(width: 24)
@@ -1366,7 +1411,7 @@ struct BlockRow: View {
                 .foregroundColor(isNow ? .pink : .purple)
                 .frame(width: 18)
             VStack(alignment: .leading, spacing: 2) {
-                Text(isSilence ? "Silence" : "Transition").font(.headline)
+                Text((isSilence ? "Silence" : "Transition") + (isCued ? "  · READY (Space / →)" : "")).font(.headline)
                 Text(isSilence ? ((entry.transition == .blackout) ? "Lights dark" : "Idle look") : (entry.transition ?? .colorWash).blurb)
                     .font(.caption).foregroundColor(.secondary)
             }
