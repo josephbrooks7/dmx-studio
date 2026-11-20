@@ -289,6 +289,7 @@ enum LightEffect: String, CaseIterable, Codable, Identifiable {
     case rainbow = "Rainbow"
     case sparkle = "Hi-Hat Sparkle"
     case strobe = "Strobe"
+    case soundLevel = "Follows Sound"
     case blackout = "Blackout"
     var id: String { rawValue }
 }
@@ -452,6 +453,7 @@ struct OutputSettings: Codable, Equatable {
     var autoScan: Bool = true                  // keep looking for wireless devices in the background
     var universeAuto: Bool? = nil              // send on universes 0 AND 1 (default) so any PKnight setting works
     var alsoSendSACN: Bool? = nil              // also send sACN universe 1 (default on)
+    var audioInputName: String? = nil          // what the beat tracker listens to (nil = system default input)
 
     var sendUniverses: [Int] {
         (universeAuto ?? true) ? Array(Set([0, 1, artNetUniverse])).sorted() : [artNetUniverse]

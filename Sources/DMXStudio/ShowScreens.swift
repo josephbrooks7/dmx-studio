@@ -328,12 +328,7 @@ struct BeatPopover: View {
             .pickerStyle(.radioGroup)
             .labelsHidden()
             if model.beatSource == .mic {
-                HStack {
-                    Image(systemName: "mic.fill")
-                    ProgressView(value: model.micLevel).frame(width: 160)
-                }
-                Text("Listening to the room. Place the Mac near the speakers for the best beat lock.")
-                    .font(.caption).foregroundColor(.secondary)
+                AudioSourcePicker()
             }
             HStack(spacing: 12) {
                 Button { model.nudgeBPM(-1) } label: { Image(systemName: "minus") }
@@ -351,7 +346,44 @@ struct BeatPopover: View {
             Text("Tip: press T to tap the beat").font(.caption2).foregroundColor(.secondary)
         }
         .padding(18)
-        .frame(width: 300)
+        .frame(width: 340)
+    }
+}
+
+/// Choose what to listen to: built-in mic (voice/room), a USB mic, or computer audio via BlackHole.
+struct AudioSourcePicker: View {
+    @EnvironmentObject var model: AppModel
+    @State private var showHelp = false
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 8) {
+            Picker("Listen to", selection: Binding(get: { model.output.audioInputName ?? "" },
+                                                   set: { model.selectAudioInput($0.isEmpty ? nil : $0) })) {
+                Text("Default input (built-in mic)").tag("")
+                ForEach(model.audioInputs) { d in
+                    Text(d.isLoopback ? "\(d.name) · computer audio" : d.name).tag(d.name)
+                }
+            }
+            HStack {
+                Image(systemName: "waveform")
+                ProgressView(value: model.micLevel).frame(width: 180)
+            }
+            Toggle("Auto Lighting (picks looks from the music's energy)", isOn: $model.autoLighting)
+            Button(showHelp ? "Hide computer-audio setup" : "How to light up music playing on this Mac") { showHelp.toggle() }
+                .buttonStyle(.link).font(.caption)
+            if showHelp {
+                Text("""
+                macOS Monterey doesn't let apps hear the computer's sound directly. Use the free BlackHole driver:
+                1. Install BlackHole 2ch (free), then open Audio MIDI Setup.
+                2. Click + → Create Multi-Output Device; tick your speakers AND BlackHole 2ch.
+                3. In System Preferences → Sound → Output, choose that Multi-Output Device.
+                4. Here, pick "BlackHole 2ch · computer audio".
+                Now Spotify, YouTube or anything else drives the lights while you still hear it.
+                """)
+                .font(.caption).foregroundColor(.secondary).fixedSize(horizontal: false, vertical: true)
+            }
+        }
+        .onAppear { model.refreshAudioInputs() }
     }
 }
 
@@ -795,8 +827,12 @@ struct LiveScreen: View {
                             }
                         }
                         .buttonStyle(PillButtonStyle())
-                        Toggle("Mic", isOn: Binding(get: { model.beatSource == .mic }, set: { model.beatSource = $0 ? .mic : .manual }))
+                        Toggle("Listen", isOn: Binding(get: { model.beatSource == .mic }, set: { model.beatSource = $0 ? .mic : .manual }))
                             .toggleStyle(.switch)
+                            .help("Follow the beat from the microphone or computer audio")
+                    }
+                    if model.beatSource == .mic {
+                        Panel { AudioSourcePicker() }
                     }
                     Text("Looks").font(.headline).foregroundColor(Theme.subtle)
                     LazyVGrid(columns: cols, spacing: 14) {

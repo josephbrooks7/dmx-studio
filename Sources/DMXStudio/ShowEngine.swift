@@ -452,6 +452,12 @@ struct ShowRenderer {
         case .strobe:
             return FixtureState(intensity: 1, color: pal.color(bar))
 
+        case .soundLevel:
+            // Brightness rides the volume (voice, room, or computer audio); louder = warmer palette color
+            let e = c.energy
+            let col = pal.color(0).mix(pal.color(1), min(1, e * 1.2))
+            return FixtureState(intensity: 0.04 + 0.96 * e, color: col)
+
         case .blackout:
             return .off
         }

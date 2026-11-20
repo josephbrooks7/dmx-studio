@@ -45,6 +45,10 @@ final class AppModel: ObservableObject {
     @Published var displayBPM: Double = 120
     @Published var beatOn = false                 // pulses on each beat (for the BPM light)
     @Published var micLevel: Double = 0
+    @Published var audioInputs: [AudioInputDevice] = []
+    @Published var autoLighting = false          // pick looks automatically from what it hears
+    private var autoEnergy = 0.0
+    private var lastAutoBeat = Int.min
     private var clock = BeatClock()
     private var tapTimes: [Double] = []
     private let mic = MicBeatTracker()
@@ -213,6 +217,7 @@ final class AppModel: ObservableObject {
         fixtures = s.fixtures
         lineups = s.lineups.isEmpty ? [Lineup(name: "My Set List")] : s.lineups
         presets = s.presets ?? LookPreset.defaults
+        if !presets.contains(where: { $0.effect == .soundLevel }), let fs = LookPreset.defaults.last { presets.append(fs) }
         idle = s.idle
         rigMode = s.rigMode ?? .together
         stage = s.stage ?? StageLayout.starter(for: s.fixtures)
@@ -375,7 +380,9 @@ final class AppModel: ObservableObject {
                         self.beatSource = .manual
                         return
                     }
-                    do { try self.mic.start() } catch {
+                    self.refreshAudioInputs()
+                    let dev = self.audioInputs.first { $0.name == self.output.audioInputName }?.id
+                    do { try self.mic.start(device: dev) } catch {
                         ErrorCenter.shared.report(area: "Microphone", message: "Couldn't start listening: \(error.localizedDescription)", details: "\(error)")
                         self.beatSource = .manual
                     }
@@ -385,6 +392,37 @@ final class AppModel: ObservableObject {
             mic.stop()
             micLevel = 0
         }
+    }
+
+    func refreshAudioInputs() { audioInputs = AudioInputs.list() }
+
+    /// Switch what the beat tracker listens to (restarts listening if it's on).
+    func selectAudioInput(_ name: String?) {
+        output.audioInputName = name
+        guard beatSource == .mic else { return }
+        let dev = audioInputs.first { $0.name == name }?.id
+        do { try mic.start(device: dev) } catch {
+            ErrorCenter.shared.report(area: "Audio input", message: "Couldn't listen to \(name ?? "that input"): \(error.localizedDescription)")
+        }
+    }
+
+    /// Auto Lighting: choose looks from how energetic the audio is, changing every 16 beats.
+    private func runAutoLighting(now: Double) {
+        guard autoLighting, beatSource == .mic, playingSongID == nil else { return }
+        let lvl = mic.snapshot().level
+        autoEnergy = autoEnergy * 0.995 + lvl * 0.005        // slow average (~6 s)
+        let beat = Int(floor(clock.beatNumber(at: now)))
+        guard beat - lastAutoBeat >= 16 || activePresetID == nil else { return }
+        lastAutoBeat = beat
+        let pools: [[String]] = [["Ocean Drift", "Slow Burn", "Color Fades", "Follows Sound"],
+                                 ["Beat Colors", "Red Velvet", "Cyan · Pink", "Follows Sound"],
+                                 ["Club Chase", "Kick Hits", "Rainbow Flow", "Blue · Orange", "Beat Colors"]]
+        let tier = autoEnergy < 0.25 ? 0 : (autoEnergy < 0.5 ? 1 : 2)
+        var choices = presets.filter { pools[tier].contains($0.name) && $0.id != activePresetID }
+        if choices.isEmpty { choices = presets.filter { $0.id != activePresetID } }
+        guard let pick = choices.randomElement() else { return }
+        activePresetID = pick.id
+        presetStart = now
     }
 
     func setManual(_ id: UUID, _ change: (inout ManualControl) -> Void) {
@@ -921,6 +959,7 @@ final class AppModel: ObservableObject {
                 }
             }
 
+            runAutoLighting(now: now)
             // Live look (tapped preset): runs on the beat clock, and overrides a playing song's show
             if let pid = activePresetID, let preset = presets.first(where: { $0.id == pid }) {
                 var onsets: [Double] = []

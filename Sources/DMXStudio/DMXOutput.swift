@@ -140,6 +140,7 @@ final class ArtNetOutput: DMXOutput {
     private let sock: Int32
     private var addr = sockaddr_in()
     private var sacnAddr = sockaddr_in()
+    private var bcastAddr: sockaddr_in?      // x.x.x.255 of the node's network (PKnight manual p.7 uses "Broadcast")
     private let universes: [Int]
     private let sendSACN: Bool
     private var sequence: UInt8 = 1
@@ -163,6 +164,12 @@ final class ArtNetOutput: DMXOutput {
         }
         sacnAddr = addr
         sacnAddr.sin_port = in_port_t(5568).bigEndian
+        // Also broadcast on the node's network, like the app in the PKnight manual does
+        let parts = ip.split(separator: ".")
+        if parts.count == 4, ip != "255.255.255.255" {
+            var b = addr
+            if inet_pton(AF_INET, parts[0...2].joined(separator: ".") + ".255", &b.sin_addr) == 1 { bcastAddr = b }
+        }
         self.universes = universes.isEmpty ? [0] : universes
         self.sendSACN = sendSACN
     }
@@ -184,6 +191,7 @@ final class ArtNetOutput: DMXOutput {
             p += [0x02, 0x00]                              // length 512 (big endian)
             p += data
             if !sendPacket(p, to: addr) { failed = true }
+            if let b = bcastAddr { _ = sendPacket(p, to: b) }
         }
         if sendSACN && !sendPacket(sacnPacket(universe: 1, data: data), to: sacnAddr) { failed = true }
         sequence = sequence == 255 ? 1 : sequence + 1

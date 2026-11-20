@@ -1,5 +1,7 @@
 import Foundation
 import AVFoundation
+import AudioToolbox
+import CoreAudio
 
 // MARK: - Looks (presets you can tap any time)
 
@@ -36,6 +38,7 @@ struct LookPreset: Identifiable, Codable, Hashable {
         LookPreset(name: "Slow Burn", effect: .breathe, palette: "Fire", movement: .sweep, rate: 0.5, intensity: 0.8, icon: "flame.fill"),
         LookPreset(name: "Ocean Drift", effect: .breathe, palette: "Ocean", movement: .circle, rate: 0.5, intensity: 0.7, icon: "drop.fill"),
         LookPreset(name: "Warm White", effect: .steady, palette: "Warm White", intensity: 0.9, icon: "lightbulb.fill"),
+        LookPreset(name: "Follows Sound", effect: .soundLevel, palette: "Red Velvet", movement: .sweep, icon: "waveform"),
     ]
 }
 
@@ -43,7 +46,7 @@ struct LookPreset: Identifiable, Codable, Hashable {
 
 enum BeatSource: String, CaseIterable, Codable, Identifiable {
     case manual = "Manual (tap)"
-    case mic = "Automatic (microphone)"
+    case mic = "Listen (mic or computer audio)"
     var id: String { rawValue }
 }
 
@@ -88,10 +91,19 @@ final class MicBeatTracker {
 
     var isRunning: Bool { engine?.isRunning ?? false }
 
-    func start() throws {
+    func start(device: AudioDeviceID? = nil) throws {
         stop()
         let e = AVAudioEngine()
         let input = e.inputNode
+        // Listen to a chosen input (built-in mic, USB mic, or BlackHole for computer audio)
+        if let device, let au = input.audioUnit {
+            var d = device
+            let status = AudioUnitSetProperty(au, kAudioOutputUnitProperty_CurrentDevice, kAudioUnitScope_Global, 0,
+                                              &d, UInt32(MemoryLayout<AudioDeviceID>.size))
+            if status != noErr {
+                throw NSError(domain: "DMXStudio", code: Int(status), userInfo: [NSLocalizedDescriptionKey: "Couldn't switch to that audio input (error \(status))."])
+            }
+        }
         let fmt = input.outputFormat(forBus: 0)
         guard fmt.sampleRate > 0, fmt.channelCount > 0 else {
             throw NSError(domain: "DMXStudio", code: 1, userInfo: [NSLocalizedDescriptionKey: "No microphone input is available."])
