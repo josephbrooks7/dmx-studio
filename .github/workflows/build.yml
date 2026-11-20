@@ -21,6 +21,25 @@ jobs:
           otool -l "build/DMX Studio.app/Contents/MacOS/DMXStudio" | grep -A2 LC_RPATH || true
           lipo -info "build/DMX Studio.app/Contents/MacOS/DMXStudio"
           otool -l "build/DMX Studio.app/Contents/MacOS/DMXStudio" | grep -A4 LC_BUILD_VERSION | head -10
+      - name: Smoke test - launch the app and make sure it stays running
+        run: |
+          APPBIN="build/DMX Studio.app/Contents/MacOS/DMXStudio"
+          "$APPBIN" > /tmp/app.log 2>&1 &
+          PID=$!
+          sleep 12
+          if kill -0 $PID 2>/dev/null; then
+            echo "APP STILL RUNNING after 12s - OK"
+            kill $PID
+          else
+            wait $PID; echo "APP EXITED with code $?"
+            echo "---- app output ----"; cat /tmp/app.log
+            echo "---- crash reports ----"
+            ls -t ~/Library/Logs/DiagnosticReports/ 2>/dev/null | head -5
+            f=$(ls -t ~/Library/Logs/DiagnosticReports/DMXStudio* 2>/dev/null | head -1)
+            [ -n "$f" ] && head -120 "$f"
+            exit 1
+          fi
+          echo "---- app output ----"; cat /tmp/app.log | head -50
       - uses: actions/upload-artifact@v4
         with:
           name: DMX-Studio-dmg
