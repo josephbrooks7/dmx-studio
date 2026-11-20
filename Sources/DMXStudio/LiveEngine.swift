@@ -34,9 +34,26 @@ struct LookPreset: Identifiable, Codable, Hashable {
     var usesStrobe: Bool { effect == .strobe }
     var isBeatDriven: Bool { ![.steady, .breathe, .blackout].contains(effect) }
 
-    static var defaults: [LookPreset] { essentials + themePack }
+    static var defaults: [LookPreset] { essentials + beamPack + themePack }
 
-    static let groupOrder = ["Essentials", "Fairy & Fantasy", "EDM & Electronic", "Dubstep & Bass", "Techno & Rave",
+    /// Looks that use each of the 8 beams on a bar separately.
+    static let beamPack: [LookPreset] = {
+        func p(_ n: String, _ e: LightEffect, _ pal: String, _ m: MoveEffect, rate: Double = 1, _ icon: String) -> LookPreset {
+            LookPreset(name: n, effect: e, palette: pal, movement: m, rate: rate, intensity: 1, icon: icon, group: "Beam Patterns")
+        }
+        return [
+            p("Wave", .wave, "Ocean", .sweep, "water.waves"),
+            p("Center Burst", .centerOut, "Fire", .beatNod, "burst"),
+            p("Split Colors", .split, "Neon", .none, "rectangle.split.2x1.fill"),
+            p("Pixel Pop", .pixelPop, "Neon", .none, "square.grid.3x3.fill"),
+            p("Bounce", .bounce, "EDM", .sweep, "arrow.left.and.right"),
+            p("Color Gradient", .gradient, "Sunset", .sweep, rate: 0.5, "slider.horizontal.below.rectangle"),
+            p("Rainbow Wave", .wave, "Neon", .circle, rate: 0.5, "rainbow"),
+            p("Disco Pixels", .pixelPop, "Disco", .circle, rate: 2, "circle.grid.3x3.fill"),
+        ]
+    }()
+
+    static let groupOrder = ["Essentials", "Beam Patterns", "Fairy & Fantasy", "EDM & Electronic", "Dubstep & Bass", "Techno & Rave",
                              "Dance & Disco", "Pop & Hyperpop", "Psychedelic", "Holiday"]
 
     /// Themed looks: the name says the vibe, the palette and movement do the rest.

@@ -350,11 +350,13 @@ final class AppModel: ObservableObject {
         presets = s.presets ?? LookPreset.defaults
         if !presets.contains(where: { $0.effect == .soundLevel }), let fs = LookPreset.essentials.last { presets.append(fs) }
         // One time per session: add the themed looks (Fairy, EDM, Dubstep, Techno, Disco, Pop, Psychedelic…)
-        let packKey = "presetPack.themes1.\(s.id.uuidString)"
-        if !UserDefaults.standard.bool(forKey: packKey) {
-            let have = Set(presets.map(\.name))
-            presets += LookPreset.themePack.filter { !have.contains($0.name) }
-            UserDefaults.standard.set(true, forKey: packKey)
+        for (pack, list) in [("themes1", LookPreset.themePack), ("beams1", LookPreset.beamPack)] {
+            let packKey = "presetPack.\(pack).\(s.id.uuidString)"
+            if !UserDefaults.standard.bool(forKey: packKey) {
+                let have = Set(presets.map(\.name))
+                presets += list.filter { !have.contains($0.name) }
+                UserDefaults.standard.set(true, forKey: packKey)
+            }
         }
         idle = s.idle
         rigMode = s.rigMode ?? .together

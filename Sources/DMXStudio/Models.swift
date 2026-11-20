@@ -309,7 +309,16 @@ enum LightEffect: String, CaseIterable, Codable, Identifiable {
     case strobe = "Strobe"
     case soundLevel = "Follows Sound"
     case blackout = "Blackout"
+    // per-beam patterns (multi-head bars)
+    case wave = "Wave"
+    case centerOut = "Center Burst"
+    case split = "Split Colors"
+    case pixelPop = "Pixel Pop"
+    case bounce = "Bounce"
+    case gradient = "Color Gradient"
     var id: String { rawValue }
+    /// Uses each beam of a bar separately.
+    var perBeam: Bool { [.wave, .centerOut, .split, .pixelPop, .bounce, .gradient, .chase, .alternate, .rainbow, .sparkle, .colorBeat].contains(self) }
 }
 
 enum MoveEffect: String, CaseIterable, Codable, Identifiable {

@@ -151,6 +151,20 @@ enum ShowGenerator {
         for f in lights where seen.insert("\(f.address)|\(f.layout)|\(f.outputKey ?? "")").inserted { points += max(1, f.headCount) }
         for i in secs.indices {
             if !movers { secs[i].movement = .none }
+            // Many beams: swap about half the all-together looks for per-beam patterns, so the bars
+            // actually use their 8 separate heads (alternating keeps contrast between sections).
+            if points >= 6, secs[i].name != "Silence", i % 2 == 0 || secs[i].level == .drop {
+                switch secs[i].effect {
+                case .pulse: secs[i].effect = .wave
+                case .steady: secs[i].effect = .gradient
+                case .breathe: secs[i].effect = .wave; secs[i].rate = min(secs[i].rate, 0.5)
+                case .kickFlash: secs[i].effect = .centerOut
+                case .snareHit: secs[i].effect = .split
+                case .colorBeat: secs[i].effect = (i / 2) % 2 == 0 ? .split : .pixelPop
+                case .chase: secs[i].effect = (i / 2) % 2 == 0 ? .chase : .bounce
+                default: break
+                }
+            }
             if points <= 2 {
                 switch secs[i].effect {
                 case .chase, .rainbow: secs[i].effect = points == 2 ? .alternate : .colorBeat
@@ -524,6 +538,54 @@ struct ShowRenderer {
 
         case .blackout:
             return .off
+
+        // ---- Per-beam patterns: each head does something different ----
+        case .wave:
+            // a bright wave rolls across the beams, colors blend from one end to the other
+            let x = Double(p) / Double(max(n, 1))
+            let s = 0.5 + 0.5 * sin(2 * .pi * (rb / 4 - x))
+            let base = Int(floor(rb / 8))
+            let col = pal.color(base).mix(pal.color(base + 1), x)
+            return FixtureState(intensity: 0.1 + 0.9 * s * s, color: col)
+
+        case .centerOut:
+            // every kick bursts from the middle beams out to the ends
+            let center = Double(n - 1) / 2
+            let d = abs(Double(p) - center) / max(center, 0.5)
+            let r = min(1.3, c.sinceKick / max(0.05, c.beatLen * 0.45))
+            let k = exp(-abs(d - r) * 4.5) * exp(-c.sinceKick * 1.6)
+            return FixtureState(intensity: 0.05 + 0.95 * k, color: pal.color(c.kickIndex + (d > 0.5 ? 1 : 0)))
+
+        case .split:
+            // left half one color, right half another; they swap every bar and pulse on the beat
+            let left = p < (n + 1) / 2
+            let swap = (idx / 4) % 2 == 1
+            return FixtureState(intensity: 0.35 + 0.65 * exp(-ph * 3), color: pal.color(left != swap ? 0 : 1))
+
+        case .pixelPop:
+            // random beams pop on every 8th note
+            let step = Int(floor(rb * 2))
+            let hsh = abs((step &* 2_654_435_761) &+ (p &* 40_503) &+ 977) % 997
+            let on = hsh % 3 == 0
+            let since = (rb * 2 - floor(rb * 2)) * c.beatLen / 2
+            let k = on ? exp(-since * 9) : 0
+            return FixtureState(intensity: 0.06 + 0.94 * k, color: pal.color(step + p))
+
+        case .bounce:
+            // one beam (with a short trail) bounces end to end, once per bar
+            guard n > 1 else { return FixtureState(intensity: 0.5 + 0.5 * exp(-ph * 4), color: pal.color(bar)) }
+            let period = Double(2 * (n - 1))
+            let pos = (rb / 4 * period).truncatingRemainder(dividingBy: period)
+            let x = pos <= Double(n - 1) ? pos : period - pos
+            let level = exp(-abs(x - Double(p)) * 1.5)
+            return FixtureState(intensity: 0.04 + 0.96 * level, color: pal.color(bar))
+
+        case .gradient:
+            // the palette spread across the beams, slowly drifting
+            let x = Double(p) / Double(max(n - 1, 1))
+            let cp = x * Double(max(1, pal.colors.count - 1)) + rb / 16
+            let col = pal.color(Int(floor(cp))).mix(pal.color(Int(floor(cp)) + 1), cp - floor(cp))
+            return FixtureState(intensity: 0.7 + 0.3 * c.energy, color: col)
         }
     }
 
@@ -616,7 +678,7 @@ enum DMXMapper {
                     case .tilt: out[addr] = UInt8(clamping: Int(rf.tilt * 65535) >> 8)
                     case .panFine: out[addr] = UInt8(clamping: Int(rf.pan * 65535) & 0xFF)
                     case .tiltFine: out[addr] = UInt8(clamping: Int(rf.tilt * 65535) & 0xFF)
-                    case .speed: out[addr] = 0
+                    case .speed: out[addr] = 230      // tilt speed runs slow→fast on the SHEHDS bars: keep it quick
                     }
                 }
             }
@@ -624,11 +686,20 @@ enum DMXMapper {
         return out
     }
 
-    /// Pulls the shared white out of RGB when the fixture has a white LED (brighter, cleaner whites).
+    /// Screen colors → LED levels. LEDs are linear (half the DMX value looks much brighter than half on a
+    /// screen), so colors are gamma-corrected or oranges turn yellow and purples turn pink. The white LED
+    /// only takes over for near-white colors; saturated and pastel colors stay in RGB so they keep their hue.
     static func colorChannels(_ c: RGB, hasWhite: Bool) -> (r: Double, g: Double, b: Double, w: Double) {
-        guard hasWhite else { return (c.r, c.g, c.b, 0) }
-        let w = min(c.r, c.g, c.b)
-        return (c.r - w, c.g - w, c.b - w, w)
+        func lin(_ v: Double) -> Double { pow(min(1, max(0, v)), 2.2) }
+        var r = lin(c.r), g = lin(c.g), b = lin(c.b)
+        guard hasWhite else { return (r, g, b, 0) }
+        let mx = max(r, g, b), mn = min(r, g, b)
+        guard mx > 0 else { return (0, 0, 0, 0) }
+        let sat = (mx - mn) / mx
+        let share = max(0, min(1, 1 - sat * 2.5))     // 1 for white/greys, 0 once the color is clearly tinted
+        let w = mn * share
+        r -= w; g -= w; b -= w
+        return (r, g, b, w)
     }
 
     static func byte(_ v: Double) -> UInt8 { UInt8(clamping: Int((min(1, max(0, v)) * 255).rounded())) }
