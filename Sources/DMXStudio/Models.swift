@@ -653,6 +653,7 @@ struct StageItem: Identifiable, Codable, Hashable {
     var rotation: Double = 0   // degrees around vertical
     var size: Double = 1       // length / scale
     var hanging: Bool = false  // lights: upside down on a truss
+    var onStand: Bool? = nil   // followspot: on its tripod (default) or just the light on its yoke
 }
 
 struct StageLayout: Codable, Hashable {

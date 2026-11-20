@@ -148,6 +148,17 @@ struct StageInspector: View {
                                    k == .truss ? 1...12 : (k == .trussTower || k == .lightStand ? 1...6 : 0.5...3),
                                    k == .stage || k == .circleTruss ? "×" : "m") { v in model.updateStageItem(id) { $0.size = v } }
                         }
+                        if fx?.colorWheel != nil {
+                            Picker("", selection: Binding(get: { item.onStand ?? true }, set: { v in
+                                model.updateStageItem(id) { $0.onStand = v; if !v && $0.y == 0 { $0.y = 0.6 } }
+                            })) {
+                                Text("On its stand").tag(true)
+                                Text("Off the stand").tag(false)
+                            }
+                            .pickerStyle(.segmented).labelsHidden()
+                            Text("Off the stand, put it on the stage edge, a table or hang it from a truss.")
+                                .font(.caption2).foregroundColor(Theme.subtle)
+                        }
                         if item.fixtureID != nil {
                             Toggle("Hang upside down (on a truss)", isOn: Binding(get: { item.hanging }, set: { v in model.updateStageItem(id) { $0.hanging = v } }))
                             HStack {
