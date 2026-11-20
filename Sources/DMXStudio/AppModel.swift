@@ -48,7 +48,7 @@ final class AppModel: ObservableObject {
     @Published var audioInputs: [AudioInputDevice] = []
     @Published var autoLighting = false { didSet { if autoLighting && beatSource != .mic { beatSource = .mic } } }  // pick looks from what it hears
     private var autoEnergy = 0.0
-    private var lastAutoBeat = Int.min
+    private var lastAutoChange: Double = 0      // when Auto Lighting last switched looks
     private var clock = BeatClock()
     private var tapTimes: [Double] = []
     private let mic = MicBeatTracker()
@@ -132,6 +132,9 @@ final class AppModel: ObservableObject {
                 self.openSession(first.id)
                 if env["DMX_DEMO_PRESET"] != nil, let p = self.presets.first { self.togglePreset(p.id) }
             }
+        }
+        if env["DMX_TEST_LIVE_STRESS"] != nil {
+            DispatchQueue.main.asyncAfter(deadline: .now() + 2) { self.startLiveStress() }
         }
         // Bluetooth-style background scanning for wireless DMX devices
         scanTimer = Timer(timeInterval: 8, repeats: true) { [weak self] _ in
@@ -299,6 +302,53 @@ final class AppModel: ObservableObject {
         return fixtures.indices.first { $0 < i && fixtures[$0].address == f.address && fixtures[$0].layout == f.layout && fixtures[$0].outputKey == f.outputKey }
     }
 
+    // MARK: - Automated live-mode stress test (CI): does what a busy user does, fast
+
+    private var stressTesting = false
+    private var stressTimer: Timer?
+
+    private func startLiveStress() {
+        stressTesting = true
+        beatSource = .mic
+        autoLighting = true
+        var step = 0
+        let t = Timer(timeInterval: 0.02, repeats: true) { [weak self] _ in
+            guard let self else { return }
+            step += 1
+            let now = Date().timeIntervalSinceReferenceDate
+            let kick = step % 23 == 0                       // ~130 BPM at 50 Hz
+            let loud = Float(0.2 + 0.8 * abs(sin(Double(step) / 400)))
+            self.mic.injectTest(low: kick ? 0.5 * loud : 0.001, full: loud * (kick ? 1 : 0.4), at: now)
+            CrashGuard.breadcrumb("Stress step \(step)")
+            switch Int.random(in: 0..<60) {
+            case 0: if let p = self.presets.randomElement() { self.togglePreset(p.id) }
+            case 1: self.autoLighting.toggle()
+            case 2: self.tapTempo(); self.beatSource = .mic
+            case 3: self.flashHeld.toggle()
+            case 4: self.strobeHeld.toggle()
+            case 5: self.rigMode = RigMode.allCases.randomElement() ?? .together
+            case 6: if let f = self.fixtures.randomElement() { self.setLightOn(f.id, Bool.random()) }
+            case 7: if self.fixtures.count >= 2 {
+                        let a = self.fixtures[0].id, b = self.fixtures[1].id
+                        if self.isLinked(self.fixtures[0], self.fixtures[1]) { self.unlink(a, b) } else { self.link(a, b) }
+                        self.linkNotice = nil
+                    }
+            case 8: if let f = self.fixtures.randomElement() {
+                        self.setManual(f.id) { $0.dimmer = Bool.random() ? Double.random(in: 0...1) : nil; $0.color = Bool.random() ? RGB(h: Double.random(in: 0...1), s: 1, v: 1) : nil; $0.strobe = Bool.random() ? Double.random(in: 0...1) : nil }
+                    }
+            case 9: self.nudgeBPM(Bool.random() ? 1 : -1); self.beatSource = .mic
+            case 10: self.master = Double.random(in: 0...1)
+            case 11: self.blackout = Int.random(in: 0..<4) == 0
+            case 12: self.manual = [:]
+            case 13: self.activePresetID = nil
+            default: break
+            }
+            if step % 1500 == 0 { print("stress: \(step) steps, preset \(self.activePresetID.flatMap { id in self.presets.first { $0.id == id }?.name } ?? "none"), bpm \(Int(self.clock.bpm))"); fflush(stdout) }
+        }
+        RunLoop.main.add(t, forMode: .common)
+        stressTimer = t
+    }
+
     // MARK: - Turning single lights on and off
 
     /// Linked lights (same address, chained with a DMX cable) turn on and off together.
@@ -428,6 +478,7 @@ final class AppModel: ObservableObject {
 
     private func beatSourceChanged(_ old: BeatSource) {
         guard beatSource != old else { return }
+        if stressTesting { return }   // automated test feeds the tracker itself
         if beatSource == .mic {
             AVCaptureDevice.requestAccess(for: .audio) { granted in
                 DispatchQueue.main.async {
@@ -467,9 +518,10 @@ final class AppModel: ObservableObject {
         guard autoLighting, beatSource == .mic, playingSongID == nil else { return }
         let lvl = mic.snapshot().level
         autoEnergy = autoEnergy * 0.995 + lvl * 0.005        // slow average (~6 s)
-        let beat = Int(floor(clock.beatNumber(at: now)))
-        guard beat - lastAutoBeat >= 16 || activePresetID == nil else { return }
-        lastAutoBeat = beat
+        // Change looks every 16 beats (the mic re-anchors the beat clock on every kick, so count time, not beat numbers)
+        let sixteenBeats = 16 * clock.period
+        guard activePresetID == nil || now - lastAutoChange >= sixteenBeats || now < lastAutoChange else { return }
+        lastAutoChange = now
         let pools: [[String]] = [["Ocean Drift", "Slow Burn", "Color Fades", "Follows Sound"],
                                  ["Beat Colors", "Red Velvet", "Cyan · Pink", "Follows Sound"],
                                  ["Club Chase", "Kick Hits", "Rainbow Flow", "Blue · Orange", "Beat Colors"]]

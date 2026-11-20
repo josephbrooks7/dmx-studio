@@ -163,6 +163,9 @@ final class MicBeatTracker {
         anchor = t
     }
 
+    /// Automated tests: feed the tracker as if the mic heard something.
+    func injectTest(low: Float, full: Float, at t: Double) { process(low: low, full: full, at: t) }
+
     func snapshot() -> (bpm: Double, anchor: Double, onsets: [Double], level: Double) {
         lock.lock(); defer { lock.unlock() }
         return (bpm, anchor, onsets, Double(level))

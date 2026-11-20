@@ -122,6 +122,23 @@ jobs:
             exit 1
           fi
           echo "---- app output ----"; cat /tmp/app.log | head -50
+      - name: Live mode stress test (3 minutes of random live use)
+        run: |
+          BIN="build/DMX Studio.app/Contents/MacOS/DMXStudio"
+          for TAB in Live Stage; do
+            DMX_DEMO_OPEN=1 DMX_DEMO_TAB=$TAB DMX_TEST_LIVE_STRESS=1 "$BIN" > /tmp/stress-$TAB.log 2>&1 &
+            P=$!
+            sleep 90
+            if kill -0 $P 2>/dev/null; then
+              echo "$TAB: still running after 90 s"; tail -3 /tmp/stress-$TAB.log; kill $P; sleep 1
+            else
+              echo "$TAB: CRASHED"; cat /tmp/stress-$TAB.log
+              cat ~/Library/Application\ Support/DMX\ Studio/*rash* 2>/dev/null || true
+              ls -t ~/Library/Logs/DiagnosticReports/ | head -3
+              f=$(ls -t ~/Library/Logs/DiagnosticReports/DMXStudio* 2>/dev/null | head -1); [ -n "$f" ] && head -120 "$f"
+              exit 1
+            fi
+          done
       - name: Screenshots
         continue-on-error: true
         run: |
