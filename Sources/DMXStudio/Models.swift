@@ -492,6 +492,89 @@ struct LineupEntry: Identifiable, Codable, Hashable {
     var id = UUID()
     var songID: UUID
     var showID: UUID?     // which saved show to run; nil = the song's current show
+    // Blocks between songs (no song): silence or a built-in transition
+    var block: SetBlockKind? = nil
+    var seconds: Double? = nil
+    var transition: TransitionStyle? = nil
+    var palette: String? = nil
+    var fadeMusic: Bool? = nil   // transitions: fade the song before out, and the next one in
+
+    var isBlock: Bool { block != nil }
+    var blockSeconds: Double { seconds ?? (block == .silence ? 5 : 8) }
+    var blockLabel: String {
+        switch block {
+        case .silence: return "Silence · \(Int(blockSeconds)) s"
+        case .transition: return "\(transition?.rawValue ?? "Transition") · \(Int(blockSeconds)) s"
+        case nil: return ""
+        }
+    }
+
+    static func silence(_ seconds: Double = 5) -> LineupEntry {
+        LineupEntry(songID: UUID(), showID: nil, block: .silence, seconds: seconds, transition: .idle)
+    }
+    static func transition(_ style: TransitionStyle) -> LineupEntry {
+        LineupEntry(songID: UUID(), showID: nil, block: .transition, seconds: style.defaultSeconds, transition: style,
+                    palette: style.defaultPalette, fadeMusic: style.fadesMusicByDefault)
+    }
+}
+
+enum SetBlockKind: String, Codable, Hashable { case silence, transition }
+
+/// Built-in transitions you can drop between songs in a set list.
+enum TransitionStyle: String, CaseIterable, Codable, Identifiable, Hashable {
+    case idle = "Idle Look"
+    case blackout = "Blackout"
+    case colorWash = "Color Wash"
+    case sweep = "Light Sweep"
+    case buildUp = "Build-Up"
+    case strobeHit = "Strobe Hit"
+    case whiteFlash = "Fade Through White"
+    case rainbow = "Rainbow Spin"
+    var id: String { rawValue }
+
+    var icon: String {
+        switch self {
+        case .idle: return "moon.stars.fill"
+        case .blackout: return "lightbulb.slash.fill"
+        case .colorWash: return "paintbrush.fill"
+        case .sweep: return "arrow.left.and.right"
+        case .buildUp: return "arrow.up.right"
+        case .strobeHit: return "bolt.fill"
+        case .whiteFlash: return "sun.max.fill"
+        case .rainbow: return "sparkles"
+        }
+    }
+    var defaultSeconds: Double {
+        switch self {
+        case .strobeHit: return 3
+        case .whiteFlash, .blackout: return 4
+        case .buildUp: return 8
+        default: return 6
+        }
+    }
+    var defaultPalette: String? {
+        switch self {
+        case .colorWash: return "Ocean"
+        case .sweep: return "Neon"
+        case .buildUp: return "EDM"
+        case .rainbow: return "Neon"
+        default: return nil
+        }
+    }
+    var fadesMusicByDefault: Bool { self != .strobeHit }
+    var usesPalette: Bool { defaultPalette != nil }
+    var blurb: String {
+        switch self {
+        case .idle: return "Your idle look"
+        case .blackout: return "Fade to dark"
+        case .colorWash: return "Slow color fades"
+        case .sweep: return "A chase across the lights"
+        case .buildUp: return "Speeds up and brightens, ends on a flash"
+        case .strobeHit: return "A burst of strobe, then dark"
+        case .whiteFlash: return "Up to bright white and back down"
+        case .rainbow: return "Spinning rainbow"
+        }
+    }
 }
 
 struct Lineup: Identifiable, Codable, Hashable {

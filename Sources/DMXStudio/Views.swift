@@ -578,6 +578,10 @@ struct LineupRow: View {
     let entry: LineupEntry
 
     var body: some View {
+        if entry.isBlock { BlockRow(lineupID: lineupID, index: index, entry: entry) } else { songRow }
+    }
+
+    @ViewBuilder private var songRow: some View {
         let song = model.song(entry.songID)
         let isNow = model.playingLineupID == lineupID && model.playingEntryIndex == index
         HStack(spacing: 12) {
@@ -625,6 +629,11 @@ struct LineupRow: View {
             Button("Move Down") { model.moveEntry(lineupID: lineupID, from: index, by: 1) }
             Button("Move to Top") { model.moveEntry(lineupID: lineupID, from: index, by: -1000) }
             Button("Move to Bottom") { model.moveEntry(lineupID: lineupID, from: index, by: 1000) }
+            Divider()
+            Button("Insert Silence After") { model.addBlock(.silence(), to: lineupID, after: index) }
+            Menu("Insert Transition After") {
+                ForEach(TransitionStyle.allCases) { t in Button(t.rawValue) { model.addBlock(.transition(t), to: lineupID, after: index) } }
+            }
             Divider()
             Button("Remove from Set", role: .destructive) {
                 if let li = model.lineupIndex(lineupID), index < model.lineups[li].entries.count {
@@ -1004,6 +1013,7 @@ struct TransportBar: View {
     @EnvironmentObject var model: AppModel
 
     var nowPlaying: String {
+        if let b = model.activeBlock { return b.entry.blockLabel }
         if model.inGap { return "Next song starting…" }
         if let id = model.playingSongID, let s = model.song(id) { return s.displayName }
         return "Nothing playing · idle look on"
@@ -1227,6 +1237,13 @@ func handleSongDrop(_ providers: [NSItemProvider], model: AppModel, lineupID: UU
     for p in providers where !p.hasItemConformingToTypeIdentifier(fileType) && p.canLoadObject(ofClass: NSString.self) {
         _ = p.loadObject(ofClass: NSString.self) { obj, _ in
             guard let str = obj as? String else { return }
+            if str.hasPrefix("block:") {
+                let parts = str.split(separator: ":").map(String.init)
+                let e: LineupEntry = parts.count > 2 && parts[1] == "transition"
+                    ? .transition(TransitionStyle(rawValue: parts[2]) ?? .colorWash) : .silence()
+                DispatchQueue.main.async { model.addBlock(e, to: lineupID) }
+                return
+            }
             let ids = str.split(separator: "\n").compactMap { UUID(uuidString: String($0)) }
             DispatchQueue.main.async {
                 for id in ids { if let song = model.song(id) { model.addToLineup(lineupID, songID: id, showID: song.activeShow?.id) } }
@@ -1254,6 +1271,8 @@ struct SetListLibraryPanel: View {
                 .disabled(list.allSatisfy { inSet.contains($0.id) })
                 .help("Add every song shown here that isn't in the set yet")
             }
+            BlockPalette(lineupID: lineupID)
+            Divider()
             TextField("Search songs or artists", text: $search).textFieldStyle(.roundedBorder)
             if model.songs.isEmpty {
                 Text("No songs yet. Import them on the Songs tab, or drag files into the set.")
@@ -1290,5 +1309,115 @@ struct SetListLibraryPanel: View {
         }
         .padding(14)
         .frame(width: 290)
+    }
+}
+
+
+/// Blocks you can drop between songs: silence and built-in transitions. Click to add at the end, or drag into the set.
+struct BlockPalette: View {
+    @EnvironmentObject var model: AppModel
+    let lineupID: UUID
+    private let cols = [GridItem(.adaptive(minimum: 120), spacing: 6)]
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 6) {
+            Text("Blocks").font(.headline)
+            LazyVGrid(columns: cols, alignment: .leading, spacing: 6) {
+                chip("Silence", icon: "speaker.slash.fill", help: "Quiet pause with the idle look") { .silence() }
+                    .onDrag { NSItemProvider(object: "block:silence" as NSString) }
+                ForEach(TransitionStyle.allCases) { t in
+                    chip(t.rawValue, icon: t.icon, help: t.blurb) { .transition(t) }
+                        .onDrag { NSItemProvider(object: "block:transition:\(t.rawValue)" as NSString) }
+                }
+            }
+            Text("Click to add at the end, or drag into the set, then move it between songs.")
+                .font(.caption2).foregroundColor(.secondary)
+        }
+    }
+
+    private func chip(_ title: String, icon: String, help: String, make: @escaping () -> LineupEntry) -> some View {
+        Button { model.addBlock(make(), to: lineupID) } label: {
+            HStack(spacing: 5) {
+                Image(systemName: icon).font(.system(size: 10))
+                Text(title).font(.caption).lineLimit(1)
+                Spacer(minLength: 0)
+            }
+            .padding(.horizontal, 8).padding(.vertical, 5)
+            .background(RoundedRectangle(cornerRadius: 7).fill(Color.white.opacity(0.08)))
+        }
+        .buttonStyle(.plain)
+        .help(help)
+    }
+}
+
+/// A silence or transition block in a set list.
+struct BlockRow: View {
+    @EnvironmentObject var model: AppModel
+    let lineupID: UUID
+    let index: Int
+    let entry: LineupEntry
+
+    var body: some View {
+        let isNow = model.playingLineupID == lineupID && model.playingEntryIndex == index
+        let isSilence = entry.block == .silence
+        HStack(spacing: 12) {
+            Text("").frame(width: 24)
+            Image(systemName: isSilence ? "speaker.slash.fill" : (entry.transition ?? .colorWash).icon)
+                .foregroundColor(isNow ? .pink : .purple)
+                .frame(width: 18)
+            VStack(alignment: .leading, spacing: 2) {
+                Text(isSilence ? "Silence" : "Transition").font(.headline)
+                Text(isSilence ? ((entry.transition == .blackout) ? "Lights dark" : "Idle look") : (entry.transition ?? .colorWash).blurb)
+                    .font(.caption).foregroundColor(.secondary)
+            }
+            Spacer()
+            if isSilence {
+                Picker("Lights", selection: Binding(get: { entry.transition == .blackout ? TransitionStyle.blackout : .idle },
+                                                    set: { v in model.updateEntry(lineupID, entry.id) { $0.transition = v } })) {
+                    Text("Idle look").tag(TransitionStyle.idle)
+                    Text("Dark").tag(TransitionStyle.blackout)
+                }
+                .labelsHidden().frame(width: 110)
+            } else {
+                Picker("Transition", selection: Binding(get: { entry.transition ?? .colorWash }, set: { v in
+                    model.updateEntry(lineupID, entry.id) { $0.transition = v; if v.usesPalette && $0.palette == nil { $0.palette = v.defaultPalette } }
+                })) {
+                    ForEach(TransitionStyle.allCases) { t in Text(t.rawValue).tag(t) }
+                }
+                .labelsHidden().frame(width: 160)
+                if (entry.transition ?? .colorWash).usesPalette {
+                    Picker("Colors", selection: Binding(get: { entry.palette ?? "Neon" },
+                                                        set: { v in model.updateEntry(lineupID, entry.id) { $0.palette = v } })) {
+                        ForEach(Palette.all) { Text($0.id).tag($0.id) }
+                    }
+                    .labelsHidden().frame(width: 120)
+                }
+                Toggle("Fade music", isOn: Binding(get: { entry.fadeMusic ?? false },
+                                                   set: { v in model.updateEntry(lineupID, entry.id) { $0.fadeMusic = v } }))
+                    .help("Fade the song before out during this transition, and the next song in")
+            }
+            Stepper("\(Int(entry.blockSeconds)) s", value: Binding(get: { entry.blockSeconds },
+                                                                set: { v in model.updateEntry(lineupID, entry.id) { $0.seconds = v } }),
+                    in: 1...60, step: 1)
+                .frame(width: 90)
+            VStack(spacing: 2) {
+                Button { model.moveEntry(lineupID: lineupID, from: index, by: -1) } label: { Image(systemName: "chevron.up") }
+                    .disabled(index == 0)
+                Button { model.moveEntry(lineupID: lineupID, from: index, by: 1) } label: { Image(systemName: "chevron.down") }
+                    .disabled(index >= (model.lineups.first { $0.id == lineupID }?.entries.count ?? 1) - 1)
+            }
+            .buttonStyle(.borderless)
+            Button { model.removeEntry(lineupID: lineupID, entryID: entry.id) } label: { Image(systemName: "xmark.circle") }
+                .buttonStyle(.borderless).help("Remove this block")
+        }
+        .padding(.vertical, 4)
+        .padding(.horizontal, 6)
+        .background(RoundedRectangle(cornerRadius: 8).fill(Color.purple.opacity(isNow ? 0.25 : 0.10)))
+        .contextMenu {
+            Button("Move Up") { model.moveEntry(lineupID: lineupID, from: index, by: -1) }
+            Button("Move Down") { model.moveEntry(lineupID: lineupID, from: index, by: 1) }
+            Divider()
+            Button("Remove Block", role: .destructive) { model.removeEntry(lineupID: lineupID, entryID: entry.id) }
+        }
     }
 }

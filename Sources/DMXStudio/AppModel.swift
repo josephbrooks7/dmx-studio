@@ -84,6 +84,9 @@ final class AppModel: ObservableObject {
     @Published var playingLineupID: UUID?
     @Published var playingEntryIndex: Int?
     @Published var inGap = false          // waiting between lineup songs
+    @Published var activeBlock: ActiveBlock?   // a silence or transition block in a set list is running
+    private var fadingPlayer: AVAudioPlayer?   // the song fading out under a transition
+    private var lastSongBPM: Double = 120
     @Published var isPlaying = false
     var currentTime: Double { get { live.currentTime } set { if live.currentTime != newValue { live.currentTime = newValue } } }
     @Published var learning: [UUID: Double] = [:]
@@ -1055,6 +1058,28 @@ final class AppModel: ObservableObject {
         return lineups.firstIndex { $0.id == id }
     }
 
+    /// Adds a silence or transition block (at the end, or right after `after`).
+    func addBlock(_ e: LineupEntry, to lineupID: UUID, after index: Int? = nil) {
+        guard let li = lineupIndex(lineupID) else { return }
+        if let index, index + 1 <= lineups[li].entries.count {
+            lineups[li].entries.insert(e, at: index + 1)
+            if playingLineupID == lineupID, let p = playingEntryIndex, p > index { playingEntryIndex = p + 1 }
+        } else {
+            lineups[li].entries.append(e)
+        }
+    }
+
+    func removeEntry(lineupID: UUID, entryID: UUID) {
+        guard let li = lineupIndex(lineupID), let i = lineups[li].entries.firstIndex(where: { $0.id == entryID }) else { return }
+        lineups[li].entries.remove(at: i)
+        if playingLineupID == lineupID, let p = playingEntryIndex, p > i { playingEntryIndex = p - 1 }
+    }
+
+    func updateEntry(_ lineupID: UUID, _ entryID: UUID, _ change: (inout LineupEntry) -> Void) {
+        guard let li = lineupIndex(lineupID), let i = lineups[li].entries.firstIndex(where: { $0.id == entryID }) else { return }
+        change(&lineups[li].entries[i])
+    }
+
     func addToLineup(_ lineupID: UUID, songID: UUID, showID: UUID?) {
         guard let li = lineupIndex(lineupID) else { return }
         lineups[li].entries.append(LineupEntry(songID: songID, showID: showID))
@@ -1072,15 +1097,100 @@ final class AppModel: ObservableObject {
     func playLineup(_ id: UUID, from entry: Int = 0) {
         guard let li = lineupIndex(id), lineups[li].entries.indices.contains(entry) else { stop(); return }
         let e = lineups[li].entries[entry]
+        if e.isBlock { startBlock(e, lineup: id, index: entry); return }
         guard song(e.songID) != nil else { playLineup(id, from: entry + 1); return }
+        // Coming out of a transition that fades the music: bring this song in gently
+        var fadeIn = 0.0
+        if entry > 0, let prev = Optional(lineups[li].entries[entry - 1]), prev.block == .transition, prev.fadeMusic ?? false {
+            fadeIn = min(2.5, prev.blockSeconds)
+        }
         // Skip the silent lead-in baked into the file (keep a hair of it so the first hit isn't clipped)
         var start = 0.0
         if lineups[li].skipDeadAir ?? true, let a = song(e.songID)?.analysis {
             start = max(0, a.musicStart - 0.15)
         }
-        play(e.songID, show: e.showID, from: start, keepLineup: true)
+        play(e.songID, show: e.showID, from: start, keepLineup: true, fadeIn: fadeIn)
         playingLineupID = id
         playingEntryIndex = entry
+    }
+
+    // MARK: - Set list blocks (silence & transitions)
+
+    /// Runs a silence or transition block, then moves on to the next entry.
+    /// `keepPlayer`: the song before keeps playing and fades out underneath (a music transition).
+    private func startBlock(_ e: LineupEntry, lineup: UUID, index: Int, keepPlayer: Bool = false) {
+        gapWork?.cancel(); gapWork = nil; inGap = false
+        fadingPlayer?.stop(); fadingPlayer = nil
+        if keepPlayer, let p = player {
+            p.setVolume(0, fadeDuration: max(0.5, e.blockSeconds))
+            fadingPlayer = p
+        } else {
+            player?.stop()
+        }
+        player = nil
+        playingSongID = nil
+        playingShowID = nil
+        currentTime = 0
+        playingLineupID = lineup
+        playingEntryIndex = index
+        isPlaying = true
+        activeBlock = ActiveBlock(entry: e, start: Date().timeIntervalSinceReferenceDate, bpm: lastSongBPM)
+        scheduleBlockEnd(after: e.blockSeconds, lineup: lineup, index: index)
+    }
+
+    private func scheduleBlockEnd(after seconds: Double, lineup: UUID, index: Int) {
+        let work = DispatchWorkItem { [weak self] in
+            guard let self else { return }
+            self.fadingPlayer?.stop(); self.fadingPlayer = nil
+            self.activeBlock = nil
+            if let li = self.lineupIndex(lineup), index + 1 < self.lineups[li].entries.count {
+                self.playLineup(lineup, from: index + 1)
+            } else {
+                self.stop()
+            }
+        }
+        gapWork = work
+        DispatchQueue.main.asyncAfter(deadline: .now() + max(0.1, seconds), execute: work)
+    }
+
+    /// Lights for a running block.
+    private func renderBlock(_ b: ActiveBlock, now: Double, idleFrame: [RenderedFixture]) -> [RenderedFixture] {
+        let e = b.entry
+        let dur = max(0.5, e.blockSeconds)
+        let p = max(0, min(1, (now - b.start) / dur))
+        let dark = fixtures.map { RenderedFixture(heads: Array(repeating: .off, count: $0.headCount)) }
+        func white(_ k: Double, strobe: Double = 0) -> [RenderedFixture] {
+            fixtures.map { var r = RenderedFixture(heads: Array(repeating: FixtureState(intensity: k, color: .white), count: $0.headCount)); r.strobe = strobe; return r }
+        }
+        func scaled(_ f: [RenderedFixture], _ k: Double) -> [RenderedFixture] {
+            f.map { var r = $0; for h in r.heads.indices { r.heads[h].intensity *= k }; return r }
+        }
+        func look(_ effect: LightEffect, rate: Double, movement: MoveEffect) -> [RenderedFixture] {
+            let linked = fixtures.indices.filter { fixtures[$0].isOn && fixtures[$0].effectiveBehavior == .sequence && copySource(of: $0) == nil }
+            var c = BeatClock(); c.bpm = b.bpm; c.anchor = b.start
+            let la = c.liveAnalysis(now: now, onsets: [], level: 0.8, useOnsetsAsKicks: false)
+            let look = LookPreset(name: "Transition", effect: effect, palette: e.palette ?? "Neon", movement: movement, rate: rate)
+            var r = ShowRenderer(analysis: la, sections: [look.asSection(start: b.start)], fixtures: linked.map { fixtures[$0] })
+            r.rig = rigMode
+            let part = r.render(at: now)
+            var full = dark
+            for (j, fi) in linked.enumerated() where j < part.count { full[fi] = part[j] }
+            return full
+        }
+        let style = e.transition ?? .idle
+        if e.block == .silence { return style == .blackout ? dark : idleFrame }
+        switch style {
+        case .idle: return idleFrame
+        case .blackout: return p < 0.15 ? scaled(idleFrame, 1 - p / 0.15) : dark
+        case .colorWash: return look(.breathe, rate: 0.5, movement: .sweep)
+        case .sweep: return look(.chase, rate: 1, movement: .sweep)
+        case .buildUp:
+            if p > 0.93 { return white(1) }
+            return scaled(look(.chase, rate: p < 0.5 ? 1 : (p < 0.8 ? 2 : 4), movement: .fan), 0.35 + 0.65 * p)
+        case .strobeHit: return p < 0.45 ? white(1, strobe: 1) : scaled(white(1), max(0, 1 - (p - 0.45) / 0.2))
+        case .whiteFlash: return white(sin(.pi * p))
+        case .rainbow: return look(.rainbow, rate: 1, movement: .fullRotate)
+        }
     }
 
     /// Moves a set-list entry up (negative) or down (positive); big numbers go to the top/bottom.
@@ -1114,10 +1224,13 @@ final class AppModel: ObservableObject {
 
     // MARK: - Transport (music + lights start together)
 
-    func play(_ id: UUID, show: UUID? = nil, from start: Double? = nil, keepLineup: Bool = false) {
+    func play(_ id: UUID, show: UUID? = nil, from start: Double? = nil, keepLineup: Bool = false, fadeIn: Double = 0) {
         guard let i = index(of: id) else { return }
         CrashGuard.breadcrumb("Playing \(songs[i].title)")
         cancelGap()
+        activeBlock = nil
+        fadingPlayer?.stop(); fadingPlayer = nil
+        if let bpm = songs[i].analysis?.bpm { lastSongBPM = bpm }
         if !keepLineup { playingLineupID = nil; playingEntryIndex = nil }
         if playingSongID != id || player == nil {
             player?.stop()
@@ -1134,23 +1247,43 @@ final class AppModel: ObservableObject {
         playingShowID = show ?? songs[i].activeShow?.id
         if let start { player?.currentTime = start }
         testMode = .off
+        if fadeIn > 0 { player?.volume = 0 }
         player?.play()
+        if fadeIn > 0 { player?.setVolume(1, fadeDuration: fadeIn) } else { player?.volume = 1 }
         isPlaying = true
     }
 
     func togglePlay() {
         if isPlaying { pause(); return }
+        if var b = activeBlock, let remaining = b.pausedRemaining, let lid = playingLineupID, let idx = playingEntryIndex {
+            // resume a paused block where it left off
+            b.start = Date().timeIntervalSinceReferenceDate - (b.entry.blockSeconds - remaining)
+            b.pausedRemaining = nil
+            activeBlock = b
+            fadingPlayer?.play()
+            isPlaying = true
+            scheduleBlockEnd(after: remaining, lineup: lid, index: idx)
+            return
+        }
         if let id = playingSongID, player != nil { play(id, show: playingShowID, keepLineup: playingLineupID != nil); return }
         if let id = selectedSongID { play(id, from: 0) }
     }
 
     func pause() {
         player?.pause()
+        if var b = activeBlock, b.pausedRemaining == nil {
+            gapWork?.cancel(); gapWork = nil
+            b.pausedRemaining = max(0.1, b.entry.blockSeconds - (Date().timeIntervalSinceReferenceDate - b.start))
+            activeBlock = b
+            fadingPlayer?.pause()
+        }
         isPlaying = false
     }
 
     func stop() {
         cancelGap()
+        activeBlock = nil
+        fadingPlayer?.stop(); fadingPlayer = nil
         player?.stop()
         player = nil
         isPlaying = false
@@ -1180,6 +1313,8 @@ final class AppModel: ObservableObject {
             playingLineupID = nil; playingEntryIndex = nil
             return
         }
+        // A block next in line replaces the gap
+        if lineups[li].entries[idx + 1].isBlock { playLineup(lineup, from: idx + 1); return }
         // Idle look during the gap, then the next song
         inGap = true
         playingEntryIndex = idx + 1
@@ -1215,6 +1350,18 @@ final class AppModel: ObservableObject {
                    let a = songs[i].analysis, a.musicEnd < a.duration - 0.5, p.currentTime > a.musicEnd + 0.3 {
                     songFinished()
                     return
+                }
+                // A transition that fades the music starts while this song is still ending
+                if isPlaying, let lid = playingLineupID, let li = lineupIndex(lid), let idx = playingEntryIndex,
+                   idx + 1 < lineups[li].entries.count {
+                    let nx = lineups[li].entries[idx + 1]
+                    if nx.block == .transition, nx.fadeMusic ?? false {
+                        let end = (lineups[li].skipDeadAir ?? true) ? (songs[i].analysis?.musicEnd ?? p.duration) : p.duration
+                        if p.currentTime >= end - nx.blockSeconds {
+                            startBlock(nx, lineup: lid, index: idx + 1, keepPlayer: true)
+                            return
+                        }
+                    }
                 }
                 let showID = playingShowID ?? songs[i].activeShow?.id
                 if let a = songs[i].analysis, let show = songs[i].shows.first(where: { $0.id == showID }) ?? songs[i].activeShow {
@@ -1252,6 +1399,12 @@ final class AppModel: ObservableObject {
                 t = now
             }
 
+            // Set list block (silence / transition) between songs
+            if let b = activeBlock, activePresetID == nil {
+                showFrame = renderBlock(b, now: now, idleFrame: idleFrame)
+                t = now
+            }
+
             // Smoothly ramp between show and idle when a song starts, pauses or stops
             let target: Double = (showFrame != nil && (isPlaying || activePresetID != nil)) ? 0 : 1
             let step = 1.0 / (40 * 0.8)   // ~0.8 s fade
@@ -1267,7 +1420,7 @@ final class AppModel: ObservableObject {
 
         // Stationary lights (like the spotlight) hold their own settings
         if testMode == .off {
-            let showRunning = playingSongID != nil || inGap
+            let showRunning = playingSongID != nil || inGap || activeBlock != nil
             for (i, fx) in fixtures.enumerated() where i < rendered.count && fx.effectiveBehavior == .stationary {
                 let look = fx.stationaryLook
                 rendered[i] = (showRunning || look.onWhenIdle) ? look.render(fx)
@@ -1400,4 +1553,12 @@ struct LiveReader<Content: View>: View {
     let content: () -> Content
     init(_ live: LiveState, @ViewBuilder content: @escaping () -> Content) { self.live = live; self.content = content }
     var body: some View { content() }
+}
+
+/// A silence or transition block that's running in a set list.
+struct ActiveBlock {
+    var entry: LineupEntry
+    var start: Double
+    var bpm: Double
+    var pausedRemaining: Double? = nil
 }

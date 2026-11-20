@@ -94,15 +94,38 @@ enum LibraryFiles {
 
         writeAll(sessions, folderName: "Sessions", name: { $0.name })
         writeAll(userPresets, folderName: "Presets", name: { $0.name })
-        let titles = Dictionary(songs.map { ($0.id, $0.displayName) }, uniquingKeysWith: { a, _ in a })
-        let sets = lineups.map { SetListFile(setList: $0, songs: $0.entries.map { titles[$0.songID] ?? "?" }) }
+        let byID = Dictionary(songs.map { ($0.id, $0) }, uniquingKeysWith: { a, _ in a })
+        let sets = lineups.map { l in
+            SetListFile(setList: l, songs: l.entries.map { e in
+                if e.isBlock {
+                    return SetListFile.Item(title: e.blockLabel, artist: nil, audioFile: nil, bpm: nil,
+                                            musicStart: nil, musicEnd: nil, lightShow: nil)
+                }
+                let song = byID[e.songID]
+                let show = song.flatMap { s in s.shows.first { $0.id == e.showID } ?? s.activeShow }
+                return SetListFile.Item(title: song?.title ?? "Missing song", artist: song?.artist,
+                                        audioFile: song?.path, bpm: song?.analysis?.bpm,
+                                        musicStart: song?.analysis?.musicStart, musicEnd: song?.analysis?.musicEnd,
+                                        lightShow: show)
+            })
+        }
         writeAll(sets, folderName: "Set Lists", name: { $0.setList.name })
         writeAll(songs, folderName: "Songs", name: { $0.displayName }, ext: "song.json")
     }
 
+    /// A set list as a file: the order, and for every song its music file and the light show linked to it.
     struct SetListFile: Codable {
         var setList: Lineup
-        var songs: [String]      // readable song names, in order
+        var songs: [Item]
+        struct Item: Codable {
+            var title: String
+            var artist: String?
+            var audioFile: String?     // the song's audio in Songs/
+            var bpm: Double?
+            var musicStart: Double?
+            var musicEnd: Double?
+            var lightShow: LightShow?  // the show this set plays with the song
+        }
     }
 
     // MARK: - Export / import a whole session as one file
