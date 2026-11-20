@@ -73,6 +73,14 @@ enum AudioAnalyzer {
         // ignored on purpose, because that's where hi-hats live. Kicks have body but little crack.
         let body = normalize(f.bodyFlux), crack = normalize(f.crackFlux)
         let snareScore = normalize(zip(body, crack).map { 0.6 * $0 + 0.4 * $1 })
+        if ProcessInfo.processInfo.environment["DMX_DEBUG_SNARE"] != nil {
+            for t in pickPeaks(snareScore, fps: fps, minGap: 0.15, sensitivity: 0.14) {
+                let i = min(max(Int(((t * sampleRate - Double(fftSize) / 2) / Double(hop)).rounded()), 0), body.count - 1)
+                let lo = max(0, i - 1), hi = min(body.count - 1, i + 1)
+                print(String(format: "cand t=%.3f body=%.2f crack=%.2f bass=%.2f high=%.2f", t,
+                             body[lo...hi].max() ?? 0, crack[lo...hi].max() ?? 0, bassOnset[lo...hi].max() ?? 0, highOnset[lo...hi].max() ?? 0))
+            }
+        }
         let snares = pickPeaks(snareScore, fps: fps, minGap: 0.15, sensitivity: 0.14).filter { t in
             let i = min(max(Int(((t * sampleRate - Double(fftSize) / 2) / Double(hop)).rounded()), 0), body.count - 1)
             let lo = max(0, i - 1), hi = min(body.count - 1, i + 1)

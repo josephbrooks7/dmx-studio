@@ -62,6 +62,23 @@ jobs:
           PY
           done
           grep -q "title=Test Groove artist=Red Velvet Test" <("$BIN" --analyze /tmp/test.wav) && echo "PASS tags read (title + artist)"
+      - name: Snare diagnostics
+        if: always()
+        run: |
+          python3 packaging/make_test_song.py /tmp/test.wav >/dev/null
+          DMX_DEBUG_SNARE=1 "build/DMX Studio.app/Contents/MacOS/DMXStudio" --analyze /tmp/test.wav | grep "^cand" | python3 -c "
+          import sys,re
+          beat=60/128
+          rows=[]
+          for line in sys.stdin:
+              t,b,c,ba,h=[float(v) for v in re.findall(r'=([\d.]+)',line)]
+              k=(t-2)/beat; ph=k%2; loud=k>=63.5
+              kind='SNARE' if loud and abs(ph-1)<0.1 else ('kick' if min(ph,2-ph)<0.1 else 'hat/other')
+              rows.append((kind,b,c,ba,h))
+          for kind in ('SNARE','kick','hat/other'):
+              r=[x for x in rows if x[0]==kind]
+              if r: print(kind, len(r), 'body min/max %.2f/%.2f crack min/max %.2f/%.2f bass min/max %.2f/%.2f' % (min(x[1] for x in r),max(x[1] for x in r),min(x[2] for x in r),max(x[2] for x in r),min(x[3] for x in r),max(x[3] for x in r)))
+          "
       - name: Smoke test - launch the app and make sure it stays running
         run: |
           APPBIN="build/DMX Studio.app/Contents/MacOS/DMXStudio"
