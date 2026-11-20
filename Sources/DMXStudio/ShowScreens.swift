@@ -150,11 +150,12 @@ struct SessionCard: View {
 // MARK: - Main shell with tabs
 
 enum MainTab: String, CaseIterable, Identifiable {
-    case show = "Show", live = "Live", songs = "Songs", sets = "Set Lists", setup = "Setup"
+    case show = "Show", stage = "Stage", live = "Live", songs = "Songs", sets = "Set Lists", setup = "Setup"
     var id: String { rawValue }
     var icon: String {
         switch self {
         case .show: return "lightbulb.fill"
+        case .stage: return "theatermasks.fill"
         case .live: return "square.grid.3x3.fill"
         case .songs: return "music.note.list"
         case .sets: return "list.number"
@@ -174,6 +175,7 @@ struct MainShell: View {
             Group {
                 switch tab {
                 case .show: ShowScreen()
+                case .stage: StageScreen()
                 case .live: LiveScreen()
                 case .songs: SongsScreen()
                 case .sets: SetListsScreen()
@@ -198,6 +200,7 @@ struct TopBar: View {
             Spacer()
             NowPlayingCard()
             Spacer()
+            RealLightsSwitch()
             HStack(spacing: 6) {
                 Circle().fill(model.connected ? Color.green : Color.red).frame(width: 8, height: 8)
                 Text(model.connected ? (model.output.rememberedDevice?.name ?? "Lights connected") : "Not connected")
@@ -273,7 +276,7 @@ struct BottomBar: View {
                             Image(systemName: t.icon).font(.system(size: 15))
                             Text(t.rawValue).font(.system(size: 11, weight: .medium))
                         }
-                        .frame(width: 84, height: 44)
+                        .frame(width: 78, height: 44)
                         .foregroundColor(tab == t ? Theme.accent : Theme.subtle)
                         .background(RoundedRectangle(cornerRadius: 10).fill(tab == t ? Theme.accent.opacity(0.12) : .clear))
                     }

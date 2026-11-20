@@ -122,6 +122,7 @@ jobs:
           NAME=2-show shoot DMX_DEMO_OPEN=1 DMX_DEMO_PRESET=1
           NAME=3-live shoot DMX_DEMO_OPEN=1 DMX_DEMO_TAB=Live DMX_DEMO_PRESET=1
           NAME=4-songs shoot DMX_DEMO_OPEN=1 DMX_DEMO_TAB=Songs
+          NAME=5-stage shoot DMX_DEMO_OPEN=1 DMX_DEMO_TAB=Stage DMX_DEMO_PRESET=1
           ls -la /tmp/shots
       - uses: actions/upload-artifact@v4
         with:

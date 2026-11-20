@@ -48,6 +48,8 @@ final class AppModel: ObservableObject {
     private var tapTimes: [Double] = []
     private let mic = MicBeatTracker()
     @Published var manual: [UUID: ManualControl] = [:]   // hands-on control per light
+    @Published var outputEnabled = true          // off = simulate only, real lights stay dark
+    @Published var haze: Double = 0.6            // beam visibility in the Stage simulation
 
     // Live
     @Published var selectedSongID: UUID?
@@ -934,6 +936,10 @@ final class AppModel: ObservableObject {
             let idx = fixtures.indices.filter { (fixtures[$0].outputKey ?? DMXEngine.mainKey) == key && $0 < rendered.count }
             frames[key] = DMXMapper.frame(fixtures: idx.map { fixtures[$0] }, rendered: idx.map { rendered[$0] },
                                           master: master, blackout: blackout, time: t)
+        }
+        if !outputEnabled {
+            // Simulation only: keep the real lights dark, but keep everything running on screen
+            for k in frames.keys { frames[k] = [UInt8](repeating: 0, count: 512) }
         }
         engine.setFrames(frames)
 

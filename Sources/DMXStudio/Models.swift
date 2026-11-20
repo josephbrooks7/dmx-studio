@@ -222,6 +222,9 @@ struct Fixture: Identifiable, Codable, Hashable {
     var behavior: LightBehavior? = nil
     var stationary: StationaryLook? = nil
     var outputKey: String? = nil        // which DMX device this light is wired to; nil = main device
+    var stageX: Double? = nil           // position in the Stage simulation (0 = left, 1 = right)
+    var stageY: Double? = nil           // (0 = top, 1 = bottom)
+    var stageMount: StageMount? = nil
 
     /// Spotlights (color-wheel lights) default to Stationary; everything else to Sequence.
     var effectiveBehavior: LightBehavior { behavior ?? (colorWheel != nil ? .stationary : .sequence) }
@@ -599,4 +602,13 @@ struct ManualControl: Equatable {
     var pan: Double? = nil
     var tilt: Double? = nil
     var isEmpty: Bool { dimmer == nil && color == nil && strobe == nil && pan == nil && tilt == nil }
+}
+
+// MARK: - Stage simulation placement
+
+enum StageMount: String, CaseIterable, Codable, Identifiable {
+    case floor = "On the floor (beams up)"
+    case hanging = "Hanging (beams down)"
+    case frontOfHouse = "Front of house (aims at the stage)"
+    var id: String { rawValue }
 }
