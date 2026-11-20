@@ -57,7 +57,7 @@ enum WhisperEngine {
         case base, small
         var id: String { rawValue }
         var file: String { "ggml-\(rawValue).bin" }
-        var label: String { self == .base ? "Fast (148 MB)" : "Accurate (466 MB)" }
+        var label: String { self == .base ? "Standard (built in)" : "Accurate (466 MB download)" }
         var url: URL { URL(string: "https://huggingface.co/ggerganov/whisper.cpp/resolve/main/\(file)")! }
     }
 
@@ -68,7 +68,12 @@ enum WhisperEngine {
     }
     static var isAvailable: Bool { binary != nil }
     static var overrideModel: URL?   // tests
-    static func modelURL(_ m: ModelSize) -> URL { overrideModel ?? HQSplitter.modelsDir.appendingPathComponent(m.file) }
+    static func modelURL(_ m: ModelSize) -> URL {
+        if let o = overrideModel { return o }
+        // built into the app (works offline), else downloaded
+        if let b = Bundle.main.resourceURL?.appendingPathComponent("Models/\(m.file)"), FileManager.default.fileExists(atPath: b.path) { return b }
+        return HQSplitter.modelsDir.appendingPathComponent(m.file)
+    }
     static func isInstalled(_ m: ModelSize) -> Bool {
         ((try? FileManager.default.attributesOfItem(atPath: modelURL(m).path)[.size] as? Int) ?? 0) > 10_000_000
     }

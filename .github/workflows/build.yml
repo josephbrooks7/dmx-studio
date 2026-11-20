@@ -228,8 +228,9 @@ jobs:
           git config user.name "dmx-studio-ci"; git config user.email "ci@users.noreply.github.com"
           git checkout --orphan dist
           git rm -rf . >/dev/null
-          cp /tmp/dist/DMX-Studio.dmg .
+          # the DMG (with the AI models built in) is too big for git: it's on the release; this just says which
+          echo "v1.0.${{ github.run_number }}" > LATEST
           mkdir -p shots && cp /tmp/shots/*.png shots/ 2>/dev/null || true
-          git add DMX-Studio.dmg shots
+          git add LATEST shots
           git commit -m "DMG build ${{ github.run_number }}"
           git push -f origin dist

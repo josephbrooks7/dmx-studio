@@ -8,7 +8,7 @@ struct StemsTab: View {
     @EnvironmentObject var model: AppModel
     let song: Song
     @AppStorage("stemsTabOpen") private var open = false
-    @AppStorage("hqStems") private var highQuality = false
+    @AppStorage("hqStems") private var highQuality = true
     @State private var downloading: Double?
     @State private var installedTick = 0
     @State private var offlineNote = false
@@ -41,7 +41,7 @@ struct StemsTab: View {
                             ProgressView(value: p).frame(width: 120)
                             Text("Getting the AI model…").font(.caption).foregroundColor(.secondary)
                         } else {
-                            Button("Download AI Model (~70 MB)") {
+                            Button("Download AI Model (~70 MB)") {   // only when it isn't built in
                                 downloading = 0
                                 HQSplitter.download(progress: { downloading = $0 }) { err in
                                     downloading = nil

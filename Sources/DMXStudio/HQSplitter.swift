@@ -22,7 +22,13 @@ enum HQSplitter {
         return u
     }
     static var overrideModel: URL?    // tests: use a model from elsewhere
-    static var modelURL: URL { overrideModel ?? modelsDir.appendingPathComponent("DemucsHQ.mlmodelc", isDirectory: true) }
+    static var modelURL: URL {
+        if let o = overrideModel { return o }
+        // built into the app (works offline), else downloaded
+        if let b = Bundle.main.resourceURL?.appendingPathComponent("Models/DemucsHQ.mlmodelc", isDirectory: true),
+           FileManager.default.fileExists(atPath: b.appendingPathComponent("coremldata.bin").path) { return b }
+        return modelsDir.appendingPathComponent("DemucsHQ.mlmodelc", isDirectory: true)
+    }
     static var isInstalled: Bool { FileManager.default.fileExists(atPath: modelURL.appendingPathComponent("coremldata.bin").path) }
 
     // MARK: Download (once)

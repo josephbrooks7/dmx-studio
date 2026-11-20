@@ -82,6 +82,14 @@ if curl -sfL -o "$APP/Contents/Resources/whisper-cli" "https://github.com/joseph
 else
   rm -f "$APP/Contents/Resources/whisper-cli"; echo "whisper-cli not published yet: lyrics transcription falls back to Apple speech"
 fi
+# AI models built in, so everything works offline (no downloads at a show)
+mkdir -p "$APP/Contents/Resources/Models"
+if curl -sfL -o "$APP/Contents/Resources/Models/ggml-base.bin" "https://huggingface.co/ggerganov/whisper.cpp/resolve/main/ggml-base.bin"; then
+  echo "bundled lyrics model: $(du -h "$APP/Contents/Resources/Models/ggml-base.bin" | cut -f1)"
+else rm -f "$APP/Contents/Resources/Models/ggml-base.bin"; echo "lyrics model not bundled"; fi
+if curl -sfL -o /tmp/DemucsHQ.zip "https://github.com/josephbrooks7/dmx-studio/releases/download/hq-model-1/DemucsHQ.mlmodelc.zip"; then
+  ditto -x -k /tmp/DemucsHQ.zip "$APP/Contents/Resources/Models/" && echo "bundled High Quality splitter model"
+else echo "High Quality model not bundled"; fi
 codesign --force --deep --sign - "$APP"
 
 # DMG with an Applications shortcut for drag-to-install

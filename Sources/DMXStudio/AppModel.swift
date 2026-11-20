@@ -1300,7 +1300,7 @@ final class AppModel: ObservableObject {
             try? JSONEncoder().encode(settings).write(to: settingsFile)
             // Learn in a separate helper process: a bad file can't crash the app.
             // It splits the song into stems first, then learns from those parts.
-            let hq = UserDefaults.standard.bool(forKey: "hqStems") && HQSplitter.isInstalled
+            let hq = (UserDefaults.standard.object(forKey: "hqStems") as? Bool ?? true) && HQSplitter.isInstalled
             let r = Helper.run(["--learn", url.path, out.path, stems.path, settingsFile.path, hq ? "hq" : "fast"], timeout: 3600) { p in
                 DispatchQueue.main.async { if self.learning[id] != nil { self.learning[id] = max(0.05, min(0.99, p)) } }
             }
