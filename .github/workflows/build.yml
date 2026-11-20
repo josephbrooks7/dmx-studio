@@ -110,7 +110,7 @@ jobs:
             curl -sL -o /tmp/tiny.bin https://huggingface.co/ggerganov/whisper.cpp/resolve/main/ggml-tiny.en.bin
             say -o /tmp/l.aiff "I'm lost in the darkness and I'm all alone. But I can finally see the light."
             afconvert -f m4af -d aac /tmp/l.aiff /tmp/l.m4a
-            "$APP/Contents/MacOS/DMXStudio" --test-lyrics /tmp/l.m4a /tmp/tiny.bin | tee /tmp/lyr.txt
+            DMX_DEBUG_WHISPER=1 "$APP/Contents/MacOS/DMXStudio" --test-lyrics /tmp/l.m4a /tmp/tiny.bin | tee /tmp/lyr.txt
             grep -qi "light" /tmp/lyr.txt && echo "PASS words heard with timing" || { echo "FAIL lyrics"; exit 1; }
           else echo "whisper-cli not bundled yet: skipped"; fi
       - name: Helper processes (Wi-Fi scan + Learn run outside the app)

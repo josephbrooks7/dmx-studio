@@ -94,17 +94,21 @@ enum WhisperEngine {
                 p.executableURL = bin
                 let threads = max(2, min(8, ProcessInfo.processInfo.activeProcessorCount))
                 p.arguments = ["-m", modelPath.path, "-f", wav.path, "-ml", "1", "-sow", "-ojf",
-                               "-of", tmp.appendingPathComponent("out").path, "-np", "-pp", "-l", "auto", "-t", "\(threads)"]
+                               "-of", tmp.appendingPathComponent("out").path, "-np", "-pp", "-t", "\(threads)",
+                               // English-only models can't auto-detect the language
+                               "-l", modelPath.lastPathComponent.contains(".en") ? "en" : "auto"]
                 let err = Pipe()
                 p.standardError = err
                 p.standardOutput = FileHandle.nullDevice
                 try p.run()
                 // progress lines on stderr: "...progress = 42%"
-                var pending = ""
+                var pending = "", errLog = ""
                 while true {
                     let chunk = err.fileHandleForReading.availableData
                     if chunk.isEmpty { break }
                     pending += String(decoding: chunk, as: UTF8.self)
+                    errLog += String(decoding: chunk, as: UTF8.self)
+                    if errLog.count > 20000 { errLog = String(errLog.suffix(6000)) }
                     while let r = pending.range(of: "progress =") {
                         let rest = pending[r.upperBound...]
                         guard let pct = rest.firstIndex(of: "%") else { break }
@@ -119,6 +123,12 @@ enum WhisperEngine {
                 guard p.terminationStatus == 0 else { throw LyricsError.unavailable }
                 let data = try Data(contentsOf: tmp.appendingPathComponent("out.json"))
                 let words = parse(data, phrases: phrases)
+                if ProcessInfo.processInfo.environment["DMX_DEBUG_WHISPER"] != nil {
+                    print("whisper stderr: \(errLog.suffix(3000))")
+                    print("whisper json: \(String(decoding: data.prefix(1500), as: UTF8.self))")
+                    let wavSize = (try? FileManager.default.attributesOfItem(atPath: wav.path)[.size] as? Int) ?? -1
+                    print("wav bytes: \(wavSize)")
+                }
                 DispatchQueue.main.async { done(.success(words)) }
             } catch {
                 DispatchQueue.main.async { done(.failure(error)) }
