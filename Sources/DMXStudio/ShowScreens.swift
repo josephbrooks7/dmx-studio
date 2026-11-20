@@ -254,6 +254,7 @@ struct NowPlayingCard: View {
             Button { model.nextInLineup() } label: { Image(systemName: "forward.fill").frame(width: 24, height: 24).contentShape(Rectangle()) }
                 .buttonStyle(.plain).disabled(!canSkip).opacity(canSkip ? 1 : 0.3)
                 .help("Next song (→)")
+            FadeToButton()
             VStack(alignment: .leading, spacing: 3) {
                 Text(model.cuedLabel.map { "Ready: \($0) · Space / →" } ?? model.activeBlock.map { $0.entry.blockLabel } ?? (model.inGap ? "Next song starting…" : (song?.displayName ?? "Nothing playing")))
                     .font(.system(size: 13, weight: .semibold)).lineLimit(1)
@@ -1281,5 +1282,40 @@ struct TiltSpeedControl: View {
                 .font(.caption2).foregroundColor(Theme.subtle).fixedSize(horizontal: false, vertical: true)
         }
         .padding(.top, 4)
+    }
+}
+
+
+/// The second play button: while a song plays, pick another song and fade into it (music + lights).
+struct FadeToButton: View {
+    @EnvironmentObject var model: AppModel
+
+    var body: some View {
+        if model.isPlaying, let sel = model.selectedSongID, sel != model.playingSongID, let song = model.song(sel) {
+            HStack(spacing: 0) {
+                Button { model.fadeTo(sel) } label: {
+                    HStack(spacing: 6) {
+                        Image(systemName: "arrow.triangle.merge")
+                        VStack(alignment: .leading, spacing: 0) {
+                            Text("Fade to").font(.system(size: 9, weight: .bold)).opacity(0.8)
+                            Text(song.title).font(.system(size: 11, weight: .semibold)).lineLimit(1)
+                        }
+                    }
+                    .padding(.leading, 10).padding(.trailing, 6).padding(.vertical, 4)
+                }
+                .buttonStyle(.plain)
+                .help("Fade from the song playing into \(song.title) over \(Int(model.crossfadeSeconds)) seconds: music and lights")
+                Menu {
+                    ForEach([3.0, 6, 10, 16], id: \.self) { s in
+                        Button("\(Int(s)) seconds\(model.crossfadeSeconds == s ? " ✓" : "")") { model.crossfadeSeconds = s }
+                    }
+                } label: { Text("\(Int(model.crossfadeSeconds))s").font(.system(size: 10, weight: .bold)) }
+                    .menuStyle(.borderlessButton).fixedSize().padding(.trailing, 8)
+                    .help("How long the fade takes")
+            }
+            .frame(maxWidth: 210)
+            .background(Capsule().fill(Theme.accent.opacity(0.35)))
+            .overlay(Capsule().stroke(Theme.accent))
+        }
     }
 }

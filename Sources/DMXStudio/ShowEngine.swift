@@ -155,6 +155,16 @@ enum ShowGenerator {
         let wheelOnly = !mixesColor && lights.contains { $0.colorWheel != nil }
         let noColor = !mixesColor && !wheelOnly          // dimmer-only / white-only lights
         for i in secs.indices {
+            // Move only where the music calls for it: quiet parts hold still, medium parts sweep gently,
+            // big moves (flips, full swings) are saved for the high points.
+            switch secs[i].level {
+            case .low: secs[i].movement = .none
+            case .medium:
+                if [.flip, .beatNod, .fullRotate, .fan].contains(secs[i].movement) { secs[i].movement = .sweep }
+            case .high:
+                if secs[i].movement == .flip { secs[i].movement = .fan }
+            case .drop: break
+            }
             // Tilt-only bars (like the SHEHDS beam bars): moves that need pan become tilt moves
             if movers && !canPan {
                 switch secs[i].movement {
@@ -666,7 +676,7 @@ struct ShowRenderer {
             let dir: Double = fi % 2 == 0 ? 1 : -1
             return (0.5 + dir * 0.45 * s, 0.5 + dir * 0.45 * s)
         case .beatNod:
-            let up = (idx + fi) % 2 == 0
+            let up = (idx / 2 + fi) % 2 == 0       // every 2 beats (smoother than every beat)
             return (0.5, up ? 0.85 : 0.15)
         case .fullRotate:
             // Uses the full range (the SHEHDS bar's whole 180°), one sweep across every 2 bars
@@ -674,7 +684,7 @@ struct ShowRenderer {
             return (0.5 + 0.48 * sin(a), 0.5 + 0.48 * sin(a))
         case .flip:
             // Snap end to end on every other beat
-            let side = ((idx / 2) + fi) % 2 == 0
+            let side = ((idx / 4) + fi) % 2 == 0   // once a bar
             return (side ? 0.05 : 0.95, side ? 0.05 : 0.95)
         }
     }

@@ -1684,6 +1684,7 @@ final class AppModel: ObservableObject {
     }
 
     func pause() {
+        finishCrossfade()
         // the next song already came in under a transition: let the transition finish now
         if activeBlock != nil, playingSongID != nil {
             blockEndWork?.cancel(); blockEndWork = nil
@@ -1714,10 +1715,63 @@ final class AppModel: ObservableObject {
         resumedAt = Date().timeIntervalSinceReferenceDate
     }
     private var resumedAt: Double?
+    private var smoothPan: [Double] = [], smoothTilt: [Double] = []
+
+    // MARK: - Fade to another song (second play button)
+
+    /// The song fading out while another fades in: (song, show, when the fade started, how long).
+    private var crossFrom: (song: UUID, show: UUID?, start: Double, length: Double)?
+    private var crossWork: DispatchWorkItem?
+    @Published var crossfadeSeconds: Double = UserDefaults.standard.object(forKey: "crossfadeSeconds") as? Double ?? 6 {
+        didSet { UserDefaults.standard.set(crossfadeSeconds, forKey: "crossfadeSeconds") }
+    }
+    var isCrossfading: Bool { crossFrom != nil }
+
+    /// Fades from the song that's playing into `id`: music and lights blend over `crossfadeSeconds`.
+    func fadeTo(_ id: UUID) {
+        guard isPlaying, let cur = playingSongID, cur != id, let p = player else {
+            selectedSongID = id
+            play(id, from: songStart(id))
+            return
+        }
+        finishCrossfade()
+        let len = max(1, crossfadeSeconds)
+        p.setVolume(0, fadeDuration: len)
+        fadingPlayer = p
+        player = nil
+        crossFrom = (cur, playingShowID, Date().timeIntervalSinceReferenceDate, len)
+        playingLineupID = nil; playingEntryIndex = nil
+        selectedSongID = id
+        play(id, from: songStart(id), fadeIn: min(len, 4), keepBlock: true)
+        let w = DispatchWorkItem { [weak self] in self?.finishCrossfade() }
+        crossWork = w
+        DispatchQueue.main.asyncAfter(deadline: .now() + len, execute: w)
+    }
+
+    private func finishCrossfade() {
+        crossWork?.cancel(); crossWork = nil
+        if crossFrom != nil { fadingPlayer?.stop(); fadingPlayer = nil }
+        crossFrom = nil
+    }
+
+    /// One song's show at a moment in that song (for blending two songs during a fade).
+    private func songFrame(_ songID: UUID, show showID: UUID?, at time: Double, idleFrame: [RenderedFixture]) -> [RenderedFixture]? {
+        guard let i = index(of: songID), let a = songs[i].analysis,
+              let show = songs[i].shows.first(where: { $0.id == showID }) ?? songs[i].activeShow else { return nil }
+        let linked = fixtures.indices.filter { show.includes(fixtures[$0]) && fixtures[$0].isOn && fixtures[$0].effectiveBehavior == .sequence && copySource(of: $0) == nil }
+        var r = ShowRenderer(analysis: a, sections: show.sections, fixtures: linked.map { fixtures[$0] })
+        r.idle = idle
+        r.rig = rigMode
+        let part = r.renderWithIdle(at: time + (songs[i].syncOffsetMs + globalLatencyMs) / 1000)
+        var full = idleFrame
+        for (j, fi) in linked.enumerated() where j < part.count { full[fi] = part[j] }
+        return full
+    }
     /// How bright the lights stay while paused (same colors, dimmed).
     static let pausedLevel = 0.25
 
     func stop() {
+        finishCrossfade()
         resumeFromPause()
         cancelGap()
         activeBlock = nil
@@ -1830,6 +1884,12 @@ final class AppModel: ObservableObject {
                     for (j, fi) in linked.enumerated() where j < part.count { full[fi] = part[j] }
                     showFrame = full
                 }
+                // Fading from another song: blend that song's lights into this one's
+                if let cf = crossFrom, let fp = fadingPlayer,
+                   let old = songFrame(cf.song, show: cf.show, at: fp.currentTime, idleFrame: idleFrame) {
+                    let k = min(1, max(0, (Date().timeIntervalSinceReferenceDate - cf.start) / cf.length))
+                    showFrame = blendRendered(old, showFrame ?? idleFrame, k)
+                }
             }
 
             runAutoLighting(now: now)
@@ -1934,6 +1994,17 @@ final class AppModel: ObservableObject {
         let phase = clock.beatNumber(at: now) - floor(clock.beatNumber(at: now))
         let on = phase < 0.18
         if on != beatOn { beatOn = on }
+
+        // Smooth movement: heads glide to where the show wants them instead of snapping (no jerky moves)
+        if testMode == .off {
+            if smoothPan.count != rendered.count { smoothPan = rendered.map(\.pan); smoothTilt = rendered.map(\.tilt) }
+            let a = 1 - exp(-(1.0 / 40.0) / 0.16)
+            for i in rendered.indices {
+                smoothPan[i] += (rendered[i].pan - smoothPan[i]) * a
+                smoothTilt[i] += (rendered[i].tilt - smoothTilt[i]) * a
+                rendered[i].pan = smoothPan[i]; rendered[i].tilt = smoothTilt[i]
+            }
+        }
 
         // Paused: hold the same colors, dimmed, no strobing (eases down; eases back up on play)
         let wall = Date().timeIntervalSinceReferenceDate
