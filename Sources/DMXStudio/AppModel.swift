@@ -11,6 +11,8 @@ struct Library: Codable {
     var idle = IdleLook()
     var globalLatencyMs: Double = 0
     var rigMode: RigMode? = nil
+    var sessions: [Session]? = nil
+    var lastSessionID: UUID? = nil
 }
 
 enum TestMode: String, CaseIterable, Identifiable {
@@ -30,6 +32,22 @@ final class AppModel: ObservableObject {
     @Published var idle = IdleLook() { didSet { scheduleSave() } }
     @Published var globalLatencyMs: Double = 0 { didSet { scheduleSave() } }
     @Published var rigMode: RigMode = .together { didSet { scheduleSave() } }
+    @Published var presets: [LookPreset] = LookPreset.defaults { didSet { scheduleSave() } }
+    @Published var sessions: [Session] = [] { didSet { scheduleSave() } }
+    @Published var currentSessionID: UUID?
+    @Published var showingStart = true           // the black Sessions screen
+
+    // Live looks and beat tracking
+    @Published var activePresetID: UUID?
+    private var presetStart: Double = 0
+    @Published var beatSource: BeatSource = .manual { didSet { beatSourceChanged(oldValue) } }
+    @Published var displayBPM: Double = 120
+    @Published var beatOn = false                 // pulses on each beat (for the BPM light)
+    @Published var micLevel: Double = 0
+    private var clock = BeatClock()
+    private var tapTimes: [Double] = []
+    private let mic = MicBeatTracker()
+    @Published var manual: [UUID: ManualControl] = [:]   // hands-on control per light
 
     // Live
     @Published var selectedSongID: UUID?
@@ -112,6 +130,9 @@ final class AppModel: ObservableObject {
             case 1:  // S
                 if self.strobeHeld != down { self.strobeHeld = down }
                 return nil
+            case 17: // T = tap tempo
+                if down && !e.isARepeat { self.tapTempo() }
+                return nil
             default:
                 return e
             }
@@ -124,25 +145,27 @@ final class AppModel: ObservableObject {
         defer { loading = false }
         guard let data = try? Data(contentsOf: Self.storeURL),
               let lib = try? JSONDecoder().decode(Library.self, from: data) else {
-            // First launch: start with your SHEHDS beam bar already added.
-            // First launch: your two daisy-chained SHEHDS beam bars (addresses 001 and 039).
-            fixtures = [
-                Fixture(name: "Beam Bar 1", address: 1,
-                        profileName: FixtureProfile.shehdsBeam38.name, layout: FixtureProfile.shehdsBeam38.layout),
-                Fixture(name: "Beam Bar 2", address: 39,
-                        profileName: FixtureProfile.shehdsBeam38.name, layout: FixtureProfile.shehdsBeam38.layout),
-            ]
+            // First launch: one session with your rig (two SHEHDS bars + followspot)
             output.kind = .artNet
-            lineups = [Lineup(name: "My Set List")]
+            let first = Session(name: "My First Session", fixtures: Session.standardRig(), lineups: [Lineup(name: "My Set List")])
+            sessions = [first]
+            apply(first)
             return
         }
-        fixtures = lib.fixtures
         songs = lib.songs
-        lineups = lib.lineups.isEmpty ? [Lineup(name: "My Set List")] : lib.lineups
         output = lib.output
-        idle = lib.idle
         globalLatencyMs = lib.globalLatencyMs
-        rigMode = lib.rigMode ?? .together
+        if let saved = lib.sessions, !saved.isEmpty {
+            sessions = saved
+        } else {
+            // First time with sessions: turn the existing setup into the first session
+            sessions = [Session(name: "My First Session", fixtures: lib.fixtures.isEmpty ? Session.standardRig() : lib.fixtures,
+                                lineups: lib.lineups.isEmpty ? [Lineup(name: "My Set List")] : lib.lineups,
+                                presets: nil, idle: lib.idle, rigMode: lib.rigMode)]
+        }
+        // Load the last session's lights so the idle look runs while you're on the Sessions screen
+        let last = sessions.first { $0.id == lib.lastSessionID } ?? sessions.sorted { $0.modified > $1.modified }.first
+        if let last { apply(last) }
         selectedSongID = songs.first?.id
     }
 
@@ -154,9 +177,140 @@ final class AppModel: ObservableObject {
         DispatchQueue.main.asyncAfter(deadline: .now() + 0.8, execute: work)
     }
 
+    // MARK: - Sessions
+
+    private func apply(_ s: Session) {
+        currentSessionID = s.id
+        fixtures = s.fixtures
+        lineups = s.lineups.isEmpty ? [Lineup(name: "My Set List")] : s.lineups
+        presets = s.presets ?? LookPreset.defaults
+        idle = s.idle
+        rigMode = s.rigMode ?? .together
+        manual = [:]
+        activePresetID = nil
+    }
+
+    /// Copies what's on screen back into the current session.
+    private func captureCurrentSession() {
+        guard let id = currentSessionID, let i = sessions.firstIndex(where: { $0.id == id }) else { return }
+        let s = sessions[i]
+        // Only write (and bump "edited") when something actually changed — avoids endless re-saving
+        guard s.fixtures != fixtures || s.lineups != lineups || (s.presets ?? LookPreset.defaults) != presets
+                || s.idle != idle || (s.rigMode ?? .together) != rigMode else { return }
+        var updated = s
+        updated.fixtures = fixtures; updated.lineups = lineups; updated.presets = presets
+        updated.idle = idle; updated.rigMode = rigMode
+        updated.modified = Date()
+        if !loading { sessions[i] = updated }
+    }
+
+    func openSession(_ id: UUID) {
+        captureCurrentSession()
+        guard let s = sessions.first(where: { $0.id == id }) else { return }
+        if playingSongID != nil { stop() }
+        apply(s)
+        showingStart = false
+        saveNow()
+    }
+
+    @discardableResult
+    func newSession(name: String? = nil) -> UUID {
+        captureCurrentSession()
+        let n = name ?? "Session \(sessions.count + 1)"
+        let s = Session(name: n, fixtures: Session.standardRig(), lineups: [Lineup(name: "My Set List")])
+        sessions.append(s)
+        openSession(s.id)
+        return s.id
+    }
+
+    func duplicateSession(_ id: UUID) {
+        captureCurrentSession()
+        guard var s = sessions.first(where: { $0.id == id }) else { return }
+        s.id = UUID(); s.name += " copy"; s.created = Date(); s.modified = Date()
+        sessions.append(s)
+    }
+
+    func deleteSession(_ id: UUID) {
+        sessions.removeAll { $0.id == id }
+        if sessions.isEmpty {
+            sessions = [Session(name: "My First Session", fixtures: Session.standardRig(), lineups: [Lineup(name: "My Set List")])]
+        }
+        if currentSessionID == id, let first = sessions.first { apply(first) }
+    }
+
+    func renameSession(_ id: UUID, to name: String) {
+        if let i = sessions.firstIndex(where: { $0.id == id }) { sessions[i].name = name }
+    }
+
+    func showSessions() {
+        captureCurrentSession()
+        showingStart = true
+        saveNow()
+    }
+
+    var currentSessionName: String { sessions.first { $0.id == currentSessionID }?.name ?? "Session" }
+
+    // MARK: - Live looks & beat
+
+    func togglePreset(_ id: UUID) {
+        if activePresetID == id { activePresetID = nil; return }
+        activePresetID = id
+        presetStart = Date().timeIntervalSinceReferenceDate
+        testMode = .off
+    }
+
+    func tapTempo() {
+        let now = Date().timeIntervalSinceReferenceDate
+        if let last = tapTimes.last, now - last > 2.5 { tapTimes.removeAll() }
+        tapTimes.append(now)
+        if tapTimes.count > 8 { tapTimes.removeFirst() }
+        if tapTimes.count >= 2 {
+            let gaps = zip(tapTimes.dropFirst(), tapTimes).map { $0 - $1 }.sorted()
+            clock.bpm = min(200, max(50, 60 / gaps[gaps.count / 2]))
+        }
+        clock.anchor = now
+        displayBPM = clock.bpm
+        if beatSource == .mic { beatSource = .manual }
+    }
+
+    func nudgeBPM(_ d: Double) {
+        clock.bpm = min(200, max(50, (clock.bpm + d).rounded()))
+        displayBPM = clock.bpm
+    }
+
+    private func beatSourceChanged(_ old: BeatSource) {
+        guard beatSource != old else { return }
+        if beatSource == .mic {
+            AVCaptureDevice.requestAccess(for: .audio) { granted in
+                DispatchQueue.main.async {
+                    guard granted else {
+                        ErrorCenter.shared.report(area: "Microphone", message: "DMX Studio isn't allowed to use the microphone. Turn it on in System Preferences → Security & Privacy → Privacy → Microphone.")
+                        self.beatSource = .manual
+                        return
+                    }
+                    do { try self.mic.start() } catch {
+                        ErrorCenter.shared.report(area: "Microphone", message: "Couldn't start listening: \(error.localizedDescription)", details: "\(error)")
+                        self.beatSource = .manual
+                    }
+                }
+            }
+        } else {
+            mic.stop()
+            micLevel = 0
+        }
+    }
+
+    func setManual(_ id: UUID, _ change: (inout ManualControl) -> Void) {
+        var m = manual[id] ?? ManualControl()
+        change(&m)
+        manual[id] = m.isEmpty ? nil : m
+    }
+
     func saveNow() {
+        captureCurrentSession()
         let lib = Library(fixtures: fixtures, songs: songs, lineups: lineups, output: output,
-                          idle: idle, globalLatencyMs: globalLatencyMs, rigMode: rigMode)
+                          idle: idle, globalLatencyMs: globalLatencyMs, rigMode: rigMode,
+                          sessions: sessions, lastSessionID: currentSessionID)
         DispatchQueue.global(qos: .utility).async {
             if let data = try? JSONEncoder().encode(lib) {
                 try? data.write(to: Self.storeURL, options: .atomic)
@@ -678,8 +832,28 @@ final class AppModel: ObservableObject {
                 }
             }
 
+            // Live look (tapped preset): runs on the beat clock, and overrides a playing song's show
+            if let pid = activePresetID, let preset = presets.first(where: { $0.id == pid }) {
+                var onsets: [Double] = []
+                var level = 0.7
+                if beatSource == .mic {
+                    let snap = mic.snapshot()
+                    clock.bpm = snap.bpm; clock.anchor = snap.anchor
+                    onsets = snap.onsets; level = max(0.3, snap.level)
+                }
+                let la = clock.liveAnalysis(now: now, onsets: onsets, level: level, useOnsetsAsKicks: beatSource == .mic)
+                let linked = fixtures.indices.filter { fixtures[$0].effectiveBehavior == .sequence }
+                var r = ShowRenderer(analysis: la, sections: [preset.asSection(start: presetStart)], fixtures: linked.map { fixtures[$0] })
+                r.rig = rigMode
+                let part = r.render(at: now)
+                var full = idleFrame
+                for (j, fi) in linked.enumerated() where j < part.count { full[fi] = part[j] }
+                showFrame = full
+                t = now
+            }
+
             // Smoothly ramp between show and idle when a song starts, pauses or stops
-            let target: Double = (showFrame != nil && isPlaying) ? 0 : 1
+            let target: Double = (showFrame != nil && (isPlaying || activePresetID != nil)) ? 0 : 1
             let step = 1.0 / (40 * 0.8)   // ~0.8 s fade
             if idleBlend < target { idleBlend = min(target, idleBlend + step) }
             if idleBlend > target { idleBlend = max(target, idleBlend - step * 4) } // come in fast on play
@@ -700,6 +874,37 @@ final class AppModel: ObservableObject {
                     : RenderedFixture(heads: Array(repeating: .off, count: fx.headCount))
             }
         }
+
+        // Hands-on control from the light's control panel
+        if testMode == .off {
+            for (i, fx) in fixtures.enumerated() where i < rendered.count {
+                guard let m = manual[fx.id] else { continue }
+                for h in rendered[i].heads.indices {
+                    if let c = m.color {
+                        rendered[i].heads[h].color = c
+                        if m.dimmer == nil { rendered[i].heads[h].intensity = max(rendered[i].heads[h].intensity, 1) }
+                    }
+                    if let d = m.dimmer { rendered[i].heads[h].intensity = d }
+                }
+                if let s = m.strobe { rendered[i].strobe = s }
+                if let p = m.pan { rendered[i].pan = p }
+                if let tl = m.tilt { rendered[i].tilt = tl }
+            }
+        }
+
+        // Beat light + BPM readout
+        if beatSource == .mic && activePresetID == nil {
+            let snap = mic.snapshot(); clock.bpm = snap.bpm; clock.anchor = snap.anchor
+        }
+        if tickCount % 4 == 0 {
+            let bpmNow: Double
+            if let id = playingSongID, let a = song(id)?.analysis, activePresetID == nil { bpmNow = a.bpm } else { bpmNow = clock.bpm }
+            if abs(bpmNow - displayBPM) > 0.4 { displayBPM = bpmNow }
+            if beatSource == .mic { let l = mic.snapshot().level; if abs(l - micLevel) > 0.05 { micLevel = l } }
+        }
+        let phase = clock.beatNumber(at: now) - floor(clock.beatNumber(at: now))
+        let on = phase < 0.18
+        if on != beatOn { beatOn = on }
 
         // Live hold buttons override everything
         if flashHeld || strobeHeld {

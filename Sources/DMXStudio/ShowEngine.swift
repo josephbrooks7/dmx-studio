@@ -286,6 +286,7 @@ struct ShowRenderer {
             }
         }
         // Align beat counting so bars start on the detected downbeat
+        beatPos += Double(analysis.beatBase ?? 0)
         beatPos -= Double(analysis.downbeatOffset)
 
         let ki = lastIndex(analysis.kicks, atOrBefore: t)

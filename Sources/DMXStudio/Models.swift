@@ -338,6 +338,7 @@ struct SongAnalysis: Codable {
     var hats: [Double]
     var detectedSections: [DetectedSection]
     var silences: [SilenceSpan]? = nil   // stretches with no music (start, gaps, end)
+    var beatBase: Int? = nil             // live mode: global number of beats[0]
 
     func value(_ arr: [Float], at t: Double) -> Double {
         guard !arr.isEmpty else { return 0 }
@@ -566,4 +567,36 @@ struct StationaryLook: Codable, Hashable {
         rf.tilt = tilt
         return rf
     }
+}
+
+// MARK: - Sessions (a complete setup you can save and recall)
+
+struct Session: Identifiable, Codable {
+    var id = UUID()
+    var name: String
+    var created = Date()
+    var modified = Date()
+    var fixtures: [Fixture]
+    var lineups: [Lineup]
+    var presets: [LookPreset]? = nil
+    var idle: IdleLook = IdleLook()
+    var rigMode: RigMode? = nil
+
+    /// Your standard rig: two daisy-chained SHEHDS bars + the Chauvet followspot.
+    static func standardRig() -> [Fixture] {
+        [Fixture(name: "Beam Bar 1", address: 1, profileName: FixtureProfile.shehdsBeam38.name, layout: FixtureProfile.shehdsBeam38.layout),
+         Fixture(name: "Beam Bar 2", address: 39, profileName: FixtureProfile.shehdsBeam38.name, layout: FixtureProfile.shehdsBeam38.layout),
+         Fixture(name: "Followspot", address: 77, profileName: FixtureProfile.chauvetFollowspot75ST.name, layout: FixtureProfile.chauvetFollowspot75ST.layout)]
+    }
+}
+
+// MARK: - Hands-on control of one light (from the Show screen's control panel)
+
+struct ManualControl: Equatable {
+    var dimmer: Double? = nil
+    var color: RGB? = nil
+    var strobe: Double? = nil
+    var pan: Double? = nil
+    var tilt: Double? = nil
+    var isEmpty: Bool { dimmer == nil && color == nil && strobe == nil && pan == nil && tilt == nil }
 }

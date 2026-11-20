@@ -1,0 +1,1022 @@
+import SwiftUI
+import AppKit
+import UniformTypeIdentifiers
+
+// MARK: - Look & feel
+
+enum Theme {
+    static let accent = Color(red: 0.95, green: 0.16, blue: 0.36)        // Red Velvet
+    static let accent2 = Color(red: 0.55, green: 0.25, blue: 1.0)
+    static let bg = Color(red: 0.035, green: 0.035, blue: 0.045)
+    static let panel = Color.white.opacity(0.055)
+    static let panelBorder = Color.white.opacity(0.08)
+    static let subtle = Color.white.opacity(0.55)
+}
+
+struct Panel<Content: View>: View {
+    var padding: CGFloat = 16
+    let content: Content
+    init(padding: CGFloat = 16, @ViewBuilder _ content: () -> Content) { self.padding = padding; self.content = content() }
+    var body: some View {
+        content
+            .padding(padding)
+            .background(RoundedRectangle(cornerRadius: 18, style: .continuous).fill(Theme.panel))
+            .overlay(RoundedRectangle(cornerRadius: 18, style: .continuous).stroke(Theme.panelBorder))
+    }
+}
+
+struct PillButtonStyle: ButtonStyle {
+    var active = false
+    func makeBody(configuration: Configuration) -> some View {
+        configuration.label
+            .font(.system(size: 13, weight: .semibold))
+            .padding(.horizontal, 14).padding(.vertical, 8)
+            .background(Capsule().fill(active ? Theme.accent : Color.white.opacity(configuration.isPressed ? 0.18 : 0.09)))
+            .foregroundColor(.white)
+    }
+}
+
+// MARK: - Sessions (the black start screen)
+
+struct SessionsScreen: View {
+    @EnvironmentObject var model: AppModel
+    @State private var renaming: UUID?
+    @State private var renameText = ""
+
+    private let cols = [GridItem(.adaptive(minimum: 230, maximum: 280), spacing: 22)]
+
+    var body: some View {
+        ZStack {
+            Color.black.ignoresSafeArea()
+            RadialGradient(colors: [Theme.accent.opacity(0.18), .clear], center: .top, startRadius: 10, endRadius: 600)
+                .ignoresSafeArea()
+            ScrollView {
+                VStack(alignment: .leading, spacing: 28) {
+                    HStack(alignment: .firstTextBaseline) {
+                        VStack(alignment: .leading, spacing: 4) {
+                            Text("DMX Studio").font(.system(size: 38, weight: .heavy, design: .rounded))
+                            Text("Red Velvet Studios").font(.system(size: 14, weight: .medium)).foregroundColor(Theme.accent)
+                        }
+                        Spacer()
+                        HStack(spacing: 6) {
+                            Circle().fill(model.connected ? Color.green : Color.gray).frame(width: 8, height: 8)
+                            Text(model.connected ? "Lights connected" : "Lights not connected")
+                                .font(.caption).foregroundColor(Theme.subtle)
+                        }
+                    }
+                    Text("Your Sessions").font(.system(size: 20, weight: .bold))
+                    LazyVGrid(columns: cols, alignment: .leading, spacing: 22) {
+                        Button { model.newSession() } label: {
+                            VStack(spacing: 14) {
+                                Image(systemName: "plus").font(.system(size: 34, weight: .light))
+                                Text("New Session").font(.headline)
+                                Text("Starts with your two beam bars and followspot").font(.caption).foregroundColor(Theme.subtle)
+                                    .multilineTextAlignment(.center)
+                            }
+                            .frame(maxWidth: .infinity, minHeight: 210)
+                            .background(RoundedRectangle(cornerRadius: 22, style: .continuous)
+                                .strokeBorder(style: StrokeStyle(lineWidth: 1.5, dash: [6, 6])).foregroundColor(Color.white.opacity(0.25)))
+                        }
+                        .buttonStyle(.plain)
+
+                        ForEach(model.sessions.sorted { $0.modified > $1.modified }) { s in
+                            SessionCard(session: s)
+                                .onTapGesture { model.openSession(s.id) }
+                                .contextMenu {
+                                    Button("Open") { model.openSession(s.id) }
+                                    Button("Rename…") { renaming = s.id; renameText = s.name }
+                                    Button("Duplicate") { model.duplicateSession(s.id) }
+                                    Divider()
+                                    Button("Delete", role: .destructive) { model.deleteSession(s.id) }
+                                }
+                        }
+                    }
+                    if let rid = renaming {
+                        HStack {
+                            TextField("Session name", text: $renameText).textFieldStyle(.roundedBorder).frame(width: 300)
+                            Button("Save") { model.renameSession(rid, to: renameText); renaming = nil }
+                            Button("Cancel") { renaming = nil }
+                        }
+                    }
+                    Text("Tip: right-click a session to rename, duplicate or delete it. Your song library is shared by every session.")
+                        .font(.caption).foregroundColor(Theme.subtle)
+                }
+                .padding(40)
+            }
+        }
+        .preferredColorScheme(.dark)
+    }
+}
+
+struct SessionCard: View {
+    @EnvironmentObject var model: AppModel
+    let session: Session
+    @State private var hover = false
+
+    var body: some View {
+        let pal = Palette.named((session.presets ?? LookPreset.defaults).first?.palette ?? "Red Velvet")
+        VStack(alignment: .leading, spacing: 0) {
+            ZStack {
+                LinearGradient(colors: [Color.black, Color(white: 0.08)], startPoint: .top, endPoint: .bottom)
+                HStack(spacing: 14) {
+                    ForEach(Array(session.fixtures.prefix(4).enumerated()), id: \.offset) { i, _ in
+                        RingShape(segments: 6, gap: 0.05)
+                            .stroke(pal.color(i).color, style: StrokeStyle(lineWidth: 9, lineCap: .round))
+                            .frame(width: 44, height: 44)
+                            .shadow(color: pal.color(i).color.opacity(0.6), radius: 8)
+                    }
+                }
+            }
+            .frame(height: 130)
+            VStack(alignment: .leading, spacing: 4) {
+                Text(session.name).font(.headline).lineLimit(1)
+                Text("Edited \(session.modified, style: .date)").font(.caption).foregroundColor(Theme.subtle)
+                Text("\(session.fixtures.count) lights · \(session.lineups.count) set list\(session.lineups.count == 1 ? "" : "s")")
+                    .font(.caption).foregroundColor(Theme.subtle)
+            }
+            .padding(14)
+        }
+        .background(Color(white: 0.06))
+        .clipShape(RoundedRectangle(cornerRadius: 22, style: .continuous))
+        .overlay(RoundedRectangle(cornerRadius: 22, style: .continuous)
+            .stroke(hover ? Theme.accent : (session.id == model.currentSessionID ? Color.white.opacity(0.3) : Theme.panelBorder), lineWidth: hover ? 2 : 1))
+        .scaleEffect(hover ? 1.02 : 1)
+        .animation(.easeOut(duration: 0.15), value: hover)
+        .onHover { hover = $0 }
+        .contentShape(Rectangle())
+    }
+}
+
+// MARK: - Main shell with tabs
+
+enum MainTab: String, CaseIterable, Identifiable {
+    case show = "Show", live = "Live", songs = "Songs", sets = "Set Lists", setup = "Setup"
+    var id: String { rawValue }
+    var icon: String {
+        switch self {
+        case .show: return "lightbulb.fill"
+        case .live: return "square.grid.3x3.fill"
+        case .songs: return "music.note.list"
+        case .sets: return "list.number"
+        case .setup: return "gearshape.fill"
+        }
+    }
+}
+
+struct MainShell: View {
+    @EnvironmentObject var model: AppModel
+    @State private var tab: MainTab = .show
+
+    var body: some View {
+        VStack(spacing: 0) {
+            TopBar()
+            Divider().opacity(0.4)
+            Group {
+                switch tab {
+                case .show: ShowScreen()
+                case .live: LiveScreen()
+                case .songs: SongsScreen()
+                case .sets: SetListsScreen()
+                case .setup: SetupScreen()
+                }
+            }
+            .frame(maxWidth: .infinity, maxHeight: .infinity)
+            BottomBar(tab: $tab)
+        }
+        .background(Theme.bg)
+    }
+}
+
+struct TopBar: View {
+    @EnvironmentObject var model: AppModel
+
+    var body: some View {
+        HStack(spacing: 14) {
+            Button { model.showSessions() } label: { Label("Sessions", systemImage: "square.grid.2x2") }
+                .buttonStyle(PillButtonStyle())
+            Text(model.currentSessionName).font(.system(size: 20, weight: .bold)).lineLimit(1)
+            Spacer()
+            NowPlayingCard()
+            Spacer()
+            HStack(spacing: 6) {
+                Circle().fill(model.connected ? Color.green : Color.red).frame(width: 8, height: 8)
+                Text(model.connected ? (model.output.rememberedDevice?.name ?? "Lights connected") : "Not connected")
+                    .font(.caption).foregroundColor(Theme.subtle).lineLimit(1)
+            }
+        }
+        .padding(.horizontal, 18).padding(.vertical, 10)
+    }
+}
+
+struct NowPlayingCard: View {
+    @EnvironmentObject var model: AppModel
+
+    var body: some View {
+        let song = model.playingSongID.flatMap { model.song($0) }
+        HStack(spacing: 12) {
+            Button { model.previousInLineup() } label: { Image(systemName: "backward.fill") }
+                .buttonStyle(.plain).disabled(model.playingLineupID == nil).opacity(model.playingLineupID == nil ? 0.3 : 1)
+            Button { model.togglePlay() } label: {
+                Image(systemName: model.isPlaying ? "pause.fill" : "play.fill")
+                    .font(.system(size: 16, weight: .bold))
+                    .frame(width: 34, height: 34)
+                    .background(Circle().fill(Theme.accent))
+            }
+            .buttonStyle(.plain)
+            Button { model.nextInLineup() } label: { Image(systemName: "forward.fill") }
+                .buttonStyle(.plain).disabled(model.playingLineupID == nil).opacity(model.playingLineupID == nil ? 0.3 : 1)
+            VStack(alignment: .leading, spacing: 3) {
+                Text(model.inGap ? "Next song starting…" : (song?.displayName ?? "Nothing playing"))
+                    .font(.system(size: 13, weight: .semibold)).lineLimit(1)
+                if let a = song?.analysis {
+                    GeometryReader { g in
+                        ZStack(alignment: .leading) {
+                            Capsule().fill(Color.white.opacity(0.12))
+                            Capsule().fill(Theme.accent).frame(width: g.size.width * CGFloat(min(1, model.currentTime / max(a.duration, 1))))
+                        }
+                    }
+                    .frame(height: 4)
+                    Text("\(formatTime(model.currentTime)) / \(formatTime(a.duration))").font(.caption2).monospacedDigit().foregroundColor(Theme.subtle)
+                } else {
+                    Text(model.activePresetID != nil ? "Live look running" : "Idle look on").font(.caption2).foregroundColor(Theme.subtle)
+                }
+            }
+            .frame(width: 260, alignment: .leading)
+        }
+        .padding(.horizontal, 14).padding(.vertical, 6)
+        .background(Capsule().fill(Theme.panel))
+        .overlay(Capsule().stroke(Theme.panelBorder))
+    }
+}
+
+struct BottomBar: View {
+    @EnvironmentObject var model: AppModel
+    @Binding var tab: MainTab
+
+    var usedChannels: Int { model.fixtures.reduce(0) { $0 + $1.channelCount } }
+
+    var body: some View {
+        HStack {
+            HStack(spacing: 6) {
+                Image(systemName: "cellularbars")
+                VStack(alignment: .leading, spacing: 0) {
+                    Text("\(usedChannels)").font(.system(size: 15, weight: .bold)).monospacedDigit()
+                    Text("of 512 channels").font(.system(size: 9)).foregroundColor(Theme.subtle)
+                }
+            }
+            .frame(width: 160, alignment: .leading)
+            Spacer()
+            HStack(spacing: 4) {
+                ForEach(MainTab.allCases) { t in
+                    Button { tab = t } label: {
+                        VStack(spacing: 3) {
+                            Image(systemName: t.icon).font(.system(size: 15))
+                            Text(t.rawValue).font(.system(size: 11, weight: .medium))
+                        }
+                        .frame(width: 84, height: 44)
+                        .foregroundColor(tab == t ? Theme.accent : Theme.subtle)
+                        .background(RoundedRectangle(cornerRadius: 10).fill(tab == t ? Theme.accent.opacity(0.12) : .clear))
+                    }
+                    .buttonStyle(.plain)
+                }
+            }
+            Spacer()
+            BeatPill().frame(width: 160, alignment: .trailing)
+        }
+        .padding(.horizontal, 18).padding(.vertical, 8)
+        .background(Color.black.opacity(0.55))
+    }
+}
+
+// MARK: - Beat tracker (BPM pill + popover)
+
+struct BeatPill: View {
+    @EnvironmentObject var model: AppModel
+    @State private var open = false
+
+    var body: some View {
+        Button { open.toggle() } label: {
+            HStack(spacing: 8) {
+                Circle().fill(model.beatOn ? Theme.accent : Color.white.opacity(0.15)).frame(width: 10, height: 10)
+                VStack(alignment: .trailing, spacing: 0) {
+                    Text("\(Int(model.displayBPM.rounded()))").font(.system(size: 20, weight: .bold)).monospacedDigit()
+                    Text(model.playingSongID != nil && model.activePresetID == nil ? "BPM · song" :
+                            (model.beatSource == .mic ? "BPM · mic" : "BPM · tap"))
+                        .font(.system(size: 9)).foregroundColor(Theme.subtle)
+                }
+            }
+        }
+        .buttonStyle(.plain)
+        .popover(isPresented: $open, arrowEdge: .top) { BeatPopover().environmentObject(model) }
+    }
+}
+
+struct BeatPopover: View {
+    @EnvironmentObject var model: AppModel
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 14) {
+            Text("Beat Tracker").font(.headline)
+            Text("Learned songs always use their own beats. This sets the beat for live looks and music the app hasn't learned.")
+                .font(.caption).foregroundColor(.secondary).fixedSize(horizontal: false, vertical: true)
+            Picker("", selection: $model.beatSource) {
+                ForEach(BeatSource.allCases) { Text($0.rawValue).tag($0) }
+            }
+            .pickerStyle(.radioGroup)
+            .labelsHidden()
+            if model.beatSource == .mic {
+                HStack {
+                    Image(systemName: "mic.fill")
+                    ProgressView(value: model.micLevel).frame(width: 160)
+                }
+                Text("Listening to the room. Place the Mac near the speakers for the best beat lock.")
+                    .font(.caption).foregroundColor(.secondary)
+            }
+            HStack(spacing: 12) {
+                Button { model.nudgeBPM(-1) } label: { Image(systemName: "minus") }
+                Button { model.tapTempo() } label: {
+                    VStack(spacing: 2) {
+                        Text("\(Int(model.displayBPM.rounded())) BPM").font(.system(size: 22, weight: .bold)).monospacedDigit()
+                        Text("Tap to sync").font(.caption2).foregroundColor(.secondary)
+                    }
+                    .frame(width: 130, height: 56)
+                    .background(RoundedRectangle(cornerRadius: 12).fill(model.beatOn ? Theme.accent.opacity(0.5) : Color.white.opacity(0.08)))
+                }
+                .buttonStyle(.plain)
+                Button { model.nudgeBPM(1) } label: { Image(systemName: "plus") }
+            }
+            Text("Tip: press T to tap the beat").font(.caption2).foregroundColor(.secondary)
+        }
+        .padding(18)
+        .frame(width: 300)
+    }
+}
+
+// MARK: - Show screen (Photon-inspired)
+
+struct ShowScreen: View {
+    @EnvironmentObject var model: AppModel
+    @State private var controlling: UUID?
+    @State private var editingPreset: UUID?
+
+    private let cols = [GridItem(.adaptive(minimum: 170, maximum: 220), spacing: 12)]
+
+    var body: some View {
+        HStack(alignment: .top, spacing: 16) {
+            MasterColumn()
+            VStack(alignment: .leading, spacing: 16) {
+                // Stage: your lights as live rings
+                Panel {
+                    VStack(alignment: .leading, spacing: 10) {
+                        HStack {
+                            Text("Stage").font(.system(size: 17, weight: .bold))
+                            Text("Tap a light to control it by hand").font(.caption).foregroundColor(Theme.subtle)
+                            Spacer()
+                            if !model.manual.isEmpty {
+                                Button("Release all") { model.manual = [:] }.buttonStyle(PillButtonStyle())
+                            }
+                        }
+                        ScrollView(.horizontal, showsIndicators: false) {
+                            HStack(spacing: 26) {
+                                ForEach(Array(model.fixtures.enumerated()), id: \.element.id) { i, fx in
+                                    FixtureRing(fixture: fx, rendered: i < model.preview.count ? model.preview[i] : nil,
+                                                manual: model.manual[fx.id] != nil)
+                                        .onTapGesture { controlling = fx.id }
+                                        .popover(isPresented: Binding(get: { controlling == fx.id }, set: { if !$0 { controlling = nil } }),
+                                                 arrowEdge: .bottom) {
+                                            FixtureControlPanel(fixtureID: fx.id).environmentObject(model)
+                                        }
+                                }
+                            }
+                            .padding(.vertical, 6)
+                        }
+                    }
+                }
+
+                // Presets & sequences
+                Panel {
+                    ScrollView {
+                        VStack(alignment: .leading, spacing: 14) {
+                            if let song = model.selectedSongID.flatMap({ model.song($0) }), !song.shows.isEmpty {
+                                HStack {
+                                    Text("Sequences · \(song.title)").font(.system(size: 17, weight: .bold)).lineLimit(1)
+                                    Text("Plays the song with its light show").font(.caption).foregroundColor(Theme.subtle)
+                                }
+                                LazyVGrid(columns: cols, alignment: .leading, spacing: 12) {
+                                    ForEach(song.shows) { show in
+                                        SequenceTile(song: song, show: show)
+                                    }
+                                }
+                            }
+                            HStack {
+                                Text("Presets").font(.system(size: 17, weight: .bold))
+                                Text("Tap to run on the beat · tap again to stop").font(.caption).foregroundColor(Theme.subtle)
+                                Spacer()
+                                Button {
+                                    let p = LookPreset(name: "New Look", effect: .pulse, palette: "Red Velvet", movement: .sweep)
+                                    model.presets.append(p)
+                                    editingPreset = p.id
+                                } label: { Label("New Preset", systemImage: "plus") }
+                                .buttonStyle(PillButtonStyle())
+                            }
+                            LazyVGrid(columns: cols, alignment: .leading, spacing: 12) {
+                                ForEach(model.presets) { p in
+                                    PresetTile(preset: p, active: model.activePresetID == p.id)
+                                        .onTapGesture { model.togglePreset(p.id) }
+                                        .contextMenu {
+                                            Button("Edit…") { editingPreset = p.id }
+                                            Button("Duplicate") {
+                                                var c = p; c.id = UUID(); c.name += " copy"; model.presets.append(c)
+                                            }
+                                            Divider()
+                                            Button("Delete", role: .destructive) {
+                                                if model.activePresetID == p.id { model.activePresetID = nil }
+                                                model.presets.removeAll { $0.id == p.id }
+                                            }
+                                        }
+                                        .popover(isPresented: Binding(get: { editingPreset == p.id }, set: { if !$0 { editingPreset = nil } })) {
+                                            PresetEditor(presetID: p.id).environmentObject(model)
+                                        }
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        }
+        .padding(16)
+    }
+}
+
+struct MasterColumn: View {
+    @EnvironmentObject var model: AppModel
+
+    var body: some View {
+        Panel(padding: 12) {
+            VStack(spacing: 12) {
+                Text("Master").font(.system(size: 13, weight: .semibold)).foregroundColor(Theme.subtle)
+                VerticalFader(value: $model.master)
+                    .frame(width: 64)
+                Text("\(Int(model.master * 100))%").font(.caption).monospacedDigit()
+                HoldPad(title: "FLASH", icon: "sun.max.fill", color: .white, isHeld: $model.flashHeld)
+                HoldPad(title: "STROBE", icon: "bolt.fill", color: .yellow, isHeld: $model.strobeHeld)
+                Button { model.blackout.toggle() } label: {
+                    VStack(spacing: 2) {
+                        Image(systemName: "lightbulb.slash.fill")
+                        Text("BLACKOUT").font(.system(size: 9, weight: .bold))
+                    }
+                    .frame(width: 64, height: 50)
+                    .background(RoundedRectangle(cornerRadius: 12).fill(model.blackout ? Color.red : Color.white.opacity(0.08)))
+                }
+                .buttonStyle(.plain)
+            }
+        }
+        .frame(width: 92)
+    }
+}
+
+struct VerticalFader: View {
+    @Binding var value: Double
+
+    var body: some View {
+        GeometryReader { g in
+            ZStack(alignment: .bottom) {
+                RoundedRectangle(cornerRadius: 14).fill(Color.white.opacity(0.08))
+                RoundedRectangle(cornerRadius: 14)
+                    .fill(LinearGradient(colors: [Color.white.opacity(0.95), Color.white.opacity(0.75)], startPoint: .top, endPoint: .bottom))
+                    .frame(height: max(8, g.size.height * CGFloat(value)))
+            }
+            .contentShape(Rectangle())
+            .gesture(DragGesture(minimumDistance: 0).onChanged { v in
+                value = Double(min(1, max(0, 1 - v.location.y / g.size.height)))
+            })
+        }
+    }
+}
+
+struct HoldPad: View {
+    let title: String
+    let icon: String
+    let color: Color
+    @Binding var isHeld: Bool
+
+    var body: some View {
+        VStack(spacing: 2) {
+            Image(systemName: icon)
+            Text(title).font(.system(size: 9, weight: .bold))
+        }
+        .frame(width: 64, height: 50)
+        .background(RoundedRectangle(cornerRadius: 12).fill(isHeld ? color.opacity(0.9) : Color.white.opacity(0.08)))
+        .foregroundColor(isHeld ? .black : .white)
+        .contentShape(Rectangle())
+        .gesture(DragGesture(minimumDistance: 0)
+            .onChanged { _ in if !isHeld { isHeld = true } }
+            .onEnded { _ in isHeld = false })
+    }
+}
+
+// MARK: - Light rings
+
+/// A ring split into segments (one per head), drawn as an open arc like Photon's zones.
+struct RingShape: Shape {
+    var segments: Int
+    var gap: Double = 0.03
+    var index: Int? = nil   // draw only this segment
+
+    func path(in rect: CGRect) -> Path {
+        var p = Path()
+        let c = CGPoint(x: rect.midX, y: rect.midY)
+        let r = min(rect.width, rect.height) / 2
+        let startA = 125.0, sweep = 290.0                         // open at the bottom
+        let n = max(segments, 1)
+        let each = sweep / Double(n)
+        for i in 0..<n where index == nil || index == i {
+            let a0 = startA + Double(i) * each + each * gap / 2
+            let a1 = startA + Double(i + 1) * each - each * gap / 2
+            p.addArc(center: c, radius: r, startAngle: .degrees(a0), endAngle: .degrees(a1), clockwise: false)
+            if index == nil { p.move(to: CGPoint(x: c.x + r * CGFloat(cos((a1 + each * gap) * .pi / 180)),
+                                                  y: c.y + r * CGFloat(sin((a1 + each * gap) * .pi / 180)))) }
+        }
+        return p
+    }
+}
+
+struct FixtureRing: View {
+    let fixture: Fixture
+    let rendered: RenderedFixture?
+    let manual: Bool
+    @State private var hover = false
+
+    var body: some View {
+        let heads = rendered?.heads ?? Array(repeating: FixtureState.off, count: fixture.headCount)
+        VStack(spacing: 8) {
+            ZStack {
+                ForEach(0..<max(1, heads.count), id: \.self) { h in
+                    let st = h < heads.count ? heads[h] : .off
+                    let lit = max(0.12, st.intensity)
+                    RingShape(segments: max(1, heads.count), gap: heads.count > 1 ? 0.12 : 0, index: h)
+                        .stroke(st.color.color.opacity(lit), style: StrokeStyle(lineWidth: 18, lineCap: heads.count > 1 ? .butt : .round))
+                        .shadow(color: st.color.color.opacity(st.intensity * 0.8), radius: 10 * st.intensity)
+                }
+                VStack(spacing: 2) {
+                    Text(fixture.name).font(.system(size: 13, weight: .bold)).lineLimit(1)
+                    Text(fixture.effectiveBehavior == .stationary ? "Stationary" : "Sequence")
+                        .font(.system(size: 9)).foregroundColor(Theme.subtle)
+                    if manual {
+                        Text("HAND").font(.system(size: 8, weight: .heavy)).padding(.horizontal, 5).padding(.vertical, 1)
+                            .background(Capsule().fill(Theme.accent))
+                    }
+                }
+                .frame(width: 90)
+            }
+            .frame(width: 128, height: 128)
+            .scaleEffect(hover ? 1.04 : 1)
+            .animation(.easeOut(duration: 0.12), value: hover)
+            HStack(spacing: 4) {
+                Image(systemName: "lightbulb").font(.system(size: 9))
+                Text("\(fixture.headCount == 1 ? "1 light" : "\(fixture.headCount) heads") · ch \(fixture.address)")
+                    .font(.system(size: 10))
+            }
+            .padding(.horizontal, 8).padding(.vertical, 3)
+            .background(Capsule().fill(Color.white.opacity(0.08)))
+            .foregroundColor(Theme.subtle)
+        }
+        .contentShape(Rectangle())
+        .onHover { hover = $0 }
+    }
+}
+
+// MARK: - Light control panel (tap a ring)
+
+struct FixtureControlPanel: View {
+    @EnvironmentObject var model: AppModel
+    let fixtureID: UUID
+
+    private let swatches: [RGB] = [RGB(hex: 0xFF0000), RGB(hex: 0xFF6A00), RGB(hex: 0xFFD000), RGB(hex: 0x00FF40),
+                                   RGB(hex: 0x00E0FF), RGB(hex: 0x0040FF), RGB(hex: 0x8000FF), RGB(hex: 0xFF00C8), .white]
+
+    var body: some View {
+        let fx = model.fixtures.first { $0.id == fixtureID }
+        let m = model.manual[fixtureID] ?? ManualControl()
+        VStack(alignment: .leading, spacing: 14) {
+            HStack {
+                Text(fx?.name ?? "Light").font(.title3.bold())
+                Spacer()
+                Button("Follow show") { model.manual[fixtureID] = nil }
+                    .buttonStyle(PillButtonStyle(active: model.manual[fixtureID] == nil))
+            }
+            if let wheel = fx?.colorWheel {
+                Text("Color wheel").font(.caption).foregroundColor(.secondary)
+                HStack(spacing: 8) {
+                    ForEach(0..<wheel.slots.count, id: \.self) { i in
+                        swatch(wheel.slots[i].color, selected: m.color.map { wheel.nearest($0).value == wheel.slots[i].value } ?? false)
+                    }
+                }
+            } else {
+                Text("Color").font(.caption).foregroundColor(.secondary)
+                HStack(spacing: 8) {
+                    ForEach(0..<swatches.count, id: \.self) { i in
+                        swatch(swatches[i], selected: m.color == swatches[i])
+                    }
+                    ColorPicker("", selection: Binding(get: { (m.color ?? .white).color }, set: { c in
+                        if let ns = NSColor(c).usingColorSpace(.deviceRGB) {
+                            model.setManual(fixtureID) { $0.color = RGB(r: Double(ns.redComponent), g: Double(ns.greenComponent), b: Double(ns.blueComponent)) }
+                        }
+                    }), supportsOpacity: false).labelsHidden()
+                }
+            }
+            sliderRow("Dimmer", icon: "sun.max", value: m.dimmer, default: 1) { v in model.setManual(fixtureID) { $0.dimmer = v } }
+            if fx?.hasStrobeChannel == true || true {
+                sliderRow("Strobe", icon: "bolt", value: m.strobe, default: 0) { v in model.setManual(fixtureID) { $0.strobe = v } }
+            }
+            if fx?.isMover == true {
+                sliderRow("Tilt / position", icon: "arrow.up.and.down", value: m.tilt, default: 0.5) { v in model.setManual(fixtureID) { $0.tilt = v } }
+                if fx?.channels.contains(.role(.pan, head: 0)) == true {
+                    sliderRow("Pan", icon: "arrow.left.and.right", value: m.pan, default: 0.5) { v in model.setManual(fixtureID) { $0.pan = v } }
+                }
+            }
+            if fx?.colorWheel != nil {
+                Text("Focus and iris are the knobs on the light itself.").font(.caption2).foregroundColor(.secondary)
+            }
+        }
+        .padding(18)
+        .frame(width: 380)
+    }
+
+    private func swatch(_ c: RGB, selected: Bool) -> some View {
+        Button { model.setManual(fixtureID) { $0.color = c } } label: {
+            Circle().fill(c.color).frame(width: 26, height: 26)
+                .overlay(Circle().stroke(selected ? Color.white : Color.white.opacity(0.15), lineWidth: selected ? 3 : 1))
+        }
+        .buttonStyle(.plain)
+    }
+
+    private func sliderRow(_ label: String, icon: String, value: Double?, default d: Double, set: @escaping (Double?) -> Void) -> some View {
+        HStack {
+            Image(systemName: icon).frame(width: 18)
+            Text(label).frame(width: 100, alignment: .leading)
+            Slider(value: Binding(get: { value ?? d }, set: { set($0) }), in: 0...1)
+            Button { set(nil) } label: { Image(systemName: "arrow.uturn.backward") }
+                .buttonStyle(.borderless).help("Back to the show").opacity(value == nil ? 0.3 : 1)
+        }
+    }
+}
+
+// MARK: - Tiles
+
+struct PresetTile: View {
+    let preset: LookPreset
+    let active: Bool
+    @State private var hover = false
+
+    var body: some View {
+        let pal = Palette.named(preset.palette)
+        HStack(spacing: 12) {
+            ZStack {
+                RoundedRectangle(cornerRadius: 12)
+                    .fill(LinearGradient(colors: pal.colors.prefix(3).map { $0.color }, startPoint: .topLeading, endPoint: .bottomTrailing))
+                Image(systemName: preset.icon).font(.system(size: 17, weight: .bold)).foregroundColor(.white)
+                    .shadow(radius: 2)
+            }
+            .frame(width: 44, height: 44)
+            VStack(alignment: .leading, spacing: 5) {
+                Text(preset.name).font(.system(size: 13, weight: .semibold)).lineLimit(1)
+                HStack(spacing: 2) {
+                    ForEach(0..<min(4, pal.colors.count), id: \.self) { i in
+                        Capsule().fill(pal.color(i).color).frame(width: 10, height: 4)
+                    }
+                }
+                HStack(spacing: 5) {
+                    Image(systemName: "sun.max")
+                    Image(systemName: "drop.fill")
+                    if preset.isBeatDriven { Image(systemName: "metronome") }
+                    if preset.usesMovement { Image(systemName: "arrow.up.and.down") }
+                    if preset.usesStrobe { Image(systemName: "bolt.fill") }
+                }
+                .font(.system(size: 9)).foregroundColor(Theme.subtle)
+            }
+            Spacer(minLength: 0)
+        }
+        .padding(10)
+        .background(RoundedRectangle(cornerRadius: 16, style: .continuous).fill(active ? Theme.accent.opacity(0.28) : Color.white.opacity(hover ? 0.1 : 0.06)))
+        .overlay(RoundedRectangle(cornerRadius: 16, style: .continuous).stroke(active ? Theme.accent : Theme.panelBorder, lineWidth: active ? 2 : 1))
+        .shadow(color: active ? Theme.accent.opacity(0.5) : .clear, radius: 10)
+        .contentShape(Rectangle())
+        .onHover { hover = $0 }
+    }
+}
+
+struct SequenceTile: View {
+    @EnvironmentObject var model: AppModel
+    let song: Song
+    let show: LightShow
+
+    var body: some View {
+        let playing = model.playingSongID == song.id && model.isPlaying && (model.playingShowID ?? song.activeShow?.id) == show.id
+        let pal = Palette.named(show.sections.first { $0.name != "Silence" }?.palette ?? "Red Velvet")
+        Button {
+            if playing { model.pause() } else {
+                model.songBinding(song.id).wrappedValue.activeShowID = show.id
+                model.activePresetID = nil
+                model.play(song.id, show: show.id, from: model.playingSongID == song.id ? nil : 0)
+            }
+        } label: {
+            HStack(spacing: 12) {
+                ZStack {
+                    RoundedRectangle(cornerRadius: 12).fill(Theme.accent)
+                    Image(systemName: playing ? "pause.fill" : "play.fill").font(.system(size: 16, weight: .bold))
+                }
+                .frame(width: 44, height: 44)
+                VStack(alignment: .leading, spacing: 5) {
+                    Text(show.name).font(.system(size: 13, weight: .semibold)).lineLimit(1)
+                    HStack(spacing: 2) {
+                        ForEach(0..<min(4, pal.colors.count), id: \.self) { i in
+                            Capsule().fill(pal.color(i).color).frame(width: 10, height: 4)
+                        }
+                    }
+                    Text("\(show.sections.filter { $0.name != "Silence" }.count) steps").font(.system(size: 9)).foregroundColor(Theme.subtle)
+                }
+                Spacer(minLength: 0)
+            }
+            .padding(10)
+            .background(RoundedRectangle(cornerRadius: 16, style: .continuous).fill(playing ? Theme.accent.opacity(0.28) : Color.white.opacity(0.06)))
+            .overlay(RoundedRectangle(cornerRadius: 16, style: .continuous).stroke(playing ? Theme.accent : Theme.panelBorder))
+        }
+        .buttonStyle(.plain)
+    }
+}
+
+struct PresetEditor: View {
+    @EnvironmentObject var model: AppModel
+    let presetID: UUID
+
+    var body: some View {
+        if let i = model.presets.firstIndex(where: { $0.id == presetID }) {
+            let b = $model.presets[i]
+            Form {
+                TextField("Name", text: b.name)
+                Picker("Effect", selection: b.effect) { ForEach(LightEffect.allCases) { Text($0.rawValue).tag($0) } }
+                Picker("Colors", selection: b.palette) { ForEach(Palette.all) { Text($0.id).tag($0.id) } }
+                Picker("Movement", selection: b.movement) { ForEach(MoveEffect.allCases) { Text($0.rawValue).tag($0) } }
+                Picker("Speed", selection: b.rate) {
+                    Text("½ speed").tag(0.5); Text("Normal").tag(1.0); Text("2× speed").tag(2.0)
+                }
+                HStack { Text("Brightness"); Slider(value: b.intensity, in: 0.1...1) }
+            }
+            .padding(18)
+            .frame(width: 340)
+        }
+    }
+}
+
+// MARK: - Live screen (big pads)
+
+struct LiveScreen: View {
+    @EnvironmentObject var model: AppModel
+    private let cols = [GridItem(.adaptive(minimum: 150, maximum: 200), spacing: 14)]
+
+    var body: some View {
+        HStack(alignment: .top, spacing: 16) {
+            MasterColumn()
+            ScrollView {
+                VStack(alignment: .leading, spacing: 18) {
+                    HStack {
+                        Text("Live").font(.system(size: 22, weight: .heavy))
+                        Text("Play the lights by hand. Pads follow the beat tracker (tap or microphone).")
+                            .font(.caption).foregroundColor(Theme.subtle)
+                        Spacer()
+                        Button { model.tapTempo() } label: {
+                            HStack {
+                                Circle().fill(model.beatOn ? Theme.accent : Color.white.opacity(0.2)).frame(width: 10, height: 10)
+                                Text("TAP  \(Int(model.displayBPM.rounded())) BPM").monospacedDigit()
+                            }
+                        }
+                        .buttonStyle(PillButtonStyle())
+                        Toggle("Mic", isOn: Binding(get: { model.beatSource == .mic }, set: { model.beatSource = $0 ? .mic : .manual }))
+                            .toggleStyle(.switch)
+                    }
+                    Text("Looks").font(.headline).foregroundColor(Theme.subtle)
+                    LazyVGrid(columns: cols, spacing: 14) {
+                        ForEach(model.presets) { p in
+                            LivePad(title: p.name, icon: p.icon, colors: Palette.named(p.palette).colors.prefix(3).map { $0.color },
+                                    active: model.activePresetID == p.id) { model.togglePreset(p.id) }
+                        }
+                    }
+                    Text("Hits").font(.headline).foregroundColor(Theme.subtle)
+                    LazyVGrid(columns: cols, spacing: 14) {
+                        LiveHoldPad(title: "Flash", icon: "sun.max.fill", color: .white, isHeld: $model.flashHeld)
+                        LiveHoldPad(title: "Strobe", icon: "bolt.fill", color: .yellow, isHeld: $model.strobeHeld)
+                        LivePad(title: model.blackout ? "Blackout ON" : "Blackout", icon: "lightbulb.slash.fill",
+                                colors: [Color.red.opacity(0.8), Color.black], active: model.blackout) { model.blackout.toggle() }
+                        LivePad(title: "Stop Look", icon: "stop.fill", colors: [Color.gray, Color.black], active: false) { model.activePresetID = nil }
+                    }
+                }
+                .padding(.trailing, 4)
+            }
+        }
+        .padding(16)
+    }
+}
+
+struct LivePad: View {
+    let title: String
+    let icon: String
+    let colors: [Color]
+    let active: Bool
+    let action: () -> Void
+
+    var body: some View {
+        Button(action: action) {
+            VStack(spacing: 10) {
+                Image(systemName: icon).font(.system(size: 26, weight: .bold))
+                Text(title).font(.system(size: 13, weight: .bold)).lineLimit(1)
+            }
+            .frame(maxWidth: .infinity, minHeight: 110)
+            .background(RoundedRectangle(cornerRadius: 20, style: .continuous)
+                .fill(LinearGradient(colors: colors.map { $0.opacity(active ? 0.95 : 0.35) }, startPoint: .topLeading, endPoint: .bottomTrailing)))
+            .overlay(RoundedRectangle(cornerRadius: 20, style: .continuous).stroke(active ? Color.white : Theme.panelBorder, lineWidth: active ? 3 : 1))
+            .shadow(color: active ? (colors.first ?? .white).opacity(0.7) : .clear, radius: 14)
+        }
+        .buttonStyle(.plain)
+    }
+}
+
+struct LiveHoldPad: View {
+    let title: String
+    let icon: String
+    let color: Color
+    @Binding var isHeld: Bool
+
+    var body: some View {
+        VStack(spacing: 10) {
+            Image(systemName: icon).font(.system(size: 26, weight: .bold))
+            Text("Hold · \(title)").font(.system(size: 13, weight: .bold))
+        }
+        .frame(maxWidth: .infinity, minHeight: 110)
+        .background(RoundedRectangle(cornerRadius: 20, style: .continuous).fill(isHeld ? color : Color.white.opacity(0.07)))
+        .foregroundColor(isHeld ? .black : .white)
+        .overlay(RoundedRectangle(cornerRadius: 20, style: .continuous).stroke(Theme.panelBorder))
+        .contentShape(Rectangle())
+        .gesture(DragGesture(minimumDistance: 0)
+            .onChanged { _ in if !isHeld { isHeld = true } }
+            .onEnded { _ in isHeld = false })
+    }
+}
+
+// MARK: - Songs, Set Lists, Setup (existing pages in a two-pane layout)
+
+struct SongsScreen: View {
+    @EnvironmentObject var model: AppModel
+    @State private var importing = false
+    @State private var dropTargeted = false
+    @State private var search = ""
+
+    var body: some View {
+        HStack(spacing: 0) {
+            VStack(alignment: .leading, spacing: 10) {
+                HStack {
+                    Text("Song Library").font(.system(size: 17, weight: .bold))
+                    Spacer()
+                    Button { importing = true } label: { Image(systemName: "plus") }.buttonStyle(PillButtonStyle())
+                }
+                TextField("Search songs or artists", text: $search).textFieldStyle(.roundedBorder)
+                List(selection: $model.selectedSongID) {
+                    ForEach(model.songs.filter { search.isEmpty || $0.displayName.localizedCaseInsensitiveContains(search) }) { s in
+                        SongRow(song: s).tag(Optional(s.id))
+                            .contextMenu {
+                                Button("Learn Again") { model.learn(s.id) }
+                                Menu("Add to Set List") {
+                                    ForEach(model.lineups) { l in
+                                        Button(l.name) { model.addToLineup(l.id, songID: s.id, showID: s.activeShow?.id) }
+                                    }
+                                }
+                                if let a = s.artist, !a.isEmpty {
+                                    Button("Create Set List for \(a)") { model.createSetList(forArtist: a) }
+                                }
+                                Divider()
+                                Button("Remove Song", role: .destructive) { model.removeSong(s.id) }
+                            }
+                    }
+                }
+                .listStyle(.inset)
+                Text("Drag WAV / MP3 files or a folder here").font(.caption).foregroundColor(Theme.subtle)
+            }
+            .padding(14)
+            .frame(width: 300)
+            .onDrop(of: [UTType.fileURL], isTargeted: $dropTargeted) { providers in
+                loadDroppedURLs(providers) { urls in model.importSongs(urls) }
+                return true
+            }
+            .overlay(dropTargeted ? RoundedRectangle(cornerRadius: 12).stroke(Theme.accent, lineWidth: 3).padding(6) : nil)
+            Divider()
+            if let id = model.selectedSongID, model.song(id) != nil {
+                SongView(songID: id).id(id)
+            } else {
+                VStack(spacing: 12) {
+                    Image(systemName: "music.note").font(.system(size: 44)).foregroundColor(Theme.accent)
+                    Text("Add songs to get started").font(.title3.bold())
+                    Text("Drag WAV or MP3 files onto the library. Each one is learned automatically and gets a light show.")
+                        .foregroundColor(Theme.subtle).multilineTextAlignment(.center).frame(width: 360)
+                }
+                .frame(maxWidth: .infinity, maxHeight: .infinity)
+            }
+        }
+        .fileImporter(isPresented: $importing, allowedContentTypes: [.audio, .mp3, .wav, .folder], allowsMultipleSelection: true) { result in
+            if case .success(let urls) = result { model.importSongs(urls) }
+        }
+    }
+}
+
+struct SetListsScreen: View {
+    @EnvironmentObject var model: AppModel
+    @State private var selected: UUID?
+
+    var body: some View {
+        HStack(spacing: 0) {
+            VStack(alignment: .leading, spacing: 10) {
+                HStack {
+                    Text("Set Lists").font(.system(size: 17, weight: .bold))
+                    Spacer()
+                    Button { selected = model.newLineup() } label: { Image(systemName: "plus") }.buttonStyle(PillButtonStyle())
+                }
+                List(selection: $selected) {
+                    ForEach(model.lineups) { l in
+                        HStack {
+                            Image(systemName: model.playingLineupID == l.id ? "speaker.wave.2.fill" : "list.number")
+                                .foregroundColor(model.playingLineupID == l.id ? Theme.accent : Theme.subtle)
+                            Text(l.name)
+                            Spacer()
+                            Text("\(l.entries.count)").font(.caption).foregroundColor(Theme.subtle)
+                        }
+                        .tag(Optional(l.id))
+                        .onDrop(of: [UTType.fileURL], isTargeted: nil) { providers in
+                            loadDroppedURLs(providers) { urls in model.importSongs(urls, into: l.id) }
+                            return true
+                        }
+                        .contextMenu {
+                            Button("Delete Set List", role: .destructive) { model.lineups.removeAll { $0.id == l.id } }
+                        }
+                    }
+                }
+                .listStyle(.inset)
+            }
+            .padding(14)
+            .frame(width: 280)
+            Divider()
+            if let id = selected ?? model.lineups.first?.id {
+                LineupView(lineupID: id).id(id)
+            } else {
+                Text("Create a set list with +").foregroundColor(Theme.subtle).frame(maxWidth: .infinity, maxHeight: .infinity)
+            }
+        }
+    }
+}
+
+enum SetupPage: String, CaseIterable, Identifiable {
+    case wireless = "Wireless DMX", lights = "My Lights", idle = "Idle Look", problems = "Problems"
+    var id: String { rawValue }
+    var icon: String {
+        switch self {
+        case .wireless: return "wifi"
+        case .lights: return "lightbulb"
+        case .idle: return "moon.stars"
+        case .problems: return "exclamationmark.triangle"
+        }
+    }
+}
+
+struct SetupScreen: View {
+    @EnvironmentObject var model: AppModel
+    @ObservedObject private var errors = ErrorCenter.shared
+    @State private var page: SetupPage? = .wireless
+
+    var body: some View {
+        HStack(spacing: 0) {
+            List(selection: $page) {
+                ForEach(SetupPage.allCases) { p in
+                    HStack {
+                        Label(p.rawValue, systemImage: p.icon)
+                        Spacer()
+                        if p == .wireless { Circle().fill(model.connected ? Color.green : Color.gray).frame(width: 8, height: 8) }
+                        if p == .problems && !errors.problems.isEmpty {
+                            Text("\(errors.problems.count)").font(.caption).foregroundColor(.orange)
+                        }
+                    }
+                    .tag(Optional(p))
+                }
+            }
+            .listStyle(.sidebar)
+            .frame(width: 220)
+            Divider()
+            Group {
+                switch page ?? .wireless {
+                case .wireless: WirelessView()
+                case .lights: LightsView()
+                case .idle: IdleView()
+                case .problems: ProblemsView()
+                }
+            }
+            .frame(maxWidth: .infinity, maxHeight: .infinity)
+        }
+    }
+}
