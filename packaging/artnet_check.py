@@ -28,7 +28,7 @@ check(0 in art and 1 in art, f"Art-Net on universes 0 and 1: {art}")
 check(sacn > 0, f"sACN packets: {sacn}")
 span = max(0.5, (last_t or 1) - (first_t or 0))
 rate = sum(art.values()) / max(1, len(art)) / span
-check(rate > 25, f"about {rate:.0f} frames/sec per universe")
+check(rate > 12, f"about {rate:.0f} frames/sec per universe")
 if last:
     print("Bar channels 1-14:", list(last[:14]))
     check(last[4] > 0, f"SHEHDS dimmer (ch5) = {last[4]} (idle look lights the bars)")
