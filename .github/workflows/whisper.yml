@@ -1,0 +1,38 @@
+name: Whisper transcription engine
+on:
+  push:
+    paths: [".github/workflows/whisper.yml"]
+  workflow_dispatch:
+permissions:
+  contents: write
+jobs:
+  whisper:
+    runs-on: macos-latest
+    timeout-minutes: 40
+    steps:
+      - name: Build whisper.cpp (Intel + Apple silicon, macOS 12+)
+        run: |
+          git clone --depth 1 --branch v1.7.4 https://github.com/ggerganov/whisper.cpp /tmp/w
+          cd /tmp/w
+          common="-DCMAKE_BUILD_TYPE=Release -DBUILD_SHARED_LIBS=OFF -DGGML_METAL=OFF -DGGML_NATIVE=OFF -DCMAKE_OSX_DEPLOYMENT_TARGET=12.0 -DWHISPER_BUILD_TESTS=OFF -DWHISPER_SDL2=OFF"
+          cmake -B b-arm $common -DCMAKE_OSX_ARCHITECTURES=arm64
+          cmake --build b-arm -j 4 --target whisper-cli
+          cmake -B b-x86 $common -DCMAKE_OSX_ARCHITECTURES=x86_64 -DGGML_AVX=ON -DGGML_AVX2=ON -DGGML_FMA=ON -DGGML_F16C=ON
+          cmake --build b-x86 -j 4 --target whisper-cli
+          lipo -create b-arm/bin/whisper-cli b-x86/bin/whisper-cli -output /tmp/whisper-cli
+          lipo -info /tmp/whisper-cli; otool -L /tmp/whisper-cli
+          otool -l /tmp/whisper-cli | grep -A4 LC_BUILD_VERSION | head -12
+      - name: Smoke test (tiny model on a spoken sentence)
+        run: |
+          curl -sL -o /tmp/tiny.bin https://huggingface.co/ggerganov/whisper.cpp/resolve/main/ggml-tiny.en.bin
+          say -o /tmp/say.aiff "I don't wanna be alone tonight, but I can finally see the light"
+          afconvert -f WAVE -d LEI16@16000 -c 1 /tmp/say.aiff /tmp/say.wav
+          /tmp/whisper-cli -m /tmp/tiny.bin -f /tmp/say.wav -ml 1 -sow -ojf -of /tmp/say -np
+          python3 -c "import json; d=json.load(open('/tmp/say.json')); print([ (s['text'], s['offsets']) for s in d['transcription']][:12])"
+      - name: Publish
+        env: { GH_TOKEN: "${{ github.token }}" }
+        run: |
+          gh release view whisper-1 -R "$GITHUB_REPOSITORY" >/dev/null 2>&1 || \
+            gh release create whisper-1 -R "$GITHUB_REPOSITORY" --title "Lyrics transcription engine" \
+              --notes "whisper.cpp v1.7.4 (MIT license), built for macOS 12+ (Intel + Apple silicon). Bundled in DMX Studio."
+          gh release upload whisper-1 -R "$GITHUB_REPOSITORY" /tmp/whisper-cli --clobber
