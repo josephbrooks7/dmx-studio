@@ -198,15 +198,16 @@ enum ShowGenerator {
             // Bars with 8 separate beams (38CH): every section uses the beams individually,
             // with a mix of patterns so the song keeps changing.
             if points >= 6, secs[i].name != "Silence" {
-                let v = i % 3
+                let v = i % 4
                 switch secs[i].effect {
-                case .pulse: secs[i].effect = [.wave, .bounce, .split][v]
-                case .steady: secs[i].effect = .gradient
-                case .breathe: secs[i].effect = .wave; secs[i].rate = min(secs[i].rate, 0.5)
-                case .kickFlash: secs[i].effect = [.centerOut, .pixelPop, .split][v]
-                case .snareHit: secs[i].effect = [.split, .centerOut, .bounce][v]
-                case .colorBeat: secs[i].effect = [.pixelPop, .split, .chase][v]
-                case .chase: secs[i].effect = [.chase, .bounce, .chase][v]
+                case .pulse: secs[i].effect = [.wave, .ripple, .scan, .bounce][v]
+                case .steady: secs[i].effect = [.wave, .gradient, .ripple, .wave][v]; secs[i].rate = min(secs[i].rate, 0.5)
+                case .breathe: secs[i].effect = [.wave, .ripple, .wave, .gradient][v]; secs[i].rate = min(secs[i].rate, 0.5)
+                case .kickFlash: secs[i].effect = [.centerOut, .fill, .scan, .ripple][v]
+                case .snareHit: secs[i].effect = [.ripple, .bounce, .centerOut, .scan][v]
+                case .colorBeat: secs[i].effect = [.scan, .chase, .fill, .pixelPop][v]
+                case .chase: secs[i].effect = [.chase, .bounce, .scan, .chase][v]
+                case .alternate: secs[i].effect = [.fill, .chase, .alternate, .ripple][v]
                 case .soundLevel: secs[i].effect = .wave
                 default: break
                 }
@@ -525,14 +526,13 @@ struct ShowRenderer {
     private func beamMask(_ s: ShowSection, c: Ctx, head h: Int, of n: Int) -> Double {
         guard n >= 4 else { return 1 }
         // effects that already pick their own beams
-        if [.chase, .bounce, .pixelPop, .centerOut, .sparkle, .alternate, .split, .wave, .blackout].contains(s.effect) { return 1 }
+        if [.chase, .bounce, .pixelPop, .centerOut, .sparkle, .alternate, .split, .wave, .ripple, .scan, .fill, .gradient, .blackout].contains(s.effect) { return 1 }
         let barN = Int(floor(c.beatPos * s.rate / 4))
         let pattern: Int
         switch s.level {
-        case .low: pattern = [0, 1, 0, 2][((barN / 4) % 4 + 4) % 4]               // gentle: all / odd / all / even every 4 bars
-        case .medium: pattern = 1 + ((barN % 5) + 5) % 5                            // a new pattern every bar, never all on
-        case .high: pattern = 1 + ((Int(floor(c.beatPos * s.rate / 2)) % 5) + 5) % 5   // every 2 beats
-        case .drop: pattern = 1 + ((Int(floor(c.beatPos * s.rate)) % 5) + 5) % 5       // every beat
+        case .low, .medium: return 1
+        case .high: pattern = [1, 2][((Int(floor(c.beatPos * s.rate / 2)) % 2) + 2) % 2]   // odd / even every 2 beats
+        case .drop: pattern = 1 + ((Int(floor(c.beatPos * s.rate)) % 4) + 4) % 4            // drops: punchier groups every beat
         }
         let half = n / 2
         let on: Bool
@@ -654,6 +654,30 @@ struct ShowRenderer {
             let x = pos <= Double(n - 1) ? pos : period - pos
             let level = exp(-abs(x - Double(p)) * 1.5)
             return FixtureState(intensity: 0.04 + 0.96 * level, color: pal.color(bar))
+
+        case .ripple:
+            // rings of light spread from the middle beams out to the ends, one every 2 beats
+            let center = Double(n - 1) / 2
+            let d = abs(Double(p) - center) / max(center, 0.5)
+            let w = 0.5 + 0.5 * cos(2 * .pi * (d * 0.9 - rb / 2))
+            return FixtureState(intensity: pow(w, 4), color: pal.color(Int(floor(rb / 2)) + (d > 0.5 ? 1 : 0)))
+
+        case .scan:
+            // one beam steps across the bar and back, every 8th note, with a faint trail
+            guard n > 1 else { return FixtureState(intensity: exp(-ph * 4), color: pal.color(bar)) }
+            let period = 2 * (n - 1)
+            let step = ((Int(floor(rb * 2)) % period) + period) % period
+            let x = step < n ? step : period - step
+            let dist = abs(p - x)
+            return FixtureState(intensity: dist == 0 ? 1 : (dist == 1 ? 0.12 : 0), color: pal.color(bar))
+
+        case .fill:
+            // beams switch on one after another across the bar, then off again (direction flips each bar)
+            let f = rb / 4 - floor(rb / 4)
+            let count = f < 0.5 ? f * 2 * Double(n) : (1 - f) * 2 * Double(n)
+            let pos = bar % 2 == 0 ? p : n - 1 - p
+            let on = Double(pos) < count
+            return FixtureState(intensity: on ? 1 : 0, color: pal.color(bar + (pos * pal.colors.count) / max(n, 1)))
 
         case .gradient:
             // the palette spread across the beams, slowly drifting

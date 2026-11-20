@@ -349,9 +349,12 @@ enum LightEffect: String, CaseIterable, Codable, Identifiable {
     case pixelPop = "Pixel Pop"
     case bounce = "Bounce"
     case gradient = "Color Gradient"
+    case ripple = "Ripple"
+    case scan = "Scanner"
+    case fill = "Fill"
     var id: String { rawValue }
     /// Uses each beam of a bar separately.
-    var perBeam: Bool { [.wave, .centerOut, .split, .pixelPop, .bounce, .gradient, .chase, .alternate, .rainbow, .sparkle, .colorBeat].contains(self) }
+    var perBeam: Bool { [.wave, .centerOut, .split, .pixelPop, .bounce, .gradient, .ripple, .scan, .fill, .chase, .alternate, .rainbow, .sparkle, .colorBeat].contains(self) }
 }
 
 enum MoveEffect: String, CaseIterable, Codable, Identifiable {

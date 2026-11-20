@@ -68,6 +68,9 @@ struct LookPreset: Identifiable, Codable, Hashable {
             p("Color Gradient", .gradient, "Sunset", .sweep, rate: 0.5, "slider.horizontal.below.rectangle"),
             p("Rainbow Wave", .wave, "Neon", .circle, rate: 0.5, "rainbow"),
             p("Disco Pixels", .pixelPop, "Disco", .circle, rate: 2, "circle.grid.3x3.fill"),
+            p("Ripple", .ripple, "Ocean", .none, "dot.radiowaves.left.and.right"),
+            p("Scanner", .scan, "Red Velvet", .sweep, "arrow.left.arrow.right"),
+            p("Fill Up", .fill, "Neon", .none, "chart.bar.fill"),
         ]
     }()
 
