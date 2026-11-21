@@ -473,11 +473,20 @@ struct ShowScreen: View {
     @EnvironmentObject var model: AppModel
     @State private var controlling: UUID?
     @State private var editingPreset: UUID?
+    @State private var removing: UUID?
 
     private let cols = [GridItem(.adaptive(minimum: 170, maximum: 220), spacing: 12)]
 
     var body: some View {
         content
+            .alert("Remove \(model.fixtures.first { $0.id == removing }?.name ?? "this device")?",
+                   isPresented: Binding(get: { removing != nil }, set: { if !$0 { removing = nil } })) {
+                Button("Remove", role: .destructive) {
+                    if let id = removing { model.fixtures.removeAll { $0.id == id }; model.manual[id] = nil }
+                    removing = nil
+                }
+                Button("Cancel", role: .cancel) { removing = nil }
+            } message: { Text("It's taken out of this session and its shows stop sending to it. You can add it again with Add Device.") }
             .alert("Lights", isPresented: Binding(get: { model.linkNotice != nil }, set: { if !$0 { model.linkNotice = nil } })) {
                 Button("OK") { model.linkNotice = nil }
             } message: { Text(model.linkNotice ?? "") }
@@ -535,11 +544,17 @@ struct ShowScreen: View {
                                                      : "Not connected: check the cable / Wi-Fi and the device's power")
                                     .font(.callout).foregroundColor(model.connected ? .primary : .orange)
                                 Spacer()
+                                Menu {
+                                    ForEach(FixtureProfile.all) { p in
+                                        Button(p.name) { model.addFixture(profile: p) }
+                                    }
+                                } label: { Label("Add Device", systemImage: "plus") }
+                                .menuStyle(.borderlessButton).fixedSize()
+                                .help("Add a light (it picks the next free DMX address and walks you through setting it)")
                                 Button { model.findNodes() } label: { Label("Scan Now", systemImage: "antenna.radiowaves.left.and.right") }
                                     .buttonStyle(PillButtonStyle())
-                                RealLightsSwitch()
                             }
-                            Text("Choose which lights this session uses with the power buttons above. Devices, channel modes and addresses are set up in Setup.")
+                            Text("Power buttons above choose which lights the show uses. Add Device puts in a new one; the bin removes one. Channel modes and addresses can be changed in Setup.")
                                 .font(.caption).foregroundColor(Theme.subtle)
                             VStack(spacing: 0) {
                                 ForEach(model.fixtures) { fx in
@@ -561,6 +576,9 @@ struct ShowScreen: View {
                                                          systemImage: "flashlight.on.fill") }
                                         .buttonStyle(PillButtonStyle())
                                         .help("Flash this light so you can see which one it is")
+                                        Button { removing = fx.id } label: { Image(systemName: "trash") }
+                                            .buttonStyle(PillButtonStyle())
+                                            .help("Remove this device from the session")
                                     }
                                     .padding(.vertical, 8)
                                     Divider().opacity(0.3)
