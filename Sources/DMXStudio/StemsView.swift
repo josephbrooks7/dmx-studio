@@ -65,7 +65,7 @@ struct StemsTab: View {
                         .font(.caption).foregroundColor(.orange)
                 }
                 if highQuality {
-                    Text("High Quality uses Meta's Demucs AI models on this Mac: much cleaner parts (vocals, BG vocals, guitar, piano). Learning uses the quick split. The High Quality split only runs when you press Split Again here (one song at a time, at low priority).")
+                    Text("High Quality uses Meta's Demucs AI models on this Mac: much cleaner parts (vocals, BG vocals, guitar, piano). Learn doesn't make stems. Deep Learn (or Split Again here) makes them: one song at a time, at low priority.")
                         .font(.caption).foregroundColor(.secondary)
                     if let p = model.hqProgress[song.id] {
                         HStack {
@@ -85,8 +85,8 @@ struct StemsTab: View {
                     Ticking { "Splitting into parts… " + model.learnCountdown(song.id) }.foregroundColor(.secondary).monospacedDigit()
                 } else {
                     HStack {
-                        Text("This song hasn't been split into stems yet.").foregroundColor(.secondary)
-                        Button("Split into Stems") { model.learn(song.id, rebuildShows: true, split: true) }
+                        Text("No stems yet: Learn uses the song as it is. Deep Learn splits it into stems and learns from them.").foregroundColor(.secondary)
+                        Button("Deep Learn") { model.deepLearn(song.id) }
                     }
                 }
             }

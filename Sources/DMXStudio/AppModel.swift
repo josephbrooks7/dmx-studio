@@ -1384,10 +1384,15 @@ final class AppModel: ObservableObject {
 
     /// Learn: 1) listen for the lyrics (straight from the song, no stems), 2) learn the music.
     /// No stems are made unless `split` (the Split buttons in the Stems tab).
-    func learn(_ id: UUID, rebuildShows: Bool = false, split: Bool = false) {
-        guard let i = index(of: id), learning[id] == nil else { return }
+    /// Deep Learn: lyrics first, then split into stems (High Quality when it's installed) and learn the music from them.
+    func deepLearn(_ id: UUID) { learn(id, rebuildShows: true, split: true, deep: true) }
+    private var deepOnLearn: Set<UUID> = []
+
+    func learn(_ id: UUID, rebuildShows: Bool = false, split: Bool = false, deep: Bool = false) {
+        guard let i = index(of: id), learning[id] == nil, musicAfterLyrics[id] == nil else { return }
         if split { splitOnLearn.insert(id) }
-        let needsLyrics = songs[i].lyrics == nil && WhisperEngine.isAvailable && !split
+        if deep { deepOnLearn.insert(id) }
+        let needsLyrics = songs[i].lyrics == nil && WhisperEngine.isAvailable && (!split || deep)
         if needsLyrics, musicAfterLyrics[id] == nil, FileManager.default.fileExists(atPath: songs[i].path) {
             musicAfterLyrics[id] = rebuildShows
             learnLyrics(id)
@@ -1403,7 +1408,9 @@ final class AppModel: ObservableObject {
 
     private func learnMusic(_ id: UUID, rebuildShows: Bool) {
         guard let i = index(of: id), learning[id] == nil else { return }
-        let split = splitOnLearn.remove(id) != nil
+        let deep = deepOnLearn.remove(id) != nil
+        let split = splitOnLearn.remove(id) != nil || deep
+        let mode = deep && HQSplitter.isInstalled ? "hq" : "fast"
         let url = songs[i].url
         let title = songs[i].title
         let stems = stemsFolder(for: songs[i])
@@ -1426,7 +1433,7 @@ final class AppModel: ObservableObject {
             // It splits the song into stems first, then learns from those parts.
             // quick learn first (seconds): the show is ready to play; the High Quality split follows in the background
             if self.stopped.contains("learn-\(id)") { DispatchQueue.main.async { self.stopped.remove("learn-\(id)") }; return }
-            let r = Helper.run(["--learn", url.path, out.path, split ? stems.path : "", settingsFile.path, "fast"], timeout: 1800, progress: { p in
+            let r = Helper.run(["--learn", url.path, out.path, split ? stems.path : "", settingsFile.path, mode], timeout: mode == "hq" ? 7200 : 1800, progress: { p in
                 DispatchQueue.main.async { if self.learning[id] != nil { self.learning[id] = max(0.05, min(0.99, p)) } }
             }, onStart: { proc in DispatchQueue.main.async { self.procs["learn-\(id)"] = proc } })
             let analysis = (try? Data(contentsOf: out)).flatMap { try? Library.decoder.decode(SongAnalysis.self, from: $0) }

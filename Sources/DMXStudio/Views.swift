@@ -125,6 +125,14 @@ struct SongView: View {
                             Label(song.isLearned ? "Learn Again" : "Learn", systemImage: "waveform.badge.magnifyingglass")
                         }
                         .controlSize(.large)
+                        .help("Lyrics, then the music, from the song as it is (quick, no stems)")
+                        Button {
+                            model.deepLearn(song.id)
+                        } label: {
+                            Label("Deep Learn", systemImage: "square.3.layers.3d.down.right")
+                        }
+                        .controlSize(.large)
+                        .help("Lyrics, then splits the song into stems (vocals, drums, bass…) and learns the music from them. Slower; more accurate hits and vocal parts")
                     }
                     Button {
                         if model.playingSongID == song.id && model.isPlaying { model.pause() }
