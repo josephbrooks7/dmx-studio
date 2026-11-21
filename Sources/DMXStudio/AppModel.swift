@@ -860,6 +860,20 @@ final class AppModel: ObservableObject {
         presetBeforeHold = nil
     }
 
+    /// Show page: play a look through once (one 4-bar cycle at the current tempo), then back to the show.
+    /// Tapping it again stops it early.
+    private var previewToken = UUID()
+    func previewPresetOnce(_ id: UUID) {
+        if activePresetID == id { activePresetID = nil; return }
+        togglePreset(id)
+        let token = UUID(); previewToken = token
+        let secs = min(12, max(4, 16 * 60 / max(clock.bpm, 40)))
+        DispatchQueue.main.asyncAfter(deadline: .now() + secs) { [weak self] in
+            guard let self, self.previewToken == token, self.activePresetID == id else { return }
+            self.activePresetID = nil
+        }
+    }
+
     func togglePreset(_ id: UUID) {
         if pauseTime != nil && playingSongID == nil && activeBlock == nil { resumeFromPause() }
         if activePresetID == id { activePresetID = nil; return }

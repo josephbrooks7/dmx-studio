@@ -183,7 +183,13 @@ enum MainTab: String, CaseIterable, Identifiable {
     case show = "Show", stage = "Stage", live = "Live", songs = "Songs", sets = "Set Lists", setup = "Setup"
     var id: String { rawValue }
     /// What the tab is called on screen
-    var title: String { self == .live ? "Live Control" : rawValue }
+    var title: String {
+        switch self {
+        case .live: return "Live Control"
+        case .show: return "Show Config"  // which lights (and later fog machines) the show uses, and that they're connected
+        default: return rawValue
+        }
+    }
     var icon: String {
         switch self {
         case .show: return "lightbulb.fill"
@@ -485,7 +491,7 @@ struct ShowScreen: View {
                 Panel {
                     VStack(alignment: .leading, spacing: 10) {
                         HStack {
-                            Text("Stage").font(.system(size: 17, weight: .bold))
+                            Text("Show Configuration").font(.system(size: 17, weight: .bold))
                             Text("Tap a light to control it by hand").font(.caption).foregroundColor(Theme.subtle)
                             Spacer()
                             if model.anyLightOff {
@@ -518,58 +524,50 @@ struct ShowScreen: View {
                     }
                 }
 
-                // Presets & sequences
+                // Connection: where the light data goes, and each light's settings
                 Panel {
                     ScrollView {
                         VStack(alignment: .leading, spacing: 14) {
-                            if let song = model.selectedSongID.flatMap({ model.song($0) }), !song.shows.isEmpty {
-                                HStack {
-                                    Text("Sequences · \(song.title)").font(.system(size: 17, weight: .bold)).lineLimit(1)
-                                    Text("Plays the song with its light show").font(.caption).foregroundColor(Theme.subtle)
-                                }
-                                LazyVGrid(columns: cols, alignment: .leading, spacing: 12) {
-                                    ForEach(song.shows) { show in
-                                        SequenceTile(song: song, show: show)
-                                    }
-                                }
-                            }
-                            HStack {
-                                Text("Presets").font(.system(size: 17, weight: .bold))
-                                Text("Hold to run on the beat · let go and the show comes back").font(.caption).foregroundColor(Theme.subtle)
+                            HStack(spacing: 10) {
+                                Text("Connection").font(.system(size: 17, weight: .bold))
+                                Circle().fill(model.connected ? Color.green : Color.red).frame(width: 9, height: 9)
+                                Text(model.connected ? "Connected to \(model.output.rememberedDevice?.name ?? "your lights")"
+                                                     : "Not connected: check the cable / Wi-Fi and the device's power")
+                                    .font(.callout).foregroundColor(model.connected ? .primary : .orange)
                                 Spacer()
-                                Button {
-                                    let p = LookPreset(name: "New Look", effect: .pulse, palette: "Red Velvet", movement: .sweep)
-                                    model.presets.append(p)
-                                    editingPreset = p.id
-                                } label: { Label("New Preset", systemImage: "plus") }
-                                .buttonStyle(PillButtonStyle())
+                                Button { model.findNodes() } label: { Label("Scan Now", systemImage: "antenna.radiowaves.left.and.right") }
+                                    .buttonStyle(PillButtonStyle())
+                                RealLightsSwitch()
                             }
-                            ForEach(model.presetGroups, id: \.name) { group in
-                            if model.presetGroups.count > 1 {
-                                Text(group.name).font(.system(size: 12, weight: .semibold)).foregroundColor(Theme.subtle).padding(.top, 4)
-                            }
-                            LazyVGrid(columns: cols, alignment: .leading, spacing: 12) {
-                                ForEach(group.presets) { p in
-                                    PresetTile(preset: p, active: model.activePresetID == p.id)
-                                        .modifier(HoldPresetGesture(presetID: p.id))
-                                        .contextMenu {
-                                            Button("Edit…") { editingPreset = p.id }
-                                            Button("Duplicate") {
-                                                var c = p; c.id = UUID(); c.name += " copy"; model.presets.append(c)
-                                            }
-                                            Divider()
-                                            Button("Delete", role: .destructive) {
-                                                if model.activePresetID == p.id { model.activePresetID = nil }
-                                                model.presets.removeAll { $0.id == p.id }
-                                            }
-                                        }
-                                        .popover(isPresented: Binding(get: { editingPreset == p.id }, set: { if !$0 { editingPreset = nil } })) {
-                                            PresetEditor(presetID: p.id).environmentObject(model)
-                                        }
+                            Text("Choose which lights this session uses with the power buttons above. Devices, channel modes and addresses are set up in Setup.")
+                                .font(.caption).foregroundColor(Theme.subtle)
+                            VStack(spacing: 0) {
+                                ForEach(model.fixtures) { fx in
+                                    HStack(spacing: 12) {
+                                        Image(systemName: fx.isOn ? "checkmark.circle.fill" : "circle")
+                                            .foregroundColor(fx.isOn ? Theme.lightOn : .secondary)
+                                        Text(fx.name).font(.body.weight(.semibold)).frame(width: 150, alignment: .leading)
+                                        Text(fx.isOn ? "Used" : "Not used").font(.caption).foregroundColor(.secondary).frame(width: 70, alignment: .leading)
+                                        Text("\(fx.modeLabel) · \(fx.headCount > 1 ? "\(fx.headCount) beams" : "1 light")")
+                                            .font(.caption).foregroundColor(.secondary).frame(width: 140, alignment: .leading)
+                                        Text("Address \(fx.address)–\(fx.address + max(1, fx.channels.count) - 1)")
+                                            .font(.caption.monospacedDigit()).foregroundColor(.secondary)
+                                        Spacer()
+                                        Button {
+                                            model.stop()
+                                            model.identifyFixtureID = fx.id
+                                            model.testMode = model.testMode == .identify && model.identifyFixtureID == fx.id ? .off : .identify
+                                        } label: { Label(model.testMode == .identify && model.identifyFixtureID == fx.id ? "Stop" : "Identify",
+                                                         systemImage: "flashlight.on.fill") }
+                                        .buttonStyle(PillButtonStyle())
+                                        .help("Flash this light so you can see which one it is")
+                                    }
+                                    .padding(.vertical, 8)
+                                    Divider().opacity(0.3)
                                 }
-                            }
                             }
                         }
+                        .padding(14)
                     }
                 }
             }
@@ -999,6 +997,7 @@ struct PresetEditor: View {
 struct LiveScreen: View {
     @EnvironmentObject var model: AppModel
     @AppStorage("hitRelease") private var hitRelease = HitRelease.hold.rawValue
+    @State private var editingPreset: UUID?
     private let cols = [GridItem(.adaptive(minimum: 150, maximum: 200), spacing: 14)]
 
     var body: some View {
@@ -1011,6 +1010,13 @@ struct LiveScreen: View {
                         Text("Hold a pad to play it over the show; let go and the programmed show comes back. Release (below) can make pads stay on or last 1–10 s instead.")
                             .font(.caption).foregroundColor(Theme.subtle)
                         Spacer()
+                        Button {
+                            let p = LookPreset(name: "New Look", effect: .pulse, palette: "Red Velvet", movement: .sweep)
+                            model.presets.append(p)
+                            editingPreset = p.id
+                        } label: { Label("New Preset", systemImage: "plus") }
+                        .buttonStyle(PillButtonStyle())
+                        .help("Make your own pad (right-click any pad to edit, duplicate or delete it)")
                         Button { model.recordToShow.toggle() } label: {
                             HStack(spacing: 6) {
                                 Circle().fill(Color.red.opacity(model.recordToShow ? 1 : 0.45)).frame(width: 10, height: 10)
@@ -1059,6 +1065,20 @@ struct LiveScreen: View {
                                 // every pad runs only while held (or as the Release setting says),
                                 // then the programmed show comes back
                                 LiveMomentPad(title: p.name, icon: p.icon, colors: colors, presetID: p.id)
+                                    .contextMenu {
+                                        Button("Play Once (4 bars)") { model.previewPresetOnce(p.id) }
+                                        Divider()
+                                        Button("Edit…") { editingPreset = p.id }
+                                        Button("Duplicate") { var c = p; c.id = UUID(); c.name += " copy"; model.presets.append(c) }
+                                        Divider()
+                                        Button("Delete", role: .destructive) {
+                                            if model.activePresetID == p.id { model.activePresetID = nil }
+                                            model.presets.removeAll { $0.id == p.id }
+                                        }
+                                    }
+                                    .popover(isPresented: Binding(get: { editingPreset == p.id }, set: { if !$0 { editingPreset = nil } })) {
+                                        PresetEditor(presetID: p.id).environmentObject(model)
+                                    }
                             }
                         }
                     }
