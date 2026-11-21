@@ -119,7 +119,7 @@ struct SectionTimelineEditor: View {
                 if let id = selected ?? sections.first?.id, let k = sections.firstIndex(where: { $0.id == id }) {
                     inspector(k)
                 }
-                EffectsBrowser { item in
+                EffectsBrowser(onPick: { item in
                     switch item {
                     case .look(let p):
                         paint = .look(p.id)
@@ -131,7 +131,7 @@ struct SectionTimelineEditor: View {
                             ?? sections.first { $0.empty == true && $0.end > (scrubTime ?? 0) }
                         if let s = target { model.setTransition(k, songID: song.id, sectionID: s.id); select(s.id) }
                     }
-                }
+                }, current: (selected ?? sections.first?.id).flatMap { id in sections.first { $0.id == id } })
                 .frame(height: 330)
             }
         }

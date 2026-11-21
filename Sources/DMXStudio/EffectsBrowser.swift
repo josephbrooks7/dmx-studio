@@ -12,6 +12,8 @@ struct EffectsBrowser: View {
     @AppStorage("fxCategory") private var category = "All"
     @State private var search = ""
     @State private var hovered: String?
+    @State private var previewed: Item?          // last hovered / clicked tile, shown in the preview viewer
+    var current: ShowSection? = nil              // the selected block (previewed until you hover a tile)
 
     private var groups: [String] {
         var seen: [String] = []
@@ -84,10 +86,52 @@ struct EffectsBrowser: View {
                     .padding(10)
                 }
             }
+            Divider()
+            previewPane.frame(width: 330)
         }
+        .overlay(alignment: .trailing) { EmptyView() }
         .background(RoundedRectangle(cornerRadius: 10).fill(Color.black.opacity(0.3)))
         .clipShape(RoundedRectangle(cornerRadius: 10))
         .overlay(RoundedRectangle(cornerRadius: 10).stroke(Color.white.opacity(0.08)))
+    }
+
+    // MARK: Preview viewer
+
+    @ViewBuilder private var previewPane: some View {
+        VStack(alignment: .leading, spacing: 8) {
+            Text("PREVIEW").font(.system(size: 10, weight: .bold)).foregroundColor(.secondary)
+            StagePreviewSim(item: previewed, base: current)
+                .frame(height: 170)
+                .clipShape(RoundedRectangle(cornerRadius: 8))
+                .overlay(RoundedRectangle(cornerRadius: 8).stroke(Color.white.opacity(0.1)))
+            switch previewed {
+            case .look(let p)?:
+                Text(p.name).font(.headline)
+                Text("\(p.effect.rawValue) · \(p.palette)\(p.movement == .none ? "" : " · " + p.movement.rawValue)\(p.rate == 1 ? "" : (p.rate < 1 ? " · ½ speed" : " · 2× speed"))")
+                    .font(.caption).foregroundColor(.secondary)
+                HStack(spacing: 3) {
+                    let pal = Palette.named(p.palette)
+                    ForEach(0..<min(6, pal.colors.count), id: \.self) { i in
+                        RoundedRectangle(cornerRadius: 2).fill(pal.color(i).color).frame(width: 14, height: 10)
+                    }
+                }
+                Button { onPick(.look(p)) } label: { Label("Apply to Selected Block", systemImage: "checkmark") }
+            case .transition(let k)?:
+                Text(k.rawValue).font(.headline)
+                Text("Transition · \(k.blurb)").font(.caption).foregroundColor(.secondary)
+                Text("Plays over the look before it, for the length of its block (default \(k.beats == 1 ? "1 beat" : "\(Int(k.beats)) beats")).")
+                    .font(.caption2).foregroundColor(.secondary).fixedSize(horizontal: false, vertical: true)
+                Button { onPick(.transition(k)) } label: { Label("Put in Selected Slot", systemImage: "checkmark") }
+            case nil:
+                if let c = current {
+                    Text(c.name).font(.headline)
+                    Text("Selected block · \(c.effect.rawValue) · \(c.palette)").font(.caption).foregroundColor(.secondary)
+                }
+                Text("Hover over an effect to see it on your lights.").font(.caption).foregroundColor(.secondary)
+            }
+            Spacer(minLength: 0)
+        }
+        .padding(10)
     }
 
     private func categoryRow(_ name: String, icon: String, count: Int) -> some View {
@@ -106,6 +150,11 @@ struct EffectsBrowser: View {
         .buttonStyle(.plain)
     }
 
+    private func itemFor(_ key: String) -> Item? {
+        if key.hasPrefix("hit:") { return HitKind(rawValue: String(key.dropFirst(4))).map { .transition($0) } }
+        return model.presets.first { $0.id.uuidString == key }.map { .look($0) }
+    }
+
     private func tile<T: View>(key: String, name: String, sub: String, icon: String, drag: String, help: String,
                                @ViewBuilder thumb: () -> T, pick: @escaping () -> Void) -> some View {
         VStack(alignment: .leading, spacing: 4) {
@@ -121,8 +170,10 @@ struct EffectsBrowser: View {
             Text(sub).font(.system(size: 9)).foregroundColor(.secondary).lineLimit(1)
         }
         .contentShape(Rectangle())
-        .onHover { inside in if inside { hovered = key } else if hovered == key { hovered = nil } }
-        .onTapGesture { pick() }
+        .onHover { inside in
+            if inside { hovered = key; previewed = itemFor(key) } else if hovered == key { hovered = nil }
+        }
+        .onTapGesture { previewed = itemFor(key); pick() }
         .onDrag { NSItemProvider(object: drag as NSString) }
         .help(help + " · drag onto a block, or click to put it on the selected block")
     }
@@ -204,5 +255,96 @@ enum FXThumb {
     private static func lit(_ h: FixtureState) -> Color {
         let k = max(0, min(1, h.intensity))
         return Color(red: h.color.r * k, green: h.color.g * k, blue: h.color.b * k)
+    }
+}
+
+
+/// A close-up of one light (your first beam bar) with its beams in haze, playing a look or a transition
+struct StagePreviewSim: View {
+    @EnvironmentObject var model: AppModel
+    let item: EffectsBrowser.Item?
+    let base: ShowSection?
+
+    /// Just one light, up close: the first beam bar (the one with the most heads), else a demo bar
+    private var rig: [Fixture] {
+        if let bar = model.fixtures.filter({ $0.effectiveBehavior == .sequence }).max(by: { $0.headCount < $1.headCount }), bar.headCount > 1 {
+            return [bar]
+        }
+        let p = FixtureProfile.shehdsBeam38
+        return [Fixture(name: "Beam Bar", address: 1, profileName: p.name, layout: p.layout)]
+    }
+
+    var body: some View {
+        SwiftUI.TimelineView(.animation(minimumInterval: 1.0 / 30, paused: false)) { tl in
+            let t = tl.date.timeIntervalSinceReferenceDate.truncatingRemainder(dividingBy: 600)
+            let frame = render(t)
+            Canvas { ctx, size in draw(ctx, size, frame) }
+        }
+        .background(Color.black)
+    }
+
+    private func render(_ t: Double) -> [RenderedFixture] {
+        var clock = BeatClock(); clock.bpm = 124; clock.anchor = 0
+        let la = clock.liveAnalysis(now: t, onsets: [], level: 0.8, useOnsetsAsKicks: false)
+        var sections: [ShowSection]
+        var hits: [ShowHit] = []
+        switch item {
+        case .look(let p)?:
+            sections = [p.asSection(start: 0)]
+        case .transition(let k)?:
+            sections = [base.map { var b = $0; b.start = 0; b.end = 1e9; b.empty = nil; b.transition = nil; return b }
+                        ?? ShowSection(name: "Base", start: 0, end: 1e9, level: .medium, effect: .gradient, palette: "Deep Blue", intensity: 0.8)]
+            let at = floor(t / 2.2) * 2.2 + (k == .rise ? 2.0 : 0.25)
+            hits = [ShowHit(time: at, kind: k, beats: k.beats)]
+        case nil:
+            if let b = base, b.empty != true { var s = b; s.start = 0; s.end = 1e9; s.transition = nil; sections = [s] }
+            else { return rig.map { RenderedFixture(heads: Array(repeating: .off, count: $0.headCount)) } }
+        }
+        var r = ShowRenderer(analysis: la, sections: sections, fixtures: rig)
+        r.hits = hits
+        return r.render(at: t)
+    }
+
+    private func draw(_ ctx: GraphicsContext, _ size: CGSize, _ frame: [RenderedFixture]) {
+        // haze
+        ctx.fill(Path(CGRect(origin: .zero, size: size)),
+                 with: .linearGradient(Gradient(colors: [Color(white: 0.06), Color(white: 0.0)]), startPoint: .zero, endPoint: CGPoint(x: 0, y: size.height)))
+        let n = max(1, frame.count)
+        let floorY = size.height - 30
+        let slotW = size.width / CGFloat(n)
+        var glow = ctx
+        glow.blendMode = .plusLighter
+        for (fi, f) in frame.enumerated() {
+            let cx = slotW * (CGFloat(fi) + 0.5)
+            let barW = min(slotW - 24, size.width * 0.86)
+            let heads = max(1, f.heads.count)
+            // movement: pan swings the beams sideways, tilt changes their reach
+            let swing = CGFloat(f.pan - 0.5) * 1.3
+            let reach = size.height * (0.55 + 0.4 * CGFloat(f.tilt))
+            for (hi, h) in f.heads.enumerated() {
+                let k = max(0, min(1, h.intensity))
+                guard k > 0.02 else { continue }
+                let hx = cx - barW / 2 + barW * (CGFloat(hi) + 0.5) / CGFloat(heads)
+                let c = Color(red: h.color.r, green: h.color.g, blue: h.color.b)
+                let tipX = hx + swing * reach * 0.6
+                let tipY = floorY - reach
+                var beam = Path()
+                beam.move(to: CGPoint(x: hx - 5, y: floorY))
+                beam.addLine(to: CGPoint(x: tipX - 16, y: tipY))
+                beam.addLine(to: CGPoint(x: tipX + 16, y: tipY))
+                beam.addLine(to: CGPoint(x: hx + 5, y: floorY))
+                beam.closeSubpath()
+                glow.fill(beam, with: .linearGradient(Gradient(colors: [c.opacity(0.55 * k), c.opacity(0)]),
+                                                      startPoint: CGPoint(x: hx, y: floorY), endPoint: CGPoint(x: tipX, y: tipY)))
+                // the lens
+                glow.fill(Path(ellipseIn: CGRect(x: hx - 12, y: floorY - 12, width: 24, height: 24)), with: .color(c.opacity(0.35 * k)))
+                glow.fill(Path(ellipseIn: CGRect(x: hx - 7, y: floorY - 7, width: 14, height: 14)), with: .color(c.opacity(k)))
+            }
+            // the bar itself
+            ctx.fill(Path(roundedRect: CGRect(x: cx - barW / 2 - 8, y: floorY + 8, width: barW + 16, height: 12), cornerRadius: 4),
+                     with: .color(Color(white: 0.2)))
+            ctx.draw(Text(rig.first?.name ?? "").font(.system(size: 9)).foregroundColor(.white.opacity(0.4)),
+                     at: CGPoint(x: cx, y: size.height - 6))
+        }
     }
 }
