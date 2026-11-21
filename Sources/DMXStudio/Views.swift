@@ -123,7 +123,7 @@ struct SongView: View {
                         VStack(alignment: .leading, spacing: 1) {
                             Text("Learning… lyrics first (1 of 2), then the music").foregroundColor(.secondary)
                             Ticking { model.lyricsCountdown(song.id) }.font(.caption).monospacedDigit()
-                            Button("Stop") { model.stopLyrics(song.id) }.controlSize(.small).foregroundColor(.secondary)
+                            Button("Skip Lyrics") { model.stopLyrics(song.id) }.controlSize(.small).foregroundColor(.secondary).help("Go straight to learning the music")
                         }
                     } else {
                         Button {
