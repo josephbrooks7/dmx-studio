@@ -54,7 +54,7 @@ struct StemsTab: View {
                     }
                     Spacer()
                     Button {
-                        if highQuality && song.analysis != nil { model.upgradeToHQ(song.id) } else { model.learn(song.id, rebuildShows: true) }
+                        if highQuality && song.analysis != nil { model.upgradeToHQ(song.id) } else { model.learn(song.id, rebuildShows: true, split: true) }
                     } label: { Label("Split Again", systemImage: "arrow.triangle.2.circlepath") }
                         .disabled(model.learning[song.id] != nil || model.hqProgress[song.id] != nil || (highQuality && !HQSplitter.isInstalled))
                         .help("Split this song again with the chosen quality, relearn it and rebuild its shows")
@@ -86,7 +86,7 @@ struct StemsTab: View {
                 } else {
                     HStack {
                         Text("This song hasn't been split into stems yet.").foregroundColor(.secondary)
-                        Button("Split & Learn") { model.learn(song.id, rebuildShows: true) }
+                        Button("Split into Stems") { model.learn(song.id, rebuildShows: true, split: true) }
                     }
                 }
             }

@@ -408,17 +408,7 @@ final class AppModel: ObservableObject {
             let all = songs.filter { $0.analysis != nil && FileManager.default.fileExists(atPath: $0.path) }.map(\.id)
             DispatchQueue.main.asyncAfter(deadline: .now() + 3) { for id in all { self.learn(id, rebuildShows: true) } }
         }
-        // Songs learned before the built-in stem splitter: split them and relearn from the stems
-        // (one at a time in the background), then rebuild their light shows from the better hits
-        // (once per song: one that fails isn't retried at every launch)
-        var tried = Set(UserDefaults.standard.stringArray(forKey: "autoSplitTried") ?? [])
-        let unsplit = songs.filter { $0.analysis != nil && $0.analysis?.stemsFolder == nil
-            && FileManager.default.fileExists(atPath: $0.path) && !tried.contains($0.id.uuidString) }.map(\.id)
-        if !unsplit.isEmpty {
-            unsplit.forEach { tried.insert($0.uuidString) }
-            UserDefaults.standard.set(Array(tried), forKey: "autoSplitTried")
-            DispatchQueue.main.asyncAfter(deadline: .now() + 3) { for id in unsplit { self.learn(id, rebuildShows: true) } }
-        }
+        // (no automatic splitting at launch: stems are only made when you ask in the Stems tab)
     }
 
     private func scheduleSave() {
@@ -1333,10 +1323,12 @@ final class AppModel: ObservableObject {
         hqProgress[id] = nil; hqStarted[id] = nil
     }
     func stopLyrics(_ id: UUID) {
+        let wasWaiting = lyricsCurrent != id
         lyricsQueue.removeAll { $0 == id }
         waitingForNetwork.removeAll { $0 == id }
         if lyricsCurrent == id { stopped.insert("lyrics-\(id)"); WhisperEngine.running?.terminate() }
         lyricsProgress[id] = nil; lyricsStatus[id] = nil
+        if wasWaiting { lyricsDone(id) }     // stopped before it started: go on to the music
     }
 
     // High Quality split runs after the quick learn, in the background (the show is usable meanwhile)
@@ -1386,11 +1378,36 @@ final class AppModel: ObservableObject {
         }
     }
 
-    func learn(_ id: UUID, rebuildShows: Bool = false) {
+    /// Songs whose music is learned right after their lyrics
+    private var musicAfterLyrics: [UUID: Bool] = [:]     // id → rebuildShows
+    private var splitOnLearn: Set<UUID> = []
+
+    /// Learn: 1) listen for the lyrics (straight from the song, no stems), 2) learn the music.
+    /// No stems are made unless `split` (the Split buttons in the Stems tab).
+    func learn(_ id: UUID, rebuildShows: Bool = false, split: Bool = false) {
         guard let i = index(of: id), learning[id] == nil else { return }
+        if split { splitOnLearn.insert(id) }
+        let needsLyrics = songs[i].lyrics == nil && WhisperEngine.isAvailable && !split
+        if needsLyrics, musicAfterLyrics[id] == nil, FileManager.default.fileExists(atPath: songs[i].path) {
+            musicAfterLyrics[id] = rebuildShows
+            learnLyrics(id)
+            return
+        }
+        learnMusic(id, rebuildShows: rebuildShows)
+    }
+
+    /// After a song's lyrics are done (or stopped): learn its music next.
+    private func lyricsDone(_ id: UUID) {
+        if let rebuild = musicAfterLyrics.removeValue(forKey: id) { learnMusic(id, rebuildShows: rebuild) }
+    }
+
+    private func learnMusic(_ id: UUID, rebuildShows: Bool) {
+        guard let i = index(of: id), learning[id] == nil else { return }
+        let split = splitOnLearn.remove(id) != nil
         let url = songs[i].url
         let title = songs[i].title
         let stems = stemsFolder(for: songs[i])
+        let keepStems = songs[i].analysis?.stemsFolder.flatMap { FileManager.default.fileExists(atPath: $0) ? $0 : nil }
         let settings = songs[i].detection ?? DetectionSettings()
         learning[id] = 0.02
         guard FileManager.default.fileExists(atPath: url.path) else {
@@ -1409,7 +1426,7 @@ final class AppModel: ObservableObject {
             // It splits the song into stems first, then learns from those parts.
             // quick learn first (seconds): the show is ready to play; the High Quality split follows in the background
             if self.stopped.contains("learn-\(id)") { DispatchQueue.main.async { self.stopped.remove("learn-\(id)") }; return }
-            let r = Helper.run(["--learn", url.path, out.path, stems.path, settingsFile.path, "fast"], timeout: 1800, progress: { p in
+            let r = Helper.run(["--learn", url.path, out.path, split ? stems.path : "", settingsFile.path, "fast"], timeout: 1800, progress: { p in
                 DispatchQueue.main.async { if self.learning[id] != nil { self.learning[id] = max(0.05, min(0.99, p)) } }
             }, onStart: { proc in DispatchQueue.main.async { self.procs["learn-\(id)"] = proc } })
             let analysis = (try? Data(contentsOf: out)).flatMap { try? Library.decoder.decode(SongAnalysis.self, from: $0) }
@@ -1428,6 +1445,9 @@ final class AppModel: ObservableObject {
                     return
                 }
                 guard let i = self.index(of: id) else { return }
+                var analysis = analysis
+                // learning without splitting keeps the parts you split before
+                if !split, analysis.stemsFolder == nil, let keepStems { analysis.stemsFolder = keepStems }
                 self.songs[i].analysis = analysis
                 if self.songs[i].shows.isEmpty { self.createShow(for: id) }
                 else if rebuildShows { self.rebuildShows(for: id) }
@@ -1555,6 +1575,7 @@ final class AppModel: ObservableObject {
         lyricsProgress[id] = nil
         if !waitingForNetwork.contains(id) { waitingForNetwork.append(id) }
         lyricsStatus[id] = "Waiting for internet to get the lyrics model (once) — or use a model file"
+        lyricsDone(id)          // don't hold up learning the music
         nextLyrics()
     }
 
@@ -1602,7 +1623,7 @@ final class AppModel: ObservableObject {
         func finish(_ result: Result<[LyricWord], Error>, engine: String) {
             lyricsBusy = false
             lyricsCurrent = nil
-            if stopped.remove("lyrics-\(id)") != nil { lyricsProgress[id] = nil; lyricsStatus[id] = nil; nextLyrics(); return }
+            if stopped.remove("lyrics-\(id)") != nil { lyricsProgress[id] = nil; lyricsStatus[id] = nil; lyricsDone(id); nextLyrics(); return }
             lyricsProgress[id] = nil
             lyricsStatus[id] = nil
             switch result {
@@ -1627,7 +1648,7 @@ final class AppModel: ObservableObject {
                 ErrorCenter.shared.report(area: "Lyrics", message: "Couldn't learn the lyrics of \"\(title)\": \(e.localizedDescription)", details: "\(e)")
                 if (e as? LyricsError) == .notAllowed { lyricsQueue.forEach { lyricsProgress[$0] = nil }; lyricsQueue = [] }
             }
-            nextLyrics()
+            lyricsDone(id); nextLyrics()
         }
         let progress: (Double) -> Void = { p in
             guard self.lyricsProgress[id] != nil else { return }

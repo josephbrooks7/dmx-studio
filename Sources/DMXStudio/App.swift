@@ -242,7 +242,12 @@ struct SongRow: View {
                 if let a = song.artist, !a.isEmpty {
                     Text(a).font(.caption).foregroundColor(.secondary).lineLimit(1)
                 }
-                if let p = model.learning[song.id] {
+                if model.lyricsProgress[song.id] != nil && song.analysis == nil && model.learning[song.id] == nil {
+                    // Learn step 1 of 2: lyrics first, then the music
+                    ProgressView(value: model.lyricsProgress[song.id] ?? 0).controlSize(.small)
+                    Ticking { "Listening for lyrics (1 of 2) · " + model.lyricsCountdown(song.id) }
+                        .font(.caption2).foregroundStyle(.secondary).monospacedDigit()
+                } else if let p = model.learning[song.id] {
                     ProgressView(value: p).controlSize(.small)
                     Ticking { model.learnCountdown(song.id) }.font(.caption2).foregroundStyle(.secondary).monospacedDigit()
                 } else if let a = song.analysis {
