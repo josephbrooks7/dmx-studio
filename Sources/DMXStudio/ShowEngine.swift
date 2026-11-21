@@ -349,6 +349,7 @@ struct ShowRenderer {
     let fixtures: [Fixture]
     var idle: IdleLook = IdleLook()
     var rig: RigMode = .together
+    var hits: [ShowHit] = []        // transition hits placed on the timeline
 
     /// Show + automatic fade to the idle look wherever the song is silent.
     func renderWithIdle(at t: Double) -> [RenderedFixture] {
@@ -428,7 +429,55 @@ struct ShowRenderer {
         }
         applyLyricCues(&out, t: t)
         applyAccents(&out, t: t, beatLen: ctx.beatLen)
+        applyHits(&out, t: t, beatLen: ctx.beatLen)
         return out
+    }
+
+    /// Transition hits you placed: short one-time effects on top of whatever block is playing
+    private func applyHits(_ out: inout [RenderedFixture], t: Double, beatLen: Double) {
+        let bl = max(beatLen, 0.05)
+        // transition blocks on the timeline are hits that last their block (a rise builds into its end)
+        let fromBlocks: [ShowHit] = sections.compactMap { s in
+            s.transition.map { k in ShowHit(time: k == .rise ? s.end : s.start, kind: k, beats: max(0.25, (s.end - s.start) / bl)) }
+        }
+        for hit in hits + fromBlocks {
+            let len = hit.beats * bl
+            // a rise builds into its moment; everything else starts at it
+            let start = hit.kind == .rise ? hit.time - len : hit.time
+            guard t >= start - 0.001 && t < start + len else { continue }
+            let dt = t - start, frac = dt / max(len, 0.01)
+            func all(_ body: (inout FixtureState) -> Void) {
+                for f in out.indices { for h in out[f].heads.indices { body(&out[f].heads[h]) } }
+            }
+            let gentle = Self.maxFlashHz <= 0
+            switch hit.kind {
+            case .flash, .blinder:
+                let decay = hit.kind == .flash ? 0.16 : 0.45
+                let hold = hit.kind == .blinder ? min(0.25, len * 0.3) : 0
+                var k = dt < hold ? 1 : exp(-(dt - hold) / decay)
+                if gentle { k *= 0.6 }
+                all { $0.color = $0.color.mix(.white, k); $0.intensity = max($0.intensity, k) }
+            case .strobeBurst, .stutter:
+                guard let on = gate(dt / bl, div: hit.kind == .strobeBurst ? 4 : 2, beatLen: bl) else {
+                    all { $0.color = $0.color.mix(.white, 0.5 * (1 - frac)); $0.intensity = max($0.intensity, 1 - frac) }
+                    continue
+                }
+                all { s in if on { s.color = s.color.mix(.white, 0.9); s.intensity = 1 } else { s.intensity *= 0.05 } }
+            case .blackout:
+                let k = frac < 0.85 ? 1 : (1 - frac) / 0.15
+                all { $0.intensity *= (1 - k) }
+            case .colorPop:
+                let k = min(1, dt / 0.04) * exp(-max(0, dt - 0.04) / 0.3)
+                all { s in
+                    let c = s.color
+                    let brightest = max(c.r, max(c.g, c.b), 0.01)
+                    let pop = RGB(r: c.r / brightest, g: c.g / brightest, b: c.b / brightest)
+                    s.color = c.mix(pop, k); s.intensity = max(s.intensity, k)
+                }
+            case .rise:
+                all { $0.color = $0.color.mix(.white, frac * 0.6); $0.intensity = max($0.intensity, 0.4 + 0.6 * frac) }
+            }
+        }
     }
 
     private func shapeByParts(_ out: inout [RenderedFixture], _ c: Ctx, _ sec: ShowSection) {

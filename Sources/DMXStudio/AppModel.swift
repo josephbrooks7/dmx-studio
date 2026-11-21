@@ -329,6 +329,9 @@ final class AppModel: ObservableObject {
                 guard self.songsScreenShowing, !self.pickedSongs.isEmpty else { return e }
                 if down && !e.isARepeat { self.requestRemove(Array(self.pickedSongs)) }
                 return nil
+            case 47: // . = split the playing song's block right at the playhead
+                if down && !e.isARepeat && self.playingSongID != nil { self.splitAtPlayhead() }
+                return self.playingSongID != nil ? nil : e
             case 17: // T = tap tempo
                 if down && !e.isARepeat { self.tapTempo() }
                 return nil
@@ -2201,6 +2204,67 @@ final class AppModel: ObservableObject {
         songs[i].shows[si].sections.insert(second, at: k + 1)
     }
 
+    /// "." while playing: cut the block under the playhead there (on the nearest beat) and leave a short empty
+    /// slot (half a bar) to drop a transition into. The block after it gets shorter by the same amount, so
+    /// everything later stays at the same time.
+    func splitAtPlayhead() {
+        guard let id = playingSongID, let i = index(of: id), let si = songs[i].activeShowIndex, let a = songs[i].analysis else { return }
+        let raw = currentTime + (songs[i].syncOffsetMs + globalLatencyMs) / 1000
+        let t = a.beats.min(by: { abs($0 - raw) < abs($1 - raw) }).flatMap { abs($0 - raw) < 0.3 ? $0 : nil } ?? raw
+        guard let k = songs[i].shows[si].sections.firstIndex(where: { $0.start < t && t < $0.end }) else { return }
+        let sec = songs[i].shows[si].sections[k]
+        guard t - sec.start >= 0.4 else { return }                 // right at the start: nothing to cut
+        let beat = 60 / max(a.bpm, 40)
+        let gap = min(2 * beat, sec.end - t)                       // half a bar (less near the block's end)
+        guard gap >= 0.2 else { return }
+        var left = sec, slot = sec, right = sec
+        left.end = t
+        slot.id = UUID(); slot.start = t; slot.end = t + gap
+        slot.empty = true; slot.transition = nil; slot.accentStrobe = false; slot.name = "Transition"
+        right.id = UUID(); right.start = t + gap; right.accentStrobe = false
+        var parts = [left, slot]
+        if right.end - right.start >= 0.2 { parts.append(right) } else { parts[1].end = sec.end }
+        songs[i].shows[si].sections.replaceSubrange(k...k, with: parts)
+        lastSplitNote = "Cut \(sec.name) at \(formatTime(t)) — empty slot for a transition"
+    }
+
+    /// Fill a block (usually an empty slot) with a transition: the hit on top of the look before it
+    func setTransition(_ kind: HitKind, songID: UUID, sectionID: UUID) {
+        guard let i = index(of: songID), let si = songs[i].activeShowIndex,
+              let k = songs[i].shows[si].sections.firstIndex(where: { $0.id == sectionID }) else { return }
+        var s = songs[i].shows[si].sections[k]
+        // carry the look from the block before (so the hit plays over it, then the next block takes over)
+        if let prev = songs[i].shows[si].sections[..<k].last(where: { $0.empty != true && $0.transition == nil }) {
+            s.effect = prev.effect; s.palette = prev.palette; s.movement = prev.movement; s.rate = prev.rate
+            s.intensity = prev.intensity; s.colorShift = prev.colorShift
+        }
+        s.transition = kind
+        s.empty = nil
+        s.accentStrobe = false
+        s.name = kind.rawValue
+        songs[i].shows[si].sections[k] = s
+    }
+    @Published var lastSplitNote: String?
+
+    /// Put a transition hit on the playing / shown song at a time
+    func addHit(_ kind: HitKind, songID: UUID, at time: Double) {
+        guard let i = index(of: songID), let si = songs[i].activeShowIndex, let a = songs[i].analysis else { return }
+        let t = a.beats.min(by: { abs($0 - time) < abs($1 - time) }).flatMap { abs($0 - time) < 0.3 ? $0 : nil } ?? time
+        var hits = songs[i].shows[si].hits ?? []
+        hits.removeAll { abs($0.time - t) < 0.05 && $0.kind == kind }
+        hits.append(ShowHit(time: t, kind: kind, beats: kind.beats))
+        songs[i].shows[si].hits = hits.sorted { $0.time < $1.time }
+    }
+    func removeHit(songID: UUID, hitID: UUID) {
+        guard let i = index(of: songID), let si = songs[i].activeShowIndex else { return }
+        songs[i].shows[si].hits?.removeAll { $0.id == hitID }
+    }
+    func setHitLength(songID: UUID, hitID: UUID, beats: Double) {
+        guard let i = index(of: songID), let si = songs[i].activeShowIndex,
+              let h = songs[i].shows[si].hits?.firstIndex(where: { $0.id == hitID }) else { return }
+        songs[i].shows[si].hits?[h].beats = beats
+    }
+
     /// Joins a section with the one after it.
     func mergeWithNext(songID: UUID, sectionID: UUID) {
         guard let i = index(of: songID), let si = songs[i].activeShowIndex,
@@ -2747,6 +2811,7 @@ final class AppModel: ObservableObject {
               let show = songs[i].shows.first(where: { $0.id == showID }) ?? songs[i].activeShow else { return nil }
         let linked = fixtures.indices.filter { show.includes(fixtures[$0]) && fixtures[$0].isOn && fixtures[$0].effectiveBehavior == .sequence && copySource(of: $0) == nil }
         var r = ShowRenderer(analysis: a, sections: show.sections, fixtures: linked.map { fixtures[$0] })
+        r.hits = show.hits ?? []
         r.idle = idle
         r.rig = rigMode
         let part = r.renderWithIdle(at: time + (songs[i].syncOffsetMs + globalLatencyMs) / 1000)
@@ -2866,6 +2931,7 @@ final class AppModel: ObservableObject {
                     // Only the lights linked to this show run it; the rest stay on the idle look
                     let linked = fixtures.indices.filter { show.includes(fixtures[$0]) && fixtures[$0].isOn && fixtures[$0].effectiveBehavior == .sequence && copySource(of: $0) == nil }
                     var r = ShowRenderer(analysis: a, sections: show.sections, fixtures: linked.map { fixtures[$0] })
+                    r.hits = show.hits ?? []
                     r.idle = idle
                     r.rig = rigMode
                     let part = r.renderWithIdle(at: t)

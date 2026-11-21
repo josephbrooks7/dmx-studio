@@ -422,6 +422,7 @@ struct ShowSection: Identifiable, Codable, Hashable {
     var colorShift: Int? = nil      // rotates the palette so repeated phrases look different
     var accents: Double? = nil      // how much white blinder / strobe accent use (nil = 1, 0 = none)
     var empty: Bool? = nil          // removed on the timeline: an empty slot (idle look) waiting for a new look
+    var transition: HitKind? = nil  // a short transition block: this hit, on top of the look before it
 }
 
 struct SongAnalysis: Codable {
@@ -477,6 +478,7 @@ struct LightShow: Identifiable, Codable, Hashable {
     var fixtureIDs: [UUID]? = nil   // lights linked to this show; nil = all lights
     var builtFor: String? = nil      // lights + channel modes it was programmed for, e.g. "Beam Bar 1 · 38CH"
     var design: DesignBlend? = nil   // artist-inspired lighting mode(s) it was made with
+    var hits: [ShowHit]? = nil       // short one-time transition hits placed on the timeline (on top of the blocks)
 
     func includes(_ fx: Fixture) -> Bool { fixtureIDs?.contains(fx.id) ?? true }
 }
@@ -902,4 +904,68 @@ struct StageLayout: Codable, Hashable {
         }
         return StageLayout(items: items)
     }
+}
+
+
+// MARK: - Transition hits (short one-time effects on top of the timeline blocks)
+
+enum HitKind: String, Codable, CaseIterable, Identifiable {
+    case flash = "White Flash"
+    case strobeBurst = "Strobe Burst"
+    case stutter = "Stutter"
+    case blinder = "Blinder"
+    case blackout = "Blackout Drop"
+    case colorPop = "Color Pop"
+    case rise = "Quick Rise"
+    var id: String { rawValue }
+    var icon: String {
+        switch self {
+        case .flash: return "bolt.fill"
+        case .strobeBurst: return "bolt.horizontal.fill"
+        case .stutter: return "bolt.circle.fill"
+        case .blinder: return "sun.max.fill"
+        case .blackout: return "moon.fill"
+        case .colorPop: return "paintpalette.fill"
+        case .rise: return "arrow.up.right"
+        }
+    }
+    var color: RGB {
+        switch self {
+        case .flash, .blinder: return RGB(r: 1, g: 1, b: 1)
+        case .strobeBurst, .stutter: return RGB(r: 0.85, g: 0.9, b: 1)
+        case .blackout: return RGB(r: 0.2, g: 0.2, b: 0.25)
+        case .colorPop: return RGB(r: 1, g: 0.2, b: 0.6)
+        case .rise: return RGB(r: 1, g: 0.75, b: 0.3)
+        }
+    }
+    /// Default length in beats
+    var beats: Double {
+        switch self {
+        case .flash: return 1
+        case .strobeBurst: return 2
+        case .stutter: return 2
+        case .blinder: return 2
+        case .blackout: return 1
+        case .colorPop: return 1
+        case .rise: return 4
+        }
+    }
+    var blurb: String {
+        switch self {
+        case .flash: return "one white flash that fades back"
+        case .strobeBurst: return "fast white strobe"
+        case .stutter: return "strobe chops on the beat grid"
+        case .blinder: return "full white, then fades"
+        case .blackout: return "all lights out, then back"
+        case .colorPop: return "a burst of the look's brightest color"
+        case .rise: return "builds brighter and whiter into the moment"
+        }
+    }
+}
+
+struct ShowHit: Identifiable, Codable, Hashable {
+    var id = UUID()
+    var time: Double
+    var kind: HitKind
+    var beats: Double
 }

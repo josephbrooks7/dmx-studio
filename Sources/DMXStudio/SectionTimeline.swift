@@ -69,7 +69,7 @@ struct SectionTimelineEditor: View {
             VStack(alignment: .leading, spacing: 10) {
                 HStack(spacing: 10) {
                     Text("Sections").font(.headline)
-                    Text("Click a block to change it · drag a look or another block onto it to replace it · right-click for more")
+                    Text("Click a block to change it · drag a look onto it to replace it · press . while playing to cut a slot for a transition")
                         .font(.caption).foregroundColor(.secondary).lineLimit(1)
                     Spacer()
                     Image(systemName: "minus.magnifyingglass").foregroundColor(.secondary)
@@ -189,7 +189,8 @@ struct SectionTimelineEditor: View {
     }
 
     @ViewBuilder private func block(_ s: ShowSection, width: CGFloat) -> some View {
-        withActions(s.empty == true ? AnyView(emptyBlock(s, width: width)) : AnyView(filledBlock(s, width: width)), s)
+        withActions(s.empty == true ? AnyView(emptyBlock(s, width: width))
+                    : s.transition != nil ? AnyView(transitionBlock(s, width: width)) : AnyView(filledBlock(s, width: width)), s)
     }
 
     /// A removed block: same time, dashed, waiting for a look
@@ -207,6 +208,31 @@ struct SectionTimelineEditor: View {
             }
             .foregroundColor(.white.opacity(0.8))
         }
+    }
+
+    /// A transition block: a short hit (flash, strobe burst…) over the look before it
+    private func transitionBlock(_ s: ShowSection, width: CGFloat) -> some View {
+        let k = s.transition ?? .flash
+        let isSel = (selected ?? sections.first?.id) == s.id
+        return ZStack {
+            RoundedRectangle(cornerRadius: 9, style: .continuous).fill(k.color.color.opacity(0.9))
+            // stripes: it's a short one-time hit
+            GeometryReader { g in
+                Path { p in
+                    var x: CGFloat = -g.size.height
+                    while x < g.size.width { p.move(to: CGPoint(x: x, y: g.size.height)); p.addLine(to: CGPoint(x: x + g.size.height, y: 0)); x += 9 }
+                }
+                .stroke(Color.black.opacity(0.18), lineWidth: 3)
+            }
+            .clipShape(RoundedRectangle(cornerRadius: 9, style: .continuous))
+            VStack(spacing: 2) {
+                Image(systemName: k.icon).font(.system(size: width > 34 ? 15 : 10, weight: .heavy))
+                if width > 70 { Text(k.rawValue).font(.system(size: 10, weight: .bold)).lineLimit(1) }
+            }
+            .foregroundColor(k == .blackout ? .white : .black.opacity(0.85))
+        }
+        .overlay(RoundedRectangle(cornerRadius: 9, style: .continuous)
+            .stroke(dropTarget == s.id ? Color.yellow : (isSel ? Color.white : Color.black.opacity(0.3)), lineWidth: dropTarget == s.id || isSel ? 2.5 : 1))
     }
 
     @ViewBuilder private func filledBlock(_ s: ShowSection, width: CGFloat) -> some View {
@@ -275,6 +301,9 @@ struct SectionTimelineEditor: View {
                     }
                 }
             }
+            Menu("Make a Transition") {
+                ForEach(HitKind.allCases) { k in Button(k.rawValue) { model.setTransition(k, songID: song.id, sectionID: s.id); select(s.id) } }
+            }
             Button("Copy Look") { copied = s }
             Button("Paste Look") { if let c = copied { applyLook(of: c, to: s.id) } }.disabled(copied == nil)
             Divider()
@@ -311,6 +340,11 @@ struct SectionTimelineEditor: View {
                 }
                 .labelsHidden().frame(width: 180)
             }
+            HStack(spacing: 6) {
+                Text("Transitions").font(.caption.bold()).foregroundColor(.secondary).frame(width: 74, alignment: .leading)
+                ForEach(HitKind.allCases) { k in transitionPad(k) }
+                Spacer(minLength: 0)
+            }
             ScrollView(.vertical, showsIndicators: true) {
                 LazyVGrid(columns: [GridItem(.adaptive(minimum: 104, maximum: 160), spacing: 6)], spacing: 6) {
                     ForEach(model.presets.filter { looksGroup == "All" || ($0.group ?? "Essentials") == looksGroup }) { p in
@@ -320,6 +354,26 @@ struct SectionTimelineEditor: View {
             }
             .frame(maxHeight: 160)
         }
+    }
+
+    /// Short one-time hits for the empty slots "." leaves (or any block)
+    private func transitionPad(_ k: HitKind) -> some View {
+        HStack(spacing: 4) {
+            Image(systemName: k.icon).font(.system(size: 11, weight: .heavy))
+            Text(k.rawValue).font(.system(size: 10, weight: .bold)).lineLimit(1)
+        }
+        .foregroundColor(k == .blackout ? .white : .black.opacity(0.85))
+        .padding(.horizontal, 8).padding(.vertical, 7)
+        .background(RoundedRectangle(cornerRadius: 6, style: .continuous).fill(k.color.color.opacity(0.9)))
+        .contentShape(Rectangle())
+        .onTapGesture {
+            // into the selected block, or the next empty slot after the playhead
+            let target = selected.flatMap { id in sections.first { $0.id == id } }
+                ?? sections.first { $0.empty == true && $0.end > (scrubTime ?? 0) }
+            if let s = target { model.setTransition(k, songID: song.id, sectionID: s.id); select(s.id) }
+        }
+        .onDrag { NSItemProvider(object: "hit:\(k.rawValue)" as NSString) }
+        .help("\(k.rawValue): \(k.blurb). Drop it into a slot (press . while playing to cut one), or click to put it on the selected block")
     }
 
     private func lookPad(_ p: LookPreset) -> some View {
@@ -371,6 +425,15 @@ struct SectionTimelineEditor: View {
                 Button { model.emptySection(songID: song.id, sectionID: s.id) } label: { Label("Remove", systemImage: "trash") }
                     .disabled(s.empty == true)
                     .help("Remove this block's look and leave an empty slot of the same length (Delete key)")
+            }
+            if let k = s.transition {
+                HStack(spacing: 10) {
+                    Text("Transition").font(.caption.bold()).foregroundColor(.secondary)
+                    Picker("", selection: Binding(get: { k }, set: { model.setTransition($0, songID: song.id, sectionID: s.id) })) {
+                        ForEach(HitKind.allCases) { Label($0.rawValue, systemImage: $0.icon).tag($0) }
+                    }.labelsHidden().frame(width: 170)
+                    Text(k.blurb + ", over the look before it").font(.caption).foregroundColor(.secondary)
+                }
             }
             if s.empty == true {
                 Text("Empty slot: click a look pad, drag one here, or pick an effect below to fill it. Until then the lights play the idle look.")
@@ -433,7 +496,10 @@ struct SectionTimelineEditor: View {
 
     private func dropped(_ str: String, on target: UUID) {
         dropTarget = nil
-        if str.hasPrefix("preset:"), let id = UUID(uuidString: String(str.dropFirst(7))), let p = model.presets.first(where: { $0.id == id }) {
+        if str.hasPrefix("hit:"), let k = HitKind(rawValue: String(str.dropFirst(4))) {
+            model.setTransition(k, songID: song.id, sectionID: target)
+            select(target)
+        } else if str.hasPrefix("preset:"), let id = UUID(uuidString: String(str.dropFirst(7))), let p = model.presets.first(where: { $0.id == id }) {
             apply(p, to: target)
         } else if str.hasPrefix("section:"), let id = UUID(uuidString: String(str.dropFirst(8))), let src = sections.first(where: { $0.id == id }), id != target {
             applyLook(of: src, to: target)
@@ -447,6 +513,7 @@ struct SectionTimelineEditor: View {
         s.effect = p.effect; s.palette = p.palette; s.movement = p.movement; s.rate = p.rate; s.intensity = p.intensity
         s.colorShift = nil
         s.empty = nil
+        s.transition = nil
         song.shows[showIndex].sections[k] = s
         select(id)
     }
@@ -457,6 +524,7 @@ struct SectionTimelineEditor: View {
         s.effect = src.effect; s.palette = src.palette; s.movement = src.movement; s.rate = src.rate
         s.intensity = src.intensity; s.accentStrobe = src.accentStrobe; s.colorShift = src.colorShift; s.accents = src.accents
         s.empty = src.empty
+        s.transition = src.transition
         song.shows[showIndex].sections[k] = s
         select(id)
     }
