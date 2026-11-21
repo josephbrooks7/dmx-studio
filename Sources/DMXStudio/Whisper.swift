@@ -342,6 +342,24 @@ enum WhisperEngine {
         return all
     }
 
+    /// A steep high-pass filter (two 12 dB/octave stages = 24 dB/octave) applied in place
+    static func highPass(_ x: inout [Float], cutoff: Double, sampleRate: Double) {
+        guard !x.isEmpty else { return }
+        let w0 = 2 * Double.pi * cutoff / sampleRate, alpha = sin(w0) / (2 * 0.7071)
+        let a0 = 1 + alpha, cw = cos(w0)
+        let b0 = Float((1 + cw) / 2 / a0), b1 = Float(-(1 + cw) / a0), b2 = b0
+        let a1 = Float(-2 * cw / a0), a2 = Float((1 - alpha) / a0)
+        for _ in 0..<2 {
+            var x1: Float = 0, x2: Float = 0, y1: Float = 0, y2: Float = 0
+            for i in x.indices {
+                let v = x[i]
+                let y = b0 * v + b1 * x1 + b2 * x2 - a1 * y1 - a2 * y2
+                x2 = x1; x1 = v; y2 = y1; y1 = y
+                x[i] = y
+            }
+        }
+    }
+
     /// (where a piece starts in the shortened file, where it is in the song, how long) — seconds
     typealias TimeMap = [(out: Double, src: Double, len: Double)]
     static func mapTime(_ t: Double, _ map: TimeMap) -> Double {
@@ -362,6 +380,9 @@ enum WhisperEngine {
             if all.count < part.count { all.append(contentsOf: [Float](repeating: 0, count: part.count - all.count)) }
             for i in part.indices { all[i] += part[i] }
         }
+        // Cut everything below 200 Hz (kick, bass, sub synths): the words live above it, and the low end
+        // otherwise sets the level and masks the voice
+        highPass(&all, cutoff: 200, sampleRate: 16000)
         if !keep.isEmpty {
             for i in all.indices {
                 let t = Double(i) / 16000
