@@ -23,6 +23,12 @@ struct LyricLine: Codable, Hashable, Identifiable {
     var vocalist: String? = nil     // "Lead" or "Background"
 }
 
+/// A section name written in the lyrics ("Verse 1", "[Chorus]", "Pre-Chorus:") and the line it starts at
+struct LyricSectionLabel: Codable, Hashable {
+    var name: String
+    var line: Int
+}
+
 struct Lyrics: Codable, Hashable {
     var lines: [LyricLine]
     var words: [LyricWord]
@@ -34,6 +40,7 @@ struct Lyrics: Codable, Hashable {
     var insights: [LineInsight]? = nil        // per line: emotion, imagery, delivery, repeated
     var cues: [LyricCue]? = nil               // lighting suggestions made from the lyrics
     var mode: LyricLightingMode? = nil        // nil = Automatic
+    var sectionLabels: [LyricSectionLabel]? = nil  // "Verse 1", "Chorus"… from the pasted lyrics, at their first line
     var pastedText: String? = nil             // what you pasted (kept so it can be lined up again after a new listen)
     var engine: String? = nil                 // what heard the words ("Whisper base", "Apple speech", "Pasted")
 
@@ -159,7 +166,7 @@ enum LyricsLearner {
     /// Pasted official lyrics: one line per text line, placed on the sung phrases (or on the words
     /// that were heard, when there are some). Placement is an estimate, so confidence is low.
     static func align(text: String, heard: [LyricWord], phrases: [TimeSpan], duration: Double) -> Lyrics {
-        let raw = cleanPasted(text)
+        let (raw, labels) = cleanPastedWithLabels(text)
         guard !raw.isEmpty else { return Lyrics(lines: [], words: [], source: "Pasted") }
         let lineWords = raw.map { $0.split(separator: " ").map(String.init) }
         let total = lineWords.reduce(0) { $0 + $1.count }
@@ -208,12 +215,56 @@ enum LyricsLearner {
         }
         var ly = Lyrics(lines: lines, words: words, source: "Pasted")
         ly.pastedText = text
+        ly.sectionLabels = labels.isEmpty ? nil : labels
         analyze(&ly)
         return ly
     }
 
     /// Lyrics copied from a web page come with extras: "Source: …", songwriter credits, video results,
     /// view counts, "AI can make mistakes", and often the lyrics twice. Keep just one copy of the words.
+    static let labelMark = "\u{1}SECTION:"
+
+    /// "Verse 1", "VERSE I:", "[Pre-Chorus]", "Prechorus 2", "Ending", "Hook" → a section name, or nil for a sung line
+    static func sectionLabel(_ raw: String) -> String? {
+        var s = raw.trimmingCharacters(in: .whitespaces)
+        // [Chorus] (Chorus) {Chorus} <Chorus> **Chorus** Chorus:
+        for (o, c) in [("[", "]"), ("(", ")"), ("{", "}"), ("<", ">")] where s.hasPrefix(o) && s.hasSuffix(c) {
+            s = String(s.dropFirst().dropLast())
+        }
+        s = s.trimmingCharacters(in: CharacterSet(charactersIn: " :-–—.*#()[]{}<>_")).lowercased()
+        // "[Chorus: Artist name]" style
+        if let c = s.firstIndex(of: ":") { s = String(s[..<c]).trimmingCharacters(in: .whitespaces) }
+        let kinds: [(String, String)] = [("pre-chorus", "Pre-Chorus"), ("pre chorus", "Pre-Chorus"), ("prechorus", "Pre-Chorus"),
+                                         ("post-chorus", "Post-Chorus"), ("post chorus", "Post-Chorus"), ("postchorus", "Post-Chorus"),
+                                         ("chorus", "Chorus"), ("hook", "Chorus"), ("refrain", "Chorus"), ("verse", "Verse"),
+                                         ("bridge", "Bridge"), ("intro", "Intro"), ("outro", "Outro"), ("ending", "Outro"),
+                                         ("breakdown", "Breakdown"), ("drop", "Drop"), ("interlude", "Interlude"), ("build", "Build"),
+                                         ("instrumental", "Instrumental")]
+        guard let (key, name) = kinds.first(where: { s.hasPrefix($0.0) }) else { return nil }
+        let rest = s.dropFirst(key.count).trimmingCharacters(in: .whitespaces)
+        if rest.isEmpty { return name }
+        // a number: 2, II, iv…
+        if let n = Int(rest) { return "\(name) \(n)" }
+        let romans = ["i": 1, "ii": 2, "iii": 3, "iv": 4, "v": 5, "vi": 6]
+        if let n = romans[rest] { return "\(name) \(n)" }
+        return nil    // "Chorus girls dance…" is a sung line
+    }
+
+    /// The sung lines (web extras and duplicate copies removed) and the section labels between them
+    static func cleanPastedWithLabels(_ text: String) -> (lines: [String], labels: [LyricSectionLabel]) {
+        var lines: [String] = [], labels: [LyricSectionLabel] = []
+        for l in cleanPasted(text) {
+            if l.hasPrefix(labelMark) { labels.append(LyricSectionLabel(name: String(l.dropFirst(labelMark.count)), line: lines.count)) }
+            else { lines.append(l) }
+        }
+        // a label with nothing after it, or two labels on the same line: keep the last one
+        var out: [LyricSectionLabel] = []
+        for lb in labels where lb.line < lines.count {
+            if out.last?.line == lb.line { out[out.count - 1] = lb } else { out.append(lb) }
+        }
+        return (lines, out)
+    }
+
     static func cleanPasted(_ text: String) -> [String] {
         func isJunk(_ s: String) -> Bool {
             let low = s.lowercased(), n = s.split(separator: " ").count
@@ -235,7 +286,9 @@ enum LyricsLearner {
             let s = l.replacingOccurrences(of: #"\[([^\]]*(?:\[[^\]]*\][^\]]*)*)\]\(https?://[^)]*\)"#, with: "$1", options: .regularExpression)
                 .replacingOccurrences(of: #"https?://\S+"#, with: "", options: .regularExpression)
                 .trimmingCharacters(in: .whitespaces)
-            if s.isEmpty || (s.hasPrefix("[") && s.hasSuffix("]")) { continue }   // [Chorus] labels: skip, same block
+            if s.isEmpty { continue }
+            if let label = sectionLabel(s) { cur.append(labelMark + label); continue }   // kept as a marker, not sung
+            if s.hasPrefix("[") && s.hasSuffix("]") { continue }                         // other [notes]: skip
             if isJunk(s) { if !cur.isEmpty { blocks.append(cur); cur = [] }; continue }
             cur.append(s)
         }

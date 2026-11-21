@@ -91,6 +91,7 @@ struct DMXStudioApp: App {
             print("heard=" + heard.map { String(format: "%@@%.2f", $0.text, $0.start) }.joined(separator: " "))
             let ly = LyricsLearner.align(text: text, heard: heard, phrases: [], duration: duration)
             for l in ly.lines { print(String(format: "LINE %.2f %.2f ", l.start, l.end) + l.text) }
+            for lb in ly.sectionLabels ?? [] { print("LABEL \(lb.line) \(lb.name)") }
             exit(0)
         }
         if args.contains("--scan-artnet") {

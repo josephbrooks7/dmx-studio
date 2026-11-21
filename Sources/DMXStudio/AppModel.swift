@@ -1694,6 +1694,7 @@ final class AppModel: ObservableObject {
                     songs[i].lyrics?.engine = "Pasted · timed by listening"
                     songs[i].lyrics?.mode = mode
                     refreshLyricLighting(id)
+                    applyLyricStructure(id)          // "Verse 1", "Chorus"… in your lyrics mark the song's parts
                 } else if let i = index(of: id), !["Pasted", "Edited"].contains(songs[i].lyrics?.source ?? "") {
                     var ly = LyricsLearner.build(words: words, phrases: phrases, source: "Heard from the vocals")
                     ly.engine = engine
@@ -1781,6 +1782,7 @@ final class AppModel: ObservableObject {
         songs[i].lyrics?.engine = "Pasted"
         songs[i].lyrics?.mode = mode
         refreshLyricLighting(id)
+        applyLyricStructure(id)
         // listen once more to find where each pasted line is really sung
         if WhisperEngine.isAvailable, lyricsProgress[id] == nil { learnLyrics(id) }
     }
@@ -1954,6 +1956,61 @@ final class AppModel: ObservableObject {
         }
         d += "\nWORDS (time word sure%)\n" + ly.words.map { "\(t($0.start)) \($0.text) \(Int(($0.confidence * 100).rounded()))" }.joined(separator: "\n")
         ErrorCenter.shared.sendReport(AppProblem(area: "Lyrics report", message: "Lyrics heard for \"\(s.title)\"", details: d))
+    }
+
+    /// Section names written in your lyrics ("Verse 1", "Chorus"…) become the song's structure: each section starts
+    /// where its first line is sung (on the bar), and the light shows are rebuilt for it.
+    func applyLyricStructure(_ id: UUID) {
+        guard let i = index(of: id), let ly = songs[i].lyrics, let labels = ly.sectionLabels, labels.count >= 2,
+              var a = songs[i].analysis, !ly.lines.isEmpty else { return }
+        var bars: [Double] = []
+        var b = a.downbeatOffset
+        while b < a.beats.count { bars.append(a.beats[b]); b += 4 }
+        func snap(_ t: Double) -> Double {
+            guard let n = bars.min(by: { abs($0 - t) < abs($1 - t) }), abs(n - t) < 1.5 else { return t }
+            return n
+        }
+        var marks: [(name: String, t: Double)] = []
+        for l in labels where l.line < ly.lines.count {
+            let t = snap(max(a.musicStart, ly.lines[l.line].start - 0.3))
+            if let last = marks.last, t - last.t < 2 { marks[marks.count - 1].name = l.name; continue }
+            marks.append((l.name, t))
+        }
+        guard marks.count >= 2 else { return }
+        // number repeated parts: Chorus → Chorus 1, Chorus 2 (written numbers are kept)
+        var counts: [String: Int] = [:]
+        let named: [(String, Double)] = marks.map { m in
+            let base = m.name.split(separator: " ").first.map(String.init) ?? m.name
+            if m.name != base { return (m.name, m.t) }
+            if ["Intro", "Outro", "Instrumental", "Interlude"].contains(base) { return (base, m.t) }
+            counts[base, default: 0] += 1
+            return ("\(base) \(counts[base]!)", m.t)
+        }
+        let old = a.detectedSections
+        func section(_ name: String, _ s: Double, _ e: Double) -> DetectedSection {
+            // loudness from the sections it overlaps
+            var w = 0.0, en = 0.0, levelTime: [EnergyLevel: Double] = [:]
+            for o in old {
+                let ov = min(e, o.end) - max(s, o.start)
+                guard ov > 0 else { continue }
+                w += ov; en += o.energy * ov; levelTime[o.level, default: 0] += ov
+            }
+            let level = levelTime.max { $0.value < $1.value }?.key ?? .medium
+            return DetectedSection(start: s, end: e, energy: w > 0 ? en / w : 0.5, level: level, name: name)
+        }
+        var secs: [DetectedSection] = []
+        if named[0].1 - a.musicStart > 3 && !named[0].0.hasPrefix("Intro") { secs.append(section("Intro", a.musicStart, named[0].1)) }
+        let lastSung = ly.lines.last?.end ?? a.musicEnd
+        for (k, m) in named.enumerated() {
+            var end = k + 1 < named.count ? named[k + 1].1 : a.musicEnd
+            // music carries on well after the last line: that's an outro
+            if k + 1 == named.count && a.musicEnd - lastSung > 8 && !m.0.hasPrefix("Outro") { end = snap(lastSung + 0.5) }
+            if end - m.1 >= 1 { secs.append(section(m.0, m.1, end)) }
+        }
+        if let last = secs.last, a.musicEnd - last.end > 2 { secs.append(section("Outro", last.end, a.musicEnd)) }
+        a.detectedSections = secs
+        songs[i].analysis = a
+        rebuildShows(for: id)
     }
 
     /// Corrected lyrics are kept in the Lyrics Library (by song title)

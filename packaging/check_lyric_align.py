@@ -14,4 +14,8 @@ if ok:
     print(f"line start error: median {med:.2f}s, worst {worst:.2f}s")
     if med <= 0.6 and worst <= 2.0: print("PASS pasted lines land where they're sung")
     else: print("FAIL pasted line timing"); ok = False
+labels = [l.split(" ", 2)[1:] for l in open(sys.argv[1]).read().splitlines() if l.startswith("LABEL ")]
+print("section labels:", labels)
+if labels == [["0", "Verse 1"], ["4", "Chorus"]]: print("PASS section names in the lyrics found ([Verse 1] at line 1, [Chorus] at line 5)")
+else: print("FAIL section labels"); ok = False
 sys.exit(0 if ok else 1)

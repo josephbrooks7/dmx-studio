@@ -410,7 +410,7 @@ struct LyricsTab: View {
         .sheet(isPresented: $pasting) {
             VStack(alignment: .leading, spacing: 10) {
                 Text("Paste or edit the lyrics").font(.headline)
-                Text("One line per sung line. Labels like [Chorus] are skipped. They'll be placed on the sung parts of the song.")
+                Text("One line per sung line. No timestamps needed: the app finds where each line is sung. Section names on their own line (Verse 1, Pre-Chorus, [Chorus], Bridge, Ending…) mark the song's parts and the light show follows them.")
                     .font(.caption).foregroundColor(.secondary)
                 TextEditor(text: $pasteText).font(.body).frame(minWidth: 460, minHeight: 320)
                     .overlay(RoundedRectangle(cornerRadius: 6).stroke(Color.secondary.opacity(0.3)))
@@ -470,7 +470,7 @@ struct LyricsTab: View {
             } label: { Label("Add Line", systemImage: "plus") }
                 .disabled(song.analysis == nil)
                 .help("Add a lyric line at the playhead (or at the start)")
-            Button { pasteText = song.lyrics.map { $0.lines.map(\.text).joined(separator: "\n") } ?? (LyricsLibrary.find(title: song.title)?.text ?? ""); pasting = true } label: {
+            Button { pasteText = song.lyrics.map { $0.pastedText ?? $0.lines.map(\.text).joined(separator: "\n") } ?? (LyricsLibrary.find(title: song.title)?.text ?? ""); pasting = true } label: {
                 Label("Paste / Edit All", systemImage: "doc.on.clipboard")
             }
             Button { model.showLyricsLibrary = true } label: { Label("Lyrics Library", systemImage: "books.vertical") }
