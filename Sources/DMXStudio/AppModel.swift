@@ -1816,6 +1816,14 @@ final class AppModel: ObservableObject {
 
     /// Re-reads the lyrics (emotion, imagery, delivery) and remakes the lighting cues from them.
     /// Your accept / reject choices are kept for cues that are still there.
+    /// Throw away this song's lyrics (and the lighting cues made from them), e.g. when they were heard wrong
+    func clearLyrics(_ id: UUID) {
+        stopLyrics(id)
+        guard let i = index(of: id) else { return }
+        songs[i].lyrics = nil
+        songs[i].analysis?.lyricCues = nil
+    }
+
     func refreshLyricLighting(_ id: UUID, regenerate: Bool = true) {
         guard let i = index(of: id), var ly = songs[i].lyrics, let a = songs[i].analysis else { return }
         if regenerate {

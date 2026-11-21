@@ -376,6 +376,7 @@ struct LyricsTab: View {
     let song: Song
     private var open: Bool { model.lyricsOpen }
     @State private var pasting = false
+    @State private var confirmClear = false
     @State private var pasteText = ""
 
     var body: some View {
@@ -442,8 +443,8 @@ struct LyricsTab: View {
     @ViewBuilder var content: some View {
         HStack(spacing: 10) {
             Button { model.learnLyrics(song.id) } label: { Label("Listen for Lyrics", systemImage: "waveform.and.mic") }
-                .disabled(model.lyricsProgress[song.id] != nil || song.analysis == nil)
-                .help("Listens to the separated vocals and writes down every word with its timing (like auto-captions)")
+                .disabled(model.lyricsProgress[song.id] != nil)
+                .help("Listens to the song and writes down every word with its timing (like auto-captions)")
             if WhisperEngine.isAvailable {
                 Picker("", selection: Binding(get: { WhisperEngine.chosen }, set: { WhisperEngine.chosen = $0; model.objectWillChange.send() })) {
                     ForEach(WhisperEngine.ModelSize.allCases) { Text($0.label).tag($0) }
@@ -472,6 +473,14 @@ struct LyricsTab: View {
             Button { pasteText = song.lyrics.map { $0.lines.map(\.text).joined(separator: "\n") } ?? ""; pasting = true } label: {
                 Label("Paste / Edit All", systemImage: "doc.on.clipboard")
             }
+            Button(role: .destructive) { confirmClear = true } label: { Label("Clear Lyrics", systemImage: "trash") }
+                .disabled(song.lyrics == nil)
+                .help("Remove these lyrics (and the light cues made from them). Then Listen again or paste the right ones")
+                .confirmationDialog("Clear the lyrics of \"\(song.title)\"?", isPresented: $confirmClear) {
+                    Button("Clear Lyrics", role: .destructive) { model.clearLyrics(song.id) }
+                } message: {
+                    Text("The words, their timing and the light cues made from them are removed. Your light show stays.")
+                }
             Spacer()
             if let s = model.lyricsStatus[song.id] { Text(s).font(.caption).foregroundColor(.secondary) }
             if WhisperEngine.isAvailable && !WhisperEngine.isInstalled(WhisperEngine.chosen) {
