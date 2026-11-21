@@ -194,6 +194,10 @@ struct DMXStudioApp: App {
                 Button("Show Files in Finder") { model.showLibraryFolder() }
                 Button("Lyrics Library…") { model.showLyricsLibrary = true }.keyboardShortcut("l", modifiers: [.command, .shift])
             }
+            CommandGroup(replacing: .undoRedo) {
+                Button("Undo") { model.undo() }.keyboardShortcut("z", modifiers: .command)
+                Button("Redo") { model.redo() }.keyboardShortcut("z", modifiers: [.command, .shift])
+            }
             CommandGroup(after: .toolbar) {
                 Button("Toggle Full Screen") { model.toggleFullScreen() }.keyboardShortcut("f", modifiers: [.command, .control])
             }

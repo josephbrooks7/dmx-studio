@@ -72,7 +72,47 @@ enum TestMode: String, CaseIterable, Identifiable {
 final class AppModel: ObservableObject {
     // Saved
     @Published var fixtures: [Fixture] = [] { didSet { scheduleSave() } }
-    @Published var songs: [Song] = [] { didSet { scheduleSave() } }
+    @Published var songs: [Song] = [] { didSet { scheduleSave(); recordShowUndo(oldValue) } }
+
+    // MARK: Undo / redo for light show edits (⌘Z / ⇧⌘Z)
+
+    private struct ShowUndo { let songID: UUID; let shows: [LightShow] }
+    private var undoStack: [ShowUndo] = [], redoStack: [ShowUndo] = []
+    private var undoing = false
+    private var lastUndoPush = Date.distantPast
+    private var lastUndoSong: UUID?
+
+    /// Keeps the shows as they were before each change (a drag counts as one change)
+    private func recordShowUndo(_ old: [Song]) {
+        guard !undoing, !loading else { return }
+        let before = Dictionary(old.map { ($0.id, $0.shows) }, uniquingKeysWith: { a, _ in a })
+        for s in songs {
+            guard let prev = before[s.id], prev != s.shows else { continue }
+            // changes within half a second on the same song (dragging an edge) are one step
+            if lastUndoSong == s.id && Date().timeIntervalSince(lastUndoPush) < 0.5 { lastUndoPush = Date(); continue }
+            undoStack.append(ShowUndo(songID: s.id, shows: prev))
+            if undoStack.count > 200 { undoStack.removeFirst() }
+            redoStack.removeAll()
+            lastUndoPush = Date(); lastUndoSong = s.id
+        }
+    }
+    var canUndo: Bool { !undoStack.isEmpty }
+    var canRedo: Bool { !redoStack.isEmpty }
+
+    func undo() {
+        if NSApp.keyWindow?.firstResponder is NSText { NSApp.sendAction(Selector(("undo:")), to: nil, from: nil); return }
+        guard let u = undoStack.popLast(), let i = index(of: u.songID) else { return }
+        redoStack.append(ShowUndo(songID: u.songID, shows: songs[i].shows))
+        undoing = true; songs[i].shows = u.shows; undoing = false
+        lastUndoSong = nil
+    }
+    func redo() {
+        if NSApp.keyWindow?.firstResponder is NSText { NSApp.sendAction(Selector(("redo:")), to: nil, from: nil); return }
+        guard let r = redoStack.popLast(), let i = index(of: r.songID) else { return }
+        undoStack.append(ShowUndo(songID: r.songID, shows: songs[i].shows))
+        undoing = true; songs[i].shows = r.shows; undoing = false
+        lastUndoSong = nil
+    }
     @Published var output = OutputSettings() { didSet { scheduleSave() } }
     @Published var lineups: [Lineup] = [] { didSet { scheduleSave() } }
     @Published var idle = IdleLook() { didSet { scheduleSave() } }
@@ -329,9 +369,10 @@ final class AppModel: ObservableObject {
                 guard self.songsScreenShowing, !self.pickedSongs.isEmpty else { return e }
                 if down && !e.isARepeat { self.requestRemove(Array(self.pickedSongs)) }
                 return nil
-            case 47: // . = split the playing song's block right at the playhead
-                if down && !e.isARepeat && self.playingSongID != nil { self.splitAtPlayhead() }
-                return self.playingSongID != nil ? nil : e
+            case 47: // . = cut the selected block (or the playing one at the playhead) and leave a slot
+                guard self.timelineSelection != nil || self.playingSongID != nil else { return e }
+                if down && !e.isARepeat { self.splitKey() }
+                return nil
             case 17: // T = tap tempo
                 if down && !e.isARepeat { self.tapTempo() }
                 return nil
@@ -2158,7 +2199,8 @@ final class AppModel: ObservableObject {
     }
 
     /// The block selected on a song's timeline (Delete empties it)
-    var timelineSelection: (song: UUID, section: UUID)?
+    @Published var timelineSelection: TimelineSel?
+    struct TimelineSel: Equatable { let song: UUID; let section: UUID }
 
     /// Remove a block's look but keep its place: an empty slot of the same length to fill with another look
     func emptySection(songID: UUID, sectionID: UUID) {
@@ -2204,16 +2246,40 @@ final class AppModel: ObservableObject {
         songs[i].shows[si].sections.insert(second, at: k + 1)
     }
 
-    /// "." while playing: cut the block under the playhead there (on the nearest beat) and leave a short empty
-    /// slot (half a bar) to drop a transition into. The block after it gets shorter by the same amount, so
-    /// everything later stays at the same time.
-    func splitAtPlayhead() {
-        guard let id = playingSongID, let i = index(of: id), let si = songs[i].activeShowIndex, let a = songs[i].analysis else { return }
-        let raw = currentTime + (songs[i].syncOffsetMs + globalLatencyMs) / 1000
+    /// The playhead on the shown song's timeline when it isn't playing (set by clicking the timeline)
+    var timelinePlayhead: Double?
+
+    /// "." : cut a block and leave a short empty slot (half a bar) for a transition. With a block selected:
+    /// at the playhead if it's inside that block, else in the block's middle (on the beat). While playing with
+    /// nothing selected: the block under the playhead. Later blocks keep their times.
+    func splitKey() {
+        if let ts = timelineSelection, let i = index(of: ts.song), let si = songs[i].activeShowIndex,
+           let sec = songs[i].shows[si].sections.first(where: { $0.id == ts.section }), let a = songs[i].analysis {
+            let head: Double? = playingSongID == ts.song
+                ? currentTime + (songs[i].syncOffsetMs + globalLatencyMs) / 1000 : timelinePlayhead
+            var t: Double
+            if let h = head, h > sec.start + 0.3, h < sec.end - 0.2 { t = h }
+            else {
+                // the middle of the block, on the nearest bar (or beat)
+                let mid = (sec.start + sec.end) / 2
+                var bars: [Double] = []
+                var b = a.downbeatOffset
+                while b < a.beats.count { bars.append(a.beats[b]); b += 4 }
+                t = bars.filter { $0 > sec.start + 0.3 && $0 < sec.end - 0.3 }.min { abs($0 - mid) < abs($1 - mid) }
+                    ?? a.beats.filter { $0 > sec.start + 0.3 && $0 < sec.end - 0.3 }.min { abs($0 - mid) < abs($1 - mid) } ?? mid
+            }
+            cutWithSlot(songID: ts.song, at: t)
+        } else if let id = playingSongID, let i = index(of: id) {
+            cutWithSlot(songID: id, at: currentTime + (songs[i].syncOffsetMs + globalLatencyMs) / 1000)
+        }
+    }
+
+    func cutWithSlot(songID: UUID, at raw: Double) {
+        guard let i = index(of: songID), let si = songs[i].activeShowIndex, let a = songs[i].analysis else { return }
         let t = a.beats.min(by: { abs($0 - raw) < abs($1 - raw) }).flatMap { abs($0 - raw) < 0.3 ? $0 : nil } ?? raw
         guard let k = songs[i].shows[si].sections.firstIndex(where: { $0.start < t && t < $0.end }) else { return }
         let sec = songs[i].shows[si].sections[k]
-        guard t - sec.start >= 0.4 else { return }                 // right at the start: nothing to cut
+        guard t - sec.start >= 0.25 else { return }               // right at the start: nothing to cut
         let beat = 60 / max(a.bpm, 40)
         let gap = min(2 * beat, sec.end - t)                       // half a bar (less near the block's end)
         guard gap >= 0.2 else { return }
@@ -2225,6 +2291,7 @@ final class AppModel: ObservableObject {
         var parts = [left, slot]
         if right.end - right.start >= 0.2 { parts.append(right) } else { parts[1].end = sec.end }
         songs[i].shows[si].sections.replaceSubrange(k...k, with: parts)
+        timelineSelection = TimelineSel(song: songID, section: slot.id)
         lastSplitNote = "Cut \(sec.name) at \(formatTime(t)) — empty slot for a transition"
     }
 

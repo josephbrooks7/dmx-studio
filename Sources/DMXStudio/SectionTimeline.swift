@@ -86,6 +86,10 @@ struct SectionTimelineEditor: View {
                 }
             }
         }
+        // a cut made with "." selects the new slot
+        .onChange(of: model.timelineSelection) { sel in
+            if let sel, sel.song == song.id, sel.section != selected { selected = sel.section }
+        }
     }
 
     // MARK: Blocks
@@ -224,6 +228,7 @@ struct SectionTimelineEditor: View {
     private func scrub(to t: Double) {
         let t = max(0, min(analysis.duration, t))
         scrubTime = t
+        model.timelinePlayhead = t
         if model.playingSongID == song.id { model.seek(to: t) }
     }
 
@@ -356,7 +361,7 @@ struct SectionTimelineEditor: View {
     /// Selecting a block (Delete then empties it)
     func select(_ id: UUID) {
         selected = id
-        model.timelineSelection = (song.id, id)
+        model.timelineSelection = AppModel.TimelineSel(song: song.id, section: id)
     }
 
     // MARK: Looks to drag onto blocks
