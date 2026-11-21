@@ -1034,6 +1034,12 @@ struct SongsScreen: View {
     @State private var dropTargeted = false
     @State private var search = ""
 
+    private var removeTitle: String {
+        let ids = model.removeRequest ?? []
+        if ids.count == 1, let s = model.song(ids[0]) { return "Remove \"\(s.title)\"?" }
+        return "Remove \(ids.count) songs?"
+    }
+
     var body: some View {
         HStack(spacing: 0) {
             VStack(alignment: .leading, spacing: 10) {
@@ -1048,15 +1054,17 @@ struct SongsScreen: View {
                     Button { importing = true } label: { Image(systemName: "plus") }.buttonStyle(PillButtonStyle())
                 }
                 TextField("Search songs or artists", text: $search).textFieldStyle(.roundedBorder)
-                List(selection: $model.selectedSongID) {
+                List(selection: $model.pickedSongs) {
                     ForEach(model.songs.filter { search.isEmpty || $0.displayName.localizedCaseInsensitiveContains(search) }) { s in
-                        SongRow(song: s).tag(Optional(s.id))
+                        SongRow(song: s).tag(s.id)
                             .onHover { inside in
                                 if inside { model.hoveredSongID = s.id } else if model.hoveredSongID == s.id { model.hoveredSongID = nil }
                             }
-                            .onDrag { NSItemProvider(object: s.id.uuidString as NSString) }
                             .simultaneousGesture(TapGesture(count: 1).onEnded {
-                                model.selectedSongID = s.id   // single click on the title selects it too
+                                // single click on the title selects it too (⇧/⌘-click picks several)
+                                guard NSEvent.modifierFlags.intersection([.command, .shift]).isEmpty else { return }
+                                model.pickedSongs = [s.id]
+                                model.selectedSongID = s.id
                                 model.selectedEntry = nil
                             })
                             .contextMenu {
@@ -1075,11 +1083,31 @@ struct SongsScreen: View {
                                     Button("Create Set List for \(a)") { model.createSetList(forArtist: a) }
                                 }
                                 Divider()
-                                Button("Remove Song", role: .destructive) { model.removeSong(s.id) }
+                                if model.pickedSongs.contains(s.id) && model.pickedSongs.count > 1 {
+                                    Button("Remove \(model.pickedSongs.count) Songs…", role: .destructive) { model.requestRemove(Array(model.pickedSongs)) }
+                                } else {
+                                    Button("Remove Song…", role: .destructive) { model.requestRemove([s.id]) }
+                                }
                             }
                     }
                 }
                 .listStyle(.inset)
+                .onChange(of: model.pickedSongs) { picked in
+                    // one song picked: open it; several: keep showing the last one opened
+                    if picked.count == 1, let id = picked.first, model.selectedSongID != id { model.selectedSongID = id; model.selectedEntry = nil }
+                }
+                .onChange(of: model.selectedSongID) { id in
+                    if let id, !model.pickedSongs.contains(id) { model.pickedSongs = [id] }
+                }
+                .onAppear { if model.pickedSongs.isEmpty, let id = model.selectedSongID { model.pickedSongs = [id] } }
+                .confirmationDialog(removeTitle, isPresented: Binding(get: { model.removeRequest != nil }, set: { if !$0 { model.removeRequest = nil } })) {
+                    Button(model.removeRequest?.count ?? 0 > 1 ? "Remove \(model.removeRequest?.count ?? 0) Songs" : "Remove Song", role: .destructive) {
+                        if let ids = model.removeRequest { model.removeSongs(ids) }
+                        model.removeRequest = nil
+                    }
+                } message: {
+                    Text("Removes them from the library and from your set lists, with their light shows. The audio files stay in your DMX Studio folder.")
+                }
                 .onHover { model.songListHovered = $0 }
                 Text("Drag WAV / MP3 files or a folder here").font(.caption).foregroundColor(Theme.subtle)
             }

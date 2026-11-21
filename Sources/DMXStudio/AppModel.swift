@@ -320,6 +320,13 @@ final class AppModel: ObservableObject {
             case 125, 126: // ↓ / ↑ = pick the song to play next (in the set list or the library)
                 if down { self.moveSelection(e.keyCode == 125 ? 1 : -1) }
                 return nil
+            case 51, 117: // Delete / ⌦ in the song library: remove the picked songs (asks first)
+                guard self.songListHovered || NSApp.keyWindow?.firstResponder is NSTableView else { return e }
+                if down && !e.isARepeat {
+                    let ids = self.pickedSongs.isEmpty ? (self.selectedSongID.map { [$0] } ?? []) : Array(self.pickedSongs)
+                    self.requestRemove(ids)
+                }
+                return nil
             case 17: // T = tap tempo
                 if down && !e.isARepeat { self.tapTempo() }
                 return nil
@@ -2047,6 +2054,16 @@ final class AppModel: ObservableObject {
         s.sections = s.sections.map { var x = $0; x.id = UUID(); return x }
         songs[i].shows.append(s)
         songs[i].activeShowID = s.id
+    }
+
+    /// Songs picked in the library (click, ⇧/⌘-click or drag to pick several)
+    @Published var pickedSongs: Set<UUID> = []
+    /// Songs waiting for "Remove?" to be confirmed
+    @Published var removeRequest: [UUID]? = nil
+    func requestRemove(_ ids: [UUID]) { if !ids.isEmpty { removeRequest = ids } }
+    func removeSongs(_ ids: [UUID]) {
+        for id in ids { removeSong(id) }
+        pickedSongs.subtract(ids)
     }
 
     func removeSong(_ id: UUID) {

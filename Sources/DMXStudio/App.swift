@@ -245,6 +245,10 @@ struct SongRow: View {
         HStack {
             Image(systemName: model.playingSongID == song.id ? "speaker.wave.2.fill" : "music.note")
                 .foregroundStyle(model.playingSongID == song.id ? Color.pink : Color.secondary)
+                .frame(width: 18)
+                // drag the note onto a set list (dragging on the name picks several songs instead)
+                .onDrag { NSItemProvider(object: song.id.uuidString as NSString) }
+                .help("Drag onto a set list")
             VStack(alignment: .leading, spacing: 2) {
                 Text(song.title).lineLimit(1)
                 if let a = song.artist, !a.isEmpty {
@@ -267,6 +271,14 @@ struct SongRow: View {
                 } else {
                     Text("Not learned yet").font(.caption).foregroundStyle(.orange)
                 }
+            }
+            Spacer(minLength: 0)
+            if model.hoveredSongID == song.id {
+                Button { model.requestRemove(model.pickedSongs.contains(song.id) && model.pickedSongs.count > 1 ? Array(model.pickedSongs) : [song.id]) } label: {
+                    Image(systemName: "xmark.circle.fill").font(.system(size: 15)).foregroundColor(.secondary)
+                }
+                .buttonStyle(.plain)
+                .help("Remove from the library")
             }
         }
     }
