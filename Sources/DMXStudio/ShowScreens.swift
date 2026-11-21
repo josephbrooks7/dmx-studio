@@ -1011,6 +1011,17 @@ struct LiveScreen: View {
                         Text("Hold a pad to play it over the show; let go and the programmed show comes back. Release (below) can make pads stay on or last 1–10 s instead.")
                             .font(.caption).foregroundColor(Theme.subtle)
                         Spacer()
+                        Button { model.recordToShow.toggle() } label: {
+                            HStack(spacing: 6) {
+                                Circle().fill(Color.red.opacity(model.recordToShow ? 1 : 0.45)).frame(width: 10, height: 10)
+                                Text(model.recordToShow ? "REC · writing to the show" : "REC").font(.system(size: 13, weight: .heavy))
+                            }
+                            .padding(.horizontal, 12).padding(.vertical, 7)
+                            .background(Capsule().fill(model.recordToShow ? Color.red.opacity(0.3) : Color.white.opacity(0.07)))
+                            .overlay(Capsule().stroke(model.recordToShow ? Color.red : Color.white.opacity(0.12), lineWidth: model.recordToShow ? 1.5 : 1))
+                        }
+                        .buttonStyle(.plain)
+                        .help("Record: while a song plays, holding a pad writes that look into the song's show for as long as you hold it")
                         Button { model.tapTempo() } label: {
                             HStack {
                                 LiveReader(model.live) { Circle().fill(model.beatOn ? Theme.accent : Color.white.opacity(0.2)).frame(width: 10, height: 10) }
@@ -1021,6 +1032,18 @@ struct LiveScreen: View {
                         Toggle("Listen", isOn: Binding(get: { model.beatSource == .mic }, set: { model.beatSource = $0 ? .mic : .manual }))
                             .toggleStyle(.switch)
                             .help("Follow the beat from the microphone or computer audio")
+                    }
+                    if model.recordToShow {
+                        HStack(spacing: 8) {
+                            Image(systemName: "record.circle").foregroundColor(.red)
+                            if let id = model.playingSongID, let s = model.songs.first(where: { $0.id == id }) {
+                                Text("Recording into \"\(s.title)\": hold a pad to write it into the show at that moment.")
+                            } else {
+                                Text("Play a song to record into its show.")
+                            }
+                            if let note = model.recordNote { Text("· " + note).foregroundColor(Theme.subtle) }
+                        }
+                        .font(.caption)
                     }
                     if model.beatSource == .mic {
                         Panel { AudioSourcePicker() }
@@ -1602,7 +1625,7 @@ struct MiniOutputPreview: View {
             VStack(spacing: 0) {
                 HStack(spacing: 6) {
                     Circle().fill(model.outputEnabled ? Color.green : Color.orange).frame(width: 7, height: 7)
-                    Text(model.outputEnabled ? "LIVE · what your lights are doing" : "PREVIEW · lights untouched")
+                    Text(model.outputEnabled ? "LIVE" : "PREVIEW")
                         .font(.system(size: 10, weight: .bold)).lineLimit(1)
                     Spacer(minLength: 4)
                     Button { large.toggle() } label: {
@@ -1616,12 +1639,15 @@ struct MiniOutputPreview: View {
                 .padding(.horizontal, 9).padding(.vertical, 5)
                 .background(Color.black.opacity(0.85))
                 StageCanvas(editing: false)
-                    .frame(width: large ? 420 : 280, height: large ? 236 : 158)
+                    .frame(height: large ? 214 : 148)
                     .clipped()
                     .contentShape(Rectangle())
                     .onTapGesture { openStage() }
                     .help("Open the Stage page")
             }
+            // a fixed size: without it the title bar stretched the window across the whole page
+            .frame(width: large ? 380 : 264)
+            .fixedSize(horizontal: true, vertical: true)
             .background(Color.black)
             .clipShape(RoundedRectangle(cornerRadius: 10, style: .continuous))
             .overlay(RoundedRectangle(cornerRadius: 10, style: .continuous)

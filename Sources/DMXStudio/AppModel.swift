@@ -796,7 +796,51 @@ final class AppModel: ObservableObject {
     /// Strobe / blinder pads: on only while held, then whatever was running before comes back
     private var heldPresetID: UUID?
     private var presetBeforeHold: UUID?
+    // MARK: Record to show: holding a pad while a song plays writes that look into its show
+    @Published var recordToShow = false
+    @Published var recordNote: String?
+    private var recStart: (preset: UUID, song: UUID, t: Double)?
+    /// Where the playing song's show is right now (same timing the lights use)
+    var showTimeNow: Double? {
+        guard let id = playingSongID, let i = index(of: id) else { return nil }
+        return currentTime + (songs[i].syncOffsetMs + globalLatencyMs) / 1000
+    }
+
+    /// Put a look into a song's show from `a` to `b` (seconds), replacing what was there. Undo with ⌘Z.
+    func writeLook(_ p: LookPreset, songID: UUID, from a0: Double, to b0: Double) {
+        guard let i = index(of: songID), let si = songs[i].activeShowIndex else { return }
+        // land on the beat when it's close (a human press is a little early or late)
+        func snap(_ t: Double) -> Double {
+            guard let beats = songs[i].analysis?.beats, let n = beats.min(by: { abs($0 - t) < abs($1 - t) }), abs(n - t) < 0.12 else { return t }
+            return n
+        }
+        var a = snap(a0), b = snap(b0)
+        guard b - a >= 0.25 else { return }
+        var secs = songs[i].shows[si].sections
+        guard let template = secs.first(where: { $0.start <= a && a < $0.end }) ?? secs.first(where: { $0.start < b && b <= $0.end }) else { return }
+        var out: [ShowSection] = []
+        for s in secs {
+            if s.end <= a || s.start >= b { out.append(s); continue }
+            if s.start < a {
+                if a - s.start >= 0.2 { var left = s; left.end = a; out.append(left) } else { a = s.start }
+            }
+            if s.end > b {
+                if s.end - b >= 0.2 { var right = s; right.id = UUID(); right.start = b; right.accentStrobe = false; out.append(right) } else { b = s.end }
+            }
+        }
+        var n = template
+        n.id = UUID(); n.start = a; n.end = b
+        n.name = p.name
+        n.effect = p.effect; n.palette = p.palette; n.movement = p.movement; n.rate = p.rate; n.intensity = p.intensity
+        n.colorShift = nil; n.empty = nil; n.transition = nil; n.accentStrobe = false
+        out.append(n)
+        secs = out.sorted { $0.start < $1.start }
+        songs[i].shows[si].sections = secs
+        recordNote = "Wrote \(p.name) into \(songs[i].title) at \(formatTime(a))–\(formatTime(b)) · ⌘Z to undo"
+    }
+
     func holdPreset(_ id: UUID) {
+        if recordToShow, let song = playingSongID, let t = showTimeNow { recStart = (id, song, t) }
         if pauseTime != nil && playingSongID == nil && activeBlock == nil { resumeFromPause() }
         if heldPresetID == nil { presetBeforeHold = activePresetID }
         heldPresetID = id
@@ -806,6 +850,11 @@ final class AppModel: ObservableObject {
     }
     func releasePreset(_ id: UUID) {
         guard heldPresetID == id else { return }
+        if let r = recStart, r.preset == id, playingSongID == r.song, let t = showTimeNow, t > r.t,
+           let p = presets.first(where: { $0.id == id }) {
+            writeLook(p, songID: r.song, from: r.t, to: t)
+        }
+        recStart = nil
         heldPresetID = nil
         activePresetID = presetBeforeHold
         presetBeforeHold = nil
