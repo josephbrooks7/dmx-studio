@@ -1307,7 +1307,7 @@ final class AppModel: ObservableObject {
             return
         }
         learnQueue.async {
-            DispatchQueue.main.async { if self.learning[id] != nil { self.learning[id] = 0.05 } }
+            DispatchQueue.main.async { if self.learning[id] != nil { self.learning[id] = 0.05; self.learnStarted[id] = Date() } }
             let out = FileManager.default.temporaryDirectory.appendingPathComponent("learn-\(id.uuidString).json")
             let settingsFile = FileManager.default.temporaryDirectory.appendingPathComponent("learn-\(id.uuidString)-settings.json")
             try? JSONEncoder().encode(settings).write(to: settingsFile)
@@ -1322,6 +1322,7 @@ final class AppModel: ObservableObject {
             try? FileManager.default.removeItem(at: settingsFile)
             DispatchQueue.main.async {
                 self.learning[id] = nil
+                self.learnStarted[id] = nil
                 guard let analysis, r.status == 0 else {
                     let msg = r.crashed
                         ? "Learning \"\(title)\" stopped unexpectedly. The app is fine; please report this so it can be fixed."
@@ -1389,6 +1390,32 @@ final class AppModel: ObservableObject {
     }
 
     @Published var lyricsStatus: [UUID: String] = [:]
+    // when each job really started (for the countdown)
+    @Published var learnStarted: [UUID: Date] = [:]
+    var lyricsStarted: [UUID: Date] = [:]
+
+    /// "about 3:20 left", from how fast the progress has been moving so far
+    static func eta(started: Date?, progress p: Double) -> String {
+        guard let s = started, p > 0.03 else { return "estimating time…" }
+        let el = Date().timeIntervalSince(s)
+        guard el > 4 else { return "estimating time…" }
+        let left = max(0, el / p * (1 - p))
+        if left < 60 { return "about \(max(1, Int(left.rounded()))) s left" }
+        return String(format: "about %d:%02d left", Int(left) / 60, Int(left) % 60)
+    }
+    func learnCountdown(_ id: UUID) -> String {
+        guard let p = learning[id] else { return "" }
+        if learnStarted[id] == nil {
+            let waiting = learning.keys.filter { learnStarted[$0] == nil }.count
+            return waiting > 1 ? "waiting (\(waiting) songs in line)" : "waiting to start"
+        }
+        let queued = learning.count - 1
+        return AppModel.eta(started: learnStarted[id], progress: p) + (queued > 0 ? " · \(queued) more in line" : "")
+    }
+    func lyricsCountdown(_ id: UUID) -> String {
+        guard let p = lyricsProgress[id] else { return "" }
+        return AppModel.eta(started: lyricsStarted[id], progress: p)
+    }
     var songListHovered = false
     var hoveredSongID: UUID?
     private var mouseMonitor: Any?
@@ -1472,7 +1499,12 @@ final class AppModel: ObservableObject {
             }
             nextLyrics()
         }
-        let progress: (Double) -> Void = { p in if self.lyricsProgress[id] != nil { self.lyricsProgress[id] = p } }
+        let progress: (Double) -> Void = { p in
+            guard self.lyricsProgress[id] != nil else { return }
+            // a new pass (or the model download) starts the clock again
+            if p <= 0.01 || self.lyricsStarted[id] == nil || p + 0.05 < (self.lyricsProgress[id] ?? 0) { self.lyricsStarted[id] = Date() }
+            self.lyricsProgress[id] = p
+        }
         // Whisper (built in, on this Mac) when it's available; Apple's speech recognizer otherwise
         if WhisperEngine.isAvailable {
             let size = WhisperEngine.chosen

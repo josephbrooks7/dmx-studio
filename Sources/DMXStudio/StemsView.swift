@@ -69,7 +69,7 @@ struct StemsTab: View {
                 if let a = song.analysis, let folder = a.stemsFolder {
                     StemMixerView(song: song, analysis: a, folder: folder)
                 } else if model.learning[song.id] != nil {
-                    Text("Splitting into vocals, drums, bass and other…").foregroundColor(.secondary)
+                    Ticking { "Splitting into parts… " + model.learnCountdown(song.id) }.foregroundColor(.secondary).monospacedDigit()
                 } else {
                     HStack {
                         Text("This song hasn't been split into stems yet.").foregroundColor(.secondary)
@@ -374,7 +374,8 @@ struct LyricsTab: View {
                     Text("Lyrics").font(.headline)
                     if let p = model.lyricsProgress[song.id] {
                         ProgressView(value: p).frame(width: 90)
-                        Text("Listening to the vocals…").font(.caption).foregroundColor(.secondary)
+                        Ticking { (model.lyricsStatus[song.id] ?? "Listening to the vocals…") + " · " + model.lyricsCountdown(song.id) }
+                            .font(.caption).foregroundColor(.secondary).monospacedDigit()
                     } else if let st = model.lyricsStatus[song.id] {
                         Text(st).font(.caption).foregroundColor(.orange).lineLimit(1)
                     } else if let ly = song.lyrics {
@@ -647,5 +648,14 @@ struct LyricsLane: View {
             }
         }
         .clipped()
+    }
+}
+
+
+/// Text that refreshes every second (for countdowns).
+struct Ticking: View {
+    let text: () -> String
+    var body: some View {
+        SwiftUI.TimelineView(.periodic(from: .now, by: 1)) { _ in Text(text()) }
     }
 }

@@ -113,7 +113,10 @@ struct SongView: View {
                 HStack {
                     if let p = model.learning[song.id] {
                         ProgressView(value: p).frame(width: 120)
-                        Text("Learning…").foregroundColor(.secondary)
+                        VStack(alignment: .leading, spacing: 1) {
+                            Text("Learning…").foregroundColor(.secondary)
+                            Ticking { model.learnCountdown(song.id) }.font(.caption).foregroundColor(.secondary).monospacedDigit()
+                        }
                     } else {
                         Button {
                             model.learn(song.id)
