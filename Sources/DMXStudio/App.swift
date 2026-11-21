@@ -232,6 +232,9 @@ struct SongRow: View {
                 } else if let a = song.analysis {
                     Text("\(Int(a.bpm.rounded())) BPM · \(song.shows.count) show\(song.shows.count == 1 ? "" : "s")")
                         .font(.caption).foregroundStyle(.secondary)
+                    if model.hqProgress[song.id] != nil {
+                        Ticking { model.hqCountdown(song.id) }.font(.caption2).foregroundStyle(.secondary).monospacedDigit()
+                    }
                 } else {
                     Text("Not learned yet").font(.caption).foregroundStyle(.orange)
                 }

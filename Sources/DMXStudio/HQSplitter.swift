@@ -81,7 +81,8 @@ enum HQSplitter {
     static func separate(url: URL, outDir: URL, progress: (Double) -> Void) throws {
         let cfg = MLModelConfiguration()
         #if arch(x86_64)
-        cfg.computeUnits = .cpuOnly          // Intel Macs: CPU only (keeps the AMD graphics chip out of it)
+        // Intel Macs: CPU only unless you turn on the graphics chip (it caused a freeze on the 3D stage before)
+        cfg.computeUnits = UserDefaults.standard.bool(forKey: "aiUseGPU") ? .cpuAndGPU : .cpuOnly
         #else
         cfg.computeUnits = .all
         #endif
@@ -225,7 +226,13 @@ enum HQSplitter {
             for s in 0..<ns { for c in 0..<2 { parts[s][c] = try render(out, s, c) } }
             // The vocals specialist (fine-tuned Demucs) hears more of the singing — backing vocals, doubles,
             // chops that the 6-part model leaves in "other": use its vocals, and take that difference out of "other"
-            if let vox = voxModel, let vi = sources.firstIndex(of: "vocals"), let oi = sources.firstIndex(of: "other") {
+            // only where the first model hears singing (saves most of the time on backing tracks)
+            func power(_ x: [Float]) -> Float { var v: Float = 0; vDSP_measqv(x, 1, &v, vDSP_Length(x.count)); return v }
+            let vi0 = sources.firstIndex(of: "vocals") ?? 3
+            let vocalPower = power(parts[vi0][0]) + power(parts[vi0][1])
+            let mixPower = power(Array(seg[0][0..<n])) + power(Array(seg[1][0..<n]))
+            let hasSinging = vocalPower > 0.0005 * mixPower
+            if hasSinging, let vox = voxModel, let vi = sources.firstIndex(of: "vocals"), let oi = sources.firstIndex(of: "other") {
                 let vout = try vox.prediction(from: inp)
                 for c in 0..<2 {
                     let better = try render(vout, voxIndex, c)

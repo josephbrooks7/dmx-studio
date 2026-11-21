@@ -1294,6 +1294,50 @@ final class AppModel: ObservableObject {
     /// One song learns at a time (splitting into stems uses a lot of the computer).
     private let learnQueue = DispatchQueue(label: "learn", qos: .userInitiated)
 
+    // High Quality split runs after the quick learn, in the background (the show is usable meanwhile)
+    @Published var hqProgress: [UUID: Double] = [:]
+    @Published var hqStarted: [UUID: Date] = [:]
+    private let hqQueue = DispatchQueue(label: "hq-split", qos: .utility)
+    var wantsHQ: Bool { (UserDefaults.standard.object(forKey: "hqStems") as? Bool ?? true) && HQSplitter.isInstalled }
+    func hqCountdown(_ id: UUID) -> String {
+        guard let p = hqProgress[id] else { return "" }
+        if hqStarted[id] == nil { return "High Quality split waiting" }
+        return "High Quality split · " + AppModel.eta(started: hqStarted[id], progress: p)
+    }
+
+    /// Splits with the AI models and updates the parts, sung phrases and lyrics. Keeps the shows.
+    func upgradeToHQ(_ id: UUID) {
+        guard let i = index(of: id), hqProgress[id] == nil, HQSplitter.isInstalled else { return }
+        let url = songs[i].url, title = songs[i].title
+        let stems = stemsFolder(for: songs[i])
+        let settings = songs[i].detection ?? DetectionSettings()
+        hqProgress[id] = 0.01
+        hqQueue.async {
+            DispatchQueue.main.async { if self.hqProgress[id] != nil { self.hqProgress[id] = 0.02; self.hqStarted[id] = Date() } }
+            let out = FileManager.default.temporaryDirectory.appendingPathComponent("hq-\(id.uuidString).json")
+            let settingsFile = FileManager.default.temporaryDirectory.appendingPathComponent("hq-\(id.uuidString)-settings.json")
+            try? JSONEncoder().encode(settings).write(to: settingsFile)
+            let r = Helper.run(["--learn", url.path, out.path, stems.path, settingsFile.path, "hq"], timeout: 7200) { p in
+                DispatchQueue.main.async { if self.hqProgress[id] != nil { self.hqProgress[id] = max(0.02, min(0.99, p)) } }
+            }
+            let analysis = (try? Data(contentsOf: out)).flatMap { try? Library.decoder.decode(SongAnalysis.self, from: $0) }
+            try? FileManager.default.removeItem(at: out)
+            try? FileManager.default.removeItem(at: settingsFile)
+            DispatchQueue.main.async {
+                self.hqProgress[id] = nil
+                self.hqStarted[id] = nil
+                guard let analysis, r.status == 0, let i = self.index(of: id) else {
+                    ErrorCenter.shared.report(area: "Stems", message: "The High Quality split of \"\(title)\" didn't finish; it keeps the quick split.",
+                                              details: "exit \(r.status)\n\(r.stderr)")
+                    return
+                }
+                self.songs[i].analysis = analysis
+                if !["Pasted", "Edited"].contains(self.songs[i].lyrics?.source ?? "") { self.learnLyrics(id) }
+                else { self.refreshLyricLighting(id) }
+            }
+        }
+    }
+
     func learn(_ id: UUID, rebuildShows: Bool = false) {
         guard let i = index(of: id), learning[id] == nil else { return }
         let url = songs[i].url
@@ -1313,8 +1357,8 @@ final class AppModel: ObservableObject {
             try? JSONEncoder().encode(settings).write(to: settingsFile)
             // Learn in a separate helper process: a bad file can't crash the app.
             // It splits the song into stems first, then learns from those parts.
-            let hq = (UserDefaults.standard.object(forKey: "hqStems") as? Bool ?? true) && HQSplitter.isInstalled
-            let r = Helper.run(["--learn", url.path, out.path, stems.path, settingsFile.path, hq ? "hq" : "fast"], timeout: 3600) { p in
+            // quick learn first (seconds): the show is ready to play; the High Quality split follows in the background
+            let r = Helper.run(["--learn", url.path, out.path, stems.path, settingsFile.path, "fast"], timeout: 1800) { p in
                 DispatchQueue.main.async { if self.learning[id] != nil { self.learning[id] = max(0.05, min(0.99, p)) } }
             }
             let analysis = (try? Data(contentsOf: out)).flatMap { try? Library.decoder.decode(SongAnalysis.self, from: $0) }
@@ -1335,9 +1379,11 @@ final class AppModel: ObservableObject {
                 if self.songs[i].shows.isEmpty { self.createShow(for: id) }
                 else if rebuildShows { self.rebuildShows(for: id) }
                 self.makeLooks(from: id)
-                // then learn the words from the separated vocals (keeps lyrics you pasted or corrected)
-                if analysis.vocalShare > 0.03, !["Pasted", "Edited"].contains(self.songs[i].lyrics?.source ?? "") { self.learnLyrics(id) }
-                else if self.songs[i].lyrics != nil { self.refreshLyricLighting(id) }
+                if self.wantsHQ {
+                    self.upgradeToHQ(id)          // lyrics are learned after the cleaner split
+                } else if analysis.vocalShare > 0.03, !["Pasted", "Edited"].contains(self.songs[i].lyrics?.source ?? "") {
+                    self.learnLyrics(id)          // keeps lyrics you pasted or corrected
+                } else if self.songs[i].lyrics != nil { self.refreshLyricLighting(id) }
             }
         }
     }

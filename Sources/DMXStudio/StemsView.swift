@@ -53,8 +53,10 @@ struct StemsTab: View {
                         }
                     }
                     Spacer()
-                    Button { model.learn(song.id, rebuildShows: true) } label: { Label("Split Again", systemImage: "arrow.triangle.2.circlepath") }
-                        .disabled(model.learning[song.id] != nil || (highQuality && !HQSplitter.isInstalled))
+                    Button {
+                        if highQuality && song.analysis != nil { model.upgradeToHQ(song.id) } else { model.learn(song.id, rebuildShows: true) }
+                    } label: { Label("Split Again", systemImage: "arrow.triangle.2.circlepath") }
+                        .disabled(model.learning[song.id] != nil || model.hqProgress[song.id] != nil || (highQuality && !HQSplitter.isInstalled))
                         .help("Split this song again with the chosen quality, relearn it and rebuild its shows")
                 }
                 .id(installedTick)
@@ -63,8 +65,17 @@ struct StemsTab: View {
                         .font(.caption).foregroundColor(.orange)
                 }
                 if highQuality {
-                    Text("High Quality uses Meta's Demucs AI model on this Mac: much cleaner parts (and guitar + piano), a few minutes per song.")
+                    Text("High Quality uses Meta's Demucs AI models on this Mac: much cleaner parts (vocals, BG vocals, guitar, piano). The song is ready right away from a quick split; the High Quality split follows in the background.")
                         .font(.caption).foregroundColor(.secondary)
+                    if let p = model.hqProgress[song.id] {
+                        HStack { ProgressView(value: p).frame(width: 140); Ticking { model.hqCountdown(song.id) }.font(.caption).monospacedDigit() }
+                    }
+                    #if arch(x86_64)
+                    Toggle("Use the graphics chip for the AI (faster; turn off if the Mac freezes)", isOn: Binding(
+                        get: { UserDefaults.standard.bool(forKey: "aiUseGPU") },
+                        set: { UserDefaults.standard.set($0, forKey: "aiUseGPU"); model.objectWillChange.send() }))
+                        .font(.caption)
+                    #endif
                 }
                 if let a = song.analysis, let folder = a.stemsFolder {
                     StemMixerView(song: song, analysis: a, folder: folder)
