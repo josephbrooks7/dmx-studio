@@ -49,4 +49,8 @@ junk_mid = ["Source: LyricFind", "Songwriters: Test Writer", "Neon Rivers lyrics
             "Show more", "Lyrics", ""]
 short = LINES[:2] + LINES[4:]                 # a shorter copy first, like search pages show
 open(pasted_p, "w").write("\n".join(junk_top + short + junk_mid + ["[Verse 1]"] + LINES[:4] + ["", "[Chorus]"] + LINES[4:]) + "\n")
+# the same lyrics copied from Genius, where every line is a link
+links = ["[[Verse 1]](https://genius.com/1/Verse-1)"] + [f"[{l}](https://genius.com/{k}/x)" for k, l in enumerate(LINES[:4])] + \
+        ["", "[Chorus]"] + [f"[{l}](https://genius.com/{k}/x)" for k, l in enumerate(LINES[4:])]
+open(pasted_p.replace(".txt", "_links.txt"), "w").write("\n".join(links) + "\n")
 print("line starts:", starts, "duration", round(dur, 1))

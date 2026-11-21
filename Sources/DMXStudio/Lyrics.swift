@@ -231,7 +231,10 @@ enum LyricsLearner {
         }
         var blocks: [[String]] = [], cur: [String] = []
         for l in text.components(separatedBy: .newlines) {
-            let s = l.trimmingCharacters(in: .whitespaces)
+            // pasted as links ("[line](https://genius.com/…)"): keep just the line
+            let s = l.replacingOccurrences(of: #"\[([^\]]*(?:\[[^\]]*\][^\]]*)*)\]\(https?://[^)]*\)"#, with: "$1", options: .regularExpression)
+                .replacingOccurrences(of: #"https?://\S+"#, with: "", options: .regularExpression)
+                .trimmingCharacters(in: .whitespaces)
             if s.isEmpty || (s.hasPrefix("[") && s.hasSuffix("]")) { continue }   // [Chorus] labels: skip, same block
             if isJunk(s) { if !cur.isEmpty { blocks.append(cur); cur = [] }; continue }
             cur.append(s)

@@ -142,6 +142,9 @@ jobs:
             [ -f /tmp/tiny.bin ] || curl -sL -o /tmp/tiny.bin https://huggingface.co/ggerganov/whisper.cpp/resolve/main/ggml-tiny.en.bin
             "$APP/Contents/MacOS/DMXStudio" --test-paste /tmp/ly/song.wav /tmp/tiny.bin /tmp/ly/pasted.txt | tee /tmp/ly/out.txt
             python3 packaging/check_lyric_align.py /tmp/ly/out.txt /tmp/ly/truth.json
+            echo "--- same lyrics pasted from Genius (every line a link)"
+            "$APP/Contents/MacOS/DMXStudio" --test-paste /tmp/ly/song.wav /tmp/tiny.bin /tmp/ly/pasted_links.txt > /tmp/ly/out2.txt
+            python3 packaging/check_lyric_align.py /tmp/ly/out2.txt /tmp/ly/truth.json
           else echo "whisper-cli not bundled yet: skipped"; fi
       - name: Helper processes (Wi-Fi scan + Learn run outside the app)
         run: |
