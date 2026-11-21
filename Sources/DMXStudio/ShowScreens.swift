@@ -1034,6 +1034,48 @@ struct SongsScreen: View {
     @State private var dropTargeted = false
     @State private var search = ""
 
+    @State private var rowFrames: [UUID: CGRect] = [:]
+    @State private var anchor: UUID?             // the last song clicked (⇧-click selects from here)
+    @State private var dragBase: Set<UUID>? = nil // picked songs when a ⌘-drag started
+
+    private var filteredSongs: [Song] {
+        model.songs.filter { search.isEmpty || $0.displayName.localizedCaseInsensitiveContains(search) }
+    }
+    private func row(at p: CGPoint) -> UUID? {
+        rowFrames.first { $0.value.minY - 1 <= p.y && p.y <= $0.value.maxY + 1 }?.key
+            ?? (p.y < (rowFrames.values.map(\.minY).min() ?? 0) ? filteredSongs.first?.id : nil)
+            ?? (p.y > (rowFrames.values.map(\.maxY).max() ?? 0) ? filteredSongs.last(where: { rowFrames[$0.id] != nil })?.id : nil)
+    }
+    private func range(_ a: UUID, _ b: UUID) -> Set<UUID> {
+        let ids = filteredSongs.map(\.id)
+        guard let i = ids.firstIndex(of: a), let j = ids.firstIndex(of: b) else { return [b] }
+        return Set(ids[min(i, j)...max(i, j)])
+    }
+    private func pickDrag(from start: CGPoint, to now: CGPoint, moved: Bool) {
+        guard moved, let a = row(at: start), let b = row(at: now) else { return }
+        let cmd = NSEvent.modifierFlags.contains(.command)
+        if dragBase == nil { dragBase = cmd ? model.pickedSongs : [] }
+        model.pickedSongs = (dragBase ?? []).union(range(a, b))
+        anchor = a
+    }
+    private func pickEnd(at p: CGPoint, moved: Bool) {
+        defer { dragBase = nil }
+        if moved { return }
+        guard let id = row(at: p) else { return }
+        let mods = NSEvent.modifierFlags
+        if mods.contains(.shift), let a = anchor ?? model.selectedSongID {
+            model.pickedSongs = mods.contains(.command) ? model.pickedSongs.union(range(a, id)) : range(a, id)
+        } else if mods.contains(.command) {
+            if model.pickedSongs.contains(id) { model.pickedSongs.remove(id) } else { model.pickedSongs.insert(id) }
+            anchor = id
+        } else {
+            model.pickedSongs = [id]
+            model.selectedSongID = id
+            model.selectedEntry = nil
+            anchor = id
+        }
+    }
+
     private var removeTitle: String {
         let ids = model.removeRequest ?? []
         if ids.count == 1, let s = model.song(ids[0]) { return "Remove \"\(s.title)\"?" }
@@ -1054,44 +1096,55 @@ struct SongsScreen: View {
                     Button { importing = true } label: { Image(systemName: "plus") }.buttonStyle(PillButtonStyle())
                 }
                 TextField("Search songs or artists", text: $search).textFieldStyle(.roundedBorder)
-                List(selection: $model.pickedSongs) {
-                    ForEach(model.songs.filter { search.isEmpty || $0.displayName.localizedCaseInsensitiveContains(search) }) { s in
-                        SongRow(song: s).tag(s.id)
-                            .onHover { inside in
-                                if inside { model.hoveredSongID = s.id } else if model.hoveredSongID == s.id { model.hoveredSongID = nil }
-                            }
-                            .simultaneousGesture(TapGesture(count: 1).onEnded {
-                                // single click on the title selects it too (⇧/⌘-click picks several)
-                                guard NSEvent.modifierFlags.intersection([.command, .shift]).isEmpty else { return }
-                                model.pickedSongs = [s.id]
-                                model.selectedSongID = s.id
-                                model.selectedEntry = nil
-                            })
-                            .contextMenu {
-                                Button("Learn Again") { model.learn(s.id) }
-                                Button("Deep Learn (with stems)") { model.deepLearn(s.id) }
-                                Button("Show in Finder") { NSWorkspace.shared.activateFileViewerSelecting([s.url]) }
-                                if let f = s.analysis?.stemsFolder, FileManager.default.fileExists(atPath: f) {
-                                    Button("Show Stems in Finder") { NSWorkspace.shared.activateFileViewerSelecting([URL(fileURLWithPath: f)]) }
+                ScrollView {
+                    LazyVStack(alignment: .leading, spacing: 2) {
+                        ForEach(filteredSongs) { s in
+                            SongRow(song: s)
+                                .padding(.vertical, 5).padding(.horizontal, 8)
+                                .background(RoundedRectangle(cornerRadius: 7, style: .continuous)
+                                    .fill(model.pickedSongs.contains(s.id) ? Theme.accent.opacity(model.selectedSongID == s.id ? 0.45 : 0.28)
+                                          : (model.hoveredSongID == s.id ? Color.white.opacity(0.05) : Color.clear)))
+                                .contentShape(Rectangle())
+                                .background(GeometryReader { g in
+                                    Color.clear.preference(key: SongRowFrames.self, value: [s.id: g.frame(in: .named("songList"))])
+                                })
+                                .onHover { inside in
+                                    if inside { model.hoveredSongID = s.id } else if model.hoveredSongID == s.id { model.hoveredSongID = nil }
                                 }
-                                Menu("Add to Set List") {
-                                    ForEach(model.lineups) { l in
-                                        Button(l.name) { model.addToLineup(l.id, songID: s.id, showID: s.activeShow?.id) }
+                                .contextMenu {
+                                    Button("Learn Again") { model.learn(s.id) }
+                                    Button("Deep Learn (with stems)") { model.deepLearn(s.id) }
+                                    Button("Show in Finder") { NSWorkspace.shared.activateFileViewerSelecting([s.url]) }
+                                    if let f = s.analysis?.stemsFolder, FileManager.default.fileExists(atPath: f) {
+                                        Button("Show Stems in Finder") { NSWorkspace.shared.activateFileViewerSelecting([URL(fileURLWithPath: f)]) }
+                                    }
+                                    Menu("Add to Set List") {
+                                        ForEach(model.lineups) { l in
+                                            Button(l.name) { model.addToLineup(l.id, songID: s.id, showID: s.activeShow?.id) }
+                                        }
+                                    }
+                                    if let a = s.artist, !a.isEmpty {
+                                        Button("Create Set List for \(a)") { model.createSetList(forArtist: a) }
+                                    }
+                                    Divider()
+                                    if model.pickedSongs.contains(s.id) && model.pickedSongs.count > 1 {
+                                        Button("Remove \(model.pickedSongs.count) Songs…", role: .destructive) { model.requestRemove(Array(model.pickedSongs)) }
+                                    } else {
+                                        Button("Remove Song…", role: .destructive) { model.requestRemove([s.id]) }
                                     }
                                 }
-                                if let a = s.artist, !a.isEmpty {
-                                    Button("Create Set List for \(a)") { model.createSetList(forArtist: a) }
-                                }
-                                Divider()
-                                if model.pickedSongs.contains(s.id) && model.pickedSongs.count > 1 {
-                                    Button("Remove \(model.pickedSongs.count) Songs…", role: .destructive) { model.requestRemove(Array(model.pickedSongs)) }
-                                } else {
-                                    Button("Remove Song…", role: .destructive) { model.requestRemove([s.id]) }
-                                }
-                            }
+                        }
                     }
+                    .padding(4)
+                    .coordinateSpace(name: "songList")
+                    .onPreferenceChange(SongRowFrames.self) { rowFrames = $0 }
+                    // click / ⇧-click / ⌘-click / click-and-drag to pick songs
+                    .gesture(DragGesture(minimumDistance: 0, coordinateSpace: .named("songList"))
+                        .onChanged { v in pickDrag(from: v.startLocation, to: v.location, moved: abs(v.translation.height) > 4) }
+                        .onEnded { v in pickEnd(at: v.startLocation, moved: abs(v.translation.height) > 4) })
                 }
-                .listStyle(.inset)
+                .background(RoundedRectangle(cornerRadius: 8).fill(Color.black.opacity(0.25)))
+
                 .onChange(of: model.pickedSongs) { picked in
                     // one song picked: open it; several: keep showing the last one opened
                     if picked.count == 1, let id = picked.first, model.selectedSongID != id { model.selectedSongID = id; model.selectedEntry = nil }
@@ -1118,6 +1171,8 @@ struct SongsScreen: View {
                 return true
             }
             .overlay(dropTargeted ? RoundedRectangle(cornerRadius: 12).stroke(Theme.accent, lineWidth: 3).padding(6) : nil)
+            .onAppear { model.songsScreenShowing = true }
+            .onDisappear { model.songsScreenShowing = false }
             Divider()
             if let id = model.selectedSongID, model.song(id) != nil {
                 SongView(songID: id).id(id)
@@ -1135,6 +1190,12 @@ struct SongsScreen: View {
             if case .success(let urls) = result { model.importSongs(urls) }
         }
     }
+}
+
+/// Where each song row is in the library list (for drag-to-pick)
+struct SongRowFrames: PreferenceKey {
+    static var defaultValue: [UUID: CGRect] = [:]
+    static func reduce(value: inout [UUID: CGRect], nextValue: () -> [UUID: CGRect]) { value.merge(nextValue()) { $1 } }
 }
 
 struct SetListsScreen: View {

@@ -321,7 +321,7 @@ final class AppModel: ObservableObject {
                 if down { self.moveSelection(e.keyCode == 125 ? 1 : -1) }
                 return nil
             case 51, 117: // Delete / ⌦ in the song library: remove the picked songs (asks first)
-                guard self.songListHovered || NSApp.keyWindow?.firstResponder is NSTableView else { return e }
+                guard self.songsScreenShowing, !self.pickedSongs.isEmpty || self.selectedSongID != nil else { return e }
                 if down && !e.isARepeat {
                     let ids = self.pickedSongs.isEmpty ? (self.selectedSongID.map { [$0] } ?? []) : Array(self.pickedSongs)
                     self.requestRemove(ids)
@@ -2147,6 +2147,7 @@ final class AppModel: ObservableObject {
 
     /// Songs picked in the library (click, ⇧/⌘-click or drag to pick several)
     @Published var pickedSongs: Set<UUID> = []
+    var songsScreenShowing = false
     /// Songs waiting for "Remove?" to be confirmed
     @Published var removeRequest: [UUID]? = nil
     func requestRemove(_ ids: [UUID]) { if !ids.isEmpty { removeRequest = ids } }
