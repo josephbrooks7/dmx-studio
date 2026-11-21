@@ -479,6 +479,7 @@ struct ShowScreen: View {
 
     var body: some View {
         content
+            .sheet(isPresented: $model.showDeviceLibrary) { DeviceLibraryView().environmentObject(model) }
             .alert("Remove \(model.fixtures.first { $0.id == removing }?.name ?? "this device")?",
                    isPresented: Binding(get: { removing != nil }, set: { if !$0 { removing = nil } })) {
                 Button("Remove", role: .destructive) {
@@ -545,16 +546,28 @@ struct ShowScreen: View {
                                     .font(.callout).foregroundColor(model.connected ? .primary : .orange)
                                 Spacer()
                                 Menu {
-                                    ForEach(FixtureProfile.all) { p in
-                                        Button(p.name) { model.addFixture(profile: p) }
+                                    let saved = model.deviceLibrary.filter { !model.inSession($0) }
+                                    if !saved.isEmpty {
+                                        Section("Your devices") {
+                                            ForEach(saved) { d in
+                                                Button("\(d.name) · \(d.modeLabel)") { model.addFromLibrary(d) }
+                                            }
+                                        }
                                     }
+                                    Menu("New device") {
+                                        ForEach(FixtureProfile.all) { p in
+                                            Button(p.name) { model.addFixture(profile: p) }
+                                        }
+                                    }
+                                    Divider()
+                                    Button("Device Library…") { model.showDeviceLibrary = true }
                                 } label: { Label("Add Device", systemImage: "plus") }
                                 .menuStyle(.borderlessButton).fixedSize()
                                 .help("Add a light (it picks the next free DMX address and walks you through setting it)")
                                 Button { model.findNodes() } label: { Label("Scan Now", systemImage: "antenna.radiowaves.left.and.right") }
                                     .buttonStyle(PillButtonStyle())
                             }
-                            Text("Power buttons above choose which lights the show uses. Add Device puts in a new one; the bin removes one. Channel modes and addresses can be changed in Setup.")
+                            Text("Power buttons above choose which lights the show uses. Add Device puts in a saved or new device (every device you set up is kept in the Device Library); the bin removes it from this show.")
                                 .font(.caption).foregroundColor(Theme.subtle)
                             VStack(spacing: 0) {
                                 ForEach(model.fixtures) { fx in

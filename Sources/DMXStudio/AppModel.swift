@@ -71,7 +71,10 @@ enum TestMode: String, CaseIterable, Identifiable {
 
 final class AppModel: ObservableObject {
     // Saved
-    @Published var fixtures: [Fixture] = [] { didSet { scheduleSave() } }
+    @Published var fixtures: [Fixture] = [] { didSet { scheduleSave(); rememberDevices() } }
+    /// Devices you've set up, kept across sessions (Device Library)
+    @Published var deviceLibrary: [Fixture] = DeviceLibrary.load()
+    @Published var showDeviceLibrary = false
     @Published var songs: [Song] = [] { didSet { scheduleSave(); recordShowUndo(oldValue) } }
 
     // MARK: Undo / redo for light show edits (⌘Z / ⇧⌘Z)
