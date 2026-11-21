@@ -470,9 +470,11 @@ struct LyricsTab: View {
             } label: { Label("Add Line", systemImage: "plus") }
                 .disabled(song.analysis == nil)
                 .help("Add a lyric line at the playhead (or at the start)")
-            Button { pasteText = song.lyrics.map { $0.lines.map(\.text).joined(separator: "\n") } ?? ""; pasting = true } label: {
+            Button { pasteText = song.lyrics.map { $0.lines.map(\.text).joined(separator: "\n") } ?? (LyricsLibrary.find(title: song.title)?.text ?? ""); pasting = true } label: {
                 Label("Paste / Edit All", systemImage: "doc.on.clipboard")
             }
+            Button { model.showLyricsLibrary = true } label: { Label("Lyrics Library", systemImage: "books.vertical") }
+                .help("All your saved lyrics")
             Button { model.sendLyricsReport(song.id) } label: { Label("Send Lyrics Report", systemImage: "paperplane") }
                 .disabled(song.lyrics == nil)
                 .help("Sends what was heard (every line and word with its timing and how sure it was) so it can be checked against the real lyrics. Also copies it to the clipboard")
@@ -699,6 +701,7 @@ struct LyricsPromptSheet: View {
     @EnvironmentObject var model: AppModel
     let songID: UUID
     @State private var text = ""
+    @State private var fromLibrary = false
 
     var body: some View {
         let song = model.song(songID)
@@ -711,8 +714,10 @@ struct LyricsPromptSheet: View {
                     Text(waiting > 1 ? "New song · \(waiting) waiting" : "New song").font(.caption).foregroundColor(.secondary)
                 }
             }
-            Text("Have the lyrics? Paste them here: they're used word for word and timed to the song (most accurate). Or let the app transcribe them by listening (works best on clear vocals).")
-                .font(.callout).foregroundColor(.secondary).fixedSize(horizontal: false, vertical: true)
+            Text(fromLibrary
+                 ? "Found these in your Lyrics Library. Use them (most accurate: timed to the song by listening), edit them, or transcribe from the audio instead."
+                 : "Have the lyrics? Paste them here: they're used word for word and timed to the song (most accurate). Or let the app transcribe them by listening (works best on clear vocals).")
+                .font(.callout).foregroundColor(fromLibrary ? .green : .secondary).fixedSize(horizontal: false, vertical: true)
             TextEditor(text: $text)
                 .font(.body)
                 .frame(minWidth: 520, minHeight: 260)
@@ -742,5 +747,8 @@ struct LyricsPromptSheet: View {
             }
         }
         .padding(20)
+        .onAppear {
+            if text.isEmpty, let s = song, let e = LyricsLibrary.find(title: s.title) { text = e.text; fromLibrary = true }
+        }
     }
 }

@@ -179,6 +179,9 @@ struct DMXStudioApp: App {
                                      set: { _ in })) { p in
                     LyricsPromptSheet(songID: p.id).environmentObject(model).interactiveDismissDisabled()
                 }
+                .sheet(isPresented: Binding(get: { model.showLyricsLibrary }, set: { model.showLyricsLibrary = $0 })) {
+                    LyricsLibraryView().environmentObject(model)
+                }
                 .frame(minWidth: 1180, minHeight: 760)
                 .preferredColorScheme(.dark)
         }
@@ -188,6 +191,7 @@ struct DMXStudioApp: App {
                 Button("Export Session…") { model.exportSessionWithPanel() }.keyboardShortcut("e", modifiers: .command)
                 Divider()
                 Button("Show Files in Finder") { model.showLibraryFolder() }
+                Button("Lyrics Library…") { model.showLyricsLibrary = true }.keyboardShortcut("l", modifiers: [.command, .shift])
             }
             CommandMenu("Playback") {
                 Button("Play / Pause  (Space)") { model.togglePlay() }

@@ -1407,6 +1407,7 @@ final class AppModel: ObservableObject {
     enum LyricsChoice { case paste(String), transcribe, skip }
     /// New songs waiting for you to say how to get their lyrics (shown one at a time)
     @Published var lyricsPrompt: [UUID] = []
+    @Published var showLyricsLibrary = false
     private var pendingPaste: [UUID: String] = [:]
 
     func answerLyricsPrompt(_ id: UUID, _ choice: LyricsChoice) {
@@ -1415,6 +1416,7 @@ final class AppModel: ObservableObject {
         case .transcribe:
             learn(id)                                   // lyrics from the audio, then the music
         case .paste(let text):
+            if let s = song(id) { LyricsLibrary.save(title: s.title, text: text) }
             pendingPaste[id] = text                     // the music first, then the words are placed on it
             learnMusic(id, rebuildShows: false)
         case .skip:
@@ -1761,6 +1763,7 @@ final class AppModel: ObservableObject {
 
     /// Official lyrics pasted in: placed on the sung parts and analyzed for topic and mood.
     func pasteLyrics(_ id: UUID, text: String) {
+        if let i = index(of: id) { LyricsLibrary.save(title: songs[i].title, text: text) }   // keep them in the Lyrics Library
         guard let i = index(of: id), let a = songs[i].analysis else { return }
         let heard = ["Pasted", "Edited"].contains(songs[i].lyrics?.source ?? "") ? [] : (songs[i].lyrics?.words ?? [])
         // Tracks made to be sung over have little lead vocal: place the words on the sung parts of the
@@ -1783,6 +1786,7 @@ final class AppModel: ObservableObject {
 
     /// Fix a line by hand (words and/or timing). Your corrections are kept when the song is relearned.
     func editLyricLine(_ id: UUID, lineID: UUID, text: String? = nil, shift: Double = 0, start: Double? = nil, end: Double? = nil) {
+        defer { saveLyricsToLibrary(id) }     // your corrections go in the Lyrics Library too
         guard let i = index(of: id), var ly = songs[i].lyrics, let li = ly.lines.firstIndex(where: { $0.id == lineID }) else { return }
         var line = ly.lines[li]
         let oldStart = line.start, oldEnd = line.end
@@ -1807,6 +1811,7 @@ final class AppModel: ObservableObject {
 
     /// Adds a lyric line (e.g. at the playhead); starts lyrics from scratch if there are none.
     func addLyricLine(_ id: UUID, at t: Double, text: String = "New line") -> UUID? {
+        defer { saveLyricsToLibrary(id) }     // your corrections go in the Lyrics Library too
         guard let i = index(of: id) else { return nil }
         var ly = songs[i].lyrics ?? Lyrics(lines: [], words: [], source: "Edited")
         let line = LyricLine(text: text, start: max(0, t), end: max(0, t) + 2.5, confidence: 1)
@@ -1825,6 +1830,7 @@ final class AppModel: ObservableObject {
     }
 
     func deleteLyricLine(_ id: UUID, lineID: UUID) {
+        defer { saveLyricsToLibrary(id) }     // your corrections go in the Lyrics Library too
         guard let i = index(of: id), var ly = songs[i].lyrics, let li = ly.lines.firstIndex(where: { $0.id == lineID }) else { return }
         let l = ly.lines[li]
         ly.words.removeAll { $0.start >= l.start - 0.01 && $0.end <= l.end + 0.01 }
@@ -1941,6 +1947,12 @@ final class AppModel: ObservableObject {
         }
         d += "\nWORDS (time word sure%)\n" + ly.words.map { "\(t($0.start)) \($0.text) \(Int(($0.confidence * 100).rounded()))" }.joined(separator: "\n")
         ErrorCenter.shared.sendReport(AppProblem(area: "Lyrics report", message: "Lyrics heard for \"\(s.title)\"", details: d))
+    }
+
+    /// Corrected lyrics are kept in the Lyrics Library (by song title)
+    func saveLyricsToLibrary(_ id: UUID) {
+        guard let s = song(id), let ly = s.lyrics, ["Pasted", "Edited"].contains(ly.source), !ly.lines.isEmpty else { return }
+        LyricsLibrary.save(title: s.title, text: ly.lines.map(\.text).joined(separator: "\n"))
     }
 
     /// Throw away this song's lyrics (and the lighting cues made from them), e.g. when they were heard wrong
