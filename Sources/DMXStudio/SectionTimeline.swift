@@ -60,6 +60,7 @@ struct SectionTimelineEditor: View {
     @State private var copied: ShowSection?
     @State private var dropTarget: UUID?
     @State private var looksGroup = "All"
+    @State private var scrubTime: Double?
 
     private var sections: [ShowSection] { song.shows.indices.contains(showIndex) ? song.shows[showIndex].sections : [] }
 
@@ -92,28 +93,99 @@ struct SectionTimelineEditor: View {
             let dur = max(analysis.duration, 1)
             ScrollView(.horizontal, showsIndicators: zoom > 1.01) {
                 ZStack(alignment: .topLeading) {
-                    ForEach(sections) { s in
-                        let x0 = CGFloat(s.start / dur) * width
-                        let w = max(18, CGFloat((s.end - s.start) / dur) * width - 3)
-                        block(s, width: w)
-                            .frame(width: w, height: 84)
-                            .offset(x: x0)
-                    }
-                    // playhead
-                    if model.playingSongID == song.id {
-                        LiveReader(model.live) {
-                            Rectangle().fill(Color.white).frame(width: 2, height: 92)
-                                .shadow(color: .white, radius: 3)
-                                .offset(x: CGFloat(model.currentTime / dur) * width, y: -4)
+                    VStack(alignment: .leading, spacing: 6) {
+                        ruler(width: width, dur: dur).frame(height: 16)
+                        // light show track: one block per section, side by side
+                        ZStack(alignment: .topLeading) {
+                            ForEach(sections) { s in
+                                let x0 = CGFloat(s.start / dur) * width
+                                let w = max(18, CGFloat((s.end - s.start) / dur) * width - 4)
+                                block(s, width: w)
+                                    .frame(width: w, height: 78)
+                                    .offset(x: x0 + 2)
+                            }
                         }
-                        .allowsHitTesting(false)
+                        .frame(width: width, height: 78, alignment: .topLeading)
+                        // audio track
+                        waveform(width: width, dur: dur)
+                            .frame(width: width, height: 40)
+                            .contentShape(Rectangle())
+                            .gesture(DragGesture(minimumDistance: 0).onChanged { v in
+                                scrub(to: Double(v.location.x / width) * dur)
+                            })
+                            .help("The song · click or drag to move the playhead")
                     }
+                    playhead(width: width, dur: dur)
                 }
-                .frame(width: width, height: 92, alignment: .topLeading)
-                .padding(.top, 4)
+                .frame(width: width, alignment: .topLeading)
+                .padding(.top, 2)
             }
         }
-        .frame(height: 100)
+        .frame(height: 152)
+    }
+
+    /// Times along the top (click to jump there)
+    private func ruler(width: CGFloat, dur: Double) -> some View {
+        let step: Double = dur / Double(zoom) > 240 ? 30 : (dur / Double(zoom) > 90 ? 15 : 5)
+        return ZStack(alignment: .topLeading) {
+            ForEach(Array(stride(from: 0.0, through: dur, by: step)), id: \.self) { t in
+                VStack(alignment: .leading, spacing: 0) {
+                    Text(formatTime(t)).font(.system(size: 9)).foregroundColor(.secondary).monospacedDigit()
+                    Rectangle().fill(Color.white.opacity(0.25)).frame(width: 1, height: 4)
+                }
+                .offset(x: CGFloat(t / dur) * width)
+            }
+        }
+        .frame(width: width, alignment: .topLeading)
+        .contentShape(Rectangle())
+        .gesture(DragGesture(minimumDistance: 0).onChanged { v in scrub(to: Double(v.location.x / width) * dur) })
+    }
+
+    /// The song's loudness as a waveform, on a purple audio track
+    private func waveform(width: CGFloat, dur: Double) -> some View {
+        Canvas { ctx, size in
+            ctx.fill(Path(roundedRect: CGRect(origin: .zero, size: size), cornerRadius: 7), with: .color(Color(red: 0.42, green: 0.36, blue: 0.75).opacity(0.85)))
+            let e = analysis.energy
+            guard !e.isEmpty else { return }
+            let bars = max(1, Int(size.width / 3))
+            let peak = max(0.0001, e.max() ?? 1)
+            for b in 0..<bars {
+                let i0 = b * e.count / bars, i1 = max(i0 + 1, (b + 1) * e.count / bars)
+                var m: Float = 0
+                for i in i0..<min(i1, e.count) { m = max(m, e[i]) }
+                let hgt = max(1, CGFloat(m / peak) * (size.height - 8))
+                let x = CGFloat(b) * size.width / CGFloat(bars)
+                ctx.fill(Path(roundedRect: CGRect(x: x, y: (size.height - hgt) / 2, width: 1.6, height: hgt), cornerRadius: 0.8),
+                         with: .color(.white.opacity(0.75)))
+            }
+            // section edges on the audio too
+            for s in sections.dropFirst() {
+                let x = CGFloat(s.start / max(analysis.duration, 1)) * size.width
+                ctx.fill(Path(CGRect(x: x, y: 0, width: 1, height: size.height)), with: .color(.black.opacity(0.45)))
+            }
+        }
+    }
+
+    /// Red playhead with a triangle on top, across both tracks
+    private func playhead(width: CGFloat, dur: Double) -> some View {
+        LiveReader(model.live) {
+            let t = model.playingSongID == song.id ? model.currentTime : (scrubTime ?? 0)
+            let x = CGFloat(t / dur) * width
+            VStack(spacing: 0) {
+                Path { p in p.move(to: .zero); p.addLine(to: CGPoint(x: 14, y: 0)); p.addLine(to: CGPoint(x: 7, y: 11)); p.closeSubpath() }
+                    .fill(Color.red).frame(width: 14, height: 11)
+                Rectangle().fill(Color.red).frame(width: 2, height: 136)
+            }
+            .shadow(color: .black.opacity(0.5), radius: 2)
+            .offset(x: x - 7)
+            .allowsHitTesting(false)
+        }
+    }
+
+    private func scrub(to t: Double) {
+        let t = max(0, min(analysis.duration, t))
+        scrubTime = t
+        if model.playingSongID == song.id { model.seek(to: t) }
     }
 
     @ViewBuilder private func block(_ s: ShowSection, width: CGFloat) -> some View {
@@ -166,6 +238,7 @@ struct SectionTimelineEditor: View {
         }
         .contextMenu {
             Button("Play from Here") { play(from: s.start) }
+            Button("Move Playhead Here") { scrub(to: s.start) }
             Divider()
             Menu("Replace with") {
                 ForEach(lookGroups, id: \.self) { g in
@@ -196,7 +269,7 @@ struct SectionTimelineEditor: View {
         VStack(alignment: .leading, spacing: 6) {
             HStack(spacing: 8) {
                 Text("Looks").font(.subheadline.bold())
-                Text("drag onto a block, or click to put it on the selected block").font(.caption).foregroundColor(.secondary)
+                Text("drag a pad onto a block, or click it to put it on the selected block").font(.caption).foregroundColor(.secondary)
                 Spacer()
                 Picker("", selection: $looksGroup) {
                     Text("All").tag("All")
@@ -204,36 +277,39 @@ struct SectionTimelineEditor: View {
                 }
                 .labelsHidden().frame(width: 180)
             }
-            ScrollView(.horizontal, showsIndicators: true) {
-                HStack(spacing: 6) {
+            ScrollView(.vertical, showsIndicators: true) {
+                LazyVGrid(columns: [GridItem(.adaptive(minimum: 104, maximum: 160), spacing: 6)], spacing: 6) {
                     ForEach(model.presets.filter { looksGroup == "All" || ($0.group ?? "Essentials") == looksGroup }) { p in
-                        lookChip(p)
+                        lookPad(p)
                     }
                 }
-                .padding(.bottom, 6)
             }
+            .frame(maxHeight: 160)
         }
     }
 
-    private func lookChip(_ p: LookPreset) -> some View {
+    private func lookPad(_ p: LookPreset) -> some View {
         let pal = Palette.named(p.palette)
         let n = max(1, min(4, pal.colors.count))
-        return HStack(spacing: 6) {
-            Image(systemName: p.effect.icon).font(.system(size: 12, weight: .bold))
-            VStack(alignment: .leading, spacing: 0) {
+        let base = p.effect == .blackout ? Color(white: 0.15) : pal.color(0).color
+        return ZStack(alignment: .topLeading) {
+            RoundedRectangle(cornerRadius: 6, style: .continuous).fill(base)
+            // the look's other colors as a thin strip
+            HStack(spacing: 0) { ForEach(0..<n, id: \.self) { i in pal.color(i).color } }
+                .frame(height: 4).clipShape(Capsule()).padding(.horizontal, 5).padding(.top, 34)
+            RoundedRectangle(cornerRadius: 6, style: .continuous)
+                .fill(LinearGradient(colors: [.black.opacity(0.45), .black.opacity(0.05)], startPoint: .top, endPoint: .bottom))
+            HStack(spacing: 4) {
+                Image(systemName: p.effect.icon).font(.system(size: 11, weight: .bold))
                 Text(p.name).font(.system(size: 11, weight: .bold)).lineLimit(1)
-                Text(p.effect.rawValue).font(.system(size: 9)).opacity(0.75).lineLimit(1)
             }
+            .foregroundColor(.white).padding(.horizontal, 6).padding(.top, 7)
+            Text(p.effect.rawValue).font(.system(size: 9)).foregroundColor(.white.opacity(0.8)).lineLimit(1)
+                .padding(.horizontal, 6).padding(.top, 21)
         }
-        .foregroundColor(.white)
-        .padding(.horizontal, 9).padding(.vertical, 6)
-        .background(
-            ZStack {
-                RoundedRectangle(cornerRadius: 8).fill(LinearGradient(colors: (0..<n).map { pal.color($0).color }, startPoint: .leading, endPoint: .trailing))
-                RoundedRectangle(cornerRadius: 8).fill(Color.black.opacity(0.4))
-            }
-        )
-        .overlay(RoundedRectangle(cornerRadius: 8).stroke(Color.white.opacity(0.15)))
+        .frame(height: 44)
+        .overlay(RoundedRectangle(cornerRadius: 6, style: .continuous).stroke(Color.black.opacity(0.4)))
+        .contentShape(Rectangle())
         .onTapGesture { if let id = selected ?? sections.first?.id { apply(p, to: id) } }
         .onDrag { NSItemProvider(object: "preset:\(p.id.uuidString)" as NSString) }
         .help("\(p.name): \(p.effect.rawValue), \(p.palette)\(p.movement == .none ? "" : ", " + p.movement.rawValue)")

@@ -63,10 +63,9 @@ struct SongView: View {
                 if let a = song.analysis {
                     showsBar(binding, a)
                     if let si = song.activeShowIndex {
-                        TimelineView(song: song, show: song.shows[si], analysis: a)
-                            .frame(height: 150)
-                        StagePreview()
+                        // one timeline: light show blocks + the song's audio
                         sectionEditor(binding, si)
+                        StagePreview()
                     }
                 } else {
                     learnPrompt(song)
