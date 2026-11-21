@@ -1452,10 +1452,10 @@ final class AppModel: ObservableObject {
                     return
                 }
                 guard let i = self.index(of: id) else { return }
-                var analysis = analysis
+                var learned = analysis
                 // learning without splitting keeps the parts you split before
-                if !split, analysis.stemsFolder == nil, let keepStems { analysis.stemsFolder = keepStems }
-                self.songs[i].analysis = analysis
+                if !split, learned.stemsFolder == nil, let keepStems { learned.stemsFolder = keepStems }
+                self.songs[i].analysis = learned
                 if self.songs[i].shows.isEmpty { self.createShow(for: id) }
                 else if rebuildShows { self.rebuildShows(for: id) }
                 self.makeLooks(from: id)
