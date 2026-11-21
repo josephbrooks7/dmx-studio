@@ -13,9 +13,11 @@ rm -rf "$OUT"; mkdir -p "$OUT"
 if [[ "${1:-}" == "--universal" ]]; then
   swift build -c release --arch arm64 --arch x86_64
   BIN=".build/apple/Products/Release/DMXStudio"
+  INSTALLER_BIN=".build/apple/Products/Release/DMXInstaller"
 else
   swift build -c release
   BIN="$(swift build -c release --show-bin-path)/DMXStudio"
+  INSTALLER_BIN="$(swift build -c release --show-bin-path)/DMXInstaller"
 fi
 
 mkdir -p "$APP/Contents/MacOS" "$APP/Contents/Resources"
@@ -106,3 +108,35 @@ ln -s /Applications "$STAGE/Applications"
 DMG="$OUT/DMX-Studio-$VERSION.dmg"
 hdiutil create -volname "$APP_NAME" -srcfolder "$STAGE" -ov -format UDZO "$DMG" >/dev/null
 echo "Built $DMG"
+
+# The small installer: downloads the latest full DMG from the GitHub release and installs it
+IAPP="$OUT/Install DMX Studio.app"
+mkdir -p "$IAPP/Contents/MacOS" "$IAPP/Contents/Resources"
+cp "$INSTALLER_BIN" "$IAPP/Contents/MacOS/DMXInstaller"
+cp "$APP/Contents/Resources/AppIcon.icns" "$IAPP/Contents/Resources/AppIcon.icns"
+cat > "$IAPP/Contents/Info.plist" <<PLIST
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict>
+  <key>CFBundleName</key><string>Install DMX Studio</string>
+  <key>CFBundleDisplayName</key><string>Install DMX Studio</string>
+  <key>CFBundleExecutable</key><string>DMXInstaller</string>
+  <key>CFBundleIdentifier</key><string>com.redvelvetstudios.dmxstudio.installer</string>
+  <key>CFBundlePackageType</key><string>APPL</string>
+  <key>CFBundleShortVersionString</key><string>$VERSION</string>
+  <key>CFBundleVersion</key><string>$VERSION</string>
+  <key>CFBundleIconFile</key><string>AppIcon</string>
+  <key>LSMinimumSystemVersion</key><string>12.0</string>
+  <key>NSHighResolutionCapable</key><true/>
+  <key>NSPrincipalClass</key><string>NSApplication</string>
+</dict>
+</plist>
+PLIST
+codesign --force --deep --sign - "$IAPP"
+ISTAGE="$OUT/idmg"; mkdir -p "$ISTAGE"
+cp -R "$IAPP" "$ISTAGE/"
+# a fixed name, so releases/latest/download/DMX-Studio-Installer.dmg always gets the newest
+IDMG="$OUT/DMX-Studio-Installer.dmg"
+hdiutil create -volname "Install DMX Studio" -srcfolder "$ISTAGE" -ov -format UDZO "$IDMG" >/dev/null
+echo "Built $IDMG ($(du -h "$IDMG" | cut -f1))"
