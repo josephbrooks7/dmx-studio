@@ -299,7 +299,7 @@ struct NowPlayingCard: View {
                     }
                 } else if model.activePresetID != nil {
                     HStack(spacing: 6) {
-                        Text("Live look running").font(.caption2).foregroundColor(Theme.subtle)
+                        Text("Live look on the lights").font(.caption2).foregroundColor(Theme.subtle)
                         Button { model.activePresetID = nil } label: {
                             Text("Stop").font(.system(size: 10, weight: .bold)).padding(.horizontal, 6).padding(.vertical, 1)
                                 .background(Capsule().fill(Color.white.opacity(0.15)))
@@ -308,7 +308,7 @@ struct NowPlayingCard: View {
                         .help("Stop the live look (lights go back to the idle look)")
                     }
                 } else {
-                    Text("Idle look on").font(.caption2).foregroundColor(Theme.subtle)
+                    Text("Standby look on the lights").font(.caption2).foregroundColor(Theme.subtle)
                 }
             }
             .frame(width: 260, alignment: .leading)
@@ -758,7 +758,7 @@ struct FixtureRing: View {
                         Text("OFF").font(.system(size: 8, weight: .heavy)).padding(.horizontal, 5).padding(.vertical, 1)
                             .background(Capsule().fill(Color.gray.opacity(0.6)))
                     } else if manual {
-                        Text("HAND").font(.system(size: 8, weight: .heavy)).padding(.horizontal, 5).padding(.vertical, 1)
+                        Text("MANUAL").font(.system(size: 8, weight: .heavy)).padding(.horizontal, 5).padding(.vertical, 1)
                             .background(Capsule().fill(Theme.accent))
                     }
                 }

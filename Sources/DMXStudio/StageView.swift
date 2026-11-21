@@ -89,7 +89,7 @@ struct StageScreen: View {
                         .clipShape(RoundedRectangle(cornerRadius: 18, style: .continuous))
                         .overlay(RoundedRectangle(cornerRadius: 18, style: .continuous).stroke(Theme.panelBorder))
                     if !model.outputEnabled {
-                        Text("SIMULATION · real lights are off").font(.system(size: 11, weight: .heavy)).foregroundColor(.orange)
+                        Text("PREVIEW ONLY · your lights aren't being controlled").font(.system(size: 11, weight: .heavy)).foregroundColor(.orange)
                             .padding(8).background(Capsule().fill(Color.black.opacity(0.6))).padding(12)
                     }
                 }
@@ -216,8 +216,8 @@ struct RealLightsSwitch: View {
             HStack(spacing: 8) {
                 Image(systemName: model.outputEnabled ? "lightbulb.fill" : "lightbulb.slash")
                 VStack(alignment: .leading, spacing: 0) {
-                    Text(model.outputEnabled ? "Real lights ON" : "Real lights OFF").font(.system(size: 12, weight: .bold))
-                    Text(model.outputEnabled ? "Sending to your lights" : "Simulating only").font(.system(size: 9)).opacity(0.8)
+                    Text(model.outputEnabled ? "Lights: Live" : "Lights: Preview").font(.system(size: 12, weight: .bold))
+                    Text(model.outputEnabled ? "Your lights follow the app" : "On screen only, lights untouched").font(.system(size: 9)).opacity(0.8)
                 }
             }
             .padding(.horizontal, 12).padding(.vertical, 6)
@@ -225,7 +225,7 @@ struct RealLightsSwitch: View {
             .overlay(Capsule().stroke(model.outputEnabled ? Color.green.opacity(0.6) : Color.orange.opacity(0.7)))
         }
         .buttonStyle(.plain)
-        .help("Turn off to design and preview shows without turning on the real lights")
+        .help("Live: your lights follow the app. Preview: shows play on screen only and your lights are left alone")
     }
 }
 
@@ -394,7 +394,7 @@ struct StageCanvas: View {
         }
 
         if !model.outputEnabled {
-            ctx.draw(Text("SIMULATION · real lights are off").font(.system(size: 11, weight: .heavy)).foregroundColor(.orange),
+            ctx.draw(Text("PREVIEW ONLY · your lights aren't being controlled").font(.system(size: 11, weight: .heavy)).foregroundColor(.orange),
                      at: CGPoint(x: w - 12, y: 16), anchor: .trailing)
         }
     }

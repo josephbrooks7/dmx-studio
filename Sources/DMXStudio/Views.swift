@@ -94,7 +94,7 @@ struct SongView: View {
                         .font(.callout).foregroundColor(.secondary)
                         HStack(spacing: 14) {
                             let g = a.groove
-                            Label(g.feel == .normal ? "Normal groove" : "\(g.feel.rawValue) feel (\(Int(a.feltBPM.rounded())) BPM felt)",
+                            Label(g.feel == .normal ? "Straight feel" : "\(g.feel.rawValue) feel (\(Int(a.feltBPM.rounded())) BPM felt)",
                                   systemImage: "waveform.path")
                             Label("Sounds like: \(a.genreSummary)", systemImage: "music.quarternote.3")
                         }
@@ -142,7 +142,7 @@ struct SongView: View {
                     } else {
                         Button { model.learn(song.id) } label: {
                             ActionTile(icon: "waveform", title: song.isLearned ? "Learn Again" : "Learn",
-                                       subtitle: "the song as it is")
+                                       subtitle: "quick · from the full mix")
                         }
                         .buttonStyle(TileButtonStyle(prominent: !song.isLearned))
                         .help("Lyrics, then the music, from the song as it is (quick, no stems)")
@@ -166,7 +166,7 @@ struct SongView: View {
                         Button {
                             model.makeLooks(from: song.id)
                         } label: {
-                            ActionTile(icon: "wand.and.stars", title: "Make Looks", subtitle: "presets from this show")
+                            ActionTile(icon: "wand.and.stars", title: "Save Looks", subtitle: "as presets, from this show")
                         }
                         .buttonStyle(TileButtonStyle())
                         .help("Make new presets from this song's light show (they appear in their own group on the Live and Show screens)")
@@ -239,7 +239,7 @@ struct SongView: View {
                             var b = blend; b.peaks = (m == b.base || m == .automatic) ? nil : m
                             model.setDesign(songID: song.id, showID: active.id, b)
                         })) {
-                            ForEach(DesignMode.allCases) { m in Text(m == .automatic ? "Same as above" : "\(m.rawValue) · \(m.inspiredBy)").tag(m) }
+                            ForEach(DesignMode.allCases) { m in Text(m == .automatic ? "Same as the lighting style" : "\(m.rawValue) · \(m.inspiredBy)").tag(m) }
                         }
                         .frame(maxWidth: 320)
                     }
@@ -330,7 +330,7 @@ struct SongView: View {
                     }
                 }
                 HStack {
-                    Text("Sync nudge").foregroundColor(.secondary)
+                    Text("Timing offset").foregroundColor(.secondary)
                     Slider(value: binding.syncOffsetMs, in: -300...300, step: 10).frame(width: 220)
                     Text("\(Int(song.syncOffsetMs)) ms").monospacedDigit().frame(width: 60, alignment: .leading)
                     Text("Only if this song's lights feel early or late.").font(.caption).foregroundColor(.secondary)

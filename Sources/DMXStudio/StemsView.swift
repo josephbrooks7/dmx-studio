@@ -527,7 +527,7 @@ struct LyricsTab: View {
                         }
                         .pickerStyle(.segmented).frame(width: 290).labelsHidden()
                         Button { model.refreshLyricLighting(song.id) } label: { Label("Regenerate Cues", systemImage: "arrow.clockwise") }.fixedSize()
-                        Button { weightsOpen.toggle() } label: { Label("Weights", systemImage: "slider.horizontal.3") }.fixedSize()
+                        Button { weightsOpen.toggle() } label: { Label("Cue Strength", systemImage: "slider.horizontal.3") }.fixedSize()
                         if let pal = LyricsLearner.palette(for: ly.themes), song.activeShow != nil {
                             Button { model.applyLyricColors(song.id) } label: { Label("Lyric Colors (\(pal))", systemImage: "paintpalette") }.fixedSize()
                         }

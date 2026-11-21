@@ -50,7 +50,6 @@ struct Lyrics: Codable, Hashable {
         var parts: [String] = []
         if !themes.isEmpty { parts.append(themes.joined(separator: ", ")) }
         if !moodLabel.isEmpty { parts.append(moodLabel) }
-        if !keywords.isEmpty { parts.append("words: " + keywords.prefix(5).joined(separator: ", ")) }
         return parts.joined(separator: " · ")
     }
 }
