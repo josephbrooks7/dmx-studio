@@ -597,6 +597,43 @@ struct VerticalFader: View {
     }
 }
 
+/// A glowing rubber pad, lit from inside (like a hardware lighting controller's pads)
+struct GlowPadBackground: View {
+    var color: Color
+    var lit: Bool = true
+    var corner: CGFloat = 14
+    var body: some View {
+        ZStack {
+            RoundedRectangle(cornerRadius: corner, style: .continuous).fill(Color(white: 0.11))
+            RoundedRectangle(cornerRadius: corner, style: .continuous)
+                .fill(RadialGradient(colors: [Color.white.opacity(lit ? 0.9 : 0.25), color.opacity(lit ? 0.95 : 0.45), color.opacity(lit ? 0.75 : 0.28)],
+                                     center: .center, startRadius: 0, endRadius: 70))
+                .padding(3)
+            // soft top highlight like a rubber pad
+            RoundedRectangle(cornerRadius: corner - 2, style: .continuous)
+                .fill(LinearGradient(colors: [Color.white.opacity(0.18), .clear], startPoint: .top, endPoint: .center))
+                .padding(3)
+        }
+        .overlay(RoundedRectangle(cornerRadius: corner, style: .continuous).stroke(Color.black.opacity(0.6), lineWidth: 1))
+        .shadow(color: color.opacity(lit ? 0.6 : 0.15), radius: lit ? 12 : 4)
+    }
+}
+
+/// A dark hardware key with a colored label (STROBE, BLINDER, BLACKOUT…)
+struct HardwareKeyBackground: View {
+    var held: Bool = false
+    var accent: Color = .white
+    var body: some View {
+        ZStack {
+            RoundedRectangle(cornerRadius: 8, style: .continuous)
+                .fill(LinearGradient(colors: [Color(white: held ? 0.32 : 0.22), Color(white: held ? 0.2 : 0.12)], startPoint: .top, endPoint: .bottom))
+            RoundedRectangle(cornerRadius: 8, style: .continuous).stroke(Color.black.opacity(0.8), lineWidth: 1.5)
+            RoundedRectangle(cornerRadius: 7, style: .continuous).stroke(Color.white.opacity(0.08), lineWidth: 1).padding(1.5)
+        }
+        .shadow(color: held ? accent.opacity(0.7) : .black.opacity(0.5), radius: held ? 10 : 2, y: held ? 0 : 1)
+    }
+}
+
 struct HoldPad: View {
     let title: String
     let icon: String
@@ -609,8 +646,8 @@ struct HoldPad: View {
             Text(title).font(.system(size: 9, weight: .bold))
         }
         .frame(width: 64, height: 50)
-        .background(RoundedRectangle(cornerRadius: 12).fill(isHeld ? color.opacity(0.9) : Color.white.opacity(0.08)))
-        .foregroundColor(isHeld ? .black : .white)
+        .background(HardwareKeyBackground(held: isHeld, accent: color))
+        .foregroundColor(isHeld ? color : color.opacity(0.85))
         .contentShape(Rectangle())
         .gesture(DragGesture(minimumDistance: 0)
             .onChanged { _ in if !isHeld { isHeld = true } }
@@ -835,10 +872,9 @@ struct PresetTile: View {
         let pal = Palette.named(preset.palette)
         HStack(spacing: 12) {
             ZStack {
-                RoundedRectangle(cornerRadius: 12)
-                    .fill(LinearGradient(colors: pal.colors.prefix(3).map { $0.color }, startPoint: .topLeading, endPoint: .bottomTrailing))
-                Image(systemName: preset.icon).font(.system(size: 17, weight: .bold)).foregroundColor(.white)
-                    .shadow(radius: 2)
+                GlowPadBackground(color: pal.color(0).color, lit: active || hover, corner: 10)
+                Image(systemName: preset.icon).font(.system(size: 17, weight: .bold))
+                    .foregroundColor(active || hover ? .black.opacity(0.75) : .white)
             }
             .frame(width: 44, height: 44)
             VStack(alignment: .leading, spacing: 5) {
@@ -1000,10 +1036,9 @@ struct LivePad: View {
                 Text(title).font(.system(size: 13, weight: .bold)).lineLimit(1)
             }
             .frame(maxWidth: .infinity, minHeight: 110)
-            .background(RoundedRectangle(cornerRadius: 20, style: .continuous)
-                .fill(LinearGradient(colors: colors.map { $0.opacity(active ? 0.95 : 0.35) }, startPoint: .topLeading, endPoint: .bottomTrailing)))
-            .overlay(RoundedRectangle(cornerRadius: 20, style: .continuous).stroke(active ? Color.white : Theme.panelBorder, lineWidth: active ? 3 : 1))
-            .shadow(color: active ? (colors.first ?? .white).opacity(0.7) : .clear, radius: 14)
+            .foregroundColor(active ? .black.opacity(0.8) : .white)
+            .background(GlowPadBackground(color: colors.first ?? .white, lit: active, corner: 18))
+            .overlay(RoundedRectangle(cornerRadius: 18, style: .continuous).stroke(active ? Color.white : .clear, lineWidth: 2))
         }
         .buttonStyle(.plain)
     }
@@ -1021,9 +1056,8 @@ struct LiveHoldPad: View {
             Text("Hold · \(title)").font(.system(size: 13, weight: .bold))
         }
         .frame(maxWidth: .infinity, minHeight: 110)
-        .background(RoundedRectangle(cornerRadius: 20, style: .continuous).fill(isHeld ? color : Color.white.opacity(0.07)))
-        .foregroundColor(isHeld ? .black : .white)
-        .overlay(RoundedRectangle(cornerRadius: 20, style: .continuous).stroke(Theme.panelBorder))
+        .background(HardwareKeyBackground(held: isHeld, accent: color))
+        .foregroundColor(isHeld ? color : color.opacity(0.85))
         .contentShape(Rectangle())
         .gesture(DragGesture(minimumDistance: 0)
             .onChanged { _ in if !isHeld { isHeld = true } }

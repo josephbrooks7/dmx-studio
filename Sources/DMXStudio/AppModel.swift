@@ -485,7 +485,8 @@ final class AppModel: ObservableObject {
             if let d = (LookPreset.beamPack + LookPreset.barPack).first(where: { $0.name == presets[i].name }) { presets[i].mode = d.mode }
         }
         for (pack, list) in [("themes1", LookPreset.themePack), ("beams4", LookPreset.beamPack), ("bars9ch1", LookPreset.barPack),
-                             ("strobes1", LookPreset.strobePack)] {
+                             ("strobes1", LookPreset.strobePack), ("colorfx1", LookPreset.colorFXPack),
+                             ("movefx1", LookPreset.moveFXPack), ("beamfx1", LookPreset.beamFXPack)] {
             let packKey = "presetPack.\(pack).\(s.id.uuidString)"
             if !UserDefaults.standard.bool(forKey: packKey) {
                 let have = Set(presets.map(\.name))

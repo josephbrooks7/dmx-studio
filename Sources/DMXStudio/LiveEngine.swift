@@ -35,7 +35,45 @@ struct LookPreset: Identifiable, Codable, Hashable {
     var usesStrobe: Bool { [.strobe, .stutter, .blinderHits].contains(effect) }
     var isBeatDriven: Bool { ![.steady, .breathe, .blackout].contains(effect) }
 
-    static var defaults: [LookPreset] { essentials + strobePack + beamPack + barPack + themePack }
+    static var defaults: [LookPreset] { essentials + strobePack + beamPack + barPack + themePack + colorFXPack + moveFXPack + beamFXPack }
+
+    // Organized like a hardware controller's FX banks (ADJ WMX1 style): Color FX, Move FX, Beam FX
+
+    /// Color FX: the colors move (chases, fades, cycles, swaps)
+    static let colorFXPack: [LookPreset] = {
+        func p(_ n: String, _ e: LightEffect, _ pal: String, rate: Double = 1) -> LookPreset {
+            LookPreset(name: n, effect: e, palette: pal, movement: .none, rate: rate, intensity: 1, icon: e.icon, group: "Color FX")
+        }
+        return [p("Rainbow Cycle", .rainbow, "Rainbow"), p("Color Chase", .chase, "Neon"), p("Color per Beat", .colorBeat, "Pop Candy"),
+                p("Two-Color Swap", .alternate, "Red Velvet"), p("Slow Color Fade", .gradient, "Sunset", rate: 0.5),
+                p("Color Wave", .wave, "Ocean"), p("Aurora Flow", .aurora, "Aurora", rate: 0.5), p("Fire Flicker", .fire, "Fire"),
+                p("Ice Shimmer", .shimmer, "Ice"), p("Galaxy Dust", .magic, "Galaxy"), p("Disco Split", .split, "Disco"),
+                p("Psych Pulse", .pulse, "Psychedelic"), p("Christmas Swap", .alternate, "Christmas", rate: 0.5),
+                p("Gold Dust", .goldDust, "Gold")]
+    }()
+
+    /// Move FX: the beams move (sweeps, circles, fans, nods, flips)
+    static let moveFXPack: [LookPreset] = {
+        func p(_ n: String, _ e: LightEffect, _ pal: String, _ m: MoveEffect, rate: Double = 1) -> LookPreset {
+            LookPreset(name: n, effect: e, palette: pal, movement: m, rate: rate, intensity: 1, icon: "arrow.triangle.2.circlepath", group: "Move FX")
+        }
+        return [p("Slow Sweep", .steady, "Deep Blue", .sweep, rate: 0.5), p("Fast Sweep", .steady, "Neon", .sweep, rate: 2),
+                p("Circles", .gradient, "Purple Haze", .circle), p("Ballyhoo", .colorBeat, "Rave", .circle, rate: 2),
+                p("Fan Out", .steady, "Ice", .fan), p("Beat Nod", .pulse, "Red Velvet", .beatNod),
+                p("Full Rotate", .gradient, "Rainbow", .fullRotate), p("Flip on Beat", .kickFlash, "EDM", .flip),
+                p("Sunset Sway", .gradient, "Sunset", .sweep, rate: 0.5), p("Techno Nod", .chase, "Techno", .beatNod)]
+    }()
+
+    /// Beam FX: patterns across the heads (chases, bounces, bursts, pixels, hits)
+    static let beamFXPack: [LookPreset] = {
+        func p(_ n: String, _ e: LightEffect, _ pal: String, rate: Double = 1) -> LookPreset {
+            LookPreset(name: n, effect: e, palette: pal, movement: .none, rate: rate, intensity: 1, icon: e.icon, group: "Beam FX")
+        }
+        return [p("Beam Chase", .chase, "Ice"), p("Beam Alternate", .alternate, "EDM"), p("Center Burst", .centerOut, "Neon"),
+                p("Beam Bounce", .bounce, "Lime Club"), p("Pixel Pop", .pixelPop, "Pop Candy"), p("Scanner", .scan, "Red Room"),
+                p("Ripple", .ripple, "Ocean"), p("Hi-Hat Sparkle", .sparkle, "Full White"), p("Kick Flash", .kickFlash, "Techno"),
+                p("Snare Hit", .snareHit, "Dubstep"), p("Strobe Stutter", .stutter, "Full White"), p("Blinder Hits", .blinderHits, "Dance")]
+    }()
 
     /// Strobes locked to the beat at different speeds, stutters, and color looks with white blinder hits.
     /// (How fast they really flash is capped by the Flashing setting on the Lights page.)
