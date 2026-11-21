@@ -2145,6 +2145,13 @@ final class AppModel: ObservableObject {
         p.play()
     }
 
+    /// Full screen for the whole app (View menu, ⌃⌘F, or the button at the top right)
+    func toggleFullScreen() {
+        guard let w = NSApp.keyWindow ?? NSApp.windows.first(where: { $0.canBecomeMain }) else { return }
+        w.collectionBehavior.insert(.fullScreenPrimary)
+        w.toggleFullScreen(nil)
+    }
+
     /// Songs picked in the library (click, ⇧/⌘-click or drag to pick several)
     @Published var pickedSongs: Set<UUID> = []
     var songsScreenShowing = false

@@ -439,86 +439,100 @@ struct LyricsTab: View {
     var playhead: Double { model.playingSongID == song.id ? model.currentTime : 0 }
     @State private var showCues = true
     @AppStorage("lyricWeightsOpen") private var weightsOpen = false
+    @AppStorage("lyricLightingOpen") private var lightingOpen = false
 
     @ViewBuilder var content: some View {
-        HStack(spacing: 10) {
+        HStack(spacing: 8) {
             Button { model.learnLyrics(song.id) } label: { Label("Transcribe Lyrics from Audio", systemImage: "waveform.and.mic") }
+                .buttonStyle(TileButtonStyle(prominent: song.lyrics == nil))
                 .disabled(model.lyricsProgress[song.id] != nil)
+                .fixedSize()
                 .help("Listens to the song and writes down every word with its timing (like auto-captions)")
-            if WhisperEngine.isAvailable {
-                Picker("", selection: Binding(get: { WhisperEngine.chosen }, set: { WhisperEngine.chosen = $0; model.objectWillChange.send() })) {
-                    ForEach(WhisperEngine.ModelSize.allCases) { Text($0.label).tag($0) }
-                }
-                .frame(width: 170)
-                .help("Whisper speech model used for lyrics (downloaded once, runs on this Mac)")
+            Button { pasteText = song.lyrics.map { $0.pastedText ?? $0.lines.map(\.text).joined(separator: "\n") } ?? (LyricsLibrary.find(title: song.title)?.text ?? ""); pasting = true } label: {
+                Label("Paste / Edit All", systemImage: "doc.on.clipboard")
             }
-            Picker("", selection: Binding(get: { model.lyricsFromVocalPart }, set: { model.lyricsFromVocalPart = $0 })) {
-                Text("Whole song").tag(false)
-                Text("Vocal part").tag(true)
-            }
-            .frame(width: 120)
-            .help("Listen to the whole song (fast, no splitting) or to the separated vocal part (cleaner when the split is good)")
-            Picker("", selection: Binding(get: { WhisperEngine.language }, set: { WhisperEngine.language = $0; model.objectWillChange.send() })) {
-                ForEach(WhisperEngine.Language.allCases) { Text($0.rawValue).tag($0) }
-            }
-            .frame(width: 120)
-            .help("Language of the lyrics")
+            .buttonStyle(TileButtonStyle()).fixedSize()
+            .help("Paste the real lyrics: used word for word, timed by listening. Section names (Verse 1, [Chorus]…) mark the song's parts")
             Button {
                 if let nid = model.addLyricLine(song.id, at: playhead) {
                     editing = nid; editText = "New line"; editStart = Self.tc(playhead); editEnd = Self.tc(playhead + 2.5)
                 }
             } label: { Label("Add Line", systemImage: "plus") }
+                .buttonStyle(TileButtonStyle()).fixedSize()
                 .disabled(song.analysis == nil)
                 .help("Add a lyric line at the playhead (or at the start)")
-            Button { pasteText = song.lyrics.map { $0.pastedText ?? $0.lines.map(\.text).joined(separator: "\n") } ?? (LyricsLibrary.find(title: song.title)?.text ?? ""); pasting = true } label: {
-                Label("Paste / Edit All", systemImage: "doc.on.clipboard")
-            }
-            Button { model.showLyricsLibrary = true } label: { Label("Lyrics Library", systemImage: "books.vertical") }
-                .help("All your saved lyrics")
-            Button { model.sendLyricsReport(song.id) } label: { Label("Send Lyrics Report", systemImage: "paperplane") }
-                .disabled(song.lyrics == nil)
-                .help("Sends what was heard (every line and word with its timing and how sure it was) so it can be checked against the real lyrics. Also copies it to the clipboard")
-            Button(role: .destructive) { confirmClear = true } label: { Label("Clear Lyrics", systemImage: "trash") }
-                .disabled(song.lyrics == nil)
-                .help("Remove these lyrics (and the light cues made from them). Then Listen again or paste the right ones")
+            Menu {
+                Button { model.showLyricsLibrary = true } label: { Label("Lyrics Library…", systemImage: "books.vertical") }
+                Button { model.sendLyricsReport(song.id) } label: { Label("Send Lyrics Report", systemImage: "paperplane") }
+                    .disabled(song.lyrics == nil)
+                Divider()
+                Button(role: .destructive) { confirmClear = true } label: { Label("Clear Lyrics…", systemImage: "trash") }
+                    .disabled(song.lyrics == nil)
+            } label: { Label("More", systemImage: "ellipsis.circle") }
+                .menuStyle(.borderlessButton).fixedSize()
                 .confirmationDialog("Clear the lyrics of \"\(song.title)\"?", isPresented: $confirmClear) {
                     Button("Clear Lyrics", role: .destructive) { model.clearLyrics(song.id) }
                 } message: {
                     Text("The words, their timing and the light cues made from them are removed. Your light show stays.")
                 }
-            Spacer()
-            if let s = model.lyricsStatus[song.id] { Text(s).font(.caption).foregroundColor(.secondary) }
-            if WhisperEngine.isAvailable && !WhisperEngine.isInstalled(WhisperEngine.chosen) {
-                Button("Use a Model File…") {
-                    let p = NSOpenPanel()
-                    p.allowsMultipleSelection = false
-                    p.message = "Pick a Whisper model file (\(WhisperEngine.chosen.file)) downloaded from huggingface.co/ggerganov/whisper.cpp"
-                    if p.runModal() == .OK, let u = p.url { model.installWhisperModel(from: u) }
+            Spacer(minLength: 8)
+            if let s = model.lyricsStatus[song.id] { Text(s).font(.caption).foregroundColor(.secondary).lineLimit(1) }
+            // how it listens: model, whole song / vocal part, language — in one small menu
+            Menu {
+                if WhisperEngine.isAvailable {
+                    Picker("Listener", selection: Binding(get: { WhisperEngine.chosen }, set: { WhisperEngine.chosen = $0; model.objectWillChange.send() })) {
+                        ForEach(WhisperEngine.ModelSize.allCases) { Text($0.label).tag($0) }
+                    }
                 }
-                .help("No internet here? Download \(WhisperEngine.chosen.file) on another network and pick it")
+                Picker("Listen to", selection: Binding(get: { model.lyricsFromVocalPart }, set: { model.lyricsFromVocalPart = $0 })) {
+                    Text("Whole song").tag(false)
+                    Text("Vocal part (after Deep Learn)").tag(true)
+                }
+                Picker("Language", selection: Binding(get: { WhisperEngine.language }, set: { WhisperEngine.language = $0; model.objectWillChange.send() })) {
+                    ForEach(WhisperEngine.Language.allCases) { Text($0.rawValue).tag($0) }
+                }
+                if WhisperEngine.isAvailable && !WhisperEngine.isInstalled(WhisperEngine.chosen) {
+                    Divider()
+                    Button("Use a Model File…") {
+                        let p = NSOpenPanel()
+                        p.allowsMultipleSelection = false
+                        p.message = "Pick a Whisper model file (\(WhisperEngine.chosen.file))"
+                        if p.runModal() == .OK, let u = p.url { model.installWhisperModel(from: u) }
+                    }
+                }
+            } label: {
+                Label("\(WhisperEngine.chosen.label) · \(WhisperEngine.language.rawValue)", systemImage: "slider.horizontal.3")
             }
+            .menuStyle(.borderlessButton).fixedSize()
+            .help("How it listens: Accurate or Fast, whole song or vocal part, language")
         }
         if let ly = song.lyrics {
-            // lighting from lyrics: mode + weights
-            HStack(spacing: 10) {
-                Text("Lyric lighting").foregroundColor(.secondary)
-                Picker("", selection: Binding(get: { ly.mode ?? .automatic }, set: { model.setLyricMode(song.id, $0) })) {
-                    ForEach(LyricLightingMode.allCases) { Text($0.rawValue).tag($0) }
+            // what it's about, in one line
+            Text([ly.themes.isEmpty ? nil : "About: " + ly.themes.joined(separator: ", "),
+                  "Mood: \(ly.moodLabel)",
+                  ly.engine ?? ly.source].compactMap { $0 }.joined(separator: "   ·   "))
+                .font(.caption).foregroundColor(.secondary).lineLimit(1)
+            DisclosureGroup(isExpanded: $lightingOpen) {
+                VStack(alignment: .leading, spacing: 8) {
+                    HStack(spacing: 10) {
+                        Picker("", selection: Binding(get: { ly.mode ?? .automatic }, set: { model.setLyricMode(song.id, $0) })) {
+                            ForEach(LyricLightingMode.allCases) { Text($0.rawValue).tag($0) }
+                        }
+                        .pickerStyle(.segmented).frame(width: 290).labelsHidden()
+                        Button { model.refreshLyricLighting(song.id) } label: { Label("Regenerate Cues", systemImage: "arrow.clockwise") }.fixedSize()
+                        Button { weightsOpen.toggle() } label: { Label("Weights", systemImage: "slider.horizontal.3") }.fixedSize()
+                        if let pal = LyricsLearner.palette(for: ly.themes), song.activeShow != nil {
+                            Button { model.applyLyricColors(song.id) } label: { Label("Lyric Colors (\(pal))", systemImage: "paintpalette") }.fixedSize()
+                        }
+                        Spacer()
+                    }
+                    Text((ly.mode ?? .automatic).blurb).font(.caption).foregroundColor(.secondary)
+                    if !ly.keywords.isEmpty { Text("Key words: " + ly.keywords.joined(separator: ", ")).font(.caption).foregroundColor(.secondary) }
+                    if weightsOpen { LyricWeightsView() }
                 }
-                .pickerStyle(.segmented).frame(width: 290)
-                Button { model.refreshLyricLighting(song.id) } label: { Label("Regenerate Cues", systemImage: "arrow.clockwise") }
-                Button { weightsOpen.toggle() } label: { Label("Weights", systemImage: "slider.horizontal.3") }
-                if let pal = LyricsLearner.palette(for: ly.themes), song.activeShow != nil {
-                    Button { model.applyLyricColors(song.id) } label: { Label("Lyric Colors (\(pal))", systemImage: "paintpalette") }
-                }
-                Spacer()
-            }
-            Text((ly.mode ?? .automatic).blurb).font(.caption).foregroundColor(.secondary)
-            if weightsOpen { LyricWeightsView() }
-            VStack(alignment: .leading, spacing: 3) {
-                if !ly.themes.isEmpty { Text("About: " + ly.themes.joined(separator: ", ")).font(.callout.bold()) }
-                Text("Mood: \(ly.moodLabel)   ·   \(ly.engine ?? ly.source)").font(.caption).foregroundColor(.secondary)
-                if !ly.keywords.isEmpty { Text("Key words: " + ly.keywords.joined(separator: ", ")).font(.caption).foregroundColor(.secondary) }
+                .padding(.top, 4)
+            } label: {
+                Text("Lighting from the lyrics · \((ly.mode ?? .automatic).rawValue)").font(.callout.weight(.semibold))
             }
             CoarseReader(model.coarse) {
                 let t = model.playingSongID == song.id ? model.coarse.time : -1

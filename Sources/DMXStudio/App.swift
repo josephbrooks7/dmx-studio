@@ -194,6 +194,9 @@ struct DMXStudioApp: App {
                 Button("Show Files in Finder") { model.showLibraryFolder() }
                 Button("Lyrics Library…") { model.showLyricsLibrary = true }.keyboardShortcut("l", modifiers: [.command, .shift])
             }
+            CommandGroup(after: .toolbar) {
+                Button("Toggle Full Screen") { model.toggleFullScreen() }.keyboardShortcut("f", modifiers: [.command, .control])
+            }
             CommandMenu("Playback") {
                 Button("Play / Pause  (Space)") { model.togglePlay() }
                 Button("Stop") { model.stop() }.keyboardShortcut(".", modifiers: .command)
@@ -220,6 +223,10 @@ struct RootView: View {
             }
         }
         .animation(.easeInOut(duration: 0.25), value: model.showingStart)
+        .onAppear {
+            // the window can go full screen (green button, View menu, ⌃⌘F)
+            DispatchQueue.main.async { NSApp.windows.forEach { $0.collectionBehavior.insert(.fullScreenPrimary) } }
+        }
         .alert(errors.current.map { "Something didn't work: \($0.area)" } ?? "",
                isPresented: Binding(get: { errors.current != nil }, set: { if !$0 { errors.current = nil } })) {
             Button("Report Problem") {

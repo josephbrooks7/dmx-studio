@@ -229,6 +229,11 @@ struct TopBar: View {
                 Text(model.connected ? (model.output.rememberedDevice?.name ?? "Lights connected") : "Not connected")
                     .font(.caption).foregroundColor(Theme.subtle).lineLimit(1)
             }
+            Button { model.toggleFullScreen() } label: {
+                Image(systemName: "arrow.up.left.and.arrow.down.right").frame(width: 28, height: 28).contentShape(Rectangle())
+            }
+            .buttonStyle(.plain).foregroundColor(Theme.subtle)
+            .help("Full screen (⌃⌘F) — press again or Esc to leave")
         }
         .padding(.horizontal, 18).padding(.vertical, 10)
     }
