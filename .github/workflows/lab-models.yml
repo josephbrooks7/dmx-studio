@@ -5,6 +5,8 @@ on:
   workflow_dispatch:
   push:
     paths: [".github/workflows/lab-models.yml"]
+permissions:
+  contents: write
 jobs:
   models:
     runs-on: macos-latest
