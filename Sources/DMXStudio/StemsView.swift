@@ -412,8 +412,11 @@ struct LyricsTab: View {
                 Text("Paste or edit the lyrics").font(.headline)
                 Text("One line per sung line. No timestamps needed: the app finds where each line is sung. Section names on their own line (Verse 1, Pre-Chorus, [Chorus], Bridge, Ending…) mark the song's parts and the light show follows them.")
                     .font(.caption).foregroundColor(.secondary)
-                TextEditor(text: $pasteText).font(.body).frame(minWidth: 460, minHeight: 320)
-                    .overlay(RoundedRectangle(cornerRadius: 6).stroke(Color.secondary.opacity(0.3)))
+                ScrollView {
+                    TextEditor(text: $pasteText).font(.body).frame(minHeight: 300)
+                }
+                .frame(height: 340)
+                .overlay(RoundedRectangle(cornerRadius: 6).stroke(Color.secondary.opacity(0.3)))
                 HStack {
                     Spacer()
                     Button("Cancel") { pasting = false }
@@ -424,6 +427,7 @@ struct LyricsTab: View {
                 }
             }
             .padding(18)
+            .frame(width: 640, height: 540)
         }
     }
 
@@ -740,9 +744,12 @@ struct LyricsPromptSheet: View {
                  ? "Found these in your Lyrics Library. Use them (most accurate: timed to the song by listening), edit them, or transcribe from the audio instead."
                  : "Have the lyrics? Paste them here: they're used word for word and timed to the song (most accurate). Or let the app transcribe them by listening (works best on clear vocals).")
                 .font(.callout).foregroundColor(fromLibrary ? .green : .secondary).fixedSize(horizontal: false, vertical: true)
-            TextEditor(text: $text)
-                .font(.body)
-                .frame(minWidth: 520, minHeight: 260)
+            ScrollView {
+                TextEditor(text: $text)
+                    .font(.body)
+                    .frame(minHeight: 300)
+            }
+            .frame(height: 320)
                 .overlay(RoundedRectangle(cornerRadius: 6).stroke(Color.white.opacity(0.15)))
                 .overlay(alignment: .topLeading) {
                     if text.isEmpty {
@@ -772,6 +779,7 @@ struct LyricsPromptSheet: View {
             }
         }
         .padding(20)
+        .frame(width: 660, height: 560)
         .onAppear {
             if text.isEmpty, let s = song, let e = LyricsLibrary.find(title: s.title) { text = e.text; fromLibrary = true }
         }
