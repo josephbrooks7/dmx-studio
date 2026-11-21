@@ -1605,13 +1605,13 @@ final class AppModel: ObservableObject {
                 WhisperEngine.transcribe(vocals: vocals, phrases: useVocalPart ? phrases : [], model: size, progress: progress) { r in
                     // Hardly any lead vocal (backing / performance track)? Listen again for the
                     // background vocals: turned up, whole vocal part, a bit less strict
-                    if case .success(let lead) = r, lead.count < 8, !useVocalPart, haveVocalPart {
+                    if case .success(let lead) = r, WhisperEngine.looksPoor(lead), !useVocalPart, haveVocalPart {
                         // the whole song gave hardly any words: try the separated vocal part
                         self.lyricsRetryOnVocals.insert(id)
                         self.lyricsBusy = false
                         self.lyricsProgress[id] = nil
                         self.learnLyrics(id)
-                    } else if case .success(let lead) = r, lead.count < 8, useVocalPart {
+                    } else if case .success(let lead) = r, WhisperEngine.looksPoor(lead), useVocalPart {
                         self.lyricsStatus[id] = "No lead vocal — listening for background vocals…"
                         self.lyricsProgress[id] = 0
                         // the vocal part plus "other" (where the AI split can put vocal chops, choirs, stacked backing vocals)
@@ -1621,11 +1621,13 @@ final class AppModel: ObservableObject {
                             .filter { FileManager.default.fileExists(atPath: $0.path) }
                         WhisperEngine.transcribe(vocals: vocals, extra: extra,
                                                  phrases: phrases, model: size, background: true, progress: progress) { r2 in
-                            if case .success(let bg) = r2, bg.count > lead.count { finish(.success(bg), engine: "Whisper \(size.rawValue) · background vocals") }
-                            else { finish(r, engine: "Whisper \(size.rawValue)") }
+                            if case .success(let bg) = r2, bg.count > lead.count, !WhisperEngine.looksPoor(bg) { finish(.success(bg), engine: "Whisper \(size.rawValue) · background vocals") }
+                            else { finish(r, engine: "Whisper \(size.rawValue)" + (WhisperEngine.looksPoor(lead) ? " · unsure, please check" : "")) }
                         }
                     } else {
-                        finish(r, engine: "Whisper \(size.rawValue)")
+                        var unsure = false
+                        if case .success(let w) = r { unsure = WhisperEngine.looksPoor(w) }
+                        finish(r, engine: "Whisper \(size.rawValue)" + (unsure ? " · unsure, please check" : ""))
                     }
                 }
             }

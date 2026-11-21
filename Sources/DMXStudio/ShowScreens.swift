@@ -1102,7 +1102,7 @@ struct SongsScreen: View {
                 .frame(maxWidth: .infinity, maxHeight: .infinity)
             }
         }
-        .fileImporter(isPresented: $importing, allowedContentTypes: [.audio, .mp3, .wav, .folder], allowsMultipleSelection: true) { result in
+        .fileImporter(isPresented: $importing, allowedContentTypes: [.audio, .mp3, .wav, .mpeg4Audio, .aiff, UTType(filenameExtension: "m4a") ?? .audio, UTType(filenameExtension: "flac") ?? .audio, .folder], allowsMultipleSelection: true) { result in
             if case .success(let urls) = result { model.importSongs(urls) }
         }
     }

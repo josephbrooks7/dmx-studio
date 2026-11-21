@@ -121,6 +121,8 @@ enum WhisperEngine {
                 // "[Music]" everywhere to the full lyrics): beam search, no "[Music]"-type tokens, and a hint
                 // that this is a song
                 p.arguments = ["-m", modelPath.path, "-f", wav.path, "-ml", "1", "-sow", "-ojf", "-sns",
+                               // no carried-over context: stops Whisper looping one line for minutes
+                               "-mc", "0",
                                "--prompt", language == .es ? "Letra de la canción:" : "Song lyrics:",
                                "-of", tmp.appendingPathComponent("out").path, "-np", "-pp", "-t", "\(threads)",
                                // English-only models can only do English
@@ -158,6 +160,7 @@ enum WhisperEngine {
                     words[k].start = mapTime(words[k].start, timeMap)
                     words[k].end = mapTime(words[k].end, timeMap)
                 }
+                words = removeLoops(words)
                 if !trusted.isEmpty {
                     words = words.filter { w in trusted.contains { w.start < $0.end + 0.6 && w.end > $0.start - 0.6 } }
                 }
@@ -173,6 +176,70 @@ enum WhisperEngine {
                 DispatchQueue.main.async { done(.failure(error)) }
             }
         }
+    }
+
+    /// Lines Whisper makes up when it can't hear words (from its training on video subtitles).
+    static let madeUp = ["thank you for watching", "thanks for watching", "subtitles by", "please subscribe",
+                         "like and subscribe", "see you next time", "i'm not sure what to say",
+                         "i don't know what to say", "the end of the world", "music by"]
+
+    /// Whisper's typical failure on songs is looping: one line again and again for a minute.
+    /// Keep a repeated phrase at most twice in a row (a real hook is fine twice, a 20× loop isn't),
+    /// drop the known made-up lines, and drop the low-confidence copies.
+    static func removeLoops(_ input: [LyricWord]) -> [LyricWord] {
+        func norm(_ t: String) -> String {
+            t.lowercased().filter { $0.isLetter || $0.isNumber || $0 == "'" }
+        }
+        var w = input
+        // 1) made-up subtitle lines
+        var keep = [Bool](repeating: true, count: w.count)
+        let keys = w.map { norm($0.text) }
+        for phrase in madeUp {
+            let pw = phrase.split(separator: " ").map { norm(String($0)) }
+            guard pw.count <= keys.count, !pw.isEmpty else { continue }
+            var i = 0
+            while i + pw.count <= keys.count {
+                if Array(keys[i..<i + pw.count]) == pw {
+                    for k in i..<i + pw.count { keep[k] = false }
+                    i += pw.count
+                } else { i += 1 }
+            }
+        }
+        w = zip(w, keep).filter { $0.1 }.map { $0.0 }
+        // 2) back-to-back repeats of the same phrase (longest phrases first)
+        var changed = true
+        while changed {
+            changed = false
+            let k = w.map { norm($0.text) }
+            outer: for n in stride(from: min(12, k.count / 3), through: 1, by: -1) {
+                let maxRepeats = n >= 3 ? 2 : 4          // "no, no, no, no" can be real; a 5-word line 3× in a row isn't
+                var i = 0
+                while i + n * (maxRepeats + 1) <= k.count {
+                    let unit = Array(k[i..<i + n])
+                    if unit.allSatisfy({ $0.isEmpty }) { i += 1; continue }
+                    var reps = 1
+                    while i + (reps + 1) * n <= k.count && Array(k[i + reps * n..<i + (reps + 1) * n]) == unit { reps += 1 }
+                    if reps > maxRepeats {
+                        w.removeSubrange(i + maxRepeats * n..<i + reps * n)
+                        changed = true
+                        break outer
+                    }
+                    i += 1
+                }
+            }
+        }
+        return w
+    }
+
+    /// True when the transcript looks like guessing: a few phrases make up most of it.
+    static func looksPoor(_ w: [LyricWord]) -> Bool {
+        guard w.count >= 8 else { return true }
+        let k = w.map { $0.text.lowercased().filter { $0.isLetter } }
+        var grams: [String: Int] = [:]
+        for i in 0..<(k.count - 3) { grams[k[i..<i + 4].joined(separator: " "), default: 0] += 1 }
+        let top = grams.values.max() ?? 0
+        let avgConf = w.map(\.confidence).reduce(0, +) / Double(w.count)
+        return Double(top * 4) > Double(k.count) * 0.5 || avgConf < 0.35
     }
 
     /// whisper.cpp "full" JSON: one segment per word (-ml 1 -sow), with token probabilities.
