@@ -417,8 +417,10 @@ struct LyricsTab: View {
                 HStack {
                     Spacer()
                     Button("Cancel") { pasting = false }
-                    Button("Use These Lyrics") { model.pasteLyrics(song.id, text: pasteText); pasting = false }
+                        .keyboardShortcut(.cancelAction)
+                    Button("Save Lyrics") { model.pasteLyrics(song.id, text: pasteText); pasting = false }
                         .keyboardShortcut(.defaultAction).disabled(pasteText.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty)
+                        .help("Save (⌘↩ or Return outside the text box). The app then works out where each line is sung")
                 }
             }
             .padding(18)
@@ -727,6 +729,12 @@ struct LyricsPromptSheet: View {
                     Text("Lyrics for \"\(song?.title ?? "new song")\"").font(.title3.bold())
                     Text(waiting > 1 ? "New song · \(waiting) waiting" : "New song").font(.caption).foregroundColor(.secondary)
                 }
+                Spacer()
+                Button { model.answerLyricsPrompt(songID, .skip) } label: {
+                    Image(systemName: "xmark.circle.fill").font(.title2).foregroundColor(.secondary)
+                }
+                .buttonStyle(.plain)
+                .help("Close: learn the music now, add lyrics later")
             }
             Text(fromLibrary
                  ? "Found these in your Lyrics Library. Use them (most accurate: timed to the song by listening), edit them, or transcribe from the audio instead."
@@ -743,9 +751,12 @@ struct LyricsPromptSheet: View {
                     }
                 }
             HStack {
-                Button("Skip (no lyrics)") { model.answerLyricsPrompt(songID, .skip) }
-                    .help("Learn the music only (instrumentals)")
+                Button("Close") { model.answerLyricsPrompt(songID, .skip) }
+                    .keyboardShortcut(.cancelAction)
+                    .help("No lyrics for now: the music is learned and you can add lyrics later in the Lyrics panel (Esc)")
                 if waiting > 1 {
+                    Button("Close All \(waiting)") { model.answerAllLyricsPrompts(.skip) }
+                        .help("No lyrics for any of the waiting songs for now: just learn their music")
                     Button("Transcribe All \(waiting) from Audio") { model.answerAllLyricsPrompts(.transcribe) }
                         .help("Don't ask for the others: transcribe every waiting song")
                 }
@@ -755,7 +766,7 @@ struct LyricsPromptSheet: View {
                 } label: { Label("Transcribe Lyrics from Audio", systemImage: "waveform.and.mic") }
                 Button {
                     model.answerLyricsPrompt(songID, .paste(text))
-                } label: { Label("Use These Lyrics", systemImage: "checkmark") }
+                } label: { Label("Save Lyrics", systemImage: "checkmark") }
                     .keyboardShortcut(.defaultAction)
                     .disabled(text.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty)
             }
