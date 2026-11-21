@@ -254,12 +254,14 @@ struct SongView: View {
                                 binding.wrappedValue.activeShowID = show.id
                                 if model.playingSongID == song.id { model.playingShowID = show.id }
                             } label: {
+                                let showColor = Palette.named(show.sections.first?.palette ?? "").color(0).color
                                 HStack(spacing: 6) {
-                                    Circle().fill(Palette.named(show.sections.first?.palette ?? "").color(0).color).frame(width: 10, height: 10)
+                                    Circle().fill(showColor).frame(width: 10, height: 10)
                                     Text(show.name)
                                 }
                                 .padding(.horizontal, 12).padding(.vertical, 6)
-                                .background(Capsule().fill(active ? Color.pink.opacity(0.35) : Color.white.opacity(0.07)))
+                                // each show in its own look color
+                                .onChip(showColor, active)
                             }
                             .buttonStyle(.plain)
                             .contextMenu {
@@ -319,7 +321,7 @@ struct SongView: View {
                             } label: {
                                 Label(fx.name, systemImage: on ? "checkmark.circle.fill" : "circle")
                                     .padding(.horizontal, 10).padding(.vertical, 4)
-                                    .background(Capsule().fill(on ? Color.pink.opacity(0.3) : Color.white.opacity(0.06)))
+                                    .onChip(Theme.lightOn, on)
                             }
                             .buttonStyle(.plain)
                             .help(fx.effectiveBehavior == .stationary ? "Stationary lights hold their own settings" : "Tap to include or leave out")
@@ -1032,7 +1034,7 @@ struct WirelessView: View {
                                         Text(node.name).font(.headline)
                                         if model.output.rememberedDevice?.id == node.id {
                                             Text("Remembered").font(.caption).padding(.horizontal, 6)
-                                                .background(Capsule().fill(Color.pink.opacity(0.3)))
+                                                .background(Capsule().fill(Theme.tag))
                                         }
                                     }
                                     Text("\(node.ip)\(node.longName.isEmpty || node.longName == node.name ? "" : " · " + node.longName) · \(model.isOnline(node) ? "online" : "offline")")
@@ -1745,7 +1747,7 @@ struct SetTimeline: View {
                     Text("Total \(formatLong(timing.total))").font(.system(size: 13, weight: .bold)).monospacedDigit()
                 }
                 .padding(.horizontal, 10).padding(.vertical, 4)
-                .background(Capsule().fill(Color.pink.opacity(0.25)))
+                .background(Capsule().fill(Theme.tag))
                 Text("\(songCount) song\(songCount == 1 ? "" : "s")" + (blockCount > 0 ? " · \(blockCount) block\(blockCount == 1 ? "" : "s")" : "")
                      + (l.mode == .cued ? " · plus your cue waits" : ""))
                     .font(.caption).foregroundColor(.secondary)

@@ -11,6 +11,25 @@ enum Theme {
     static let panel = Color.white.opacity(0.055)
     static let panelBorder = Color.white.opacity(0.08)
     static let subtle = Color.white.opacity(0.55)
+    // Each kind of highlight gets its own color, so they don't all read as the same burgundy:
+    static let selection = Color(red: 0.22, green: 0.47, blue: 0.98)     // selected rows (blue, like Finder)
+    static let lightOn = Color(red: 0.12, green: 0.74, blue: 0.64)       // lights included in a show (teal)
+    static let tag = Color.white.opacity(0.13)                           // plain info tags
+}
+
+/// A chip that's switched on: a tinted fill with a bright edge in its own color
+struct OnChip: ViewModifier {
+    let color: Color
+    let on: Bool
+    func body(content: Content) -> some View {
+        content
+            .background(Capsule().fill(on ? color.opacity(0.28) : Color.white.opacity(0.06)))
+            .overlay(Capsule().stroke(on ? color : Color.white.opacity(0.10), lineWidth: on ? 1.5 : 1))
+            .foregroundColor(on ? .white : .secondary)
+    }
+}
+extension View {
+    func onChip(_ color: Color, _ on: Bool) -> some View { modifier(OnChip(color: color, on: on)) }
 }
 
 struct Panel<Content: View>: View {
@@ -1187,8 +1206,10 @@ struct SongsScreen: View {
                             SongRow(song: s)
                                 .padding(.vertical, 5).padding(.horizontal, 8)
                                 .background(RoundedRectangle(cornerRadius: 7, style: .continuous)
-                                    .fill(model.pickedSongs.contains(s.id) ? Theme.accent.opacity(model.selectedSongID == s.id && model.pickedSongs.count > 1 ? 0.45 : 0.32)
+                                    .fill(model.pickedSongs.contains(s.id) ? Theme.selection.opacity(model.selectedSongID == s.id && model.pickedSongs.count > 1 ? 0.55 : 0.42)
                                           : (model.hoveredSongID == s.id ? Color.white.opacity(0.05) : Color.clear)))
+                                .overlay(RoundedRectangle(cornerRadius: 7, style: .continuous)
+                                    .stroke(model.pickedSongs.contains(s.id) ? Theme.selection : Color.clear, lineWidth: 1))
                                 .contentShape(Rectangle())
                                 .background(GeometryReader { g in
                                     Color.clear.preference(key: SongRowFrames.self, value: [s.id: g.frame(in: .named("songList"))])
