@@ -363,8 +363,9 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     }
 
     func applicationShouldTerminate(_ sender: NSApplication) -> NSApplication.TerminateReply {
-        // Safety net: if anything below gets stuck, leave anyway after 3 seconds.
-        DispatchQueue.global().asyncAfter(deadline: .now() + 3) { exit(0) }
+        // Safety net: if anything below gets stuck (stopping audio can), leave anyway after 2 seconds.
+        // _exit, not exit: exit runs clean-up code that can wait forever on the stuck work.
+        DispatchQueue.global().asyncAfter(deadline: .now() + 2) { _exit(0) }
         AppModel.current?.prepareToQuit()
         return .terminateNow
     }

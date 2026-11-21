@@ -289,8 +289,10 @@ final class Updater: ObservableObject {
         // A normal quit can be held up (an open sheet, a window that won't close), which left the
         // update stuck on "Done · restarting". Save, then leave directly; the helper opens the new copy.
         Updater.shared.showing = false
+        // leave even if shutting down the audio gets stuck (that held up quitting before)
+        DispatchQueue.global().asyncAfter(deadline: .now() + 2) { _exit(0) }
         AppModel.current?.prepareToQuit()
-        DispatchQueue.main.asyncAfter(deadline: .now() + 0.5) { exit(0) }
+        _exit(0)
     }
 }
 

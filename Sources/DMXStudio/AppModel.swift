@@ -1036,6 +1036,9 @@ final class AppModel: ObservableObject {
 
     /// Quitting: stop music, listening and timers, darken the lights, and save, quickly and in order.
     func prepareToQuit() {
+        // save first: if stopping the audio below gets stuck, nothing is lost
+        saveWork?.cancel()
+        saveNow(sync: true)
         timer?.invalidate(); timer = nil
         scanTimer?.invalidate(); scanTimer = nil
         stressTimer?.invalidate(); stressTimer = nil
