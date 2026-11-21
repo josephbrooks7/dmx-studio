@@ -90,6 +90,9 @@ else rm -f "$APP/Contents/Resources/Models/ggml-base.bin"; echo "lyrics model no
 if curl -sfL -o /tmp/DemucsHQ.zip "https://github.com/josephbrooks7/dmx-studio/releases/download/hq-model-1/DemucsHQ.mlmodelc.zip"; then
   ditto -x -k /tmp/DemucsHQ.zip "$APP/Contents/Resources/Models/" && echo "bundled High Quality splitter model"
 else echo "High Quality model not bundled"; fi
+if curl -sfL -o /tmp/DemucsVox.zip "https://github.com/josephbrooks7/dmx-studio/releases/download/hq-model-1/DemucsVox.mlmodelc.zip"; then
+  ditto -x -k /tmp/DemucsVox.zip "$APP/Contents/Resources/Models/" && echo "bundled vocals specialist model"
+else echo "vocals specialist model not bundled"; fi
 codesign --force --deep --sign - "$APP"
 
 # DMG with an Applications shortcut for drag-to-install

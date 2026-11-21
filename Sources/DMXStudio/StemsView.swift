@@ -96,6 +96,8 @@ struct StemStyle {
     static let all: [StemStyle] = [
         StemStyle(name: "vocals", label: "VOCALS", icon: "mic.fill",
                   colors: [Color(red: 1.0, green: 0.22, blue: 0.0), Color(red: 1.0, green: 0.42, blue: 0.0)]),
+        StemStyle(name: "backing", label: "BG VOCALS", icon: "person.3.fill",
+                  colors: [Color(red: 0.75, green: 0.25, blue: 1.0), Color(red: 0.95, green: 0.35, blue: 0.85)]),
         StemStyle(name: "drums", label: "DRUMS", icon: "circle.hexagongrid.fill",
                   colors: [Color(red: 1.0, green: 0.04, blue: 0.24), Color(red: 1.0, green: 0.1, blue: 0.3)]),
         StemStyle(name: "bass", label: "BASS", icon: "guitars.fill",

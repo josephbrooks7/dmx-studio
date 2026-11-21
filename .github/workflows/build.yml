@@ -85,6 +85,9 @@ jobs:
           echo "--- High Quality (AI) split"
           if gh release download hq-model-1 -R "$GITHUB_REPOSITORY" -p "DemucsHQ.mlmodelc.zip" -p "check.json" -D /tmp/hq 2>/dev/null; then
             (cd /tmp/hq && ditto -x -k DemucsHQ.mlmodelc.zip .)
+            if gh release download hq-model-1 -R "$GITHUB_REPOSITORY" -p "DemucsVox.mlmodelc.zip" -D /tmp/hq 2>/dev/null; then
+              (cd /tmp/hq && ditto -x -k DemucsVox.mlmodelc.zip .); export VOX=1; echo "with the vocals specialist"
+            fi
             START=$(date +%s)
             "$BIN" --analyze /tmp/v/verify.wav --stems /tmp/v/hqstems --hq-model /tmp/hq/DemucsHQ.mlmodelc | grep -E "kicks=|vocalPhrases|stems="
             echo "high quality split + learn took $(( $(date +%s) - START )) s for a 60 s song"

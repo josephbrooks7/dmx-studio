@@ -29,6 +29,12 @@ enum HQSplitter {
            FileManager.default.fileExists(atPath: b.appendingPathComponent("coremldata.bin").path) { return b }
         return modelsDir.appendingPathComponent("DemucsHQ.mlmodelc", isDirectory: true)
     }
+    /// Demucs' fine-tuned vocals specialist (optional, makes the vocal part much cleaner)
+    static var voxURL: URL {
+        if let b = Bundle.main.resourceURL?.appendingPathComponent("Models/DemucsVox.mlmodelc", isDirectory: true),
+           FileManager.default.fileExists(atPath: b.appendingPathComponent("coremldata.bin").path) { return b }
+        return (overrideModel?.deletingLastPathComponent() ?? modelsDir).appendingPathComponent("DemucsVox.mlmodelc", isDirectory: true)
+    }
     static var isInstalled: Bool { FileManager.default.fileExists(atPath: modelURL.appendingPathComponent("coremldata.bin").path) }
 
     // MARK: Download (once)
@@ -80,6 +86,9 @@ enum HQSplitter {
         cfg.computeUnits = .all
         #endif
         let model = try MLModel(contentsOf: modelURL, configuration: cfg)
+        let voxModel = FileManager.default.fileExists(atPath: voxURL.appendingPathComponent("coremldata.bin").path)
+            ? try? MLModel(contentsOf: voxURL, configuration: cfg) : nil
+        let voxIndex = 3    // htdemucs_ft parts: drums, bass, other, vocals
         let (left, right) = try StemSplitter.loadStereo(url: url)
         let L = left.count
         guard L > hop * 8 else { throw AudioAnalyzer.AnalyzeError.tooShort }
@@ -178,41 +187,53 @@ enum HQSplitter {
                     }
                 }
             }
-            // ---- network
+            // ---- network(s)
             let inp = try MLDictionaryFeatureProvider(dictionary: ["mix": MLFeatureValue(multiArray: mixArr),
                                                                     "mag": MLFeatureValue(multiArray: magArr)])
-            let out = try model.prediction(from: inp)
-            guard let spec = out.featureValue(for: "spec")?.multiArrayValue,
-                  let wav = out.featureValue(for: "wave")?.multiArrayValue else {
-                throw AudioAnalyzer.AnalyzeError.cannotRead("model output")
+            /// one part of a network's output, back to audio for this window (n samples, normalized scale)
+            func render(_ out: MLFeatureProvider, _ s: Int, _ c: Int) throws -> [Float] {
+                guard let spec = out.featureValue(for: "spec")?.multiArrayValue,
+                      let wav = out.featureValue(for: "wave")?.multiArrayValue,
+                      spec.dataType == .float32, wav.dataType == .float32 else {
+                    throw AudioAnalyzer.AnalyzeError.cannotRead("model output")
+                }
+                let sp = spec.dataPointer.bindMemory(to: Float.self, capacity: spec.count)
+                let ss = spec.strides.map(\.intValue)
+                let wp = wav.dataPointer.bindMemory(to: Float.self, capacity: wav.count)
+                let wst = wav.strides.map(\.intValue)
+                let yScale = 2 * Float(nfft).squareRoot()
+                var y = [Float](repeating: 0, count: total)
+                for f in 2..<(2 + le) {
+                    let t = f - 2
+                    for k in 0..<half {
+                        re[k] = sp[s * ss[1] + (c * 2) * ss[2] + k * ss[3] + t * ss[4]] * yScale
+                        im[k] = k == 0 ? 0 : sp[s * ss[1] + (c * 2 + 1) * ss[2] + k * ss[3] + t * ss[4]] * yScale
+                    }
+                    fft.inverse(&re, &im, &frame)
+                    for j in 0..<nfft { y[f * hop + j] += frame[j] * fft.windowValue(j) }
+                }
+                let start = nfft / 2 + pad
+                var o = [Float](repeating: 0, count: n)
+                for i in 0..<n {
+                    let e = wenv[start + i]
+                    o[i] = (e > 1e-11 ? y[start + i] / e : 0) + wp[s * wst[1] + c * wst[2] + i * wst[3]]
+                }
+                return o
             }
-            let sp = spec.dataPointer.bindMemory(to: Float.self, capacity: spec.count)
-            let ss = spec.strides.map(\.intValue)
-            let wp = wav.dataPointer.bindMemory(to: Float.self, capacity: wav.count)
-            let wst = wav.strides.map(\.intValue)
-            // ---- inverse spectrogram + time branch, weighted into the running output
-            guard spec.dataType == .float32, wav.dataType == .float32 else { throw AudioAnalyzer.AnalyzeError.cannotRead("model output type") }
-            let yScale = 2 * Float(nfft).squareRoot()
-            for s in 0..<ns {
+            let out = try model.prediction(from: inp)
+            var parts = [[[Float]]](repeating: [[], []], count: ns)
+            for s in 0..<ns { for c in 0..<2 { parts[s][c] = try render(out, s, c) } }
+            // The vocals specialist (fine-tuned Demucs) hears more of the singing — backing vocals, doubles,
+            // chops that the 6-part model leaves in "other": use its vocals, and take that difference out of "other"
+            if let vox = voxModel, let vi = sources.firstIndex(of: "vocals"), let oi = sources.firstIndex(of: "other") {
+                let vout = try vox.prediction(from: inp)
                 for c in 0..<2 {
-                    var y = [Float](repeating: 0, count: total)
-                    for f in 2..<(2 + le) {
-                        let t = f - 2
-                        for k in 0..<half {
-                            re[k] = sp[s * ss[1] + (c * 2) * ss[2] + k * ss[3] + t * ss[4]] * yScale
-                            im[k] = k == 0 ? 0 : sp[s * ss[1] + (c * 2 + 1) * ss[2] + k * ss[3] + t * ss[4]] * yScale
-                        }
-                        fft.inverse(&re, &im, &frame)
-                        for j in 0..<nfft { y[f * hop + j] += frame[j] * fft.windowValue(j) }
-                    }
-                    let start = nfft / 2 + pad
-                    for i in 0..<n {
-                        let e = wenv[start + i]
-                        let v = (e > 1e-11 ? y[start + i] / e : 0) + wp[s * wst[1] + c * wst[2] + i * wst[3]]
-                        acc[s][c][i] += v * weight[i]
-                    }
+                    let better = try render(vout, voxIndex, c)
+                    for i in 0..<n { parts[oi][c][i] += parts[vi][c][i] - better[i] }
+                    parts[vi][c] = better
                 }
             }
+            for s in 0..<ns { for c in 0..<2 { for i in 0..<n { acc[s][c][i] += parts[s][c][i] * weight[i] } } }
             for i in 0..<n { wsum[i] += weight[i] }
             // ---- everything before the next window is final
             let last = offset + stride >= L
@@ -230,11 +251,90 @@ enum HQSplitter {
         }
         if peakFill > 0 { for s in 0..<ns { wave[s].append(peakCur[s]) } }
         files.removeAll()
+        // Lead vocal vs background vocals: the lead sits in the centre, backing vocals / doubles / stacks
+        // are spread wider. Split the vocal part into vocals (lead) + backing.
+        var names = sources
+        if let vi = sources.firstIndex(of: "vocals"), let lb = try? splitLeadBacking(outDir) {
+            wave[vi] = lb.0
+            wave.append(lb.1)
+            names.append("backing")
+        }
         let top = max(wave.map { $0.max() ?? 0 }.max() ?? 0, 1e-6)
         var overview: [String: [Float]] = [:]
-        for (s, name) in sources.enumerated() { overview[name] = wave[s].map { (($0 / top) * 1000).rounded() / 1000 } }
+        for (s, name) in names.enumerated() where s < wave.count { overview[name] = wave[s].map { (($0 / top) * 1000).rounded() / 1000 } }
         try JSONEncoder().encode(StemOverview(perSecond: StemSplitter.peaksPerSecond, peaks: overview))
             .write(to: outDir.appendingPathComponent("overview.json"))
+    }
+
+    /// Splits vocals.m4a into the centred lead (written back as vocals.m4a) and the wider backing vocals
+    /// (backing.m4a). Returns their waveform overviews (peaks per 1/20 s).
+    static func splitLeadBacking(_ dir: URL) throws -> ([Float], [Float]) {
+        let src = dir.appendingPathComponent("vocals.m4a")
+        let (l, r) = try StemSplitter.loadStereo(url: src)
+        let count = l.count
+        let n = 2048, hop = 1024, bins = 1024
+        guard count > n, let fft = FFT(n: n) else { throw AudioAnalyzer.AnalyzeError.tooShort }
+        var L = l; L.append(contentsOf: [Float](repeating: 0, count: n))
+        var R = r; R.append(contentsOf: [Float](repeating: 0, count: n))
+        let frames = count / hop + 1
+        var out = [[[Float]]](repeating: [[Float]](repeating: [Float](repeating: 0, count: count + n), count: 2), count: 2)  // [lead/back][ch]
+        var lre = [Float](repeating: 0, count: bins), lim = lre, rre = lre, rim = lre
+        var mre = lre, mim = lre, frame = [Float](repeating: 0, count: n)
+        var mask = [Float](repeating: 0, count: bins)
+        L.withUnsafeBufferPointer { lp in
+            R.withUnsafeBufferPointer { rp in
+                for t in 0..<frames {
+                    fft.forward(lp.baseAddress! + t * hop, &lre, &lim)
+                    fft.forward(rp.baseAddress! + t * hop, &rre, &rim)
+                    for k in 0..<bins {
+                        let en = lre[k] * lre[k] + lim[k] * lim[k] + rre[k] * rre[k] + rim[k] * rim[k] + 1e-12
+                        var c = 2 * max(0, lre[k] * rre[k] + lim[k] * rim[k]) / en
+                        c = c * c
+                        mask[k] = c
+                    }
+                    for (side, srcRe, srcIm) in [(0, lre, lim), (1, rre, rim)] {
+                        for which in 0..<2 {
+                            for k in 0..<bins {
+                                let m = which == 0 ? mask[k] : 1 - mask[k]
+                                mre[k] = srcRe[k] * m; mim[k] = srcIm[k] * m
+                            }
+                            fft.inverse(&mre, &mim, &frame)
+                            let base = t * hop
+                            for j in 0..<n { out[which][side][base + j] += frame[j] }
+                        }
+                    }
+                }
+            }
+        }
+        let settings: [String: Any] = [AVFormatIDKey: kAudioFormatMPEG4AAC, AVSampleRateKey: StemSplitter.rate,
+                                       AVNumberOfChannelsKey: 2, AVEncoderBitRateKey: 192_000]
+        var peaks: [[Float]] = [[], []]
+        let peakWin = Int(StemSplitter.rate / StemSplitter.peaksPerSecond)
+        for (which, name) in ["vocals", "backing"].enumerated() {
+            let url = dir.appendingPathComponent("\(name).m4a")
+            try? FileManager.default.removeItem(at: url)
+            let f = try AVAudioFile(forWriting: url, settings: settings, commonFormat: .pcmFormatFloat32, interleaved: false)
+            let block = 32768
+            guard let buf = AVAudioPCMBuffer(pcmFormat: f.processingFormat, frameCapacity: AVAudioFrameCount(block)),
+                  let ch = buf.floatChannelData else { continue }
+            var pos = 0
+            while pos < count {
+                let m = min(block, count - pos)
+                for c in 0..<2 { for i in 0..<m { ch[c][i] = out[which][c][pos + i] } }
+                buf.frameLength = AVAudioFrameCount(m)
+                try f.write(from: buf)
+                pos += m
+            }
+            var i = 0
+            while i < count {
+                let e = min(count, i + peakWin)
+                var p: Float = 0
+                for k in i..<e { p = max(p, abs(out[which][0][k]), abs(out[which][1][k])) }
+                peaks[which].append(p)
+                i = e
+            }
+        }
+        return (peaks[0], peaks[1])
     }
 
     /// numpy-style "reflect" padding (mirror without repeating the edge sample).
