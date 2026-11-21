@@ -9,7 +9,7 @@ struct DMXStudioApp: App {
     // Not @StateObject: that makes the whole scene (and the menu bar) rebuild on every change in the
     // app — the beat, the play position — which closed any menu you had open. Views observe the model
     // through the environment instead.
-    @State private var model = AppModel()
+    @State private var model: AppModel
 
     init() {
         // Test hook: `DMXStudio --analyze song.wav` prints what Learn finds, then exits.
@@ -126,6 +126,8 @@ struct DMXStudioApp: App {
         }
         CrashGuard.install()
         NSApplication.shared.setActivationPolicy(.regular)
+        // made last: the test modes above exit before the app (and its audio, sessions) starts
+        _model = State(initialValue: AppModel())
     }
 
     static func runAnalyzeAndExit(path: String) -> Never {
