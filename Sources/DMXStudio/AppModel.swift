@@ -1292,7 +1292,7 @@ final class AppModel: ObservableObject {
             stopStems()
             for name in StemStyle.all.map(\.name) {
                 let u = URL(fileURLWithPath: folder).appendingPathComponent("\(name).m4a")
-                if let sp = try? AVAudioPlayer(contentsOf: u) { sp.prepareToPlay(); stemPlayers[name] = sp }
+                if let sp = try? makePlayer(u) { sp.prepareToPlay(); stemPlayers[name] = sp }
             }
             stemPlayersSong = id
             if stemPlayers.isEmpty { return }
@@ -2056,6 +2056,38 @@ final class AppModel: ObservableObject {
         songs[i].activeShowID = s.id
     }
 
+    // MARK: Music output (headphone / line-out jack, speakers, USB interface)
+
+    /// The output the music plays through (nil = whatever macOS uses)
+    var audioOutputUID: String? {
+        get { UserDefaults.standard.string(forKey: "audioOutputUID") }
+        set {
+            UserDefaults.standard.set(newValue, forKey: "audioOutputUID")
+            objectWillChange.send()
+            // move what's playing now
+            let uid = playableOutput()
+            player?.currentDevice = uid
+            fadingPlayer?.currentDevice = uid
+            for p in stemPlayers.values { p.currentDevice = uid }
+        }
+    }
+    /// The chosen output if it's connected, else the system output (unplugged interface: keep playing)
+    func playableOutput() -> String? {
+        guard let uid = audioOutputUID else { return nil }
+        return AudioOutputs.exists(uid) ? uid : nil
+    }
+    func makePlayer(_ url: URL) throws -> AVAudioPlayer {
+        let p = try AVAudioPlayer(contentsOf: url)
+        p.currentDevice = playableOutput()
+        return p
+    }
+    private var testPlayer: AVAudioPlayer?
+    func playStereoTest() {
+        guard let u = AudioOutputs.stereoTestFile(), let p = try? makePlayer(u) else { return }
+        testPlayer = p
+        p.play()
+    }
+
     /// Songs picked in the library (click, ⇧/⌘-click or drag to pick several)
     @Published var pickedSongs: Set<UUID> = []
     /// Songs waiting for "Remove?" to be confirmed
@@ -2504,7 +2536,7 @@ final class AppModel: ObservableObject {
         if playingSongID != id || player == nil {
             player?.stop()
             do {
-                let p = try AVAudioPlayer(contentsOf: songs[i].url)
+                let p = try makePlayer(songs[i].url)
                 p.prepareToPlay()
                 player = p
             } catch {

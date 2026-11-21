@@ -844,6 +844,7 @@ struct LightsView: View {
                     .controlSize(.large)
                 }
                 LightSetupGuide()
+                AudioOutputCard()
                 Card {
                     VStack(alignment: .leading, spacing: 8) {
                         Text("Flashing & strobes").font(.headline)
@@ -2184,4 +2185,51 @@ struct LightSetupWizard: View {
         if step > 0 { step -= 1 } else if groupIndex > 0 { groupIndex -= 1; step = 0 }
     }
     private func finish() { stopTest(); model.setupWizardFor = nil }
+}
+
+
+// MARK: - Music output
+
+struct AudioOutputCard: View {
+    @EnvironmentObject var model: AppModel
+    @State private var outputs: [AudioOutputDevice] = AudioOutputs.list()
+    @State private var systemName = AudioOutputs.defaultOutputName() ?? "System output"
+
+    var body: some View {
+        Card {
+            VStack(alignment: .leading, spacing: 8) {
+                HStack {
+                    Text("Music output").font(.headline)
+                    Spacer()
+                    Button { refresh() } label: { Image(systemName: "arrow.clockwise") }
+                        .buttonStyle(.borderless).help("Look for outputs again (after plugging something in)")
+                }
+                HStack {
+                    Picker("", selection: Binding(get: { model.audioOutputUID ?? "" },
+                                                  set: { model.audioOutputUID = $0.isEmpty ? nil : $0 })) {
+                        Text("System output (now: \(systemName))").tag("")
+                        Divider()
+                        ForEach(outputs) { o in
+                            Text(o.name + (o.channels >= 2 ? "" : " (mono)")).tag(o.uid)
+                        }
+                        if let uid = model.audioOutputUID, !outputs.contains(where: { $0.uid == uid }) {
+                            Text("Chosen output (not connected — using the system output)").tag(uid)
+                        }
+                    }
+                    .labelsHidden()
+                    .frame(maxWidth: 420)
+                    Button { model.playStereoTest() } label: { Label("Test Left / Right", systemImage: "speaker.wave.2") }
+                        .help("A beep on the left, then a higher beep on the right, through the chosen output")
+                }
+                Text("Songs play in stereo (left and right kept separate). For the headphone / line-out jack on the Mac, plug in the cable and pick the built-in output (it says Headphones when the jack is in use). Plugging in or unplugging an interface during a show keeps the music playing on the system output.")
+                    .font(.caption).foregroundColor(.secondary).fixedSize(horizontal: false, vertical: true)
+            }
+        }
+        .onAppear { refresh() }
+    }
+
+    private func refresh() {
+        outputs = AudioOutputs.list()
+        systemName = AudioOutputs.defaultOutputName() ?? "System output"
+    }
 }
