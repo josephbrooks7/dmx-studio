@@ -374,7 +374,7 @@ struct ShowRenderer {
         return 0
     }
 
-    private struct Ctx {
+    fileprivate struct Ctx {
         var t: Double
         var beatPos: Double
         var beatLen: Double
@@ -383,6 +383,8 @@ struct ShowRenderer {
         var sinceHat: Double, hatIndex: Int
         var energy: Double, bass: Double, high: Double
         var rate: Double = 1
+        var vocal: Double = 0, drums: Double = 0.7, bassPart: Double = 0.5, otherPart: Double = 0.5
+        var hasStems = false
     }
 
     func render(at t: Double) -> [RenderedFixture] {
@@ -402,6 +404,9 @@ struct ShowRenderer {
         if dyn < 0.999 {
             for f in out.indices { for h in out[f].heads.indices { out[f].heads[h].intensity *= dyn } }
         }
+        // The separated parts shape it: singing calms the movement, sustained bass makes the look breathe,
+        // the drum part's loudness sets how hard the beat hits
+        if ctx.hasStems { shapeByParts(&out, ctx, sec) }
         // Crossfade into a new section: a beat-long fade, except a drop hits right away
         let xf = sec.level == .drop ? 0.05 : max(0.35, ctx.beatLen)
         if si > 0, t - sec.start < xf {
@@ -420,6 +425,24 @@ struct ShowRenderer {
         applyLyricCues(&out, t: t)
         applyAccents(&out, t: t, beatLen: ctx.beatLen)
         return out
+    }
+
+    private func shapeByParts(_ out: inout [RenderedFixture], _ c: Ctx, _ sec: ShowSection) {
+        let quiet = sec.level == .low || sec.level == .medium
+        // vocals: while someone sings in a calmer part, movement narrows toward the centre (focus on the singer)
+        let calm = quiet ? 0.45 * c.vocal : 0.15 * c.vocal
+        // bass: a slow breathing of brightness with the bass part (not a flash per note)
+        let breathe = 0.88 + 0.12 * c.bassPart
+        // drums: a quiet drum part = softer beat hits (dark beams stay dark)
+        let hit = 0.8 + 0.2 * c.drums
+        for f in out.indices {
+            out[f].pan = 0.5 + (out[f].pan - 0.5) * (1 - calm)
+            out[f].tilt = 0.5 + (out[f].tilt - 0.5) * (1 - calm)
+            for h in out[f].heads.indices {
+                let i = out[f].heads[h].intensity
+                out[f].heads[h].intensity = min(1, max(0, i * hit * breathe))
+            }
+        }
     }
 
     /// How much the lyrics may steer the look (set in the Lyrics panel).
@@ -599,6 +622,7 @@ struct ShowRenderer {
                    energy: analysis.value(analysis.energy, at: t),
                    bass: analysis.value(analysis.bass, at: t),
                    high: analysis.value(analysis.high, at: t))
+            .withStems(analysis, t)
     }
 
     /// Binary search: index of the last element <= t, or -1.
@@ -1107,4 +1131,20 @@ enum DMXMapper {
     }
 
     static func byte(_ v: Double) -> UInt8 { UInt8(clamping: Int((min(1, max(0, v)) * 255).rounded())) }
+}
+
+
+private extension ShowRenderer.Ctx {
+    func withStems(_ a: SongAnalysis, _ t: Double) -> ShowRenderer.Ctx {
+        guard let st = a.stemLevels, !st.isEmpty else { return self }
+        var c = self
+        c.hasStems = true
+        let v = st["vocals"].map { a.value($0, at: t) } ?? 0
+        let b = st["backing"].map { a.value($0, at: t) } ?? 0
+        c.vocal = min(1, max(v, b * 0.6))
+        c.drums = st["drums"].map { a.value($0, at: t) } ?? 0.7
+        c.bassPart = st["bass"].map { a.value($0, at: t) } ?? 0.5
+        c.otherPart = st["other"].map { a.value($0, at: t) } ?? 0.5
+        return c
+    }
 }

@@ -444,6 +444,7 @@ struct SongAnalysis: Codable {
     var stemsFolder: String? = nil       // the separated parts (vocals/drums/bass/other .m4a)
     var accents: [Accent]? = nil         // white blinder hits / strobe stutters on the big moments
     var lyricCues: [LyricCue]? = nil     // lyric-driven cues in use (set from the song's lyrics + mode)
+    var stemLevels: [String: [Float]]? = nil   // loudness (0…1, smoothed) of each separated part: vocals, drums, bass, other
 
     func value(_ arr: [Float], at t: Double) -> Double {
         guard !arr.isEmpty else { return 0 }

@@ -54,9 +54,39 @@ enum AudioAnalyzer {
             a.detectedSections = SongStructure.sections(a, chroma: chroma, vocals: nil)
             FileHandle.standardError.write(Data("stem split skipped: \(error.localizedDescription)\n".utf8))
         }
+        // how loud each separated part is over time (the lights follow the parts, not just the mix)
+        if let folder = a.stemsFolder { a.stemLevels = stemLevels(folder: folder, frameRate: a.frameRate, frames: a.energy.count) }
         a.accents = AccentFinder.find(a)
         progress(1)
         return a
+    }
+
+    static func stemLevels(folder: String, frameRate: Double, frames: Int) -> [String: [Float]] {
+        var out: [String: [Float]] = [:]
+        var raw: [String: [Float]] = [:]
+        var top: Float = 1e-6
+        for name in ["vocals", "backing", "drums", "bass", "other"] {
+            let u = URL(fileURLWithPath: folder).appendingPathComponent("\(name).m4a")
+            guard FileManager.default.fileExists(atPath: u.path), let x = try? loadMono(url: u) else { continue }
+            let hopN = max(1, Int(sampleRate / frameRate))
+            var v = [Float](repeating: 0, count: frames)
+            for f in 0..<frames {
+                let a = f * hopN, b = min(x.count, a + hopN * 2)
+                guard b > a else { break }
+                var m: Float = 0
+                x.withUnsafeBufferPointer { vDSP_rmsqv($0.baseAddress! + a, 1, &m, vDSP_Length(b - a)) }
+                v[f] = m
+            }
+            raw[name] = v
+            top = max(top, v.max() ?? 0)
+        }
+        // one scale for all parts (a quiet part stays quiet), then each smoothed a little
+        for (k, v) in raw {
+            let sorted = v.sorted()
+            let ref = max(sorted[min(sorted.count - 1, Int(Double(sorted.count) * 0.98))], top * 0.05)
+            out[k] = smooth(v.map { min(1, $0 / ref) }, radius: Int(frameRate * 0.15))
+        }
+        return out
     }
 
     /// Keeps only phrases where the separated part is actually loud enough to hear in the mix
