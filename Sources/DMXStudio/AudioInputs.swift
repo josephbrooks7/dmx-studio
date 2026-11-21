@@ -127,10 +127,15 @@ enum AudioOutputs {
                                                   mScope: kAudioDevicePropertyScopeOutput,
                                                   mElement: kAudioObjectPropertyElementMain)
         var cf: Unmanaged<CFString>?
-        var translation = AudioValueTranslation(mInputData: &src, mInputDataSize: UInt32(MemoryLayout<UInt32>.size),
-                                                mOutputData: &cf, mOutputDataSize: UInt32(MemoryLayout<Unmanaged<CFString>?>.size))
-        var tsize = UInt32(MemoryLayout<AudioValueTranslation>.size)
-        guard AudioObjectGetPropertyData(id, &nameAddr, 0, nil, &tsize, &translation) == noErr, let s = cf?.takeRetainedValue() else { return nil }
+        let ok: Bool = withUnsafeMutablePointer(to: &src) { srcPtr in
+            withUnsafeMutablePointer(to: &cf) { cfPtr in
+                var translation = AudioValueTranslation(mInputData: UnsafeMutableRawPointer(srcPtr), mInputDataSize: UInt32(MemoryLayout<UInt32>.size),
+                                                        mOutputData: UnsafeMutableRawPointer(cfPtr), mOutputDataSize: UInt32(MemoryLayout<Unmanaged<CFString>?>.size))
+                var tsize = UInt32(MemoryLayout<AudioValueTranslation>.size)
+                return AudioObjectGetPropertyData(id, &nameAddr, 0, nil, &tsize, &translation) == noErr
+            }
+        }
+        guard ok, let s = cf?.takeRetainedValue() else { return nil }
         return s as String
     }
 
