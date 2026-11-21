@@ -16,7 +16,20 @@ final class Updater: ObservableObject {
     @Published var notes = ""
     @Published var stepStarted = Date()
     var isInstalling: Bool { if case .installing = state { return true }; return false }
-    private func step(_ text: String, _ f: Double) { state = .installing(text, f); stepStarted = Date() }
+    private func step(_ text: String, _ f: Double) throws {
+        if cancelled { throw CancellationError() }
+        state = .installing(text, f); stepStarted = Date()
+    }
+    /// Cancel works until the old version is being replaced (a few seconds at the end)
+    @Published var canCancel = false
+    private var cancelled = false
+    private var downloadTask: URLSessionDownloadTask?
+    func cancel() {
+        guard canCancel else { return }
+        cancelled = true
+        downloadTask?.cancel()
+        RunningStep.process?.terminate()
+    }
 
     private let repo = "josephbrooks7/dmx-studio"
     private var latest: String?
@@ -78,6 +91,8 @@ final class Updater: ObservableObject {
     }
 
     func install() {
+        cancelled = false
+        canCancel = true
         Task {
             do {
                 let app = Bundle.main.bundleURL
@@ -94,27 +109,28 @@ final class Updater: ObservableObject {
                 // 1. the small download: the app without its AI models
                 if let zip = updateZip {
                     let file = try await download(zip, label: "Downloading the update")
-                    step("Step 1 of 4 · Unpacking the update", 0.1)
+                    try step("Step 1 of 4 · Unpacking the update", 0.1)
                     try await Self.shell("/usr/bin/ditto", ["-x", "-k", file.path, work.path], timeout: 120)
                     let candidate = work.appendingPathComponent("DMX Studio.app")
-                    step("Step 2 of 4 · Moving your lyric and stems models into the new version", 0.3)
+                    try step("Step 2 of 4 · Moving your lyric and stems models into the new version", 0.3)
                     if let m = try Self.reuseModels(from: app, into: candidate) { newApp = candidate; moved = m }
                 }
                 // 2. a new model is needed (or no small update was published): the full download
                 if newApp == nil {
                     guard let dmg = fullDMG else { throw UpdateError("No update download found.") }
                     let file = try await download(dmg, label: "Downloading the full app (it includes a new AI model)")
-                    step("Step 2 of 4 · Copying the new version", 0.3)
+                    try step("Step 2 of 4 · Copying the new version", 0.3)
                     newApp = try await Self.copyFromDMG(file, into: work)
                 }
                 guard let fresh = newApp else { throw UpdateError("The update didn't contain DMX Studio.") }
                 do {
-                    step("Step 3 of 4 · Checking and signing the new version", 0.55)
+                    try step("Step 3 of 4 · Checking and signing the new version", 0.55)
                     try await Self.shell("/usr/bin/codesign", ["--force", "--deep", "--sign", "-", fresh.path], timeout: 600)
                     _ = try? await Self.shell("/usr/bin/xattr", ["-dr", "com.apple.quarantine", fresh.path], timeout: 60)
 
                     // 3. swap: the old copy goes to the Trash, the new one takes its place
-                    step("Step 4 of 4 · Replacing the old version", 0.9)
+                    try step("Step 4 of 4 · Replacing the old version", 0.9)
+                    canCancel = false
                     var trashed: NSURL?
                     try FileManager.default.trashItem(at: app, resultingItemURL: &trashed)
                     do { try FileManager.default.moveItem(at: fresh, to: app) }
@@ -127,10 +143,15 @@ final class Updater: ObservableObject {
                     for m in moved.reversed() { try? FileManager.default.moveItem(at: m.to, to: m.from) }
                     throw error
                 }
-                step("Done · restarting", 1)
+                try step("Done · restarting", 1)
                 Self.relaunch(app)
             } catch {
-                state = .failed((error as? UpdateError)?.text ?? error.localizedDescription)
+                canCancel = false
+                if cancelled || error is CancellationError || (error as NSError).code == NSURLErrorCancelled {
+                    state = latest.map { .available($0) } ?? .idle    // nothing changed: back to "Update Now"
+                } else {
+                    state = .failed((error as? UpdateError)?.text ?? error.localizedDescription)
+                }
             }
         }
     }
@@ -156,6 +177,7 @@ final class Updater: ObservableObject {
                     if case .downloading(_, let l) = self.state { self.state = .downloading(f, l) }
                 }
             }
+            downloadTask = task
             task.resume()
         }
     }
@@ -247,7 +269,7 @@ final class Updater: ObservableObject {
                 if proc.terminationStatus == 0 { finish(.success(text)) }
                 else { finish(.failure(UpdateError("Update step failed (\((tool as NSString).lastPathComponent)): \(text.trimmingCharacters(in: .whitespacesAndNewlines).suffix(300))"))) }
             }
-            do { try p.run() } catch { finish(.failure(error)); return }
+            do { try p.run(); RunningStep.process = p } catch { finish(.failure(error)); return }
             DispatchQueue.global().asyncAfter(deadline: .now() + timeout) {
                 if p.isRunning {
                     p.terminate()
@@ -305,10 +327,14 @@ struct UpdateSheet: View {
             Spacer(minLength: 0)
             HStack {
                 Spacer()
-                Button(up.availableVersion == nil ? "Close" : "Later") { up.showing = false }
-                    .keyboardShortcut(.cancelAction)
-                    .disabled(up.isInstalling)
-                if up.availableVersion != nil {
+                if up.canCancel {
+                    Button("Cancel") { up.cancel() }.keyboardShortcut(.cancelAction)
+                } else {
+                    Button(up.availableVersion == nil ? "Close" : "Later") { up.showing = false }
+                        .keyboardShortcut(.cancelAction)
+                        .disabled(up.isInstalling)
+                }
+                if up.availableVersion != nil && !up.canCancel {
                     Button("Update Now") { up.install() }.keyboardShortcut(.defaultAction)
                 } else if case .failed = up.state {
                     Button("Try Again") { Task { await up.check() } }
@@ -361,3 +387,6 @@ struct InstallStepView: View {
         return String(format: "%d:%02d", s / 60, s % 60)
     }
 }
+
+/// The tool an update step is running right now (so Cancel can stop it)
+enum RunningStep { static var process: Process? }
