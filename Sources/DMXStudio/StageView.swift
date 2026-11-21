@@ -216,8 +216,8 @@ struct RealLightsSwitch: View {
             HStack(spacing: 8) {
                 Image(systemName: model.outputEnabled ? "lightbulb.fill" : "lightbulb.slash")
                 VStack(alignment: .leading, spacing: 0) {
-                    Text(model.outputEnabled ? "Lights: Live" : "Lights: Preview").font(.system(size: 12, weight: .bold))
-                    Text(model.outputEnabled ? "Your lights follow the app" : "On screen only, lights untouched").font(.system(size: 9)).opacity(0.8)
+                    Text(model.outputEnabled ? "LIVE" : "GO LIVE").font(.system(size: 12, weight: .bold))
+                    Text(model.outputEnabled ? "Lights follow the app · click for preview" : "Preview only · lights untouched").font(.system(size: 9)).opacity(0.8)
                 }
             }
             .padding(.horizontal, 12).padding(.vertical, 6)
