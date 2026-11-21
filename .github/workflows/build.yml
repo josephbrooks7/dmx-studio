@@ -110,7 +110,7 @@ jobs:
           APP="build/DMX Studio.app"
           if [ -x "$APP/Contents/Resources/whisper-cli" ]; then
             if nm -u "$APP/Contents/Resources/whisper-cli" | grep -i NEWLAPACK; then echo "FAIL whisper-cli needs macOS 13.3"; exit 1; fi
-            curl -sL -o /tmp/tiny.bin https://huggingface.co/ggerganov/whisper.cpp/resolve/main/ggml-tiny.en.bin
+            curl -sL -o /tmp/ggml-tiny.en.bin https://huggingface.co/ggerganov/whisper.cpp/resolve/main/ggml-tiny.en.bin
             # the runner's voice is sometimes not ready and writes a near-empty clip: try again
             for n in 1 2 3 4 5; do
               say -o /tmp/l.aiff "I'm lost in the darkness and I'm all alone. But I can finally see the light."
@@ -118,7 +118,7 @@ jobs:
               echo "voice clip: ${d}s"; [ "${d:-0}" -ge 2 ] && break; sleep 3
             done
             afconvert -f m4af -d aac /tmp/l.aiff /tmp/l.m4a
-            DMX_DEBUG_WHISPER=1 "$APP/Contents/MacOS/DMXStudio" --test-lyrics /tmp/l.m4a /tmp/tiny.bin | tee /tmp/lyr.txt
+            DMX_DEBUG_WHISPER=1 "$APP/Contents/MacOS/DMXStudio" --test-lyrics /tmp/l.m4a /tmp/ggml-tiny.en.bin | tee /tmp/lyr.txt
             grep -qi "light" /tmp/lyr.txt && echo "PASS words heard with timing" || { echo "FAIL lyrics"; exit 1; }
           else echo "whisper-cli not bundled yet: skipped"; fi
       - name: Pasted lyrics test (known song, known line times)
@@ -139,11 +139,11 @@ jobs:
               afconvert -f WAVE -d LEI16@16000 -c 1 /tmp/ly/l$k.aiff /tmp/ly/l$k.wav; k=$((k+1))
             done < /tmp/ly/lines.txt
             python3 packaging/make_lyric_song.py /tmp/ly /tmp/ly/song.wav /tmp/ly/truth.json /tmp/ly/pasted.txt
-            [ -f /tmp/tiny.bin ] || curl -sL -o /tmp/tiny.bin https://huggingface.co/ggerganov/whisper.cpp/resolve/main/ggml-tiny.en.bin
-            "$APP/Contents/MacOS/DMXStudio" --test-paste /tmp/ly/song.wav /tmp/tiny.bin /tmp/ly/pasted.txt | tee /tmp/ly/out.txt
+            [ -f /tmp/ggml-tiny.en.bin ] || curl -sL -o /tmp/ggml-tiny.en.bin https://huggingface.co/ggerganov/whisper.cpp/resolve/main/ggml-tiny.en.bin
+            "$APP/Contents/MacOS/DMXStudio" --test-paste /tmp/ly/song.wav /tmp/ggml-tiny.en.bin /tmp/ly/pasted.txt | tee /tmp/ly/out.txt
             python3 packaging/check_lyric_align.py /tmp/ly/out.txt /tmp/ly/truth.json
             echo "--- same lyrics pasted from Genius (every line a link)"
-            "$APP/Contents/MacOS/DMXStudio" --test-paste /tmp/ly/song.wav /tmp/tiny.bin /tmp/ly/pasted_links.txt > /tmp/ly/out2.txt
+            "$APP/Contents/MacOS/DMXStudio" --test-paste /tmp/ly/song.wav /tmp/ggml-tiny.en.bin /tmp/ly/pasted_links.txt > /tmp/ly/out2.txt
             python3 packaging/check_lyric_align.py /tmp/ly/out2.txt /tmp/ly/truth.json
           else echo "whisper-cli not bundled yet: skipped"; fi
       - name: Helper processes (Wi-Fi scan + Learn run outside the app)
