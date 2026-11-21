@@ -116,10 +116,23 @@ struct SectionTimelineEditor: View {
                     Image(systemName: "plus.magnifyingglass").foregroundColor(.secondary)
                 }
                 timeline
-                looksStrip
                 if let id = selected ?? sections.first?.id, let k = sections.firstIndex(where: { $0.id == id }) {
                     inspector(k)
                 }
+                EffectsBrowser { item in
+                    switch item {
+                    case .look(let p):
+                        paint = .look(p.id)
+                        if tool != .pencil, let id = selected ?? sections.first?.id { apply(p, to: id) }
+                    case .transition(let k):
+                        paint = .transition(k)
+                        guard tool != .pencil else { return }
+                        let target = selected.flatMap { id in sections.first { $0.id == id } }
+                            ?? sections.first { $0.empty == true && $0.end > (scrubTime ?? 0) }
+                        if let s = target { model.setTransition(k, songID: song.id, sectionID: s.id); select(s.id) }
+                    }
+                }
+                .frame(height: 330)
             }
         }
         // a cut made with "." selects the new slot
