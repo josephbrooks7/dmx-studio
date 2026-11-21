@@ -142,7 +142,8 @@ final class AppModel: ObservableObject {
     private var tapTimes: [Double] = []
     private let mic = MicBeatTracker()
     @Published var manual: [UUID: ManualControl] = [:]   // hands-on control per light
-    @Published var outputEnabled = false         // starts in Preview every time: press GO LIVE to control the lights
+    // starts in Preview every time: press GO LIVE to control the lights (the build's signal test starts live)
+    @Published var outputEnabled = ProcessInfo.processInfo.environment["DMX_TEST_ARTNET_IP"] != nil
     @Published var packetsPerSecond = 0
     private var lastPacketCount = 0
     @Published var haze: Double = 0.6            // beam visibility in the Stage simulation
