@@ -1,0 +1,37 @@
+name: Lyrics lab models
+# Bigger speech models + the Demucs vocal model, published so they can be tested and bundled.
+# whisper.cpp models: MIT. Demucs weights: MIT.
+on:
+  workflow_dispatch:
+  push:
+    paths: [".github/workflows/lab-models.yml"]
+jobs:
+  models:
+    runs-on: macos-latest
+    steps:
+      - name: Build quantize tool
+        run: |
+          git clone --depth 1 --branch v1.7.4 https://github.com/ggerganov/whisper.cpp /tmp/w
+          cd /tmp/w && cmake -B b -DCMAKE_BUILD_TYPE=Release -DGGML_METAL=OFF -DWHISPER_SDL2=OFF >/dev/null && cmake --build b -j 4 --target quantize >/dev/null
+          cp b/bin/quantize /tmp/quantize
+      - name: Speech models
+        run: |
+          cd /tmp
+          curl -sfL -o turbo.bin https://huggingface.co/ggerganov/whisper.cpp/resolve/main/ggml-large-v3-turbo.bin
+          /tmp/quantize turbo.bin ggml-large-v3-turbo-q5_0.bin q5_0 | tail -1
+          /tmp/quantize turbo.bin ggml-large-v3-turbo-q8_0.bin q8_0 | tail -1
+          curl -sfL -o medium.bin https://huggingface.co/ggerganov/whisper.cpp/resolve/main/ggml-medium.bin
+          /tmp/quantize medium.bin ggml-medium-q5_0.bin q5_0 | tail -1
+          ls -la /tmp/*.bin
+      - name: Demucs vocal model weights (htdemucs_ft)
+        run: |
+          cd /tmp
+          for h in f7e0c4bc-ba3fe64a d12395a8-e57c48e6 92cfc3b6-ef3bcb9c 04573f0d-f3cf25b2; do
+            curl -sfL -o $h.th https://dl.fbaipublicfiles.com/demucs/hybrid_transformer/$h.th; done
+          ls -la /tmp/*.th
+      - name: Publish
+        env: { GH_TOKEN: "${{ github.token }}" }
+        run: |
+          gh release view lab-1 -R "$GITHUB_REPOSITORY" >/dev/null 2>&1 || \
+            gh release create lab-1 -R "$GITHUB_REPOSITORY" --title "Lyrics lab models" --notes "Test models (whisper.cpp MIT, Demucs MIT)." --prerelease
+          gh release upload lab-1 -R "$GITHUB_REPOSITORY" /tmp/ggml-large-v3-turbo-q5_0.bin /tmp/ggml-large-v3-turbo-q8_0.bin /tmp/ggml-medium-q5_0.bin /tmp/*.th --clobber
