@@ -9,11 +9,14 @@ final class Updater: ObservableObject {
     static let shared = Updater()
 
     enum State: Equatable {
-        case idle, checking, upToDate, available(String), downloading(Double, String), installing, failed(String)
+        case idle, checking, upToDate, available(String), downloading(Double, String), installing(String, Double), failed(String)
     }
     @Published var state: State = .idle
     @Published var showing = false
     @Published var notes = ""
+    @Published var stepStarted = Date()
+    var isInstalling: Bool { if case .installing = state { return true }; return false }
+    private func step(_ text: String, _ f: Double) { state = .installing(text, f); stepStarted = Date() }
 
     private let repo = "josephbrooks7/dmx-studio"
     private var latest: String?
@@ -87,33 +90,44 @@ final class Updater: ObservableObject {
                 defer { try? FileManager.default.removeItem(at: work) }
 
                 var newApp: URL?
+                var moved: [(from: URL, to: URL)] = []
                 // 1. the small download: the app without its AI models
                 if let zip = updateZip {
                     let file = try await download(zip, label: "Downloading the update")
-                    state = .installing
-                    try await Self.shell("/usr/bin/ditto", ["-x", "-k", file.path, work.path])
+                    step("Step 1 of 4 · Unpacking the update", 0.1)
+                    try await Self.shell("/usr/bin/ditto", ["-x", "-k", file.path, work.path], timeout: 120)
                     let candidate = work.appendingPathComponent("DMX Studio.app")
-                    if try await Self.reuseModels(from: app, into: candidate) { newApp = candidate }
+                    step("Step 2 of 4 · Moving your lyric and stems models into the new version", 0.3)
+                    if let m = try Self.reuseModels(from: app, into: candidate) { newApp = candidate; moved = m }
                 }
                 // 2. a new model is needed (or no small update was published): the full download
                 if newApp == nil {
                     guard let dmg = fullDMG else { throw UpdateError("No update download found.") }
                     let file = try await download(dmg, label: "Downloading the full app (it includes a new AI model)")
-                    state = .installing
+                    step("Step 2 of 4 · Copying the new version", 0.3)
                     newApp = try await Self.copyFromDMG(file, into: work)
                 }
                 guard let fresh = newApp else { throw UpdateError("The update didn't contain DMX Studio.") }
-                try await Self.shell("/usr/bin/codesign", ["--force", "--deep", "--sign", "-", fresh.path])
-                _ = try? await Self.shell("/usr/bin/xattr", ["-dr", "com.apple.quarantine", fresh.path])
+                do {
+                    step("Step 3 of 4 · Checking and signing the new version", 0.55)
+                    try await Self.shell("/usr/bin/codesign", ["--force", "--deep", "--sign", "-", fresh.path], timeout: 600)
+                    _ = try? await Self.shell("/usr/bin/xattr", ["-dr", "com.apple.quarantine", fresh.path], timeout: 60)
 
-                // 3. swap: the old copy goes to the Trash, the new one takes its place
-                var trashed: NSURL?
-                try FileManager.default.trashItem(at: app, resultingItemURL: &trashed)
-                do { try FileManager.default.moveItem(at: fresh, to: app) }
-                catch {
-                    if let t = trashed as URL? { try? FileManager.default.moveItem(at: t, to: app) }
+                    // 3. swap: the old copy goes to the Trash, the new one takes its place
+                    step("Step 4 of 4 · Replacing the old version", 0.9)
+                    var trashed: NSURL?
+                    try FileManager.default.trashItem(at: app, resultingItemURL: &trashed)
+                    do { try FileManager.default.moveItem(at: fresh, to: app) }
+                    catch {
+                        if let t = trashed as URL? { try? FileManager.default.moveItem(at: t, to: app) }
+                        throw error
+                    }
+                } catch {
+                    // put the models back so the current version keeps working
+                    for m in moved.reversed() { try? FileManager.default.moveItem(at: m.to, to: m.from) }
                     throw error
                 }
+                step("Done · restarting", 1)
                 Self.relaunch(app)
             } catch {
                 state = .failed((error as? UpdateError)?.text ?? error.localizedDescription)
@@ -146,25 +160,38 @@ final class Updater: ObservableObject {
         }
     }
 
-    /// Copy the models this copy already has into the new app. False if the new version lists a
-    /// model that isn't here (or that changed size).
-    nonisolated static func reuseModels(from old: URL, into new: URL) async throws -> Bool {
+    /// Move the models this copy already has into the new app (a rename: instant, no copying).
+    /// nil if the new version lists a model that isn't here (or that changed size).
+    nonisolated static func reuseModels(from old: URL, into new: URL) throws -> [(from: URL, to: URL)]? {
         let fm = FileManager.default
-        guard fm.fileExists(atPath: new.path) else { return false }
+        guard fm.fileExists(atPath: new.path) else { return nil }
         let list = new.appendingPathComponent("Contents/Resources/models.txt")
-        guard let text = try? String(contentsOf: list) else { return false }
+        guard let text = try? String(contentsOf: list) else { return nil }
         let oldModels = old.appendingPathComponent("Contents/Resources/Models")
         let newModels = new.appendingPathComponent("Contents/Resources/Models")
-        try fm.createDirectory(at: newModels, withIntermediateDirectories: true)
+        var plan: [(from: URL, to: URL)] = []
         for line in text.split(separator: "\n") {
             let parts = line.split(separator: "\t")
             guard parts.count == 2, let size = Int64(parts[1]) else { continue }
             let name = String(parts[0])
             let src = oldModels.appendingPathComponent(name)
-            guard fm.fileExists(atPath: src.path), bytes(src) == size else { return false }
-            try await shell("/usr/bin/ditto", [src.path, newModels.appendingPathComponent(name).path])
+            guard fm.fileExists(atPath: src.path), bytes(src) == size else { return nil }
+            plan.append((src, newModels.appendingPathComponent(name)))
         }
-        return true
+        try fm.createDirectory(at: newModels, withIntermediateDirectories: true)
+        var done: [(from: URL, to: URL)] = []
+        do {
+            for m in plan {
+                // same disk: a move is a rename. Another disk: falls back to a copy
+                do { try fm.moveItem(at: m.from, to: m.to) }
+                catch { try fm.copyItem(at: m.from, to: m.to); continue }
+                done.append(m)
+            }
+        } catch {
+            for m in done.reversed() { try? fm.moveItem(at: m.to, to: m.from) }
+            throw error
+        }
+        return done
     }
 
     /// Total bytes of a file or folder (a compiled model is a folder)
@@ -193,23 +220,41 @@ final class Updater: ObservableObject {
         return dst
     }
 
+    /// Run a tool and wait for it without blocking (waitUntilExit could hang forever in a background task)
     @discardableResult
-    nonisolated static func shell(_ tool: String, _ args: [String]) async throws -> String {
-        try await Task.detached(priority: .utility) {
+    nonisolated static func shell(_ tool: String, _ args: [String], timeout: Double = 300) async throws -> String {
+        try await withCheckedThrowingContinuation { (c: CheckedContinuation<String, Error>) in
             let p = Process()
             p.executableURL = URL(fileURLWithPath: tool)
             p.arguments = args
             let out = Pipe()
             p.standardOutput = out; p.standardError = out
-            try p.run()
-            let data = out.fileHandleForReading.readDataToEndOfFile()
-            p.waitUntilExit()
-            let text = String(data: data, encoding: .utf8) ?? ""
-            if p.terminationStatus != 0 {
-                throw UpdateError("Update step failed: \(text.trimmingCharacters(in: .whitespacesAndNewlines))")
+            let lock = NSLock()
+            var buffer = Data(), finished = false
+            func finish(_ r: Result<String, Error>) {
+                lock.lock(); defer { lock.unlock() }
+                guard !finished else { return }
+                finished = true
+                c.resume(with: r)
             }
-            return text
-        }.value
+            out.fileHandleForReading.readabilityHandler = { h in
+                let d = h.availableData
+                lock.lock(); buffer.append(d); lock.unlock()
+            }
+            p.terminationHandler = { proc in
+                out.fileHandleForReading.readabilityHandler = nil
+                lock.lock(); buffer.append(out.fileHandleForReading.readDataToEndOfFile()); let text = String(data: buffer, encoding: .utf8) ?? ""; lock.unlock()
+                if proc.terminationStatus == 0 { finish(.success(text)) }
+                else { finish(.failure(UpdateError("Update step failed (\((tool as NSString).lastPathComponent)): \(text.trimmingCharacters(in: .whitespacesAndNewlines).suffix(300))"))) }
+            }
+            do { try p.run() } catch { finish(.failure(error)); return }
+            DispatchQueue.global().asyncAfter(deadline: .now() + timeout) {
+                if p.isRunning {
+                    p.terminate()
+                    finish(.failure(UpdateError("An update step took too long (\((tool as NSString).lastPathComponent)). Nothing was changed: try again, or use the installer.")))
+                }
+            }
+        }
     }
 
     /// Quit, and open the new copy once this one has closed
@@ -250,8 +295,14 @@ struct UpdateSheet: View {
                 case .downloading(let f, let label):
                     Text(label + "…")
                     ProgressView(value: f)
-                case .installing:
-                    HStack { ProgressView().scaleEffect(0.6); Text("Installing… DMX Studio will restart.") }
+                case .installing(let text, let f):
+                    Text(text)
+                    ProgressView(value: f)
+                    TimelineView(.periodic(from: .now, by: 1)) { ctx in
+                        let s = Int(ctx.date.timeIntervalSince(up.stepStarted))
+                        Text("This step: \(s / 60):" + String(format: "%02d", s % 60) + " · DMX Studio restarts when it's done")
+                            .font(.caption).foregroundColor(.secondary)
+                    }
                 case .failed(let msg):
                     Label(msg, systemImage: "exclamationmark.triangle.fill").foregroundColor(.orange)
                         .fixedSize(horizontal: false, vertical: true)
@@ -262,7 +313,7 @@ struct UpdateSheet: View {
                 Spacer()
                 Button(up.availableVersion == nil ? "Close" : "Later") { up.showing = false }
                     .keyboardShortcut(.cancelAction)
-                    .disabled(up.state == .installing)
+                    .disabled(up.isInstalling)
                 if up.availableVersion != nil {
                     Button("Update Now") { up.install() }.keyboardShortcut(.defaultAction)
                 } else if case .failed = up.state {
