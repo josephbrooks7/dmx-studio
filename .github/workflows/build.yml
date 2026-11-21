@@ -111,7 +111,12 @@ jobs:
           if [ -x "$APP/Contents/Resources/whisper-cli" ]; then
             if nm -u "$APP/Contents/Resources/whisper-cli" | grep -i NEWLAPACK; then echo "FAIL whisper-cli needs macOS 13.3"; exit 1; fi
             curl -sL -o /tmp/tiny.bin https://huggingface.co/ggerganov/whisper.cpp/resolve/main/ggml-tiny.en.bin
-            say -o /tmp/l.aiff "I'm lost in the darkness and I'm all alone. But I can finally see the light."
+            # the runner's voice is sometimes not ready and writes a near-empty clip: try again
+            for n in 1 2 3 4 5; do
+              say -o /tmp/l.aiff "I'm lost in the darkness and I'm all alone. But I can finally see the light."
+              d=$(afinfo /tmp/l.aiff | awk '/estimated duration/{print int($3)}')
+              echo "voice clip: ${d}s"; [ "${d:-0}" -ge 2 ] && break; sleep 3
+            done
             afconvert -f m4af -d aac /tmp/l.aiff /tmp/l.m4a
             DMX_DEBUG_WHISPER=1 "$APP/Contents/MacOS/DMXStudio" --test-lyrics /tmp/l.m4a /tmp/tiny.bin | tee /tmp/lyr.txt
             grep -qi "light" /tmp/lyr.txt && echo "PASS words heard with timing" || { echo "FAIL lyrics"; exit 1; }
