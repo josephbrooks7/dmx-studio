@@ -61,6 +61,9 @@ struct SectionTimelineEditor: View {
     @State private var dropTarget: UUID?
     @State private var looksGroup = "All"
     @State private var scrubTime: Double?
+    @State private var edgeOrigin: Double?
+    @State private var edgeDragging: Int?
+    @State private var timelineWidth: CGFloat = 1
 
     private var sections: [ShowSection] { song.shows.indices.contains(showIndex) ? song.shows[showIndex].sections : [] }
 
@@ -91,6 +94,7 @@ struct SectionTimelineEditor: View {
         GeometryReader { geo in
             let width = max(geo.size.width, geo.size.width * zoom)
             let dur = max(analysis.duration, 1)
+            let _ = DispatchQueue.main.async { if abs(timelineWidth - width) > 0.5 { timelineWidth = width } }
             ScrollView(.horizontal, showsIndicators: zoom > 1.01) {
                 ZStack(alignment: .topLeading) {
                     VStack(alignment: .leading, spacing: 6) {
@@ -103,6 +107,11 @@ struct SectionTimelineEditor: View {
                                 block(s, width: w)
                                     .frame(width: w, height: 78)
                                     .offset(x: x0 + 2)
+                            }
+                            // edges between blocks: drag to resize (the neighbor gives or takes the time)
+                            ForEach(Array(sections.enumerated().dropLast()), id: \.element.id) { k, s in
+                                edgeHandle(k)
+                                    .offset(x: CGFloat(s.end / dur) * width - 6)
                             }
                         }
                         .frame(width: width, height: 78, alignment: .topLeading)
@@ -122,6 +131,36 @@ struct SectionTimelineEditor: View {
             }
         }
         .frame(height: 152)
+    }
+
+    /// The grab handle on the boundary after block k
+    private func edgeHandle(_ k: Int) -> some View {
+        Rectangle().fill(Color.white.opacity(edgeDragging == k ? 0.9 : 0.001))
+            .frame(width: 12, height: 78)
+            .overlay(Capsule().fill(Color.white.opacity(edgeDragging == k ? 1 : 0.35)).frame(width: 3, height: 30))
+            .contentShape(Rectangle())
+            .onHover { inside in if inside { NSCursor.resizeLeftRight.push() } else { NSCursor.pop() } }
+            .gesture(DragGesture(minimumDistance: 1, coordinateSpace: .global)
+                .onChanged { v in
+                    guard sections.indices.contains(k + 1) else { return }
+                    if edgeOrigin == nil { edgeOrigin = sections[k].end; edgeDragging = k }
+                    let dur = max(analysis.duration, 1)
+                    let dt = Double(v.translation.width / max(timelineWidth, 1)) * dur
+                    moveBoundary(after: k, to: (edgeOrigin ?? sections[k].end) + dt, snap: !NSEvent.modifierFlags.contains(.option))
+                }
+                .onEnded { _ in edgeOrigin = nil; edgeDragging = nil })
+            .help("Drag to make this block longer or shorter (the next one adjusts) · ⌥ for free placement")
+    }
+
+    /// Move the boundary between block k and k+1, keeping everything else where it is
+    private func moveBoundary(after k: Int, to raw: Double, snap: Bool) {
+        guard song.shows[showIndex].sections.indices.contains(k + 1) else { return }
+        let a = song.shows[showIndex].sections[k], b = song.shows[showIndex].sections[k + 1]
+        var t = raw
+        if snap, let near = analysis.beats.min(by: { abs($0 - raw) < abs($1 - raw) }), abs(near - raw) < 0.2 { t = near }
+        t = max(a.start + 0.2, min(b.end - 0.2, t))
+        song.shows[showIndex].sections[k].end = t
+        song.shows[showIndex].sections[k + 1].start = t
     }
 
     /// Times along the top (click to jump there)
