@@ -1466,7 +1466,10 @@ final class AppModel: ObservableObject {
                 else if rebuildShows { self.rebuildShows(for: id) }
                 self.makeLooks(from: id)
                 // lyrics were started with learning; now that the song is known, make their lighting cues
-                if self.songs[i].lyrics != nil { self.refreshLyricLighting(id) }
+                if self.songs[i].lyrics != nil {
+                    self.refreshLyricLighting(id)
+                    self.fillLyricGaps(id)          // now that it knows where the singing is
+                }
             }
         }
     }
@@ -1661,6 +1664,8 @@ final class AppModel: ObservableObject {
                     ly.mode = songs[i].lyrics?.mode
                     songs[i].lyrics = ly
                     refreshLyricLighting(id)
+                    gapFilled.remove(id)
+                    if songs[i].analysis != nil { DispatchQueue.main.async { self.fillLyricGaps(id) } }
                 }
             case .failure(let e):
                 ErrorCenter.shared.report(area: "Lyrics", message: "Couldn't learn the lyrics of \"\(title)\": \(e.localizedDescription)", details: "\(e)")
@@ -1816,6 +1821,71 @@ final class AppModel: ObservableObject {
 
     /// Re-reads the lyrics (emotion, imagery, delivery) and remakes the lighting cues from them.
     /// Your accept / reject choices are kept for cues that are still there.
+    // MARK: Missed parts: listen again only where someone sings but no words were heard
+
+    private var gapFilled: Set<UUID> = []
+
+    /// Sung stretches (from learning the music) with no heard words in them
+    func missedSungSpans(_ id: UUID) -> [TimeSpan] {
+        guard let i = index(of: id), let ly = songs[i].lyrics, let ph = songs[i].analysis?.vocalPhrases else { return [] }
+        var merged: [TimeSpan] = []
+        for p in ph.sorted(by: { $0.start < $1.start }) {
+            if let l = merged.last, p.start - l.end < 1.5 { merged[merged.count - 1].end = max(l.end, p.end) } else { merged.append(p) }
+        }
+        var out: [TimeSpan] = []
+        for p in merged where p.end - p.start >= 3 {
+            // the parts of it with no words within 1.5 s
+            var cur = p.start
+            for w in ly.words.sorted(by: { $0.start < $1.start }) where w.end > p.start && w.start < p.end {
+                if w.start - cur >= 3 { out.append(TimeSpan(start: max(0, cur - 0.5), end: w.start + 0.3)) }
+                cur = max(cur, w.end)
+            }
+            if p.end - cur >= 3 { out.append(TimeSpan(start: max(0, cur - 0.5), end: p.end + 0.5)) }
+        }
+        return out
+    }
+
+    /// Whisper sometimes skips ahead and misses a whole verse: listen again just to those parts and add what it hears
+    func fillLyricGaps(_ id: UUID) {
+        guard WhisperEngine.isAvailable, !gapFilled.contains(id), let i = index(of: id),
+              songs[i].lyrics?.source == "Heard from the vocals" else { return }
+        let gaps = missedSungSpans(id)
+        guard gaps.reduce(0, { $0 + $1.end - $1.start }) >= 3 else { return }
+        // one heavy job at a time
+        if lyricsBusy || !learning.isEmpty || hqProgress.values.contains(where: { $0 > 0.015 }) {
+            DispatchQueue.main.asyncAfter(deadline: .now() + 3) { [weak self] in self?.fillLyricGaps(id) }
+            return
+        }
+        gapFilled.insert(id)
+        let url = songs[i].url
+        lyricsBusy = true
+        lyricsCurrent = id
+        lyricsProgress[id] = 0
+        lyricsStarted[id] = Date()
+        lyricsStatus[id] = "Listening again where words were missed…"
+        WhisperEngine.transcribe(vocals: url, phrases: gaps, model: WhisperEngine.chosen, onlyPhrases: true, progress: { p in
+            if self.lyricsProgress[id] != nil { self.lyricsProgress[id] = p }
+        }) { r in
+            self.lyricsBusy = false
+            self.lyricsCurrent = nil
+            self.lyricsProgress[id] = nil
+            self.lyricsStatus[id] = nil
+            if self.stopped.remove("lyrics-\(id)") != nil { self.nextLyrics(); return }
+            if case .success(let found) = r, !found.isEmpty, let i = self.index(of: id), var ly = self.songs[i].lyrics,
+               ly.source == "Heard from the vocals" {
+                let fresh = found.filter { w in gaps.contains { w.start >= $0.start - 0.3 && w.start <= $0.end } }
+                let words = (ly.words + fresh).sorted { $0.start < $1.start }
+                var rebuilt = LyricsLearner.build(words: words, phrases: self.songs[i].analysis?.vocalPhrases ?? [], source: "Heard from the vocals")
+                rebuilt.engine = (ly.engine ?? "Whisper") + " · missed parts listened again"
+                rebuilt.mode = ly.mode
+                ly = rebuilt
+                self.songs[i].lyrics = ly
+                self.refreshLyricLighting(id)
+            }
+            self.nextLyrics()
+        }
+    }
+
     /// The lyrics as heard, with timing and how sure it was, as a report (opens a pre-filled report and
     /// copies the whole thing to the clipboard) so wrong words can be compared with the real lyrics
     func sendLyricsReport(_ id: UUID) {

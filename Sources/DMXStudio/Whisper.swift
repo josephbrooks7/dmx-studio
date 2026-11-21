@@ -97,6 +97,7 @@ enum WhisperEngine {
 
     /// Transcribes the vocals. Runs in the background; `done` is called on the main thread.
     static func transcribe(vocals: URL, extra: [URL] = [], phrases: [TimeSpan], model: ModelSize, background: Bool = false,
+                           onlyPhrases: Bool = false,
                            progress: @escaping (Double) -> Void,
                            done: @escaping (Result<[LyricWord], Error>) -> Void) {
         guard let bin = binary else { done(.failure(LyricsError.unavailable)); return }
@@ -111,7 +112,7 @@ enum WhisperEngine {
                 // faint or partial vocals, let Whisper hear the whole vocal part
                 let dur = (try? AVAudioFile(forReading: vocals)).map { Double($0.length) / $0.processingFormat.sampleRate } ?? 0
                 let sung = phrases.reduce(0) { $0 + $1.end - $1.start }
-                let trusted = !background && dur > 0 && sung / dur >= 0.15 ? phrases : []
+                let trusted = onlyPhrases ? phrases : (!background && dur > 0 && sung / dur >= 0.15 ? phrases : [])
                 let timeMap = try writeSpeechWav([vocals] + extra, to: wav, keep: trusted, boost: background)
                 var lastLog = "", lastData = Data()
                 func listen(noContext: Bool) throws -> [LyricWord] {
