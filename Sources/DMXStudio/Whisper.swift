@@ -217,7 +217,7 @@ enum WhisperEngine {
             changed = false
             let k = w.map { norm($0.text) }
             outer: for n in stride(from: min(12, k.count / 3), through: 1, by: -1) {
-                let maxRepeats = n >= 3 ? 2 : 4          // "no, no, no, no" can be real; a 5-word line 3× in a row isn't
+                let maxRepeats = n >= 3 ? 3 : 6          // "no, no, no, no" can be real; a 5-word line 4× in a row isn't
                 var i = 0
                 while i + n * (maxRepeats + 1) <= k.count {
                     let unit = Array(k[i..<i + n])
@@ -225,6 +225,10 @@ enum WhisperEngine {
                     var reps = 1
                     while i + (reps + 1) * n <= k.count && Array(k[i + reps * n..<i + (reps + 1) * n]) == unit { reps += 1 }
                     if reps > maxRepeats {
+                        // a real vocal stutter ("ah ah ah ah ah", chopped vocals) is quick: each repeat a fraction
+                        // of a second. Whisper's made-up loops repeat whole lines over many seconds.
+                        let span = w[i + reps * n - 1].end - w[i].start
+                        if n <= 2 && span / Double(reps) < 0.9 { i += reps * n; continue }
                         w.removeSubrange(i + maxRepeats * n..<i + reps * n)
                         changed = true
                         break outer

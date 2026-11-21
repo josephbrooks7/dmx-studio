@@ -193,6 +193,19 @@ enum LyricsInterpreter {
         s.lowercased().filter { $0.isLetter || $0 == " " }.split(separator: " ").joined(separator: " ")
     }
 
+    /// "ah ah ah ah", "a-a-a-a-a", "la la la la": the same short sound again and again
+    static func isStutter(_ text: String) -> Bool {
+        let parts = text.lowercased().split(whereSeparator: { $0 == " " || $0 == "-" || $0 == "," })
+            .map { $0.filter { $0.isLetter } }.filter { !$0.isEmpty }
+        guard parts.count >= 4 else { return false }
+        var run = 1, best = 1
+        for k in 1..<parts.count {
+            run = (parts[k] == parts[k - 1] && parts[k].count <= 4) ? run + 1 : 1
+            best = max(best, run)
+        }
+        return best >= 4
+    }
+
     /// Emotion (in context of the lines around it), imagery, delivery and repetition for every line.
     static func interpret(_ ly: inout Lyrics, vocalLevel: [Float]? = nil, levelRate: Double = 0) {
         spanish = detectSpanish(ly)
@@ -261,7 +274,8 @@ enum LyricsInterpreter {
             let lineWords = ly.words.filter { $0.start >= line.start - 0.01 && $0.end <= line.end + 0.01 }
             let longest = lineWords.map { $0.end - $0.start }.max() ?? 0
             let rel = levels[i] - medLv
-            if vocalLevel != nil && rel < -12 { ins.delivery = "Whisper" }
+            if LyricsInterpreter.isStutter(line.text) { ins.delivery = "Vocal stutter" }
+            else if vocalLevel != nil && rel < -12 { ins.delivery = "Whisper" }
             else if vocalLevel != nil && rel < -5 { ins.delivery = "Soft" }
             else if Double(wordCount) / dur > 3.4 { ins.delivery = "Rapid / Rap" }
             else if vocalLevel != nil && rel > 4 { ins.delivery = "Belting" }
@@ -349,6 +363,19 @@ enum LyricLighting {
                 out.append(LyricCue(start: line.start, end: line.end, kind: "Delivery", label: info.delivery, color: nil, amount: 0,
                                     intensity: info.delivery == "Whisper" ? -0.35 : -0.2, lyric: line.text,
                                     reason: "\(info.delivery.lowercased()) vocal", confidence: 0.65))
+            case "Vocal stutter":
+                // a short white hit on each syllable ("ah ah ah", "a-a-a-a"), no faster than the flash limit allows
+                let hz = max(0.5, ShowRenderer.maxFlashHz)
+                var last = -9.0
+                let syl = ly.words.filter { $0.start >= line.start - 0.01 && $0.start <= line.end + 0.01 }
+                if ShowRenderer.maxFlashHz > 0 {
+                    for wd in syl where wd.start - last >= 1 / hz {
+                        out.append(LyricCue(start: wd.start, end: wd.start + 0.15, kind: "Delivery", label: "Vocal stutter", color: .white,
+                                            amount: 0.6, intensity: 0.5, accent: true, lyric: line.text,
+                                            reason: "vocal stutter \"\(wd.text)\"", confidence: 0.6))
+                        last = wd.start
+                    }
+                }
             case "Sustained note":
                 out.append(LyricCue(start: line.start, end: line.end, kind: "Delivery", label: "Sustained note", color: nil, amount: 0,
                                     intensity: 0.12, lyric: line.text, reason: "long held note: slow build", confidence: 0.6))
