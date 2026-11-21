@@ -6,7 +6,10 @@ import UniformTypeIdentifiers
 @main
 struct DMXStudioApp: App {
     @NSApplicationDelegateAdaptor(AppDelegate.self) private var appDelegate
-    @StateObject private var model = AppModel()
+    // Not @StateObject: that makes the whole scene (and the menu bar) rebuild on every change in the
+    // app — the beat, the play position — which closed any menu you had open. Views observe the model
+    // through the environment instead.
+    @State private var model = AppModel()
 
     init() {
         // Test hook: `DMXStudio --analyze song.wav` prints what Learn finds, then exits.
@@ -176,13 +179,6 @@ struct DMXStudioApp: App {
         WindowGroup("DMX Studio") {
             RootView()
                 .environmentObject(model)
-                .sheet(item: Binding(get: { model.lyricsPrompt.first.map(PromptID.init) },
-                                     set: { _ in })) { p in
-                    LyricsPromptSheet(songID: p.id).environmentObject(model).interactiveDismissDisabled()
-                }
-                .sheet(isPresented: Binding(get: { model.showLyricsLibrary }, set: { model.showLyricsLibrary = $0 })) {
-                    LyricsLibraryView().environmentObject(model)
-                }
                 .frame(minWidth: 1180, minHeight: 760)
                 .preferredColorScheme(.dark)
         }
@@ -207,7 +203,7 @@ struct DMXStudioApp: App {
                 Button("Next Song") { model.nextInLineup() }.keyboardShortcut(.rightArrow, modifiers: .command)
                 Button("Previous Song") { model.previousInLineup() }.keyboardShortcut(.leftArrow, modifiers: .command)
                 Divider()
-                Button(model.blackout ? "Release Blackout" : "Blackout") { model.blackout.toggle() }
+                Button("Blackout On / Off") { model.blackout.toggle() }
                     .keyboardShortcut("b", modifiers: .command)
             }
         }
@@ -227,6 +223,13 @@ struct RootView: View {
             }
         }
         .animation(.easeInOut(duration: 0.25), value: model.showingStart)
+        .sheet(item: Binding(get: { model.lyricsPrompt.first.map(PromptID.init) }, set: { _ in })) { p in
+            LyricsPromptSheet(songID: p.id).environmentObject(model).interactiveDismissDisabled()
+        }
+        .sheet(isPresented: Binding(get: { model.showLyricsLibrary }, set: { model.showLyricsLibrary = $0 })) {
+            LyricsLibraryView().environmentObject(model)
+        }
+
         .onAppear {
             // the window can go full screen (green button, View menu, ⌃⌘F)
             DispatchQueue.main.async { NSApp.windows.forEach { $0.collectionBehavior.insert(.fullScreenPrimary) } }
