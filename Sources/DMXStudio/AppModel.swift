@@ -325,11 +325,9 @@ final class AppModel: ObservableObject {
                     if down && !e.isARepeat { self.emptySection(songID: ts.song, sectionID: ts.section) }
                     return nil
                 }
-                guard self.songsScreenShowing, !self.pickedSongs.isEmpty || self.selectedSongID != nil else { return e }
-                if down && !e.isARepeat {
-                    let ids = self.pickedSongs.isEmpty ? (self.selectedSongID.map { [$0] } ?? []) : Array(self.pickedSongs)
-                    self.requestRemove(ids)
-                }
+                // only songs that are picked (after clicking off to deselect, Delete does nothing)
+                guard self.songsScreenShowing, !self.pickedSongs.isEmpty else { return e }
+                if down && !e.isARepeat { self.requestRemove(Array(self.pickedSongs)) }
                 return nil
             case 17: // T = tap tempo
                 if down && !e.isARepeat { self.tapTempo() }

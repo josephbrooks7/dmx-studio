@@ -1066,8 +1066,12 @@ struct SongsScreen: View {
     private func pickEnd(at p: CGPoint, moved: Bool) {
         defer { dragBase = nil }
         if moved { return }
-        guard let id = row(at: p) else { return }
         model.timelineSelection = nil          // Delete now means the songs again
+        // a click on empty space (not on a song) deselects
+        guard let id = rowFrames.first(where: { $0.value.minY - 1 <= p.y && p.y <= $0.value.maxY + 1 })?.key else {
+            if !NSEvent.modifierFlags.contains(.command) && !NSEvent.modifierFlags.contains(.shift) { model.pickedSongs = [] }
+            return
+        }
         let mods = NSEvent.modifierFlags
         if mods.contains(.shift), let a = anchor ?? model.selectedSongID {
             model.pickedSongs = mods.contains(.command) ? model.pickedSongs.union(range(a, id)) : range(a, id)
@@ -1102,13 +1106,15 @@ struct SongsScreen: View {
                     Button { importing = true } label: { Image(systemName: "plus") }.buttonStyle(PillButtonStyle())
                 }
                 TextField("Search songs or artists", text: $search).textFieldStyle(.roundedBorder)
+                GeometryReader { listGeo in
                 ScrollView {
+                    VStack(alignment: .leading, spacing: 0) {
                     LazyVStack(alignment: .leading, spacing: 2) {
                         ForEach(filteredSongs) { s in
                             SongRow(song: s)
                                 .padding(.vertical, 5).padding(.horizontal, 8)
                                 .background(RoundedRectangle(cornerRadius: 7, style: .continuous)
-                                    .fill(model.pickedSongs.contains(s.id) ? Theme.accent.opacity(model.selectedSongID == s.id ? 0.45 : 0.28)
+                                    .fill(model.pickedSongs.contains(s.id) ? Theme.accent.opacity(model.selectedSongID == s.id && model.pickedSongs.count > 1 ? 0.45 : 0.32)
                                           : (model.hoveredSongID == s.id ? Color.white.opacity(0.05) : Color.clear)))
                                 .contentShape(Rectangle())
                                 .background(GeometryReader { g in
@@ -1142,12 +1148,18 @@ struct SongsScreen: View {
                         }
                     }
                     .padding(4)
+                    Spacer(minLength: 0)
+                    }
+                    // the empty space below the songs counts too: start a drag there, or click it to deselect
+                    .frame(minHeight: listGeo.size.height, alignment: .top)
+                    .contentShape(Rectangle())
                     .coordinateSpace(name: "songList")
                     .onPreferenceChange(SongRowFrames.self) { rowFrames = $0 }
                     // click / ⇧-click / ⌘-click / click-and-drag to pick songs
                     .gesture(DragGesture(minimumDistance: 0, coordinateSpace: .named("songList"))
                         .onChanged { v in pickDrag(from: v.startLocation, to: v.location, moved: abs(v.translation.height) > 4) }
                         .onEnded { v in pickEnd(at: v.startLocation, moved: abs(v.translation.height) > 4) })
+                }
                 }
                 .background(RoundedRectangle(cornerRadius: 8).fill(Color.black.opacity(0.25)))
 
