@@ -276,9 +276,12 @@ struct StagePreviewSim: View {
 
     var body: some View {
         SwiftUI.TimelineView(.animation(minimumInterval: 1.0 / 30, paused: false)) { tl in
-            let t = tl.date.timeIntervalSinceReferenceDate.truncatingRemainder(dividingBy: 600)
-            let frame = render(t)
-            Canvas { ctx, size in draw(ctx, size, frame) }
+            // a short run-through: 4 bars, then it starts again (fades out and in at the loop)
+            let loop = 16 * 60.0 / 124
+            let p = tl.date.timeIntervalSinceReferenceDate.truncatingRemainder(dividingBy: loop)
+            let fade = min(1, p / 0.35, (loop - p) / 0.35)
+            let frame = render(8 + p)
+            Canvas { ctx, size in draw(ctx, size, frame, fade: fade) }
         }
         .background(Color.black)
     }
@@ -294,7 +297,8 @@ struct StagePreviewSim: View {
         case .transition(let k)?:
             sections = [base.map { var b = $0; b.start = 0; b.end = 1e9; b.empty = nil; b.transition = nil; return b }
                         ?? ShowSection(name: "Base", start: 0, end: 1e9, level: .medium, effect: .gradient, palette: "Deep Blue", intensity: 0.8)]
-            let at = floor(t / 2.2) * 2.2 + (k == .rise ? 2.0 : 0.25)
+            // the hit lands in the middle of the run-through
+            let at = 8 + 8 * 60.0 / 124
             hits = [ShowHit(time: at, kind: k, beats: k.beats)]
         case nil:
             if let b = base, b.empty != true { var s = b; s.start = 0; s.end = 1e9; s.transition = nil; sections = [s] }
@@ -305,10 +309,12 @@ struct StagePreviewSim: View {
         return r.render(at: t)
     }
 
-    private func draw(_ ctx: GraphicsContext, _ size: CGSize, _ frame: [RenderedFixture]) {
-        // haze
-        ctx.fill(Path(CGRect(origin: .zero, size: size)),
-                 with: .linearGradient(Gradient(colors: [Color(white: 0.06), Color(white: 0.0)]), startPoint: .zero, endPoint: CGPoint(x: 0, y: size.height)))
+    private func draw(_ ctx: GraphicsContext, _ size: CGSize, _ frame: [RenderedFixture], fade: Double) {
+        // a black room: dark back wall, a floor line
+        ctx.fill(Path(CGRect(origin: .zero, size: size)), with: .color(.black))
+        ctx.fill(Path(CGRect(x: 0, y: size.height - 26, width: size.width, height: 26)),
+                 with: .linearGradient(Gradient(colors: [Color(white: 0.05), Color(white: 0.0)]),
+                                       startPoint: CGPoint(x: 0, y: size.height - 26), endPoint: CGPoint(x: 0, y: size.height)))
         let n = max(1, frame.count)
         let floorY = size.height - 30
         let slotW = size.width / CGFloat(n)
@@ -322,7 +328,7 @@ struct StagePreviewSim: View {
             let swing = CGFloat(f.pan - 0.5) * 1.3
             let reach = size.height * (0.55 + 0.4 * CGFloat(f.tilt))
             for (hi, h) in f.heads.enumerated() {
-                let k = max(0, min(1, h.intensity))
+                let k = max(0, min(1, h.intensity)) * fade
                 guard k > 0.02 else { continue }
                 let hx = cx - barW / 2 + barW * (CGFloat(hi) + 0.5) / CGFloat(heads)
                 let c = Color(red: h.color.r, green: h.color.g, blue: h.color.b)
@@ -339,6 +345,7 @@ struct StagePreviewSim: View {
                 // the lens
                 glow.fill(Path(ellipseIn: CGRect(x: hx - 12, y: floorY - 12, width: 24, height: 24)), with: .color(c.opacity(0.35 * k)))
                 glow.fill(Path(ellipseIn: CGRect(x: hx - 7, y: floorY - 7, width: 14, height: 14)), with: .color(c.opacity(k)))
+                glow.fill(Path(ellipseIn: CGRect(x: hx - 16, y: size.height - 18, width: 32, height: 8)), with: .color(c.opacity(0.18 * k)))
             }
             // the bar itself
             ctx.fill(Path(roundedRect: CGRect(x: cx - barW / 2 - 8, y: floorY + 8, width: barW + 16, height: 12), cornerRadius: 4),
