@@ -175,6 +175,10 @@ struct DMXStudioApp: App {
         WindowGroup("DMX Studio") {
             RootView()
                 .environmentObject(model)
+                .sheet(item: Binding(get: { model.lyricsPrompt.first.map(PromptID.init) },
+                                     set: { _ in })) { p in
+                    LyricsPromptSheet(songID: p.id).environmentObject(model).interactiveDismissDisabled()
+                }
                 .frame(minWidth: 1180, minHeight: 760)
                 .preferredColorScheme(.dark)
         }
@@ -307,3 +311,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         return .terminateNow
     }
 }
+
+
+/// Identifies the new song whose lyrics prompt is showing
+struct PromptID: Identifiable { let id: UUID }

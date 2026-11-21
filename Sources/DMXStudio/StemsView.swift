@@ -442,7 +442,7 @@ struct LyricsTab: View {
 
     @ViewBuilder var content: some View {
         HStack(spacing: 10) {
-            Button { model.learnLyrics(song.id) } label: { Label("Listen for Lyrics", systemImage: "waveform.and.mic") }
+            Button { model.learnLyrics(song.id) } label: { Label("Transcribe Lyrics from Audio", systemImage: "waveform.and.mic") }
                 .disabled(model.lyricsProgress[song.id] != nil)
                 .help("Listens to the song and writes down every word with its timing (like auto-captions)")
             if WhisperEngine.isAvailable {
@@ -689,5 +689,58 @@ struct Ticking: View {
     let text: () -> String
     var body: some View {
         SwiftUI.TimelineView(.periodic(from: .now, by: 1)) { _ in Text(text()) }
+    }
+}
+
+
+// MARK: - New song: how to get its lyrics
+
+struct LyricsPromptSheet: View {
+    @EnvironmentObject var model: AppModel
+    let songID: UUID
+    @State private var text = ""
+
+    var body: some View {
+        let song = model.song(songID)
+        let waiting = model.lyricsPrompt.count
+        VStack(alignment: .leading, spacing: 12) {
+            HStack {
+                Image(systemName: "text.quote").font(.title2)
+                VStack(alignment: .leading, spacing: 2) {
+                    Text("Lyrics for \"\(song?.title ?? "new song")\"").font(.title3.bold())
+                    Text(waiting > 1 ? "New song · \(waiting) waiting" : "New song").font(.caption).foregroundColor(.secondary)
+                }
+            }
+            Text("Have the lyrics? Paste them here: they're used word for word and timed to the song (most accurate). Or let the app transcribe them by listening (works best on clear vocals).")
+                .font(.callout).foregroundColor(.secondary).fixedSize(horizontal: false, vertical: true)
+            TextEditor(text: $text)
+                .font(.body)
+                .frame(minWidth: 520, minHeight: 260)
+                .overlay(RoundedRectangle(cornerRadius: 6).stroke(Color.white.opacity(0.15)))
+                .overlay(alignment: .topLeading) {
+                    if text.isEmpty {
+                        Text("Paste the lyrics (one line per sung line; [Verse] labels and web-page extras are cleaned up)")
+                            .foregroundColor(.secondary).padding(8).allowsHitTesting(false)
+                    }
+                }
+            HStack {
+                Button("Skip (no lyrics)") { model.answerLyricsPrompt(songID, .skip) }
+                    .help("Learn the music only (instrumentals)")
+                if waiting > 1 {
+                    Button("Transcribe All \(waiting) from Audio") { model.answerAllLyricsPrompts(.transcribe) }
+                        .help("Don't ask for the others: transcribe every waiting song")
+                }
+                Spacer()
+                Button {
+                    model.answerLyricsPrompt(songID, .transcribe)
+                } label: { Label("Transcribe Lyrics from Audio", systemImage: "waveform.and.mic") }
+                Button {
+                    model.answerLyricsPrompt(songID, .paste(text))
+                } label: { Label("Use These Lyrics", systemImage: "checkmark") }
+                    .keyboardShortcut(.defaultAction)
+                    .disabled(text.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty)
+            }
+        }
+        .padding(20)
     }
 }

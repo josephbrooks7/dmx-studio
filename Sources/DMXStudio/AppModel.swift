@@ -1191,7 +1191,8 @@ final class AppModel: ObservableObject {
             let song = Song(title: meta.title, path: kept.path, artist: meta.artist)
             songs.append(song)
             ids.append(song.id)
-            learn(song.id)
+            lyricsPrompt.append(song.id)       // ask: paste the lyrics, or transcribe them from the audio
+            if ProcessInfo.processInfo.environment["DMX_DEMO_SONG"] != nil { answerLyricsPrompt(song.id, .transcribe) }
         }
         if let first = ids.last { selectedSongID = first }
 
@@ -1401,6 +1402,30 @@ final class AppModel: ObservableObject {
         learnMusic(id, rebuildShows: rebuildShows)
     }
 
+    // MARK: New songs: lyrics first (pasted or transcribed), then learning
+
+    enum LyricsChoice { case paste(String), transcribe, skip }
+    /// New songs waiting for you to say how to get their lyrics (shown one at a time)
+    @Published var lyricsPrompt: [UUID] = []
+    private var pendingPaste: [UUID: String] = [:]
+
+    func answerLyricsPrompt(_ id: UUID, _ choice: LyricsChoice) {
+        lyricsPrompt.removeAll { $0 == id }
+        switch choice {
+        case .transcribe:
+            learn(id)                                   // lyrics from the audio, then the music
+        case .paste(let text):
+            pendingPaste[id] = text                     // the music first, then the words are placed on it
+            learnMusic(id, rebuildShows: false)
+        case .skip:
+            learnMusic(id, rebuildShows: false)
+        }
+    }
+    /// Same answer for every song still waiting
+    func answerAllLyricsPrompts(_ choice: LyricsChoice) {
+        for id in lyricsPrompt { answerLyricsPrompt(id, choice) }
+    }
+
     /// The Lyrics panel is open (closed at every launch; lyrics also show on the timeline only while it's open)
     @Published var lyricsOpen = false
 
@@ -1466,7 +1491,9 @@ final class AppModel: ObservableObject {
                 else if rebuildShows { self.rebuildShows(for: id) }
                 self.makeLooks(from: id)
                 // lyrics were started with learning; now that the song is known, make their lighting cues
-                if self.songs[i].lyrics != nil {
+                if let text = self.pendingPaste.removeValue(forKey: id) {
+                    self.pasteLyrics(id, text: text)    // your lyrics, placed on the song (then timed by listening)
+                } else if self.songs[i].lyrics != nil {
                     self.refreshLyricLighting(id)
                     self.fillLyricGaps(id)          // now that it knows where the singing is
                 }

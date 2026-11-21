@@ -282,30 +282,63 @@ enum LyricsLearner {
         let P = pw.map { normWord($0.1) }, H = h.map { normWord($0.text) }
         let n = P.count, m = H.count
         guard n > 0, m > 0, n * m < 4_000_000 else { return nil }
-        // score grid: match +2, skip a pasted word -0.6 (not heard), skip a heard word -0.4 (made up / extra)
-        var score = [Float](repeating: 0, count: (n + 1) * (m + 1))
-        var move = [UInt8](repeating: 0, count: (n + 1) * (m + 1))   // 1 diag-match, 2 skip pasted, 3 skip heard, 4 diag-mismatch
+        // Which pasted words can pin a line to the song: not the little common ones ("it", "is", "me" are
+        // everywhere and pinned choruses to the wrong place), and words repeated all through the lyrics count less.
+        // A near-match (one sound off) counts less than an exact one.
+        let common: Set<String> = ["i", "me", "my", "you", "your", "it", "is", "a", "the", "of", "to", "and", "in", "on", "am",
+                                   "be", "we", "oh", "so", "but", "or", "all", "just", "what", "do", "no", "yeah", "that",
+                                   "this", "for", "with", "who", "im", "its", "youre", "dont", "can", "cant", "are", "was"]
+        var count: [String: Int] = [:]
+        for p in P { count[p, default: 0] += 1 }
+        let weight = P.map { p -> Float in (common.contains(p) || p.count <= 2) ? 0 : min(1, 3 / Float(count[p] ?? 1)) }
         let w = m + 1
-        for i in 1...n { score[i * w] = Float(i) * -0.6; move[i * w] = 2 }
-        for j in 1...m { score[j] = Float(j) * -0.4; move[j] = 3 }
-        for i in 1...n {
-            for j in 1...m {
-                let same = sameWord(P[i - 1], H[j - 1])
-                let d = score[(i - 1) * w + j - 1] + (same ? 2 : -1)
-                let up = score[(i - 1) * w + j] - 0.6
-                let left = score[i * w + j - 1] - 0.4
-                if d >= up && d >= left { score[i * w + j] = d; move[i * w + j] = same ? 1 : 4 }
-                else if up >= left { score[i * w + j] = up; move[i * w + j] = 2 }
-                else { score[i * w + j] = left; move[i * w + j] = 3 }
+        var banned = Set<Int>()
+        func align() -> [Int?] {
+            // score grid: match +2 (weighted), skip a pasted word -0.6 (not heard), skip a heard word -0.4 (made up / extra)
+            var score = [Float](repeating: 0, count: (n + 1) * (m + 1))
+            var move = [UInt8](repeating: 0, count: (n + 1) * (m + 1))   // 1 diag-match, 2 skip pasted, 3 skip heard, 4 diag-mismatch
+            for i in 1...n { score[i * w] = Float(i) * -0.6; move[i * w] = 2 }
+            for j in 1...m { score[j] = Float(j) * -0.4; move[j] = 3 }
+            for i in 1...n {
+                for j in 1...m {
+                    let same = weight[i - 1] > 0 && !banned.contains((i - 1) * w + (j - 1)) && sameWord(P[i - 1], H[j - 1])
+                    let gain: Float = same ? weight[i - 1] * (P[i - 1] == H[j - 1] ? 2 : 0.8) : -1
+                    let d = score[(i - 1) * w + j - 1] + gain
+                    let up = score[(i - 1) * w + j] - 0.6
+                    let left = score[i * w + j - 1] - 0.4
+                    if d >= up && d >= left { score[i * w + j] = d; move[i * w + j] = same ? 1 : 4 }
+                    else if up >= left { score[i * w + j] = up; move[i * w + j] = 2 }
+                    else { score[i * w + j] = left; move[i * w + j] = 3 }
+                }
             }
+            var anchor = [Int?](repeating: nil, count: n)
+            var i = n, j = m
+            while i > 0 || j > 0 {
+                let mv = move[i * w + j]
+                if i > 0 && j > 0 && (mv == 1 || mv == 4) { if mv == 1 { anchor[i - 1] = j - 1 }; i -= 1; j -= 1 }
+                else if i > 0 && (mv == 2 || j == 0) { i -= 1 }
+                else { j -= 1 }
+            }
+            return anchor
         }
-        var anchor = [Int?](repeating: nil, count: n)
-        var i = n, j = m
-        while i > 0 || j > 0 {
-            let mv = move[i * w + j]
-            if i > 0 && j > 0 && (mv == 1 || mv == 4) { if mv == 1 { anchor[i - 1] = j - 1 }; i -= 1; j -= 1 }
-            else if i > 0 && (mv == 2 || j == 0) { i -= 1 }
-            else { j -= 1 }
+        // Reality check: nobody sings 20 words in half a second. If the matches say so, the ones after the
+        // squeeze are in the wrong place (usually a repeated chorus): drop them and match again.
+        var anchor = align()
+        for _ in 0..<6 {
+            let found = anchor.enumerated().compactMap { k, a in a.map { (k, $0) } }
+            var bad: [(Int, Int)] = []
+            for x in 0..<max(0, found.count - 1) {
+                let (ka, ja) = found[x], (kb, jb) = found[x + 1]
+                let gap = kb - ka - 1
+                if gap >= 4 && Double(gap) / max(0.05, h[jb].start - h[ja].start) > 5 {
+                    var y = x + 1
+                    while y < found.count && (y == x + 1 || found[y].0 - found[y - 1].0 <= 3) { bad.append(found[y]); y += 1 }
+                    break
+                }
+            }
+            if bad.isEmpty { break }
+            for (k, j) in bad { banned.insert(k * w + j) }
+            anchor = align()
         }
         let anchors = anchor.enumerated().compactMap { k, a in a.map { (k, $0) } }
         guard anchors.count >= max(4, n / 12) else { return nil }   // too little in common: not the same song / nothing heard
