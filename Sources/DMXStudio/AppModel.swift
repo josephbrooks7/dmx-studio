@@ -228,6 +228,9 @@ final class AppModel: ObservableObject {
     @Published var blackout = false
     @Published var flashHeld = false     // hold: everything full white
     @Published var strobeHeld = false    // hold: everything strobes
+    @Published var blinderHeld = false   // full white; fades out after release
+    @Published var paparazziHeld = false // camera-flash pops on random heads
+    private var blinderLevel = 0.0
     @Published var testMode: TestMode = .off
     @Published var identifyFixtureID: UUID?
     /// Opens the step-by-step light setup walkthrough (nil = closed; empty = all lights)
@@ -3151,6 +3154,26 @@ final class AppModel: ObservableObject {
                 for h in rendered[i].heads.indices { rendered[i].heads[h].intensity *= dimK }
                 if pauseTime != nil { rendered[i].strobe = 0 }
             }
+        }
+
+        // Blinder: full white while held, then fades out (about a second)
+        blinderLevel = blinderHeld ? 1 : blinderLevel * 0.93
+        if blinderLevel > 0.01 {
+            for i in rendered.indices { for h in rendered[i].heads.indices {
+                rendered[i].heads[h].color = rendered[i].heads[h].color.mix(.white, blinderLevel)
+                rendered[i].heads[h].intensity = max(rendered[i].heads[h].intensity, blinderLevel)
+            } }
+        }
+        // Paparazzi: random heads pop like camera flashes (no faster than the flash limit allows)
+        if paparazziHeld && ShowRenderer.maxFlashHz > 0 {
+            let step = Int(now * min(8, ShowRenderer.maxFlashHz * 2))
+            var n = 0
+            for i in rendered.indices { for h in rendered[i].heads.indices {
+                var x = UInt64(truncatingIfNeeded: (n &* 2246822519) ^ (step &* 3266489917))
+                x ^= x >> 15; x = x &* 0xBF58476D1CE4E5B9; x ^= x >> 31
+                if x % 5 == 0 { rendered[i].heads[h].color = .white; rendered[i].heads[h].intensity = 1 }
+                n += 1
+            } }
         }
 
         // Live hold buttons override everything

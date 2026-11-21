@@ -971,6 +971,7 @@ struct PresetEditor: View {
 
 struct LiveScreen: View {
     @EnvironmentObject var model: AppModel
+    @AppStorage("hitRelease") private var hitRelease = HitRelease.hold.rawValue
     private let cols = [GridItem(.adaptive(minimum: 150, maximum: 200), spacing: 14)]
 
     var body: some View {
@@ -1006,10 +1007,21 @@ struct LiveScreen: View {
                             }
                         }
                     }
-                    Text("Hits").font(.headline).foregroundColor(Theme.subtle)
+                    HStack {
+                        Text("Hits").font(.headline).foregroundColor(Theme.subtle)
+                        Spacer()
+                        Text("Release").font(.caption).foregroundColor(Theme.subtle)
+                        Picker("", selection: $hitRelease) {
+                            ForEach(HitRelease.allCases) { Text($0.rawValue).tag($0.rawValue) }
+                        }
+                        .pickerStyle(.segmented).labelsHidden().frame(width: 280)
+                        .help("Hold: on while pressed · Toggle: press on, press off · 1 / 5 / 10 s: on for that long")
+                    }
                     LazyVGrid(columns: cols, spacing: 14) {
                         LiveHoldPad(title: "Flash", icon: "sun.max.fill", color: .white, isHeld: $model.flashHeld)
                         LiveHoldPad(title: "Strobe", icon: "bolt.fill", color: .yellow, isHeld: $model.strobeHeld)
+                        LiveHoldPad(title: "Blinder", icon: "sun.max.circle.fill", color: Color(red: 1, green: 0.95, blue: 0.8), isHeld: $model.blinderHeld)
+                        LiveHoldPad(title: "Paparazzi", icon: "camera.fill", color: .cyan, isHeld: $model.paparazziHeld)
                         LivePad(title: model.blackout ? "Blackout ON" : "Blackout", icon: "lightbulb.slash.fill",
                                 colors: [Color.red.opacity(0.8), Color.black], active: model.blackout) { model.blackout.toggle() }
                         LivePad(title: "Stop Look", icon: "stop.fill", colors: [Color.gray, Color.black], active: false) { model.activePresetID = nil }
@@ -1044,24 +1056,48 @@ struct LivePad: View {
     }
 }
 
+/// How the hit keys let go (like a hardware controller's release modes)
+enum HitRelease: String, CaseIterable, Identifiable {
+    case hold = "Hold", toggle = "Toggle", one = "1 s", five = "5 s", ten = "10 s"
+    var id: String { rawValue }
+    var seconds: Double? { switch self { case .one: return 1; case .five: return 5; case .ten: return 10; default: return nil } }
+}
+
 struct LiveHoldPad: View {
     let title: String
     let icon: String
     let color: Color
     @Binding var isHeld: Bool
+    @AppStorage("hitRelease") private var release = HitRelease.hold.rawValue
+    @State private var pressed = false
 
     var body: some View {
         VStack(spacing: 10) {
             Image(systemName: icon).font(.system(size: 26, weight: .bold))
-            Text("Hold · \(title)").font(.system(size: 13, weight: .bold))
+            Text((HitRelease(rawValue: release) ?? .hold) == .hold ? "Hold · \(title)" : title).font(.system(size: 13, weight: .bold))
         }
         .frame(maxWidth: .infinity, minHeight: 110)
         .background(HardwareKeyBackground(held: isHeld, accent: color))
         .foregroundColor(isHeld ? color : color.opacity(0.85))
         .contentShape(Rectangle())
         .gesture(DragGesture(minimumDistance: 0)
-            .onChanged { _ in if !isHeld { isHeld = true } }
-            .onEnded { _ in isHeld = false })
+            .onChanged { _ in
+                guard !pressed else { return }
+                pressed = true
+                switch HitRelease(rawValue: release) ?? .hold {
+                case .hold: isHeld = true
+                case .toggle: isHeld.toggle()
+                default: isHeld = true
+                }
+            }
+            .onEnded { _ in
+                pressed = false
+                let mode = HitRelease(rawValue: release) ?? .hold
+                if mode == .hold { isHeld = false }
+                else if let s = mode.seconds {
+                    DispatchQueue.main.asyncAfter(deadline: .now() + s) { isHeld = false }
+                }
+            })
     }
 }
 
