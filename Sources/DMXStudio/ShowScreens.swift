@@ -182,6 +182,8 @@ struct SessionCard: View {
 enum MainTab: String, CaseIterable, Identifiable {
     case show = "Show", stage = "Stage", live = "Live", songs = "Songs", sets = "Set Lists", setup = "Setup"
     var id: String { rawValue }
+    /// What the tab is called on screen
+    var title: String { self == .live ? "Live Control" : rawValue }
     var icon: String {
         switch self {
         case .show: return "lightbulb.fill"
@@ -226,6 +228,10 @@ struct MainShell: View {
                 }
             }
             .frame(maxWidth: .infinity, maxHeight: .infinity)
+            // a small window showing what the lights are doing, on every page but Stage
+            .overlay(alignment: .bottomTrailing) {
+                if tab != .stage { MiniOutputPreview { tab = .stage }.padding(14) }
+            }
             BottomBar(tab: $tab)
         }
         .background(Theme.bg)
@@ -342,7 +348,7 @@ struct BottomBar: View {
                     Button { tab = t } label: {
                         VStack(spacing: 3) {
                             Image(systemName: t.icon).font(.system(size: 15))
-                            Text(t.rawValue).font(.system(size: 11, weight: .medium))
+                            Text(t.title).font(.system(size: 11, weight: .medium))
                         }
                         .frame(width: 78, height: 44)
                         .foregroundColor(tab == t ? Theme.accent : Theme.subtle)
@@ -1001,8 +1007,8 @@ struct LiveScreen: View {
             ScrollView {
                 VStack(alignment: .leading, spacing: 18) {
                     HStack {
-                        Text("Live").font(.system(size: 22, weight: .heavy))
-                        Text("Play the lights by hand. Pads follow the beat tracker (tap or microphone).")
+                        Text("Live Control").font(.system(size: 22, weight: .heavy))
+                        Text("Play the lights by hand: a look replaces the song's show until you tap it again; strobes and flash only while held. Pads follow the song's beat, or TAP / Listen with no song.")
                             .font(.caption).foregroundColor(Theme.subtle)
                         Spacer()
                         Button { model.tapTempo() } label: {
@@ -1537,6 +1543,59 @@ struct FadeToButton: View {
             .frame(maxWidth: 210)
             .background(Capsule().fill(Theme.accent.opacity(0.35)))
             .overlay(Capsule().stroke(Theme.accent))
+        }
+    }
+}
+
+
+/// Picture-in-picture view of the output: the same stage drawing as the Stage page, small, in a corner.
+/// Click it to open the Stage page; the chevron folds it away.
+struct MiniOutputPreview: View {
+    @EnvironmentObject var model: AppModel
+    @AppStorage("miniPreviewShown") private var shown = true
+    @AppStorage("miniPreviewLarge") private var large = false
+    let openStage: () -> Void
+
+    var body: some View {
+        if shown {
+            VStack(spacing: 0) {
+                HStack(spacing: 6) {
+                    Circle().fill(model.outputEnabled ? Color.green : Color.orange).frame(width: 7, height: 7)
+                    Text(model.outputEnabled ? "LIVE · what your lights are doing" : "PREVIEW · lights untouched")
+                        .font(.system(size: 10, weight: .bold)).lineLimit(1)
+                    Spacer(minLength: 4)
+                    Button { large.toggle() } label: {
+                        Image(systemName: large ? "arrow.down.right.and.arrow.up.left" : "arrow.up.left.and.arrow.down.right")
+                    }
+                    .buttonStyle(.plain).help(large ? "Smaller" : "Bigger")
+                    Button { shown = false } label: { Image(systemName: "chevron.down") }
+                        .buttonStyle(.plain).help("Hide the preview")
+                }
+                .font(.system(size: 10))
+                .padding(.horizontal, 9).padding(.vertical, 5)
+                .background(Color.black.opacity(0.85))
+                StageCanvas(editing: false)
+                    .frame(width: large ? 420 : 280, height: large ? 236 : 158)
+                    .clipped()
+                    .contentShape(Rectangle())
+                    .onTapGesture { openStage() }
+                    .help("Open the Stage page")
+            }
+            .background(Color.black)
+            .clipShape(RoundedRectangle(cornerRadius: 10, style: .continuous))
+            .overlay(RoundedRectangle(cornerRadius: 10, style: .continuous)
+                .stroke(model.outputEnabled ? Color.green.opacity(0.7) : Color.white.opacity(0.15), lineWidth: 1))
+            .shadow(color: .black.opacity(0.6), radius: 12, y: 4)
+        } else {
+            Button { shown = true } label: {
+                Label("Preview", systemImage: "eye")
+                    .font(.system(size: 11, weight: .semibold))
+                    .padding(.horizontal, 10).padding(.vertical, 6)
+                    .background(Capsule().fill(Color.black.opacity(0.85)))
+                    .overlay(Capsule().stroke(Color.white.opacity(0.15)))
+            }
+            .buttonStyle(.plain)
+            .help("Show a small preview of what your lights are doing")
         }
     }
 }
