@@ -126,19 +126,16 @@ struct SongView: View {
                             Button("Skip Lyrics") { model.stopLyrics(song.id) }.controlSize(.small).foregroundColor(.secondary).help("Go straight to learning the music")
                         }
                     } else {
-                        Button {
-                            model.learn(song.id)
-                        } label: {
-                            Label(song.isLearned ? "Learn Again" : "Learn", systemImage: "waveform.badge.magnifyingglass")
+                        Button { model.learn(song.id) } label: {
+                            ActionTile(icon: "waveform", title: song.isLearned ? "Learn Again" : "Learn",
+                                       subtitle: "the song as it is")
                         }
-                        .controlSize(.large)
+                        .buttonStyle(TileButtonStyle(prominent: !song.isLearned))
                         .help("Lyrics, then the music, from the song as it is (quick, no stems)")
-                        Button {
-                            model.deepLearn(song.id)
-                        } label: {
-                            Label("Deep Learn", systemImage: "square.3.layers.3d.down.right")
+                        Button { model.deepLearn(song.id) } label: {
+                            ActionTile(icon: "square.3.layers.3d.down.right", title: "Deep Learn", subtitle: "with stems · slower")
                         }
-                        .controlSize(.large)
+                        .buttonStyle(TileButtonStyle())
                         .help("Lyrics, then splits the song into stems (vocals, drums, bass…) and learns the music from them. Slower; more accurate hits and vocal parts")
                     }
                     Button {
@@ -146,17 +143,18 @@ struct SongView: View {
                         else if model.playingSongID == song.id { model.togglePlay() }
                         else { model.play(song.id, from: 0) }
                     } label: {
-                        Label(model.playingSongID == song.id && model.isPlaying ? "Pause" : "Play",
-                              systemImage: model.playingSongID == song.id && model.isPlaying ? "pause.fill" : "play.fill")
+                        ActionTile(icon: model.playingSongID == song.id && model.isPlaying ? "pause.fill" : "play.fill",
+                                   title: model.playingSongID == song.id && model.isPlaying ? "Pause" : "Play",
+                                   subtitle: "with the lights")
                     }
-                    .controlSize(.large)
+                    .buttonStyle(TileButtonStyle(prominent: song.isLearned))
                     if song.activeShow != nil {
                         Button {
                             model.makeLooks(from: song.id)
                         } label: {
-                            Label("Make Looks", systemImage: "wand.and.stars")
+                            ActionTile(icon: "wand.and.stars", title: "Make Looks", subtitle: "presets from this show")
                         }
-                        .controlSize(.large)
+                        .buttonStyle(TileButtonStyle())
                         .help("Make new presets from this song's light show (they appear in their own group on the Live and Show screens)")
                     }
                 }
@@ -523,6 +521,45 @@ struct TimelineView: View {
             })
             .background(RoundedRectangle(cornerRadius: 8).fill(Color.black.opacity(0.4)))
         }
+    }
+}
+
+// MARK: - Action tiles (Learn / Deep Learn)
+
+/// Icon + name + a short line saying what it does
+struct ActionTile: View {
+    let icon: String, title: String, subtitle: String
+    var body: some View {
+        HStack(spacing: 10) {
+            Image(systemName: icon).font(.system(size: 17, weight: .semibold)).frame(width: 22)
+            VStack(alignment: .leading, spacing: 1) {
+                Text(title).font(.system(size: 14, weight: .bold))
+                Text(subtitle).font(.system(size: 11, weight: .medium)).opacity(0.7)
+            }
+        }
+    }
+}
+
+/// The app's dark rounded button (Red Velvet accent when it's the main thing to do)
+struct TileButtonStyle: ButtonStyle {
+    var prominent = false
+    func makeBody(configuration: Configuration) -> some View {
+        configuration.label
+            .foregroundColor(.white)
+            .padding(.horizontal, 14).padding(.vertical, 9)
+            .background(
+                Group {
+                    if prominent {
+                        RoundedRectangle(cornerRadius: 12, style: .continuous)
+                            .fill(LinearGradient(colors: [Theme.accent, Theme.accent2], startPoint: .leading, endPoint: .trailing))
+                    } else {
+                        RoundedRectangle(cornerRadius: 12, style: .continuous).fill(Color.white.opacity(0.08))
+                    }
+                }
+                .opacity(configuration.isPressed ? 0.75 : 1)
+            )
+            .overlay(RoundedRectangle(cornerRadius: 12, style: .continuous).stroke(Color.white.opacity(prominent ? 0 : 0.14)))
+            .contentShape(RoundedRectangle(cornerRadius: 12, style: .continuous))
     }
 }
 
