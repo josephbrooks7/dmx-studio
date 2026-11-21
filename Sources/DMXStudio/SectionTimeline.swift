@@ -656,6 +656,22 @@ struct SectionTimelineEditor: View {
                 labeled("Brightness") { Slider(value: sec.intensity, in: 0.1...1).frame(width: 110) }
                 labeled("Hit") { Toggle("", isOn: sec.accentStrobe).labelsHidden().help("Strobe hit on the first bar") }
             }
+            HStack(spacing: 14) {
+                labeled("Phase") {
+                    Slider(value: Binding(get: { sec.wrappedValue.phase ?? 0 }, set: { sec.wrappedValue.phase = $0 < 0.01 ? nil : $0 }), in: 0...1)
+                        .frame(width: 120).help("Each head runs a little later than the one before, so the look rolls across the light")
+                }
+                labeled("Order") {
+                    Picker("", selection: Binding(get: { sec.wrappedValue.order ?? .forward }, set: { sec.wrappedValue.order = $0 == .forward ? nil : $0 })) {
+                        ForEach(HeadOrder.allCases) { Text($0.rawValue).tag($0) }
+                    }.labelsHidden().frame(width: 110).help("Which way the pattern runs across the heads (Symmetric mirrors it from the middle)")
+                }
+                labeled("Fan") {
+                    Slider(value: Binding(get: { sec.wrappedValue.fan ?? 0 }, set: { sec.wrappedValue.fan = $0 < 0.01 ? nil : $0 }), in: 0...1)
+                        .frame(width: 120).help("Spread the beams of your lights apart")
+                }
+                Spacer()
+            }
         }
         .padding(12)
         .background(RoundedRectangle(cornerRadius: 10).fill(Color.white.opacity(0.04)))
@@ -709,6 +725,7 @@ struct SectionTimelineEditor: View {
         s.intensity = src.intensity; s.accentStrobe = src.accentStrobe; s.colorShift = src.colorShift; s.accents = src.accents
         s.empty = src.empty
         s.transition = src.transition
+        s.phase = src.phase; s.order = src.order; s.fan = src.fan
         song.shows[showIndex].sections[k] = s
         select(id)
     }

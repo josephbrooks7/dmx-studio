@@ -404,6 +404,7 @@ struct ShowRenderer {
         let sec = sections[si]
         let next = si + 1 < sections.count ? sections[si + 1] : nil
         var out = renderSection(sec, ctx, next: next)
+        shapeAcrossHeads(&out, sec, t: t, ctx: ctx, next: next)
         // Brightness follows the song: verses lower, builds rise, choruses/drops brightest
         let dyn = dynamics(at: t, si: si, ctx: ctx)
         if dyn < 0.999 {
@@ -740,6 +741,40 @@ struct ShowRenderer {
     }
 
     // MARK: context
+
+    /// Phase (each head a little later), Order (forward / backward / mirrored) and Fan (beams spread) for a block
+    private func shapeAcrossHeads(_ out: inout [RenderedFixture], _ sec: ShowSection, t: Double, ctx: Ctx, next: ShowSection?) {
+        let total = out.reduce(0) { $0 + $1.heads.count }
+        guard total > 1 else { return }
+        // Phase: up to 2 beats of delay from the first head to the last (4 steps, so it stays light on the CPU)
+        if let ph = sec.phase, ph > 0.01 {
+            var samples: [Int: [RenderedFixture]] = [0: out]
+            var n = 0
+            for f in out.indices {
+                for h in out[f].heads.indices {
+                    let q = Int((Double(n) / Double(total - 1) * 3).rounded())
+                    if samples[q] == nil { samples[q] = renderSection(sec, context(t - Double(q) / 3 * ph * 2 * ctx.beatLen), next: next) }
+                    if let s = samples[q], f < s.count, h < s[f].heads.count { out[f].heads[h] = s[f].heads[h] }
+                    n += 1
+                }
+            }
+        }
+        // Order: run the pattern the other way, or mirrored from the middle
+        if let o = sec.order, o != .forward {
+            var flat = out.flatMap { $0.heads }
+            if o == .backward { flat.reverse() }
+            else { for i in 0..<(flat.count / 2) { flat[flat.count - 1 - i] = flat[i] } }
+            var n = 0
+            for f in out.indices { for h in out[f].heads.indices { out[f].heads[h] = flat[n]; n += 1 } }
+        }
+        // Fan: spread the lights' beams apart (left light leans left, right light leans right)
+        if let fan = sec.fan, fan > 0.01, out.count > 1 {
+            for f in out.indices {
+                let pos = Double(f) / Double(out.count - 1) - 0.5
+                out[f].pan = max(0, min(1, out[f].pan + pos * fan * 0.6))
+            }
+        }
+    }
 
     private func context(_ t: Double) -> Ctx {
         let beats = analysis.beats

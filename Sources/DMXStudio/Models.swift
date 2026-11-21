@@ -423,6 +423,14 @@ struct ShowSection: Identifiable, Codable, Hashable {
     var accents: Double? = nil      // how much white blinder / strobe accent use (nil = 1, 0 = none)
     var empty: Bool? = nil          // removed on the timeline: an empty slot (idle look) waiting for a new look
     var transition: HitKind? = nil  // a short transition block: this hit, on top of the look before it
+    var phase: Double? = nil        // 0…1: each head runs a little later than the one before (rolls across)
+    var order: HeadOrder? = nil     // which way patterns run across the heads
+    var fan: Double? = nil          // 0…1: spread the beams of the lights apart
+}
+
+enum HeadOrder: String, Codable, CaseIterable, Identifiable {
+    case forward = "Forward", backward = "Backward", symmetric = "Symmetric"
+    var id: String { rawValue }
 }
 
 struct SongAnalysis: Codable {
