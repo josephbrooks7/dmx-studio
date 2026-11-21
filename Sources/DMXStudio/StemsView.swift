@@ -490,9 +490,10 @@ struct LyricsTab: View {
                         ForEach(WhisperEngine.ModelSize.allCases) { Text($0.label).tag($0) }
                     }
                 }
-                Picker("Listen to", selection: Binding(get: { model.lyricsFromVocalPart }, set: { model.lyricsFromVocalPart = $0 })) {
-                    Text("Whole song").tag(false)
-                    Text("Vocal part (after Deep Learn)").tag(true)
+                Picker("Listen to", selection: Binding(get: { model.lyricsSeparateVocal },
+                                                       set: { model.lyricsSeparateVocal = $0; model.lyricsFromVocalPart = $0 })) {
+                    Text("Separated vocal (most accurate, a few minutes)").tag(true)
+                    Text("Whole song (fast)").tag(false)
                 }
                 Picker("Language", selection: Binding(get: { WhisperEngine.language }, set: { WhisperEngine.language = $0; model.objectWillChange.send() })) {
                     ForEach(WhisperEngine.Language.allCases) { Text($0.rawValue).tag($0) }

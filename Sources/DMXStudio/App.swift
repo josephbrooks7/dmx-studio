@@ -104,6 +104,19 @@ struct DMXStudioApp: App {
             FileHandle.standardOutput.write((try? JSONEncoder().encode(nodes)) ?? Data("[]".utf8))
             exit(0)
         }
+        // Helper: separate a song's vocal (for listening to lyrics): writes the parts into a folder
+        if let i = args.firstIndex(of: "--vocals"), i + 2 < args.count {
+            CrashGuard.install(writeToStderr: true)
+            do {
+                try HQSplitter.separate(url: URL(fileURLWithPath: args[i + 1]), outDir: URL(fileURLWithPath: args[i + 2])) { p in
+                    print("progress=\(p)"); fflush(stdout)
+                }
+                exit(0)
+            } catch {
+                FileHandle.standardError.write(Data(error.localizedDescription.utf8))
+                exit(3)
+            }
+        }
         if let i = args.firstIndex(of: "--learn"), i + 2 < args.count {
             CrashGuard.install(writeToStderr: true)
             CrashGuard.breadcrumb("Learning \(URL(fileURLWithPath: args[i + 1]).lastPathComponent)")
