@@ -464,7 +464,8 @@ struct SectionTimelineEditor: View {
                     .background(Capsule().fill(levelColor(s.level).opacity(0.35)))
                 Spacer()
                 Button { play(from: s.start) } label: { Label("Play from Here", systemImage: "play.fill") }
-                Button { model.splitSection(songID: song.id, sectionID: s.id) } label: { Label("Split", systemImage: "scissors") }
+                Button { select(s.id); model.splitKey() } label: { Label("Cut  ( . )", systemImage: "scissors") }
+                    .help("Cut this block (at the playhead if it's inside, else in the middle) and leave a short slot for a transition")
                 Button { model.mergeWithNext(songID: song.id, sectionID: s.id) } label: { Label("Merge with Next", systemImage: "arrow.right.to.line") }
                 Button { model.emptySection(songID: song.id, sectionID: s.id) } label: { Label("Remove", systemImage: "trash") }
                     .disabled(s.empty == true)
