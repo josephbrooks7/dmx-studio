@@ -296,13 +296,7 @@ struct UpdateSheet: View {
                     Text(label + "…")
                     ProgressView(value: f)
                 case .installing(let text, let f):
-                    Text(text)
-                    ProgressView(value: f)
-                    TimelineView(.periodic(from: .now, by: 1)) { ctx in
-                        let s = Int(ctx.date.timeIntervalSince(up.stepStarted))
-                        Text("This step: \(s / 60):" + String(format: "%02d", s % 60) + " · DMX Studio restarts when it's done")
-                            .font(.caption).foregroundColor(.secondary)
-                    }
+                    InstallStepView(text: text, fraction: f, started: up.stepStarted)
                 case .failed(let msg):
                     Label(msg, systemImage: "exclamationmark.triangle.fill").foregroundColor(.orange)
                         .fixedSize(horizontal: false, vertical: true)
@@ -341,5 +335,29 @@ struct UpdateBadge: View {
             .buttonStyle(.plain)
             .help("A new version of DMX Studio is ready to install")
         }
+    }
+}
+
+/// One install step: its name, the overall progress and how long this step has taken
+struct InstallStepView: View {
+    let text: String
+    let fraction: Double
+    let started: Date
+    @State private var now = Date()
+    private let tick = Timer.publish(every: 1, on: .main, in: .common).autoconnect()
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 6) {
+            Text(text)
+            ProgressView(value: fraction)
+            Text("This step: \(elapsed) · DMX Studio restarts when it's done")
+                .font(.caption).foregroundColor(.secondary)
+        }
+        .onReceive(tick) { now = $0 }
+    }
+
+    private var elapsed: String {
+        let s = max(0, Int(now.timeIntervalSince(started)))
+        return String(format: "%d:%02d", s / 60, s % 60)
     }
 }
