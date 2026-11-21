@@ -917,6 +917,7 @@ enum HitKind: String, Codable, CaseIterable, Identifiable {
     case stutter = "Stutter"
     case strobeRamp = "Strobe Ramp"
     case blinder = "Blinder"
+    case paparazzi = "Paparazzi"
     case sweep = "Sweep Hit"
     case centerBurst = "Center Burst Hit"
     case splitFlash = "Split Flash"
@@ -932,7 +933,7 @@ enum HitKind: String, Codable, CaseIterable, Identifiable {
     var id: String { rawValue }
 
     /// Builds up INTO its moment (ends on the block's end) instead of starting on it
-    var buildsUp: Bool { self == .rise || self == .strobeRamp }
+    var buildsUp: Bool { self == .rise || self == .strobeRamp || self == .paparazzi }
 
     var icon: String {
         switch self {
@@ -943,6 +944,7 @@ enum HitKind: String, Codable, CaseIterable, Identifiable {
         case .stutter: return "bolt.circle.fill"
         case .strobeRamp: return "arrow.up.right.circle.fill"
         case .blinder: return "sun.max.fill"
+        case .paparazzi: return "camera.fill"
         case .sweep: return "arrow.right.to.line"
         case .centerBurst: return "arrow.left.and.right"
         case .splitFlash: return "square.split.2x1"
@@ -959,7 +961,7 @@ enum HitKind: String, Codable, CaseIterable, Identifiable {
     }
     var color: RGB {
         switch self {
-        case .flash, .blinder, .doubleFlash, .tripleFlash: return RGB(r: 1, g: 1, b: 1)
+        case .flash, .blinder, .doubleFlash, .tripleFlash, .paparazzi: return RGB(r: 1, g: 1, b: 1)
         case .strobeBurst, .stutter, .strobeRamp: return RGB(r: 0.85, g: 0.9, b: 1)
         case .sweep, .centerBurst, .splitFlash: return RGB(r: 0.7, g: 0.95, b: 1)
         case .sparkle, .chaseRun: return RGB(r: 1, g: 0.95, b: 0.6)
@@ -976,7 +978,7 @@ enum HitKind: String, Codable, CaseIterable, Identifiable {
         switch self {
         case .flash, .doubleFlash, .tripleFlash, .colorPop, .rainbowFlash, .blackout, .sweep, .centerBurst, .splitFlash, .tiltSnap: return 1
         case .strobeBurst, .stutter, .blinder, .sparkle, .chaseRun, .fadeOut, .fadeIn: return 2
-        case .rise, .strobeRamp: return 4
+        case .rise, .strobeRamp, .paparazzi: return 4
         }
     }
     var blurb: String {
@@ -988,6 +990,7 @@ enum HitKind: String, Codable, CaseIterable, Identifiable {
         case .stutter: return "strobe chops on the beat grid"
         case .strobeRamp: return "strobes that speed up into the moment"
         case .blinder: return "full white, then fades"
+        case .paparazzi: return "camera-flash pops on random heads, getting busier into the moment"
         case .sweep: return "a white band runs across the light"
         case .centerBurst: return "bursts from the middle outward"
         case .splitFlash: return "left half, then right half"

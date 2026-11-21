@@ -473,6 +473,18 @@ struct ShowRenderer {
                 }
             }
             switch hit.kind {
+            case .paparazzi:
+                // camera flashes: single heads pop at random, more and more of them into the moment
+                let step = Int(dt / (bl / 4))
+                let since = dt - Double(step) * (bl / 4)
+                let chance = UInt64(2 + Int(frac * 6))           // 2/16 of the heads → 8/16 near the end
+                let k = (gentle ? 0.5 : 1) * pulse(since)
+                each { s, _, n in
+                    var x = UInt64(truncatingIfNeeded: (n &* 2246822519) ^ (step &* 3266489917) ^ Int(hit.time * 977))
+                    x ^= x >> 15; x = x &* 0xBF58476D1CE4E5B9; x ^= x >> 31
+                    guard x % 16 < chance else { s.intensity *= 0.7; return }
+                    s.color = s.color.mix(.white, k); s.intensity = max(s.intensity, k)
+                }
             case .doubleFlash: flashes(2)
             case .tripleFlash: flashes(3)
             case .strobeRamp:

@@ -371,7 +371,7 @@ struct SectionTimelineEditor: View {
                 Spacer(minLength: 0)
                 HStack(spacing: 5) {
                     if let mi = s.movement.icon, width > 40 { Image(systemName: mi).font(.system(size: 10)) }
-                    if s.rate != 1, width > 60 { Text(s.rate < 1 ? "½×" : "2×").font(.system(size: 10, weight: .bold)) }
+                    if s.rate != 1, width > 60 { Text(s.rate == 0 ? "❄︎" : s.rate < 1 ? "½×" : "\(Int(s.rate))×").font(.system(size: 10, weight: .bold)) }
                     if s.accentStrobe, width > 30 { Image(systemName: "bolt.fill").font(.system(size: 10)) }
                     if width > 110 { Text(formatTime(s.start)).font(.system(size: 10)).opacity(0.7).monospacedDigit() }
                 }
@@ -645,9 +645,12 @@ struct SectionTimelineEditor: View {
                 }
                 labeled("Speed") {
                     Picker("", selection: sec.rate) {
+                        Text("Freeze").tag(0.0)
                         Text("½ speed").tag(0.5)
                         Text("Normal").tag(1.0)
                         Text("2× speed").tag(2.0)
+                        Text("4× speed").tag(4.0)
+                        Text("8× speed").tag(8.0)
                     }.labelsHidden().frame(width: 100)
                 }
                 labeled("Brightness") { Slider(value: sec.intensity, in: 0.1...1).frame(width: 110) }
