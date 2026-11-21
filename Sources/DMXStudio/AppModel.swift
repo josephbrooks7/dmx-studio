@@ -2274,6 +2274,18 @@ final class AppModel: ObservableObject {
         }
     }
 
+    /// Scissors: cut a block exactly at a time (no slot)
+    func cutAt(songID: UUID, sectionID: UUID, time t: Double) {
+        guard let i = index(of: songID), let si = songs[i].activeShowIndex,
+              let k = songs[i].shows[si].sections.firstIndex(where: { $0.id == sectionID }) else { return }
+        let sec = songs[i].shows[si].sections[k]
+        guard t - sec.start >= 0.2, sec.end - t >= 0.2 else { return }
+        var left = sec, right = sec
+        left.end = t
+        right.id = UUID(); right.start = t; right.accentStrobe = false
+        songs[i].shows[si].sections.replaceSubrange(k...k, with: [left, right])
+    }
+
     func cutWithSlot(songID: UUID, at raw: Double) {
         guard let i = index(of: songID), let si = songs[i].activeShowIndex, let a = songs[i].analysis else { return }
         let t = a.beats.min(by: { abs($0 - raw) < abs($1 - raw) }).flatMap { abs($0 - raw) < 0.3 ? $0 : nil } ?? raw

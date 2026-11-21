@@ -64,6 +64,35 @@ struct SectionTimelineEditor: View {
     @State private var edgeOrigin: Double?
     @State private var edgeDragging: Int?
     @State private var timelineWidth: CGFloat = 1
+    @AppStorage("timelineBlockHeight") private var blockH: Double = 78
+    @State private var tool: TimelineTool = .pointer
+    @State private var paint: Paint?                 // what the Pencil puts on a block (the last pad clicked)
+    @State private var repeatFrom: UUID?             // block whose repeat handle is being dragged
+    @State private var repeatTo: Double?
+
+    enum TimelineTool: String, CaseIterable, Identifiable {
+        case pointer = "Pointer", scissors = "Scissors", eraser = "Eraser", pencil = "Pencil", join = "Join"
+        var id: String { rawValue }
+        var icon: String {
+            switch self {
+            case .pointer: return "cursorarrow"
+            case .scissors: return "scissors"
+            case .eraser: return "xmark.square"
+            case .pencil: return "pencil"
+            case .join: return "link"
+            }
+        }
+        var help: String {
+            switch self {
+            case .pointer: return "Pointer: select blocks, drag edges, drop looks"
+            case .scissors: return "Scissors: click a block to cut it right there (on the beat)"
+            case .eraser: return "Eraser: click a block to empty it (its time stays)"
+            case .pencil: return "Pencil: click a block or slot to paint it with the last look / transition you clicked"
+            case .join: return "Join: click a block to merge it with the next one"
+            }
+        }
+    }
+    enum Paint: Equatable { case look(UUID), transition(HitKind) }
 
     private var sections: [ShowSection] { song.shows.indices.contains(showIndex) ? song.shows[showIndex].sections : [] }
 
@@ -75,6 +104,13 @@ struct SectionTimelineEditor: View {
                     Text("Click a block to change it · drag a look onto it to replace it · press . while playing to cut a slot for a transition")
                         .font(.caption).foregroundColor(.secondary).lineLimit(1)
                     Spacer()
+                    Picker("", selection: $tool) {
+                        ForEach(TimelineTool.allCases) { tl in Image(systemName: tl.icon).help(tl.help).tag(tl) }
+                    }
+                    .pickerStyle(.segmented).labelsHidden().frame(width: 190)
+                    .help(tool.help)
+                    Image(systemName: "arrow.up.and.down").foregroundColor(.secondary)
+                    Slider(value: $blockH, in: 50...150).frame(width: 70).help("Track height")
                     Image(systemName: "minus.magnifyingglass").foregroundColor(.secondary)
                     Slider(value: $zoom, in: 1...4).frame(width: 110).help("Zoom the timeline")
                     Image(systemName: "plus.magnifyingglass").foregroundColor(.secondary)
@@ -109,7 +145,7 @@ struct SectionTimelineEditor: View {
                                 let x0 = CGFloat(s.start / dur) * width
                                 let w = max(18, CGFloat((s.end - s.start) / dur) * width - 4)
                                 block(s, width: w)
-                                    .frame(width: w, height: 78)
+                                    .frame(width: w, height: blockH)
                                     .offset(x: x0 + 2)
                             }
                             // edges between blocks: drag to resize (the neighbor gives or takes the time)
@@ -118,7 +154,7 @@ struct SectionTimelineEditor: View {
                                     .offset(x: CGFloat(s.end / dur) * width - 6)
                             }
                         }
-                        .frame(width: width, height: 78, alignment: .topLeading)
+                        .frame(width: width, height: blockH, alignment: .topLeading)
                         // audio track
                         waveform(width: width, dur: dur)
                             .frame(width: width, height: 40)
@@ -134,14 +170,29 @@ struct SectionTimelineEditor: View {
                 .padding(.top, 2)
             }
         }
-        .frame(height: 152)
+        .frame(height: blockH + 74)
     }
 
     /// The grab handle on the boundary after block k
     private func edgeHandle(_ k: Int) -> some View {
         Rectangle().fill(Color.white.opacity(edgeDragging == k ? 0.9 : 0.001))
-            .frame(width: 12, height: 78)
+            .frame(width: 12, height: blockH)
             .overlay(Capsule().fill(Color.white.opacity(edgeDragging == k ? 1 : 0.35)).frame(width: 3, height: 30))
+            .overlay(alignment: .bottom) {
+                if edgeDragging == k, sections.indices.contains(k) {
+                    let s = sections[k]
+                    let delta = s.end - (edgeOrigin ?? s.end)
+                    VStack(alignment: .leading, spacing: 1) {
+                        Text("Length Change").font(.system(size: 10, weight: .bold))
+                        Text("\(s.name): \(barsBeats(s.end - s.start))  (\(String(format: "%.1f", s.end - s.start)) s)").font(.system(size: 10))
+                        Text("\(delta >= 0 ? "+" : "−")\(barsBeats(abs(delta)))  · ends \(formatTime(s.end))").font(.system(size: 10)).foregroundColor(.yellow)
+                    }
+                    .padding(6)
+                    .background(RoundedRectangle(cornerRadius: 6).fill(Color.black.opacity(0.88)))
+                    .fixedSize()
+                    .offset(x: 70, y: 52)
+                }
+            }
             .contentShape(Rectangle())
             .onHover { inside in if inside { NSCursor.resizeLeftRight.push() } else { NSCursor.pop() } }
             .gesture(DragGesture(minimumDistance: 1, coordinateSpace: .global)
@@ -217,7 +268,7 @@ struct SectionTimelineEditor: View {
             VStack(spacing: 0) {
                 Path { p in p.move(to: .zero); p.addLine(to: CGPoint(x: 14, y: 0)); p.addLine(to: CGPoint(x: 7, y: 11)); p.closeSubpath() }
                     .fill(Color.red).frame(width: 14, height: 11)
-                Rectangle().fill(Color.red).frame(width: 2, height: 136)
+                Rectangle().fill(Color.red).frame(width: 2, height: blockH + 58)
             }
             .shadow(color: .black.opacity(0.5), radius: 2)
             .offset(x: x - 7)
@@ -235,6 +286,11 @@ struct SectionTimelineEditor: View {
     @ViewBuilder private func block(_ s: ShowSection, width: CGFloat) -> some View {
         withActions(s.empty == true ? AnyView(emptyBlock(s, width: width))
                     : s.transition != nil ? AnyView(transitionBlock(s, width: width)) : AnyView(filledBlock(s, width: width)), s)
+            .overlay(alignment: .topTrailing) { if s.empty != true && width > 34 { repeatHandle(s) } }
+            .simultaneousGesture(DragGesture(minimumDistance: 0).onEnded { v in
+                guard abs(v.translation.width) < 4, abs(v.translation.height) < 4 else { return }
+                click(s, at: s.start + Double(max(0, min(1, v.location.x / max(width, 1)))) * (s.end - s.start))
+            })
     }
 
     /// A removed block: same time, dashed, waiting for a look
@@ -318,7 +374,6 @@ struct SectionTimelineEditor: View {
     private func withActions<V: View>(_ v: V, _ s: ShowSection) -> some View {
         v
         .contentShape(RoundedRectangle(cornerRadius: 9))
-        .onTapGesture { select(s.id) }
         .help("\(s.name) · \(s.effect.rawValue) · \(s.palette) · \(formatTime(s.start))–\(formatTime(s.end))")
         .onDrag {
             select(s.id)
@@ -356,6 +411,69 @@ struct SectionTimelineEditor: View {
             Divider()
             Button("Remove (Leave Empty)") { model.emptySection(songID: song.id, sectionID: s.id) }.disabled(s.empty == true)
         }
+    }
+
+    /// A click on a block, by tool
+    private func click(_ s: ShowSection, at time: Double) {
+        switch tool {
+        case .pointer:
+            select(s.id)
+        case .scissors:
+            let t = analysis.beats.min(by: { abs($0 - time) < abs($1 - time) }).flatMap { abs($0 - time) < 0.25 ? $0 : nil } ?? time
+            model.cutAt(songID: song.id, sectionID: s.id, time: t)
+        case .eraser:
+            model.emptySection(songID: song.id, sectionID: s.id)
+        case .pencil:
+            switch paint {
+            case .look(let id)?: if let p = model.presets.first(where: { $0.id == id }) { apply(p, to: s.id) }
+            case .transition(let k)?: model.setTransition(k, songID: song.id, sectionID: s.id)
+            case nil: select(s.id)
+            }
+        case .join:
+            model.mergeWithNext(songID: song.id, sectionID: s.id)
+        }
+    }
+
+    /// Small ↻ at a block's top-right corner: drag right to repeat its look over the blocks that follow
+    private func repeatHandle(_ s: ShowSection) -> some View {
+        Image(systemName: "arrow.clockwise.circle.fill")
+            .font(.system(size: 13, weight: .bold))
+            .foregroundColor(.white.opacity(repeatFrom == s.id ? 1 : 0.6))
+            .padding(3)
+            .contentShape(Rectangle())
+            .gesture(DragGesture(minimumDistance: 2, coordinateSpace: .global)
+                .onChanged { v in
+                    repeatFrom = s.id
+                    repeatTo = s.end + Double(v.translation.width / max(timelineWidth, 1)) * max(analysis.duration, 1)
+                }
+                .onEnded { _ in
+                    if let to = repeatTo {
+                        for o in sections where o.start >= s.end - 0.01 && o.start < to - 0.05 && o.id != s.id { applyLook(of: s, to: o.id) }
+                    }
+                    repeatFrom = nil; repeatTo = nil
+                    select(s.id)
+                })
+            .overlay(alignment: .bottomTrailing) {
+                if repeatFrom == s.id, let to = repeatTo {
+                    let n = sections.filter { $0.start >= s.end - 0.01 && $0.start < to - 0.05 }.count
+                    Text(n == 0 ? "Drag right to repeat" : "Repeat over \(n) block\(n == 1 ? "" : "s")")
+                        .font(.caption2.bold()).padding(5)
+                        .background(RoundedRectangle(cornerRadius: 5).fill(Color.black.opacity(0.85)))
+                        .fixedSize().offset(x: 120, y: 28)
+                }
+            }
+            .help("Drag right to repeat this look over the following blocks (their times don't change)")
+    }
+
+    /// "4 bars 2 beats" style length
+    private func barsBeats(_ seconds: Double) -> String {
+        let beat = 60 / max(analysis.bpm, 40)
+        let beats = Int((seconds / beat).rounded())
+        let bars = beats / 4, rest = beats % 4
+        var parts: [String] = []
+        if bars > 0 { parts.append("\(bars) bar\(bars == 1 ? "" : "s")") }
+        if rest > 0 || bars == 0 { parts.append("\(rest) beat\(rest == 1 ? "" : "s")") }
+        return parts.joined(separator: " ")
     }
 
     /// Selecting a block (Delete then empties it)
@@ -411,6 +529,8 @@ struct SectionTimelineEditor: View {
         .background(RoundedRectangle(cornerRadius: 6, style: .continuous).fill(k.color.color.opacity(0.9)))
         .contentShape(Rectangle())
         .onTapGesture {
+            paint = .transition(k)
+            guard tool != .pencil else { return }
             // into the selected block, or the next empty slot after the playhead
             let target = selected.flatMap { id in sections.first { $0.id == id } }
                 ?? sections.first { $0.empty == true && $0.end > (scrubTime ?? 0) }
@@ -442,7 +562,10 @@ struct SectionTimelineEditor: View {
         .frame(height: 44)
         .overlay(RoundedRectangle(cornerRadius: 6, style: .continuous).stroke(Color.black.opacity(0.4)))
         .contentShape(Rectangle())
-        .onTapGesture { if let id = selected ?? sections.first?.id { apply(p, to: id) } }
+        .onTapGesture {
+            paint = .look(p.id)
+            if tool != .pencil, let id = selected ?? sections.first?.id { apply(p, to: id) }
+        }
         .onDrag { NSItemProvider(object: "preset:\(p.id.uuidString)" as NSString) }
         .help("\(p.name): \(p.effect.rawValue), \(p.palette)\(p.movement == .none ? "" : ", " + p.movement.rawValue)")
     }
