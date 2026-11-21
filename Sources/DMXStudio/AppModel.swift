@@ -1576,7 +1576,8 @@ final class AppModel: ObservableObject {
         let title = songs[i].title
         let group = "From Songs: \(title)"
         var made: [LookPreset] = []
-        var seen = Set<String>()
+        // skip looks you already have (in any group), so songs don't add near-copies
+        var seen = Set(presets.filter { $0.group != group }.map { "\($0.effect)|\($0.palette)|\($0.movement)|\($0.rate)" })
         let secs = show.sections.filter { $0.effect != .blackout && $0.end - $0.start >= 4 }
         let icons: [EnergyLevel: String] = [.drop: "bolt.fill", .high: "flame.fill", .medium: "waveform", .low: "moon.stars.fill"]
         let has38 = activeModes.contains("38CH")
@@ -1592,13 +1593,23 @@ final class AppModel: ObservableObject {
                 made.append(LookPreset(name: name, effect: sec.effect, palette: sec.palette, movement: sec.movement,
                                        rate: sec.rate, intensity: max(0.6, sec.intensity), icon: icons[lvl] ?? "music.note",
                                        group: group, mode: sec.effect.perBeam && has38 ? "38CH" : nil))
-                if made.count >= 6 { break outer }
+                if made.count >= Self.looksPerSong { break outer }
             }
         }
         presets.removeAll { $0.group == group }
+        guard !made.isEmpty else { return 0 }
         presets += made
+        // keep at most a few song groups: the oldest automatic "From Songs" group goes first
+        var songGroups: [String] = []
+        for p in presets { if let g = p.group, g.hasPrefix("From Songs: "), !songGroups.contains(g) { songGroups.append(g) } }
+        while songGroups.count > Self.maxSongGroups, let oldest = songGroups.first, oldest != group {
+            presets.removeAll { $0.group == oldest }
+            songGroups.removeFirst()
+        }
         return made.count
     }
+    static let looksPerSong = 4
+    static let maxSongGroups = 10
 
     // MARK: - Lyrics
 
