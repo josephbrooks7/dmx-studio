@@ -1,5 +1,6 @@
 import SwiftUI
 import AppKit
+import AVFoundation
 import UniformTypeIdentifiers
 
 @main
@@ -76,6 +77,21 @@ struct DMXStudioApp: App {
             case .failure(let e):
                 print("ERROR: \(e)"); exit(2)
             }
+        }
+        // Test hook: listen to a song, then line up pasted lyrics with what was heard (like Paste in the app)
+        if let i = args.firstIndex(of: "--test-paste"), i + 3 < args.count {
+            WhisperEngine.overrideModel = URL(fileURLWithPath: args[i + 2])
+            let text = (try? String(contentsOfFile: args[i + 3])) ?? ""
+            let url = URL(fileURLWithPath: args[i + 1])
+            let duration = (try? AVAudioFile(forReading: url)).map { Double($0.length) / $0.processingFormat.sampleRate } ?? 0
+            var result: Result<[LyricWord], Error>?
+            WhisperEngine.transcribe(vocals: url, phrases: [], model: .base, progress: { _ in }) { result = $0 }
+            while result == nil { RunLoop.main.run(until: Date().addingTimeInterval(0.1)) }
+            guard case .success(let heard) = result! else { print("ERROR: \(result!)"); exit(2) }
+            print("heard=" + heard.map { String(format: "%@@%.2f", $0.text, $0.start) }.joined(separator: " "))
+            let ly = LyricsLearner.align(text: text, heard: heard, phrases: [], duration: duration)
+            for l in ly.lines { print(String(format: "LINE %.2f %.2f ", l.start, l.end) + l.text) }
+            exit(0)
         }
         if args.contains("--scan-artnet") {
             CrashGuard.install(writeToStderr: true)

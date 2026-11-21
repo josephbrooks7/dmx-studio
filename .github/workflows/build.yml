@@ -121,6 +121,28 @@ jobs:
             DMX_DEBUG_WHISPER=1 "$APP/Contents/MacOS/DMXStudio" --test-lyrics /tmp/l.m4a /tmp/tiny.bin | tee /tmp/lyr.txt
             grep -qi "light" /tmp/lyr.txt && echo "PASS words heard with timing" || { echo "FAIL lyrics"; exit 1; }
           else echo "whisper-cli not bundled yet: skipped"; fi
+      - name: Pasted lyrics test (known song, known line times)
+        run: |
+          APP="build/DMX Studio.app"
+          if [ -x "$APP/Contents/Resources/whisper-cli" ]; then
+            mkdir -p /tmp/ly
+            python3 - <<'PY' > /tmp/ly/lines.txt
+          import re; s=open('packaging/make_lyric_song.py').read()
+          print("\n".join(eval(re.search(r"LINES = (\[.*?\])", s, re.S).group(1))))
+          PY
+            k=0
+            while IFS= read -r line; do
+              for n in 1 2 3 4 5; do
+                say -o /tmp/ly/l$k.aiff "$line"
+                d=$(afinfo /tmp/ly/l$k.aiff | awk '/estimated duration/{printf "%d", $3*10}'); [ "${d:-0}" -ge 8 ] && break; sleep 2
+              done
+              afconvert -f WAVE -d LEI16@16000 -c 1 /tmp/ly/l$k.aiff /tmp/ly/l$k.wav; k=$((k+1))
+            done < /tmp/ly/lines.txt
+            python3 packaging/make_lyric_song.py /tmp/ly /tmp/ly/song.wav /tmp/ly/truth.json /tmp/ly/pasted.txt
+            [ -f /tmp/tiny.bin ] || curl -sL -o /tmp/tiny.bin https://huggingface.co/ggerganov/whisper.cpp/resolve/main/ggml-tiny.en.bin
+            "$APP/Contents/MacOS/DMXStudio" --test-paste /tmp/ly/song.wav /tmp/tiny.bin /tmp/ly/pasted.txt | tee /tmp/ly/out.txt
+            python3 packaging/check_lyric_align.py /tmp/ly/out.txt /tmp/ly/truth.json
+          else echo "whisper-cli not bundled yet: skipped"; fi
       - name: Helper processes (Wi-Fi scan + Learn run outside the app)
         run: |
           BIN="build/DMX Studio.app/Contents/MacOS/DMXStudio"

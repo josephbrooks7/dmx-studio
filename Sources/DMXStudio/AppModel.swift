@@ -1578,7 +1578,16 @@ final class AppModel: ObservableObject {
             lyricsStatus[id] = nil
             switch result {
             case .success(let words):
-                if let i = index(of: id), !["Pasted", "Edited"].contains(songs[i].lyrics?.source ?? "") {
+                if let i = index(of: id), songs[i].lyrics?.source == "Pasted", let text = songs[i].lyrics?.pastedText,
+                   let a = songs[i].analysis {
+                    // you pasted the words: listening was only to find where each word is sung
+                    let mode = songs[i].lyrics?.mode
+                    let spans = a.vocalShare > 0.15 ? (a.vocalPhrases ?? []) : sungParts(a)
+                    songs[i].lyrics = LyricsLearner.align(text: text, heard: words, phrases: spans, duration: a.duration)
+                    songs[i].lyrics?.engine = "Pasted · timed by listening"
+                    songs[i].lyrics?.mode = mode
+                    refreshLyricLighting(id)
+                } else if let i = index(of: id), !["Pasted", "Edited"].contains(songs[i].lyrics?.source ?? "") {
                     var ly = LyricsLearner.build(words: words, phrases: phrases, source: "Heard from the vocals")
                     ly.engine = engine
                     ly.mode = songs[i].lyrics?.mode
@@ -1656,15 +1665,21 @@ final class AppModel: ObservableObject {
         let heard = ["Pasted", "Edited"].contains(songs[i].lyrics?.source ?? "") ? [] : (songs[i].lyrics?.words ?? [])
         // Tracks made to be sung over have little lead vocal: place the words on the sung parts of the
         // song structure (verses, pre-choruses, choruses, bridge) instead
-        let sungParts = a.detectedSections.filter { d in ["Verse", "Pre-Chorus", "Chorus", "Post-Chorus", "Bridge"].contains { d.name.hasPrefix($0) } }
-            .map { TimeSpan(start: $0.start, end: $0.end) }
-        let spans = a.vocalShare > 0.15 ? (a.vocalPhrases ?? []) : sungParts
+        let spans = a.vocalShare > 0.15 ? (a.vocalPhrases ?? []) : sungParts(a)
         let mode = songs[i].lyrics?.mode
         songs[i].lyrics = LyricsLearner.align(text: text, heard: heard, phrases: spans, duration: a.duration)
         songs[i].lyrics?.engine = "Pasted"
         songs[i].lyrics?.mode = mode
         refreshLyricLighting(id)
+        // listen once more to find where each pasted line is really sung
+        if WhisperEngine.isAvailable, lyricsProgress[id] == nil { learnLyrics(id) }
     }
+
+    private func sungParts(_ a: SongAnalysis) -> [TimeSpan] {
+        a.detectedSections.filter { d in ["Verse", "Pre-Chorus", "Chorus", "Post-Chorus", "Bridge"].contains { d.name.hasPrefix($0) } }
+            .map { TimeSpan(start: $0.start, end: $0.end) }
+    }
+
 
     /// Fix a line by hand (words and/or timing). Your corrections are kept when the song is relearned.
     func editLyricLine(_ id: UUID, lineID: UUID, text: String? = nil, shift: Double = 0, start: Double? = nil, end: Double? = nil) {
