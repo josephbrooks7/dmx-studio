@@ -1,0 +1,294 @@
+import SwiftUI
+import AppKit
+
+/// Updates DMX Studio in place: downloads only the new app (a few MB, no AI models), keeps the
+/// lyric and stems models already installed, swaps the app and restarts. Falls back to the full
+/// download only when a new version needs a model this copy doesn't have.
+@MainActor
+final class Updater: ObservableObject {
+    static let shared = Updater()
+
+    enum State: Equatable {
+        case idle, checking, upToDate, available(String), downloading(Double, String), installing, failed(String)
+    }
+    @Published var state: State = .idle
+    @Published var showing = false
+    @Published var notes = ""
+
+    private let repo = "josephbrooks7/dmx-studio"
+    private var latest: String?
+    private var updateZip: URL?
+    private var fullDMG: URL?
+    private var fullSize: Int64 = 0
+    private var observer: NSKeyValueObservation?
+
+    var current: String { Bundle.main.infoDictionary?["CFBundleShortVersionString"] as? String ?? "0" }
+    var availableVersion: String? { if case .available(let v) = state { return v }; return nil }
+
+    /// Menu: Check for Updates…
+    func checkNow() {
+        showing = true
+        Task { await check() }
+    }
+
+    /// On launch: look once a day, say nothing unless there's an update
+    func checkQuietly() {
+        let key = "updater.lastCheck"
+        let last = UserDefaults.standard.double(forKey: key)
+        guard Date().timeIntervalSince1970 - last > 20 * 3600 else { return }
+        UserDefaults.standard.set(Date().timeIntervalSince1970, forKey: key)
+        Task { await check(); if case .failed = state { state = .idle } }
+    }
+
+    func check() async {
+        state = .checking
+        do {
+            var req = URLRequest(url: URL(string: "https://api.github.com/repos/\(repo)/releases/latest")!)
+            req.setValue("application/vnd.github+json", forHTTPHeaderField: "Accept")
+            req.timeoutInterval = 20
+            let (data, resp) = try await URLSession.shared.data(for: req)
+            guard (resp as? HTTPURLResponse)?.statusCode == 200,
+                  let json = try JSONSerialization.jsonObject(with: data) as? [String: Any],
+                  let assets = json["assets"] as? [[String: Any]] else { throw UpdateError("Couldn't reach the update page.") }
+            let tag = (json["tag_name"] as? String) ?? ""
+            let v = tag.hasPrefix("v") ? String(tag.dropFirst()) : tag
+            func asset(_ match: (String) -> Bool) -> [String: Any]? { assets.first { match(($0["name"] as? String) ?? "") } }
+            updateZip = (asset { $0 == "DMX-Studio-Update.zip" }?["browser_download_url"] as? String).flatMap(URL.init(string:))
+            let full = asset { $0.hasSuffix(".dmg") && !$0.contains("Installer") }
+            fullDMG = (full?["browser_download_url"] as? String).flatMap(URL.init(string:))
+            fullSize = (full?["size"] as? NSNumber)?.int64Value ?? 0
+            notes = (json["body"] as? String) ?? ""
+            latest = v
+            state = Self.newer(v, than: current) ? .available(v) : .upToDate
+        } catch {
+            state = .failed((error as? UpdateError)?.text ?? "Couldn't check for updates (\(error.localizedDescription)).")
+        }
+    }
+
+    static func newer(_ a: String, than b: String) -> Bool {
+        let x = a.split(separator: ".").map { Int($0) ?? 0 }, y = b.split(separator: ".").map { Int($0) ?? 0 }
+        for k in 0..<max(x.count, y.count) {
+            let p = k < x.count ? x[k] : 0, q = k < y.count ? y[k] : 0
+            if p != q { return p > q }
+        }
+        return false
+    }
+
+    func install() {
+        Task {
+            do {
+                let app = Bundle.main.bundleURL
+                guard FileManager.default.isWritableFile(atPath: app.deletingLastPathComponent().path),
+                      !app.path.hasPrefix("/Volumes/") else {
+                    throw UpdateError("DMX Studio is running from the disk image. Drag it into Applications first, then update.")
+                }
+                let work = FileManager.default.temporaryDirectory.appendingPathComponent("dmx-update-\(UUID().uuidString)")
+                try FileManager.default.createDirectory(at: work, withIntermediateDirectories: true)
+                defer { try? FileManager.default.removeItem(at: work) }
+
+                var newApp: URL?
+                // 1. the small download: the app without its AI models
+                if let zip = updateZip {
+                    let file = try await download(zip, label: "Downloading the update")
+                    state = .installing
+                    try await Self.shell("/usr/bin/ditto", ["-x", "-k", file.path, work.path])
+                    let candidate = work.appendingPathComponent("DMX Studio.app")
+                    if try await Self.reuseModels(from: app, into: candidate) { newApp = candidate }
+                }
+                // 2. a new model is needed (or no small update was published): the full download
+                if newApp == nil {
+                    guard let dmg = fullDMG else { throw UpdateError("No update download found.") }
+                    let file = try await download(dmg, label: "Downloading the full app (it includes a new AI model)")
+                    state = .installing
+                    newApp = try await Self.copyFromDMG(file, into: work)
+                }
+                guard let fresh = newApp else { throw UpdateError("The update didn't contain DMX Studio.") }
+                try await Self.shell("/usr/bin/codesign", ["--force", "--deep", "--sign", "-", fresh.path])
+                _ = try? await Self.shell("/usr/bin/xattr", ["-dr", "com.apple.quarantine", fresh.path])
+
+                // 3. swap: the old copy goes to the Trash, the new one takes its place
+                var trashed: NSURL?
+                try FileManager.default.trashItem(at: app, resultingItemURL: &trashed)
+                do { try FileManager.default.moveItem(at: fresh, to: app) }
+                catch {
+                    if let t = trashed as URL? { try? FileManager.default.moveItem(at: t, to: app) }
+                    throw error
+                }
+                Self.relaunch(app)
+            } catch {
+                state = .failed((error as? UpdateError)?.text ?? error.localizedDescription)
+            }
+        }
+    }
+
+    // MARK: steps
+
+    private func download(_ url: URL, label: String) async throws -> URL {
+        state = .downloading(0, label)
+        return try await withCheckedThrowingContinuation { (c: CheckedContinuation<URL, Error>) in
+            let task = URLSession.shared.downloadTask(with: url) { loc, resp, err in
+                if let err { c.resume(throwing: err); return }
+                guard let loc, (resp as? HTTPURLResponse)?.statusCode == 200 else {
+                    c.resume(throwing: UpdateError("The download failed.")); return
+                }
+                // keep the file: the temporary one is deleted when this returns
+                let keep = FileManager.default.temporaryDirectory.appendingPathComponent("dmx-dl-\(UUID().uuidString)-\(url.lastPathComponent)")
+                do { try FileManager.default.moveItem(at: loc, to: keep); c.resume(returning: keep) }
+                catch { c.resume(throwing: error) }
+            }
+            observer = task.progress.observe(\.fractionCompleted) { p, _ in
+                let f = p.fractionCompleted
+                Task { @MainActor in
+                    if case .downloading(_, let l) = self.state { self.state = .downloading(f, l) }
+                }
+            }
+            task.resume()
+        }
+    }
+
+    /// Copy the models this copy already has into the new app. False if the new version lists a
+    /// model that isn't here (or that changed size).
+    nonisolated static func reuseModels(from old: URL, into new: URL) async throws -> Bool {
+        let fm = FileManager.default
+        guard fm.fileExists(atPath: new.path) else { return false }
+        let list = new.appendingPathComponent("Contents/Resources/models.txt")
+        guard let text = try? String(contentsOf: list) else { return false }
+        let oldModels = old.appendingPathComponent("Contents/Resources/Models")
+        let newModels = new.appendingPathComponent("Contents/Resources/Models")
+        try fm.createDirectory(at: newModels, withIntermediateDirectories: true)
+        for line in text.split(separator: "\n") {
+            let parts = line.split(separator: "\t")
+            guard parts.count == 2, let size = Int64(parts[1]) else { continue }
+            let name = String(parts[0])
+            let src = oldModels.appendingPathComponent(name)
+            guard fm.fileExists(atPath: src.path), bytes(src) == size else { return false }
+            try await shell("/usr/bin/ditto", [src.path, newModels.appendingPathComponent(name).path])
+        }
+        return true
+    }
+
+    /// Total bytes of a file or folder (a compiled model is a folder)
+    nonisolated static func bytes(_ url: URL) -> Int64 {
+        var isDir: ObjCBool = false
+        guard FileManager.default.fileExists(atPath: url.path, isDirectory: &isDir) else { return -1 }
+        if !isDir.boolValue { return ((try? FileManager.default.attributesOfItem(atPath: url.path)[.size]) as? NSNumber)?.int64Value ?? -1 }
+        var total: Int64 = 0
+        let e = FileManager.default.enumerator(at: url, includingPropertiesForKeys: [.fileSizeKey, .isRegularFileKey])
+        while let f = e?.nextObject() as? URL {
+            let v = try? f.resourceValues(forKeys: [.fileSizeKey, .isRegularFileKey])
+            if v?.isRegularFile == true { total += Int64(v?.fileSize ?? 0) }
+        }
+        return total
+    }
+
+    nonisolated static func copyFromDMG(_ dmg: URL, into work: URL) async throws -> URL {
+        let mount = work.appendingPathComponent("mount")
+        try FileManager.default.createDirectory(at: mount, withIntermediateDirectories: true)
+        try await shell("/usr/bin/hdiutil", ["attach", dmg.path, "-nobrowse", "-readonly", "-noautoopen", "-mountpoint", mount.path])
+        defer { Task { _ = try? await shell("/usr/bin/hdiutil", ["detach", mount.path, "-force"]) } }
+        let dst = work.appendingPathComponent("full/DMX Studio.app")
+        try FileManager.default.createDirectory(at: dst.deletingLastPathComponent(), withIntermediateDirectories: true)
+        try await shell("/usr/bin/ditto", [mount.appendingPathComponent("DMX Studio.app").path, dst.path])
+        try? FileManager.default.removeItem(at: dmg)
+        return dst
+    }
+
+    @discardableResult
+    nonisolated static func shell(_ tool: String, _ args: [String]) async throws -> String {
+        try await Task.detached(priority: .utility) {
+            let p = Process()
+            p.executableURL = URL(fileURLWithPath: tool)
+            p.arguments = args
+            let out = Pipe()
+            p.standardOutput = out; p.standardError = out
+            try p.run()
+            let data = out.fileHandleForReading.readDataToEndOfFile()
+            p.waitUntilExit()
+            let text = String(data: data, encoding: .utf8) ?? ""
+            if p.terminationStatus != 0 {
+                throw UpdateError("Update step failed: \(text.trimmingCharacters(in: .whitespacesAndNewlines))")
+            }
+            return text
+        }.value
+    }
+
+    /// Quit, and open the new copy once this one has closed
+    static func relaunch(_ app: URL) {
+        let pid = ProcessInfo.processInfo.processIdentifier
+        let p = Process()
+        p.executableURL = URL(fileURLWithPath: "/bin/sh")
+        p.arguments = ["-c", "while kill -0 \(pid) 2>/dev/null; do sleep 0.3; done; open \"\(app.path)\""]
+        try? p.run()
+        NSApp.terminate(nil)
+    }
+}
+
+struct UpdateError: Error { let text: String; init(_ t: String) { text = t } }
+
+struct UpdateSheet: View {
+    @ObservedObject var up = Updater.shared
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 14) {
+            HStack(spacing: 12) {
+                Image(nsImage: NSApp.applicationIconImage).resizable().frame(width: 48, height: 48)
+                VStack(alignment: .leading, spacing: 2) {
+                    Text("Software Update").font(.title3.bold())
+                    Text("This version: \(up.current)").font(.caption).foregroundColor(.secondary)
+                }
+            }
+            Group {
+                switch up.state {
+                case .idle, .checking:
+                    HStack { ProgressView().scaleEffect(0.6); Text("Checking for updates…") }
+                case .upToDate:
+                    Label("DMX Studio is up to date.", systemImage: "checkmark.circle.fill").foregroundColor(.green)
+                case .available(let v):
+                    Text("Version \(v) is available.").font(.headline)
+                    Text("Only the app is downloaded (a few MB): your lyric and stems models, songs and shows stay as they are. DMX Studio restarts when it's done.")
+                        .font(.caption).foregroundColor(.secondary).fixedSize(horizontal: false, vertical: true)
+                case .downloading(let f, let label):
+                    Text(label + "…")
+                    ProgressView(value: f)
+                case .installing:
+                    HStack { ProgressView().scaleEffect(0.6); Text("Installing… DMX Studio will restart.") }
+                case .failed(let msg):
+                    Label(msg, systemImage: "exclamationmark.triangle.fill").foregroundColor(.orange)
+                        .fixedSize(horizontal: false, vertical: true)
+                }
+            }
+            Spacer(minLength: 0)
+            HStack {
+                Spacer()
+                Button(up.availableVersion == nil ? "Close" : "Later") { up.showing = false }
+                    .keyboardShortcut(.cancelAction)
+                    .disabled(up.state == .installing)
+                if up.availableVersion != nil {
+                    Button("Update Now") { up.install() }.keyboardShortcut(.defaultAction)
+                } else if case .failed = up.state {
+                    Button("Try Again") { Task { await up.check() } }
+                }
+            }
+        }
+        .padding(22)
+        .frame(width: 440, height: 230)
+    }
+}
+
+/// A small button that appears in the header when an update is waiting
+struct UpdateBadge: View {
+    @ObservedObject var up = Updater.shared
+    var body: some View {
+        if let v = up.availableVersion {
+            Button { up.showing = true } label: {
+                Label("Update \(v)", systemImage: "arrow.down.circle.fill")
+                    .font(.system(size: 12, weight: .semibold))
+                    .padding(.horizontal, 10).padding(.vertical, 5)
+                    .background(Capsule().fill(Theme.selection.opacity(0.35)))
+                    .overlay(Capsule().stroke(Theme.selection))
+            }
+            .buttonStyle(.plain)
+            .help("A new version of DMX Studio is ready to install")
+        }
+    }
+}

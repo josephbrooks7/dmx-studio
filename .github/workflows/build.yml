@@ -255,7 +255,7 @@ jobs:
           GH_TOKEN: ${{ github.token }}
         run: |
           TAG="v1.0.${{ github.run_number }}"
-          gh release create "$TAG" build/*.dmg --title "DMX Studio $TAG" \
+          gh release create "$TAG" build/*.dmg build/DMX-Studio-Update.zip --title "DMX Studio $TAG" \
             --notes "Small download: DMX-Studio-Installer.dmg (a few MB). Open it, right-click Install DMX Studio → Open, and it downloads and installs the full app. Or download the full DMX-Studio-1.0.x.dmg (works offline) and drag DMX Studio into Applications. First launch: right-click the app → Open." --latest
       - name: Copy DMG to dist branch
         run: |

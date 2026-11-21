@@ -101,6 +101,23 @@ if curl -sfL -o /tmp/DemucsVox.zip "https://github.com/josephbrooks7/dmx-studio/
 else echo "vocals specialist model not bundled"; fi
 codesign --force --deep --sign - "$APP"
 
+# The in-app update: the app without its AI models (a few MB). models.txt lists the models it
+# expects (name and total bytes) so the update can reuse the ones already installed.
+UPD="$OUT/upd/$APP_NAME.app"; mkdir -p "$OUT/upd"
+ditto "$APP" "$UPD"
+: > "$UPD/Contents/Resources/models.txt"
+if [ -d "$APP/Contents/Resources/Models" ]; then
+  for m in "$APP/Contents/Resources/Models"/*; do
+    [ -e "$m" ] || continue
+    b=$(find "$m" -type f -exec stat -f%z {} + | awk '{s+=$1} END {print s+0}')
+    printf '%s\t%s\n' "$(basename "$m")" "$b" >> "$UPD/Contents/Resources/models.txt"
+  done
+fi
+rm -rf "$UPD/Contents/Resources/Models"
+codesign --force --deep --sign - "$UPD"
+ditto -c -k --keepParent "$UPD" "$OUT/DMX-Studio-Update.zip"
+echo "Built update zip ($(du -h "$OUT/DMX-Studio-Update.zip" | cut -f1)):"; cat "$UPD/Contents/Resources/models.txt"
+
 # DMG with an Applications shortcut for drag-to-install
 STAGE="$OUT/dmg"; mkdir -p "$STAGE"
 cp -R "$APP" "$STAGE/"

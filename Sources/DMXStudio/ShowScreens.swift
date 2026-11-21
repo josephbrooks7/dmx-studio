@@ -77,6 +77,7 @@ struct SessionsScreen: View {
                             Text("Red Velvet Studios").font(.system(size: 14, weight: .medium)).foregroundColor(Theme.accent)
                         }
                         Spacer()
+                        UpdateBadge()
                         HStack(spacing: 6) {
                             Circle().fill(model.connected ? Color.green : Color.gray).frame(width: 8, height: 8)
                             Text(model.connected ? "Lights connected" : "Lights not connected")
@@ -242,6 +243,7 @@ struct TopBar: View {
             Spacer()
             NowPlayingCard()
             Spacer()
+            UpdateBadge()
             RealLightsSwitch()
             HStack(spacing: 6) {
                 Circle().fill(model.connected ? Color.green : Color.red).frame(width: 8, height: 8)

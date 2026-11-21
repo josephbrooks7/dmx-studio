@@ -194,6 +194,9 @@ struct DMXStudioApp: App {
                 Button("Undo") { model.undo() }.keyboardShortcut("z", modifiers: .command)
                 Button("Redo") { model.redo() }.keyboardShortcut("z", modifiers: [.command, .shift])
             }
+            CommandGroup(after: .appInfo) {
+                Button("Check for Updates…") { Updater.shared.checkNow() }
+            }
             CommandGroup(after: .toolbar) {
                 Button("Toggle Full Screen") { model.toggleFullScreen() }.keyboardShortcut("f", modifiers: [.command, .control])
             }
@@ -213,6 +216,7 @@ struct DMXStudioApp: App {
 struct RootView: View {
     @EnvironmentObject var model: AppModel
     @ObservedObject private var errors = ErrorCenter.shared
+    @ObservedObject private var updater = Updater.shared
 
     var body: some View {
         ZStack {
@@ -229,6 +233,8 @@ struct RootView: View {
         .sheet(isPresented: Binding(get: { model.showLyricsLibrary }, set: { model.showLyricsLibrary = $0 })) {
             LyricsLibraryView().environmentObject(model)
         }
+        .sheet(isPresented: $updater.showing) { UpdateSheet() }
+        .onAppear { updater.checkQuietly() }
 
         .onAppear {
             // the window can go full screen (green button, View menu, ⌃⌘F)
