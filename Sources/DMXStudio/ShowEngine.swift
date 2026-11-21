@@ -438,19 +438,104 @@ struct ShowRenderer {
         let bl = max(beatLen, 0.05)
         // transition blocks on the timeline are hits that last their block (a rise builds into its end)
         let fromBlocks: [ShowHit] = sections.compactMap { s in
-            s.transition.map { k in ShowHit(time: k == .rise ? s.end : s.start, kind: k, beats: max(0.25, (s.end - s.start) / bl)) }
+            s.transition.map { k in ShowHit(time: k.buildsUp ? s.end : s.start, kind: k, beats: max(0.25, (s.end - s.start) / bl)) }
         }
         for hit in hits + fromBlocks {
             let len = hit.beats * bl
             // a rise builds into its moment; everything else starts at it
-            let start = hit.kind == .rise ? hit.time - len : hit.time
+            let start = hit.kind.buildsUp ? hit.time - len : hit.time
             guard t >= start - 0.001 && t < start + len else { continue }
             let dt = t - start, frac = dt / max(len, 0.01)
             func all(_ body: (inout FixtureState) -> Void) {
                 for f in out.indices { for h in out[f].heads.indices { body(&out[f].heads[h]) } }
             }
             let gentle = Self.maxFlashHz <= 0
+            // every head with its place along the rig (0 = far left, 1 = far right)
+            let total = max(1, out.reduce(0) { $0 + $1.heads.count })
+            func each(_ body: (inout FixtureState, Double, Int) -> Void) {
+                var n = 0
+                for f in out.indices { for h in out[f].heads.indices {
+                    body(&out[f].heads[h], total > 1 ? Double(n) / Double(total - 1) : 0.5, n); n += 1
+                } }
+            }
+            /// a quick white hit with a soft decay
+            func pulse(_ since: Double) -> Double { since < 0 ? 0 : min(1, since / 0.02) * exp(-since / 0.09) }
+            /// n flashes across the hit, if the flash limit allows that speed; otherwise one soft flash
+            func flashes(_ n: Int) {
+                let spacing = len / Double(n)
+                if gentle || 1 / spacing > Self.maxFlashHz {
+                    let k = (gentle ? 0.5 : 0.9) * exp(-dt / 0.25)
+                    all { $0.color = $0.color.mix(.white, k); $0.intensity = max($0.intensity, k) }
+                } else {
+                    let since = dt - floor(dt / spacing) * spacing
+                    let k = pulse(since)
+                    all { $0.color = $0.color.mix(.white, k); $0.intensity = max($0.intensity, k) }
+                }
+            }
             switch hit.kind {
+            case .doubleFlash: flashes(2)
+            case .tripleFlash: flashes(3)
+            case .strobeRamp:
+                // like a rise, with strobes that speed up (quarter notes → 16ths) into the moment
+                let div: Double = frac < 0.5 ? 1 : frac < 0.75 ? 2 : 4
+                guard let on = gate(dt / bl, div: div, beatLen: bl) else {
+                    all { $0.color = $0.color.mix(.white, frac * 0.6); $0.intensity = max($0.intensity, 0.4 + 0.6 * frac) }
+                    continue
+                }
+                all { s in if on { s.color = s.color.mix(.white, 0.5 + 0.4 * frac); s.intensity = 1 } else { s.intensity *= 0.15 } }
+            case .sweep, .chaseRun:
+                // a band running left → right across all the heads
+                let width = hit.kind == .sweep ? 0.22 : 0.08
+                let center = -width + frac * (1 + 2 * width)
+                each { s, pos, _ in
+                    let k = max(0, 1 - abs(pos - center) / width) * (gentle ? 0.6 : 1)
+                    let c: RGB = hit.kind == .sweep ? .white : s.color.mix(.white, 0.4)
+                    s.color = s.color.mix(c, k); s.intensity = max(s.intensity * (hit.kind == .chaseRun ? 0.35 : 1), k)
+                }
+            case .centerBurst:
+                let radius = frac * 0.6
+                each { s, pos, _ in
+                    let d = abs(pos - 0.5)
+                    let k = max(0, 1 - abs(d - radius) / 0.15) * (1 - frac * 0.5) * (gentle ? 0.6 : 1)
+                    s.color = s.color.mix(.white, k); s.intensity = max(s.intensity, k)
+                }
+            case .splitFlash:
+                let leftHalf = frac < 0.5
+                let since = leftHalf ? dt : dt - len / 2
+                let k = (gentle ? 0.5 : 1) * pulse(since) * 1.0
+                each { s, pos, _ in
+                    guard (pos < 0.5) == leftHalf else { return }
+                    s.color = s.color.mix(.white, k); s.intensity = max(s.intensity, k)
+                }
+            case .sparkle:
+                // random heads, a new set every 16th note
+                let step = Int(dt / (bl / 4))
+                each { s, _, n in
+                    var x = UInt64(truncatingIfNeeded: (n &* 2654435761) ^ (step &* 40503) ^ Int(hit.time * 1000))
+                    x ^= x >> 13; x = x &* 0x9E3779B97F4A7C15; x ^= x >> 29
+                    guard x % 3 == 0 else { return }
+                    let k = (gentle ? 0.5 : 1) * (1 - frac * 0.4)
+                    s.color = s.color.mix(.white, k); s.intensity = max(s.intensity, k)
+                }
+            case .rainbowFlash:
+                let k = min(1, dt / 0.03) * exp(-max(0, dt - 0.03) / 0.35) * (gentle ? 0.6 : 1)
+                each { s, pos, _ in
+                    let h = pos * 6, i = Int(h) % 6, f = h - floor(h)
+                    let rgb: RGB = [RGB(r: 1, g: f, b: 0), RGB(r: 1 - f, g: 1, b: 0), RGB(r: 0, g: 1, b: f),
+                                    RGB(r: 0, g: 1 - f, b: 1), RGB(r: f, g: 0, b: 1), RGB(r: 1, g: 0, b: 1 - f)][i]
+                    s.color = s.color.mix(rgb, k); s.intensity = max(s.intensity, k)
+                }
+            case .fadeOut:
+                let k = frac
+                all { $0.intensity *= (1 - k) }
+            case .fadeIn:
+                let k = 1 - frac
+                all { $0.intensity *= (1 - k) }
+            case .tiltSnap:
+                // beams snap up, then ease back to where the look has them
+                let k = dt < 0.08 ? 1 : exp(-(dt - 0.08) / max(0.1, len * 0.4))
+                for f in out.indices { out[f].tilt = out[f].tilt + (0.0 - out[f].tilt) * k }
+                all { $0.intensity = max($0.intensity, 0.6 * k + $0.intensity * (1 - k)) }
             case .flash, .blinder:
                 let decay = hit.kind == .flash ? 0.16 : 0.45
                 let hold = hit.kind == .blinder ? min(0.25, len * 0.3) : 0

@@ -911,54 +911,95 @@ struct StageLayout: Codable, Hashable {
 
 enum HitKind: String, Codable, CaseIterable, Identifiable {
     case flash = "White Flash"
+    case doubleFlash = "Double Flash"
+    case tripleFlash = "Triple Flash"
     case strobeBurst = "Strobe Burst"
     case stutter = "Stutter"
+    case strobeRamp = "Strobe Ramp"
     case blinder = "Blinder"
-    case blackout = "Blackout Drop"
+    case sweep = "Sweep Hit"
+    case centerBurst = "Center Burst Hit"
+    case splitFlash = "Split Flash"
+    case sparkle = "Sparkle Burst"
+    case chaseRun = "Chase Run"
     case colorPop = "Color Pop"
+    case rainbowFlash = "Rainbow Flash"
+    case blackout = "Blackout Drop"
+    case fadeOut = "Fade Out"
+    case fadeIn = "Fade In"
     case rise = "Quick Rise"
+    case tiltSnap = "Tilt Snap"
     var id: String { rawValue }
+
+    /// Builds up INTO its moment (ends on the block's end) instead of starting on it
+    var buildsUp: Bool { self == .rise || self == .strobeRamp }
+
     var icon: String {
         switch self {
         case .flash: return "bolt.fill"
+        case .doubleFlash: return "2.circle.fill"
+        case .tripleFlash: return "3.circle.fill"
         case .strobeBurst: return "bolt.horizontal.fill"
         case .stutter: return "bolt.circle.fill"
+        case .strobeRamp: return "arrow.up.right.circle.fill"
         case .blinder: return "sun.max.fill"
-        case .blackout: return "moon.fill"
+        case .sweep: return "arrow.right.to.line"
+        case .centerBurst: return "arrow.left.and.right"
+        case .splitFlash: return "square.split.2x1"
+        case .sparkle: return "sparkles"
+        case .chaseRun: return "hare.fill"
         case .colorPop: return "paintpalette.fill"
+        case .rainbowFlash: return "rainbow"
+        case .blackout: return "moon.fill"
+        case .fadeOut: return "arrow.down.right.circle"
+        case .fadeIn: return "arrow.up.right.circle"
         case .rise: return "arrow.up.right"
+        case .tiltSnap: return "arrow.up.to.line"
         }
     }
     var color: RGB {
         switch self {
-        case .flash, .blinder: return RGB(r: 1, g: 1, b: 1)
-        case .strobeBurst, .stutter: return RGB(r: 0.85, g: 0.9, b: 1)
-        case .blackout: return RGB(r: 0.2, g: 0.2, b: 0.25)
+        case .flash, .blinder, .doubleFlash, .tripleFlash: return RGB(r: 1, g: 1, b: 1)
+        case .strobeBurst, .stutter, .strobeRamp: return RGB(r: 0.85, g: 0.9, b: 1)
+        case .sweep, .centerBurst, .splitFlash: return RGB(r: 0.7, g: 0.95, b: 1)
+        case .sparkle, .chaseRun: return RGB(r: 1, g: 0.95, b: 0.6)
+        case .blackout, .fadeOut: return RGB(r: 0.2, g: 0.2, b: 0.25)
+        case .fadeIn: return RGB(r: 0.45, g: 0.45, b: 0.55)
         case .colorPop: return RGB(r: 1, g: 0.2, b: 0.6)
+        case .rainbowFlash: return RGB(r: 0.6, g: 0.4, b: 1)
         case .rise: return RGB(r: 1, g: 0.75, b: 0.3)
+        case .tiltSnap: return RGB(r: 0.5, g: 1, b: 0.6)
         }
     }
     /// Default length in beats
     var beats: Double {
         switch self {
-        case .flash: return 1
-        case .strobeBurst: return 2
-        case .stutter: return 2
-        case .blinder: return 2
-        case .blackout: return 1
-        case .colorPop: return 1
-        case .rise: return 4
+        case .flash, .doubleFlash, .tripleFlash, .colorPop, .rainbowFlash, .blackout, .sweep, .centerBurst, .splitFlash, .tiltSnap: return 1
+        case .strobeBurst, .stutter, .blinder, .sparkle, .chaseRun, .fadeOut, .fadeIn: return 2
+        case .rise, .strobeRamp: return 4
         }
     }
     var blurb: String {
         switch self {
         case .flash: return "one white flash that fades back"
+        case .doubleFlash: return "two quick white hits"
+        case .tripleFlash: return "three quick white hits"
         case .strobeBurst: return "fast white strobe"
         case .stutter: return "strobe chops on the beat grid"
+        case .strobeRamp: return "strobes that speed up into the moment"
         case .blinder: return "full white, then fades"
-        case .blackout: return "all lights out, then back"
+        case .sweep: return "a white band runs across the light"
+        case .centerBurst: return "bursts from the middle outward"
+        case .splitFlash: return "left half, then right half"
+        case .sparkle: return "random heads sparkle"
+        case .chaseRun: return "one bright dot runs across the heads"
         case .colorPop: return "a burst of the look's brightest color"
+        case .rainbowFlash: return "every head a different color for a moment"
+        case .blackout: return "all lights out, then back"
+        case .fadeOut: return "dips to black"
+        case .fadeIn: return "rises back up from black"
         case .rise: return "builds brighter and whiter into the moment"
+        case .tiltSnap: return "the beams snap up, then fall back"
         }
     }
 }

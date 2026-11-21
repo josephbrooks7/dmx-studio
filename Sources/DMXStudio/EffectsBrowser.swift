@@ -215,14 +215,14 @@ enum FXThumb {
             SwiftUI.TimelineView(.periodic(from: .now, by: 1.0 / 24)) { tl in
                 let t = tl.date.timeIntervalSinceReferenceDate.truncatingRemainder(dividingBy: 600)
                 // the hit again every 2 seconds
-                let at = floor(t / 2) * 2 + (k == .rise ? 1.9 : 0.2)
+                let at = floor(t / 2) * 2 + (k.buildsUp ? 1.9 : 0.2)
                 bar(frame([base], hits: [ShowHit(time: at, kind: k, beats: k.beats)], at: t))
             }
         } else {
             let key = "hit|\(k.rawValue)"
             let heads = cache[key] ?? {
                 let at = 8.0
-                let h = frame([base], hits: [ShowHit(time: at, kind: k, beats: k.beats)], at: k == .rise ? at - 0.4 : at + 0.06)
+                let h = frame([base], hits: [ShowHit(time: at, kind: k, beats: k.beats)], at: k.buildsUp ? at - 0.4 : at + 0.06)
                 cache[key] = h
                 return h
             }()
