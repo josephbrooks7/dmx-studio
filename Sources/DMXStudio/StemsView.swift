@@ -374,13 +374,13 @@ struct PhraseLane: View {
 struct LyricsTab: View {
     @EnvironmentObject var model: AppModel
     let song: Song
-    @AppStorage("lyricsTabOpen") private var open = false
+    private var open: Bool { model.lyricsOpen }
     @State private var pasting = false
     @State private var pasteText = ""
 
     var body: some View {
         VStack(alignment: .leading, spacing: 10) {
-            Button { withAnimation(.easeInOut(duration: 0.2)) { open.toggle() } } label: {
+            Button { withAnimation(.easeInOut(duration: 0.2)) { model.lyricsOpen.toggle() } } label: {
                 HStack(spacing: 8) {
                     Image(systemName: open ? "chevron.down" : "chevron.right").font(.caption.bold())
                     Image(systemName: "text.quote")

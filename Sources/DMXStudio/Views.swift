@@ -76,41 +76,56 @@ struct SongView: View {
         }
     }
 
-    // Header with Learn + genre
+    // Header: the song and what was learned (full width), then the actions on their own row
     @ViewBuilder func header(_ song: Song) -> some View {
-        HStack(alignment: .top) {
-            VStack(alignment: .leading, spacing: 6) {
-                Text(song.title).font(.largeTitle.bold()).lineLimit(1)
-                TextField("Artist", text: Binding(get: { song.artist ?? "" },
-                                                  set: { model.songBinding(song.id).wrappedValue.artist = $0 }))
-                    .textFieldStyle(.plain).font(.title3).foregroundColor(.secondary)
-                if let a = song.analysis {
-                    HStack(spacing: 14) {
-                        Label("\(Int(a.bpm.rounded())) BPM", systemImage: "metronome")
-                        Label(formatTime(a.duration), systemImage: "clock")
-                        Label("\(a.detectedSections.count) sections", systemImage: "rectangle.split.3x1")
-                        Label("\(a.kicks.count) kicks", systemImage: "circle.fill")
+        VStack(alignment: .leading, spacing: 14) {
+            HStack(alignment: .top) {
+                VStack(alignment: .leading, spacing: 6) {
+                    Text(song.title).font(.largeTitle.bold()).lineLimit(1)
+                    TextField("Artist", text: Binding(get: { song.artist ?? "" },
+                                                      set: { model.songBinding(song.id).wrappedValue.artist = $0 }))
+                        .textFieldStyle(.plain).font(.title3).foregroundColor(.secondary)
+                    if let a = song.analysis {
+                        HStack(spacing: 14) {
+                            Label("\(Int(a.bpm.rounded())) BPM", systemImage: "metronome")
+                            Label(formatTime(a.duration), systemImage: "clock")
+                            Label("\(a.detectedSections.count) sections", systemImage: "rectangle.split.3x1")
+                            Label("\(a.kicks.count) kicks", systemImage: "circle.fill")
+                        }
+                        .font(.callout).foregroundColor(.secondary)
+                        HStack(spacing: 14) {
+                            let g = a.groove
+                            Label(g.feel == .normal ? "Normal groove" : "\(g.feel.rawValue) feel (\(Int(a.feltBPM.rounded())) BPM felt)",
+                                  systemImage: "waveform.path")
+                            Label("Sounds like: \(a.genreSummary)", systemImage: "music.quarternote.3")
+                        }
+                        .font(.callout).foregroundColor(.secondary)
+                        HStack(spacing: 14) {
+                            Label("Music starts \(formatTime(a.musicStart))" + (a.musicStart >= 0.3 ? String(format: " (%.1f s lead-in)", a.musicStart) : ""),
+                                  systemImage: "arrow.right.to.line")
+                            Label("ends \(formatTime(a.musicEnd))" + (a.duration - a.musicEnd >= 0.3 ? String(format: " (%.1f s silent tail)", a.duration - a.musicEnd) : ""),
+                                  systemImage: "arrow.left.to.line")
+                        }
+                        .font(.callout).foregroundColor(.secondary)
                     }
-                    .font(.callout).foregroundColor(.secondary)
-                    HStack(spacing: 14) {
-                        let g = a.groove
-                        Label(g.feel == .normal ? "Normal groove" : "\(g.feel.rawValue) feel (\(Int(a.feltBPM.rounded())) BPM felt)",
-                              systemImage: "waveform.path")
-                        Label("Sounds like: \(a.genreSummary)", systemImage: "music.quarternote.3")
+                }
+                Spacer(minLength: 16)
+                HStack {
+                    Text("Genre:").foregroundColor(.secondary)
+                    Picker("", selection: model.songBinding(song.id).genre) {
+                        if let s = song.analysis?.suggestedStyle {
+                            Text("Auto (sounds like \(s.rawValue))").tag(ShowStyle?.none)
+                        } else {
+                            Text("Auto").tag(ShowStyle?.none)
+                        }
+                        Divider()
+                        ForEach(ShowStyle.allCases) { s in Text(s.rawValue).tag(ShowStyle?.some(s)) }
                     }
-                    .font(.callout).foregroundColor(.secondary)
-                    HStack(spacing: 14) {
-                        Label("Music starts \(formatTime(a.musicStart))" + (a.musicStart >= 0.3 ? String(format: " (%.1f s lead-in)", a.musicStart) : ""),
-                              systemImage: "arrow.right.to.line")
-                        Label("ends \(formatTime(a.musicEnd))" + (a.duration - a.musicEnd >= 0.3 ? String(format: " (%.1f s silent tail)", a.duration - a.musicEnd) : ""),
-                              systemImage: "arrow.left.to.line")
-                    }
-                    .font(.callout).foregroundColor(.secondary)
+                    .labelsHidden()
+                    .frame(width: 260)
                 }
             }
-            Spacer()
-            VStack(alignment: .trailing, spacing: 8) {
-                HStack {
+            HStack(spacing: 10) {
                     if let p = model.learning[song.id] {
                         ProgressView(value: p).frame(width: 120)
                         VStack(alignment: .leading, spacing: 1) {
@@ -158,21 +173,6 @@ struct SongView: View {
                         .help("Make new presets from this song's light show (they appear in their own group on the Live and Show screens)")
                     }
                 }
-                HStack {
-                    Text("Genre:").foregroundColor(.secondary)
-                    Picker("", selection: model.songBinding(song.id).genre) {
-                        if let s = song.analysis?.suggestedStyle {
-                            Text("Auto (sounds like \(s.rawValue))").tag(ShowStyle?.none)
-                        } else {
-                            Text("Auto").tag(ShowStyle?.none)
-                        }
-                        Divider()
-                        ForEach(ShowStyle.allCases) { s in Text(s.rawValue).tag(ShowStyle?.some(s)) }
-                    }
-                    .labelsHidden()
-                    .frame(width: 260)
-                }
-            }
         }
     }
 
@@ -456,8 +456,8 @@ struct TimelineView: View {
                         ctx.fill(Path(CGRect(x: x0, y: size.height - 6, width: max(1, x1 - x0), height: 6)),
                                  with: .color(.gray.opacity(0.6)))
                     }
-                    // Lyric phrases (with their words) along the bottom
-                    for l in song.lyrics?.lines ?? [] {
+                    // Lyric phrases (with their words) along the bottom — only while the Lyrics panel is open
+                    for l in model.lyricsOpen ? (song.lyrics?.lines ?? []) : [] {
                         let x0 = CGFloat(l.start / dur) * size.width
                         let x1 = CGFloat(l.end / dur) * size.width
                         let r = CGRect(x: x0, y: size.height - 40, width: max(2, x1 - x0), height: 14)

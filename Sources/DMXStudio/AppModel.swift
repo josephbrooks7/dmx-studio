@@ -1401,6 +1401,9 @@ final class AppModel: ObservableObject {
         learnMusic(id, rebuildShows: rebuildShows)
     }
 
+    /// The Lyrics panel is open (closed at every launch; lyrics also show on the timeline only while it's open)
+    @Published var lyricsOpen = false
+
     /// Learn is on step 1 (lyrics) for this song
     func learningLyricsFirst(_ id: UUID) -> Bool { musicAfterLyrics[id] != nil }
 
