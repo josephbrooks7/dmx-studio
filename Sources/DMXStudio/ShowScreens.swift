@@ -1109,7 +1109,7 @@ struct SongsScreen: View {
                     Text("Removes them from the library and from your set lists, with their light shows. The audio files stay in your DMX Studio folder.")
                 }
                 .onHover { model.songListHovered = $0 }
-                Text("Drag WAV / MP3 files or a folder here").font(.caption).foregroundColor(Theme.subtle)
+                Text("Drag WAV / MP3 / M4A / AIFF / FLAC files or a folder here").font(.caption).foregroundColor(Theme.subtle)
             }
             .padding(14)
             .frame(width: 300)

@@ -721,7 +721,7 @@ struct LineupView: View {
             return true
         }
         .overlay(dropTargeted ? RoundedRectangle(cornerRadius: 12).stroke(Color.pink, lineWidth: 3).padding(6) : nil)
-        .fileImporter(isPresented: $importingHere, allowedContentTypes: [.audio, .mp3, .wav, .folder], allowsMultipleSelection: true) { result in
+        .fileImporter(isPresented: $importingHere, allowedContentTypes: [.audio, .mp3, .wav, .mpeg4Audio, .aiff, UTType(filenameExtension: "m4a") ?? .audio, UTType(filenameExtension: "flac") ?? .audio, .folder], allowsMultipleSelection: true) { result in
             if case .success(let urls) = result { model.importSongs(urls, into: lineupID) }
         }
     }
