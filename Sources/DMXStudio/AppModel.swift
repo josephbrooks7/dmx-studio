@@ -142,7 +142,7 @@ final class AppModel: ObservableObject {
     private var tapTimes: [Double] = []
     private let mic = MicBeatTracker()
     @Published var manual: [UUID: ManualControl] = [:]   // hands-on control per light
-    @Published var outputEnabled = true          // off = simulate only, real lights stay dark
+    @Published var outputEnabled = false         // starts in Preview every time: press GO LIVE to control the lights
     @Published var packetsPerSecond = 0
     private var lastPacketCount = 0
     @Published var haze: Double = 0.6            // beam visibility in the Stage simulation

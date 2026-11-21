@@ -535,7 +535,7 @@ struct ShowScreen: View {
                             }
                             HStack {
                                 Text("Presets").font(.system(size: 17, weight: .bold))
-                                Text("Tap to run on the beat · tap again to stop").font(.caption).foregroundColor(Theme.subtle)
+                                Text("Hold to run on the beat · let go and the show comes back").font(.caption).foregroundColor(Theme.subtle)
                                 Spacer()
                                 Button {
                                     let p = LookPreset(name: "New Look", effect: .pulse, palette: "Red Velvet", movement: .sweep)
@@ -551,7 +551,7 @@ struct ShowScreen: View {
                             LazyVGrid(columns: cols, alignment: .leading, spacing: 12) {
                                 ForEach(group.presets) { p in
                                     PresetTile(preset: p, active: model.activePresetID == p.id)
-                                        .onTapGesture { model.togglePreset(p.id) }
+                                        .modifier(HoldPresetGesture(presetID: p.id))
                                         .contextMenu {
                                             Button("Edit…") { editingPreset = p.id }
                                             Button("Duplicate") {
@@ -1147,6 +1147,34 @@ struct LiveMomentPad: View {
                     DispatchQueue.main.asyncAfter(deadline: .now() + s) { model.releasePreset(presetID) }
                 }
             })
+    }
+}
+
+/// Any preset button: runs while held (or as the Release setting says), then the show comes back
+struct HoldPresetGesture: ViewModifier {
+    @EnvironmentObject var model: AppModel
+    let presetID: UUID
+    @AppStorage("hitRelease") private var release = HitRelease.hold.rawValue
+    @State private var pressed = false
+
+    func body(content: Content) -> some View {
+        content
+            .contentShape(Rectangle())
+            .gesture(DragGesture(minimumDistance: 0)
+                .onChanged { _ in
+                    guard !pressed else { return }
+                    pressed = true
+                    let mode = HitRelease(rawValue: release) ?? .hold
+                    if mode == .toggle && model.activePresetID == presetID { model.releasePreset(presetID) } else { model.holdPreset(presetID) }
+                }
+                .onEnded { _ in
+                    pressed = false
+                    let mode = HitRelease(rawValue: release) ?? .hold
+                    if mode == .hold { model.releasePreset(presetID) }
+                    else if let s = mode.seconds {
+                        DispatchQueue.main.asyncAfter(deadline: .now() + s) { model.releasePreset(presetID) }
+                    }
+                })
     }
 }
 

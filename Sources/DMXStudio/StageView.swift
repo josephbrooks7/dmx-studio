@@ -103,14 +103,15 @@ struct StageScreen: View {
                 ScrollView(.horizontal, showsIndicators: false) {
                     HStack(spacing: 8) {
                         ForEach(model.presets) { p in
-                            Button { model.togglePreset(p.id) } label: {
-                                HStack(spacing: 6) {
-                                    Circle().fill(LinearGradient(colors: Palette.named(p.palette).colors.prefix(3).map { $0.color },
-                                                                 startPoint: .topLeading, endPoint: .bottomTrailing)).frame(width: 14, height: 14)
-                                    Text(p.name).lineLimit(1)
-                                }
+                            HStack(spacing: 6) {
+                                Circle().fill(LinearGradient(colors: Palette.named(p.palette).colors.prefix(3).map { $0.color },
+                                                             startPoint: .topLeading, endPoint: .bottomTrailing)).frame(width: 14, height: 14)
+                                Text(p.name).lineLimit(1)
                             }
-                            .buttonStyle(PillButtonStyle(active: model.activePresetID == p.id))
+                            .padding(.horizontal, 12).padding(.vertical, 7)
+                            .background(Capsule().fill(model.activePresetID == p.id ? Theme.accent.opacity(0.45) : Color.white.opacity(0.08)))
+                            .overlay(Capsule().stroke(model.activePresetID == p.id ? Color.white : Color.clear, lineWidth: 1.5))
+                            .modifier(HoldPresetGesture(presetID: p.id))
                         }
                     }
                 }
