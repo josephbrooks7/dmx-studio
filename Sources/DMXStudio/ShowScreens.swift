@@ -1067,6 +1067,7 @@ struct SongsScreen: View {
         defer { dragBase = nil }
         if moved { return }
         guard let id = row(at: p) else { return }
+        model.timelineSelection = nil          // Delete now means the songs again
         let mods = NSEvent.modifierFlags
         if mods.contains(.shift), let a = anchor ?? model.selectedSongID {
             model.pickedSongs = mods.contains(.command) ? model.pickedSongs.union(range(a, id)) : range(a, id)

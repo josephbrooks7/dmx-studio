@@ -320,7 +320,11 @@ final class AppModel: ObservableObject {
             case 125, 126: // ↓ / ↑ = pick the song to play next (in the set list or the library)
                 if down { self.moveSelection(e.keyCode == 125 ? 1 : -1) }
                 return nil
-            case 51, 117: // Delete / ⌦ in the song library: remove the picked songs (asks first)
+            case 51, 117: // Delete / ⌦: a selected timeline block is emptied; otherwise the picked library songs (asks first)
+                if let ts = self.timelineSelection, self.songsScreenShowing {
+                    if down && !e.isARepeat { self.emptySection(songID: ts.song, sectionID: ts.section) }
+                    return nil
+                }
                 guard self.songsScreenShowing, !self.pickedSongs.isEmpty || self.selectedSongID != nil else { return e }
                 if down && !e.isARepeat {
                     let ids = self.pickedSongs.isEmpty ? (self.selectedSongID.map { [$0] } ?? []) : Array(self.pickedSongs)
@@ -2150,6 +2154,16 @@ final class AppModel: ObservableObject {
         guard let w = NSApp.keyWindow ?? NSApp.windows.first(where: { $0.canBecomeMain }) else { return }
         w.collectionBehavior.insert(.fullScreenPrimary)
         w.toggleFullScreen(nil)
+    }
+
+    /// The block selected on a song's timeline (Delete empties it)
+    var timelineSelection: (song: UUID, section: UUID)?
+
+    /// Remove a block's look but keep its place: an empty slot of the same length to fill with another look
+    func emptySection(songID: UUID, sectionID: UUID) {
+        guard let i = index(of: songID), let si = songs[i].activeShowIndex,
+              let k = songs[i].shows[si].sections.firstIndex(where: { $0.id == sectionID }) else { return }
+        songs[i].shows[si].sections[k].empty = true
     }
 
     /// Songs picked in the library (click, ⇧/⌘-click or drag to pick several)

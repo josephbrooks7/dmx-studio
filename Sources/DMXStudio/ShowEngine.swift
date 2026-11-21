@@ -352,6 +352,10 @@ struct ShowRenderer {
 
     /// Show + automatic fade to the idle look wherever the song is silent.
     func renderWithIdle(at t: Double) -> [RenderedFixture] {
+        // an empty slot on the timeline (block removed, nothing put there yet): the idle look
+        if let s = sections.last(where: { $0.start <= t }), s.empty == true, t < s.end {
+            return idle.render(fixtures: fixtures, time: t)
+        }
         let k = silenceAmount(t)
         if k >= 1 { return idle.render(fixtures: fixtures, time: t) }
         let show = render(at: t)

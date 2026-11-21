@@ -189,6 +189,27 @@ struct SectionTimelineEditor: View {
     }
 
     @ViewBuilder private func block(_ s: ShowSection, width: CGFloat) -> some View {
+        withActions(s.empty == true ? AnyView(emptyBlock(s, width: width)) : AnyView(filledBlock(s, width: width)), s)
+    }
+
+    /// A removed block: same time, dashed, waiting for a look
+    private func emptyBlock(_ s: ShowSection, width: CGFloat) -> some View {
+        let isSel = (selected ?? sections.first?.id) == s.id
+        return ZStack {
+            RoundedRectangle(cornerRadius: 9, style: .continuous).fill(Color.white.opacity(0.05))
+            RoundedRectangle(cornerRadius: 9, style: .continuous)
+                .strokeBorder(style: StrokeStyle(lineWidth: dropTarget == s.id || isSel ? 2.5 : 1.5, dash: [6, 4]))
+                .foregroundColor(dropTarget == s.id ? .yellow : (isSel ? .white : .white.opacity(0.45)))
+            VStack(spacing: 2) {
+                Image(systemName: "plus").font(.system(size: width > 40 ? 20 : 12, weight: .bold))
+                if width > 80 { Text("Drop a look").font(.system(size: 10, weight: .semibold)) }
+                if width > 60 { Text(s.name).font(.system(size: 9)).opacity(0.7).lineLimit(1) }
+            }
+            .foregroundColor(.white.opacity(0.8))
+        }
+    }
+
+    @ViewBuilder private func filledBlock(_ s: ShowSection, width: CGFloat) -> some View {
         let pal = Palette.named(s.palette)
         let n = max(1, min(4, pal.colors.count))
         let isSel = (selected ?? sections.first?.id) == s.id
@@ -221,11 +242,16 @@ struct SectionTimelineEditor: View {
         }
         .overlay(RoundedRectangle(cornerRadius: 9, style: .continuous)
             .stroke(dropTarget == s.id ? Color.yellow : (isSel ? Color.white : Color.white.opacity(0.12)), lineWidth: dropTarget == s.id || isSel ? 2.5 : 1))
+    }
+
+    /// Click, drag, drop and right-click on a timeline block (filled or empty)
+    private func withActions<V: View>(_ v: V, _ s: ShowSection) -> some View {
+        v
         .contentShape(RoundedRectangle(cornerRadius: 9))
-        .onTapGesture { selected = s.id }
+        .onTapGesture { select(s.id) }
         .help("\(s.name) · \(s.effect.rawValue) · \(s.palette) · \(formatTime(s.start))–\(formatTime(s.end))")
         .onDrag {
-            selected = s.id
+            select(s.id)
             return NSItemProvider(object: "section:\(s.id.uuidString)" as NSString)
         }
         .onDrop(of: [UTType.plainText], isTargeted: Binding(get: { dropTarget == s.id }, set: { dropTarget = $0 ? s.id : (dropTarget == s.id ? nil : dropTarget) })) { providers in
@@ -254,7 +280,15 @@ struct SectionTimelineEditor: View {
             Divider()
             Button("Split in Two") { model.splitSection(songID: song.id, sectionID: s.id) }
             Button("Merge with Next") { model.mergeWithNext(songID: song.id, sectionID: s.id) }
+            Divider()
+            Button("Remove (Leave Empty)") { model.emptySection(songID: song.id, sectionID: s.id) }.disabled(s.empty == true)
         }
+    }
+
+    /// Selecting a block (Delete then empties it)
+    func select(_ id: UUID) {
+        selected = id
+        model.timelineSelection = (song.id, id)
     }
 
     // MARK: Looks to drag onto blocks
@@ -334,10 +368,17 @@ struct SectionTimelineEditor: View {
                 Button { play(from: s.start) } label: { Label("Play from Here", systemImage: "play.fill") }
                 Button { model.splitSection(songID: song.id, sectionID: s.id) } label: { Label("Split", systemImage: "scissors") }
                 Button { model.mergeWithNext(songID: song.id, sectionID: s.id) } label: { Label("Merge with Next", systemImage: "arrow.right.to.line") }
+                Button { model.emptySection(songID: song.id, sectionID: s.id) } label: { Label("Remove", systemImage: "trash") }
+                    .disabled(s.empty == true)
+                    .help("Remove this block's look and leave an empty slot of the same length (Delete key)")
+            }
+            if s.empty == true {
+                Text("Empty slot: click a look pad, drag one here, or pick an effect below to fill it. Until then the lights play the idle look.")
+                    .font(.callout).foregroundColor(.orange)
             }
             HStack(spacing: 14) {
                 labeled("Effect") {
-                    Picker("", selection: sec.effect) {
+                    Picker("", selection: Binding(get: { sec.wrappedValue.effect }, set: { sec.wrappedValue.effect = $0; sec.wrappedValue.empty = nil })) {
                         ForEach(LightEffect.allCases) { e in Label(e.rawValue, systemImage: e.icon).tag(e) }
                     }.labelsHidden().frame(width: 170)
                 }
@@ -405,8 +446,9 @@ struct SectionTimelineEditor: View {
         var s = song.shows[showIndex].sections[k]
         s.effect = p.effect; s.palette = p.palette; s.movement = p.movement; s.rate = p.rate; s.intensity = p.intensity
         s.colorShift = nil
+        s.empty = nil
         song.shows[showIndex].sections[k] = s
-        selected = id
+        select(id)
     }
 
     private func applyLook(of src: ShowSection, to id: UUID) {
@@ -414,7 +456,9 @@ struct SectionTimelineEditor: View {
         var s = song.shows[showIndex].sections[k]
         s.effect = src.effect; s.palette = src.palette; s.movement = src.movement; s.rate = src.rate
         s.intensity = src.intensity; s.accentStrobe = src.accentStrobe; s.colorShift = src.colorShift; s.accents = src.accents
+        s.empty = src.empty
         song.shows[showIndex].sections[k] = s
-        selected = id
+        select(id)
     }
 }
+

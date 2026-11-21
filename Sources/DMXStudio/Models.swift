@@ -421,6 +421,7 @@ struct ShowSection: Identifiable, Codable, Hashable {
     var accentStrobe: Bool = false  // strobe hit on the first bar
     var colorShift: Int? = nil      // rotates the palette so repeated phrases look different
     var accents: Double? = nil      // how much white blinder / strobe accent use (nil = 1, 0 = none)
+    var empty: Bool? = nil          // removed on the timeline: an empty slot (idle look) waiting for a new look
 }
 
 struct SongAnalysis: Codable {
