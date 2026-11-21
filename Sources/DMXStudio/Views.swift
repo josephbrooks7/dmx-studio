@@ -115,7 +115,8 @@ struct SongView: View {
                         ProgressView(value: p).frame(width: 120)
                         VStack(alignment: .leading, spacing: 1) {
                             Text("Learning…").foregroundColor(.secondary)
-                            Ticking { model.learnCountdown(song.id) }.font(.caption).foregroundColor(.secondary).monospacedDigit()
+                            Ticking { model.learnCountdown(song.id) }.font(.caption)
+                            Button("Stop") { model.stopLearn(song.id) }.controlSize(.small).foregroundColor(.secondary).monospacedDigit()
                         }
                     } else {
                         Button {

@@ -136,7 +136,7 @@ enum Helper {
     }
 
     /// Runs this same app binary with `args` (a hidden helper mode) and waits for it.
-    static func run(_ args: [String], timeout: Double, progress: ((Double) -> Void)? = nil) -> Result {
+    static func run(_ args: [String], timeout: Double, progress: ((Double) -> Void)? = nil, onStart: ((Process) -> Void)? = nil) -> Result {
         let p = Process()
         p.executableURL = URL(fileURLWithPath: Bundle.main.executablePath ?? CommandLine.arguments[0])
         p.arguments = args
@@ -164,6 +164,7 @@ enum Helper {
         group.enter(); DispatchQueue.global().async { errData = err.fileHandleForReading.readDataToEndOfFile(); group.leave() }
         do {
             try p.run()
+            onStart?(p)
         } catch {
             return Result(status: -1, crashed: true, stdout: Data(), stderr: "Couldn't start helper: \(error.localizedDescription)")
         }

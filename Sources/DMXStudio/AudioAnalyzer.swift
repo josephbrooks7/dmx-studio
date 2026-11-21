@@ -26,11 +26,11 @@ enum AudioAnalyzer {
         do {
             var out: StemSplitter.Output
             if highQuality, HQSplitter.isInstalled, let stemsDir {
-                // AI split into 6 parts, then hits from the clean drum part and phrases from the clean vocals
-                try HQSplitter.separate(url: url, outDir: stemsDir) { progress(0.3 + $0 * 0.55) }
-                // drum hits: the tested method on the full song (on the AI drum part it over-counts kicks)
-                let drums = try StemSplitter.run(url: url, settings: settings, stemsDir: nil) { progress(0.85 + $0 * 0.07) }
-                let vox = try StemSplitter.run(url: stemsDir.appendingPathComponent("vocals.m4a"), settings: settings, stemsDir: nil) { progress(0.92 + $0 * 0.07) }
+                // quick pass on the full song first: drum hits (the tested method) and where the singing is
+                let drums = try StemSplitter.run(url: url, settings: settings, stemsDir: nil) { progress(0.3 + $0 * 0.05) }
+                // AI split, only where someone sings (in vocals focus), then phrases on the clean vocals
+                try HQSplitter.separate(url: url, outDir: stemsDir, onlyNear: drums.vocalPhrases) { progress(0.35 + $0 * 0.55) }
+                let vox = try StemSplitter.run(url: stemsDir.appendingPathComponent("vocals.m4a"), settings: settings, stemsDir: nil) { progress(0.9 + $0 * 0.09) }
                 // sung phrases: found on the full song or on the AI vocal part (either one), merged
                 let both = (drums.vocalPhrases + audible(vox.vocalPhrases, part: stemsDir.appendingPathComponent("vocals.m4a"), mix: url))
                     .sorted { $0.start < $1.start }

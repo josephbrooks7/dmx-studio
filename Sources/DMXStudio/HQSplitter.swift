@@ -78,7 +78,7 @@ enum HQSplitter {
     // MARK: Separate
 
     /// Splits the song and writes <name>.m4a for each part plus overview.json into `outDir`.
-    static func separate(url: URL, outDir: URL, progress: (Double) -> Void) throws {
+    static func separate(url: URL, outDir: URL, onlyNear: [TimeSpan]? = nil, progress: (Double) -> Void) throws {
         let cfg = MLModelConfiguration()
         #if arch(x86_64)
         // Intel Macs: CPU only unless you turn on the graphics chip (it caused a freeze on the 3D stage before)
@@ -230,8 +230,28 @@ enum HQSplitter {
                 }
                 return o
             }
-            let out = try model.prediction(from: inp)
             var parts = [[[Float]]](repeating: [[], []], count: ns)
+            // Vocals focus: skip the AI where nobody sings (the window is all instrumental)
+            let t0 = Double(offset) / StemSplitter.rate, t1 = Double(offset + n) / StemSplitter.rate
+            let needed = full || onlyNear == nil || onlyNear!.contains { $0.start < t1 + 2 && $0.end > t0 - 2 }
+            if !needed, let oi = sources.firstIndex(of: "other") {
+                for s in 0..<ns { for c in 0..<2 { parts[s][c] = s == oi ? Array(seg[c][0..<n]) : [Float](repeating: 0, count: n) } }
+                for s in 0..<ns { for c in 0..<2 { for i in 0..<n { acc[s][c][i] += parts[s][c][i] * weight[i] } } }
+                for i in 0..<n { wsum[i] += weight[i] }
+                let last = offset + stride >= L
+                let ready = last ? n : stride
+                try emit(ready)
+                if !last {
+                    for s in 0..<ns { for c in 0..<2 {
+                        acc[s][c].removeFirst(ready); acc[s][c].append(contentsOf: [Float](repeating: 0, count: ready))
+                    } }
+                    wsum.removeFirst(ready); wsum.append(contentsOf: [Float](repeating: 0, count: ready))
+                }
+                offset += stride; segIndex += 1
+                progress(Double(segIndex) / Double(max(segCount, 1)))
+                continue
+            }
+            let out = try model.prediction(from: inp)
             for s in 0..<ns { for c in 0..<2 { parts[s][c] = try render(out, s, c) } }
             // The vocals specialist (fine-tuned Demucs) hears more of the singing — backing vocals, doubles,
             // chops that the 6-part model leaves in "other": use its vocals, and take that difference out of "other"

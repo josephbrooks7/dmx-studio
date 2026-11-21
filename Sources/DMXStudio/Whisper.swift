@@ -69,6 +69,7 @@ enum WhisperEngine {
     }
     static var isAvailable: Bool { binary != nil }
     static var overrideModel: URL?   // tests
+    static var running: Process?     // the transcription in progress (for Stop)
     static func modelURL(_ m: ModelSize) -> URL {
         if let o = overrideModel { return o }
         // built into the app (works offline), else downloaded
@@ -124,6 +125,8 @@ enum WhisperEngine {
                 p.standardError = err
                 p.standardOutput = FileHandle.nullDevice
                 try p.run()
+                running = p
+                defer { running = nil }
                 // progress lines on stderr: "...progress = 42%"
                 var pending = "", errLog = ""
                 while true {

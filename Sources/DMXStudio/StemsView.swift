@@ -68,7 +68,11 @@ struct StemsTab: View {
                     Text("High Quality uses Meta's Demucs AI models on this Mac: much cleaner parts (vocals, BG vocals, guitar, piano). The song is ready right away from a quick split; the High Quality split follows in the background.")
                         .font(.caption).foregroundColor(.secondary)
                     if let p = model.hqProgress[song.id] {
-                        HStack { ProgressView(value: p).frame(width: 140); Ticking { model.hqCountdown(song.id) }.font(.caption).monospacedDigit() }
+                        HStack {
+                            ProgressView(value: p).frame(width: 140)
+                            Ticking { model.hqCountdown(song.id) }.font(.caption).monospacedDigit()
+                            Button("Stop") { model.stopHQ(song.id) }.controlSize(.small).help("Stop the High Quality split (keeps the quick split)")
+                        }
                     }
                     Toggle("Also split guitar + piano (6 parts — about twice as slow)", isOn: Binding(
                         get: { UserDefaults.standard.bool(forKey: "hqSixParts") },
@@ -389,8 +393,9 @@ struct LyricsTab: View {
                     Text("Lyrics").font(.headline)
                     if let p = model.lyricsProgress[song.id] {
                         ProgressView(value: p).frame(width: 90)
-                        Ticking { (model.lyricsStatus[song.id] ?? "Listening to the vocals…") + " · " + model.lyricsCountdown(song.id) }
+                        Ticking { (model.lyricsStatus[song.id] ?? "Listening…") + " · " + model.lyricsCountdown(song.id) }
                             .font(.caption).foregroundColor(.secondary).monospacedDigit()
+                        Button("Stop") { model.stopLyrics(song.id) }.controlSize(.small)
                     } else if let st = model.lyricsStatus[song.id] {
                         Text(st).font(.caption).foregroundColor(.orange).lineLimit(1)
                     } else if let ly = song.lyrics {
@@ -443,7 +448,7 @@ struct LyricsTab: View {
     @ViewBuilder var content: some View {
         HStack(spacing: 10) {
             Button { model.learnLyrics(song.id) } label: { Label("Listen for Lyrics", systemImage: "waveform.and.mic") }
-                .disabled(model.lyricsProgress[song.id] != nil || song.analysis?.stemsFolder == nil)
+                .disabled(model.lyricsProgress[song.id] != nil || song.analysis == nil)
                 .help("Listens to the separated vocals and writes down every word with its timing (like auto-captions)")
             if WhisperEngine.isAvailable {
                 Picker("", selection: Binding(get: { WhisperEngine.chosen }, set: { WhisperEngine.chosen = $0; model.objectWillChange.send() })) {
@@ -452,6 +457,12 @@ struct LyricsTab: View {
                 .frame(width: 170)
                 .help("Whisper speech model used for lyrics (downloaded once, runs on this Mac)")
             }
+            Picker("", selection: Binding(get: { model.lyricsFromVocalPart }, set: { model.lyricsFromVocalPart = $0 })) {
+                Text("Whole song").tag(false)
+                Text("Vocal part").tag(true)
+            }
+            .frame(width: 120)
+            .help("Listen to the whole song (fast, no splitting) or to the separated vocal part (cleaner when the split is good)")
             Picker("", selection: Binding(get: { WhisperEngine.language }, set: { WhisperEngine.language = $0; model.objectWillChange.send() })) {
                 ForEach(WhisperEngine.Language.allCases) { Text($0.rawValue).tag($0) }
             }
