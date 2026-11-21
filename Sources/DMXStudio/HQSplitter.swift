@@ -133,8 +133,13 @@ enum HQSplitter {
         var wave = [[Float]](repeating: [], count: ns)
         var peakCur = [Float](repeating: 0, count: ns), peakFill = 0
 
+        let vIdx = sources.firstIndex(of: "vocals") ?? 3
+        var vocalsOut: [[Float]] = [[], []]       // kept to make the instrumental = song − vocals
         func emit(_ count: Int) throws {
             guard count > 0 else { return }
+            if !full {
+                for c in 0..<2 { for i in 0..<count { vocalsOut[c].append(acc[vIdx][c][i] / max(wsum[i], 1e-6) * sd + mu) } }
+            }
             for s in 0..<ns {
                 guard let buf = AVAudioPCMBuffer(pcmFormat: files[s].processingFormat, frameCapacity: AVAudioFrameCount(count)),
                       let ch = buf.floatChannelData else { continue }
@@ -265,9 +270,29 @@ enum HQSplitter {
         // Vocals focus: the specialist's vocals are excellent but its drums/bass are rough — split the
         // instrumental (everything but the vocals) with the quick splitter instead (seconds)
         if !full {
-            let parts = ["drums", "bass", "other"].map { outDir.appendingPathComponent("\($0).m4a") }
-            let inst = outDir.appendingPathComponent("instrumental.m4a")
-            try mixFiles(parts, to: inst)
+            // instrumental = the song minus the vocals, exactly (lossless temp file)
+            let inst = outDir.appendingPathComponent("instrumental.caf")
+            do {
+                let f = try AVAudioFile(forWriting: inst, settings: [AVFormatIDKey: kAudioFormatLinearPCM, AVSampleRateKey: StemSplitter.rate,
+                                                                     AVNumberOfChannelsKey: 2, AVLinearPCMBitDepthKey: 32,
+                                                                     AVLinearPCMIsFloatKey: true],
+                                        commonFormat: .pcmFormatFloat32, interleaved: false)
+                let block = 32768
+                if let buf = AVAudioPCMBuffer(pcmFormat: f.processingFormat, frameCapacity: AVAudioFrameCount(block)), let ch = buf.floatChannelData {
+                    var pos = 0
+                    while pos < L {
+                        let m = min(block, L - pos)
+                        for i in 0..<m {
+                            let v0 = pos + i < vocalsOut[0].count ? vocalsOut[0][pos + i] : 0
+                            let v1 = pos + i < vocalsOut[1].count ? vocalsOut[1][pos + i] : 0
+                            ch[0][i] = left[pos + i] - v0; ch[1][i] = right[pos + i] - v1
+                        }
+                        buf.frameLength = AVAudioFrameCount(m)
+                        try f.write(from: buf)
+                        pos += m
+                    }
+                }
+            }
             let tmp = outDir.appendingPathComponent("inst-split", isDirectory: true)
             _ = try StemSplitter.run(url: inst, settings: DetectionSettings(), stemsDir: tmp) { _ in }
             for name in ["drums", "bass"] {
