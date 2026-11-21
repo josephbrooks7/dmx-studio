@@ -86,9 +86,13 @@ enum HQSplitter {
         #else
         cfg.computeUnits = .all
         #endif
-        let model = try MLModel(contentsOf: modelURL, configuration: cfg)
-        let voxModel = FileManager.default.fileExists(atPath: voxURL.appendingPathComponent("coremldata.bin").path)
-            ? try? MLModel(contentsOf: voxURL, configuration: cfg) : nil
+        // "Vocals focus" (default, about twice as fast): just the vocals specialist, which also gives drums,
+        // bass and other. "Full 6 parts" adds the 6-part model for guitar + piano (two models: slower).
+        let haveVox = FileManager.default.fileExists(atPath: voxURL.appendingPathComponent("coremldata.bin").path)
+        let full = UserDefaults.standard.bool(forKey: "hqSixParts") || !haveVox
+        let model = try MLModel(contentsOf: full ? modelURL : voxURL, configuration: cfg)
+        let voxModel = full && haveVox ? try? MLModel(contentsOf: voxURL, configuration: cfg) : nil
+        let sources = full ? HQSplitter.sources : ["drums", "bass", "other", "vocals"]
         let voxIndex = 3    // htdemucs_ft parts: drums, bass, other, vocals
         let (left, right) = try StemSplitter.loadStereo(url: url)
         let L = left.count
@@ -106,7 +110,7 @@ enum HQSplitter {
         guard let fft = FFT(n: nfft) else { throw AudioAnalyzer.AnalyzeError.cannotRead("FFT") }
         let le = Int((Double(segment) / Double(hop)).rounded(.up))           // 336 frames
         let pad = hop / 2 * 3
-        let stride = Int(0.75 * Double(segment))
+        let stride = Int(0.85 * Double(segment))       // windows overlap 15 % (blended), fewer windows to run
         var weight = [Float](repeating: 0, count: segment)
         for i in 0..<segment { weight[i] = Float(i < segment / 2 ? i + 1 : segment - i) }
         let wmax = weight.max() ?? 1
@@ -258,6 +262,40 @@ enum HQSplitter {
         }
         if peakFill > 0 { for s in 0..<ns { wave[s].append(peakCur[s]) } }
         files.removeAll()
+        // Vocals focus: the specialist's vocals are excellent but its drums/bass are rough — split the
+        // instrumental (everything but the vocals) with the quick splitter instead (seconds)
+        if !full {
+            let parts = ["drums", "bass", "other"].map { outDir.appendingPathComponent("\($0).m4a") }
+            let inst = outDir.appendingPathComponent("instrumental.m4a")
+            try mixFiles(parts, to: inst)
+            let tmp = outDir.appendingPathComponent("inst-split", isDirectory: true)
+            _ = try StemSplitter.run(url: inst, settings: DetectionSettings(), stemsDir: tmp) { _ in }
+            for name in ["drums", "bass"] {
+                let dst = outDir.appendingPathComponent("\(name).m4a")
+                try? FileManager.default.removeItem(at: dst)
+                try FileManager.default.moveItem(at: tmp.appendingPathComponent("\(name).m4a"), to: dst)
+            }
+            // other = the rest of the instrumental (+ anything the quick splitter called "vocals")
+            try mixFiles([tmp.appendingPathComponent("other.m4a"), tmp.appendingPathComponent("vocals.m4a")],
+                         to: outDir.appendingPathComponent("other.m4a"))
+            try? FileManager.default.removeItem(at: tmp)
+            try? FileManager.default.removeItem(at: inst)
+            // waveform overviews for the new parts
+            for (k, name) in sources.enumerated() where name != "vocals" {
+                if let lr = try? StemSplitter.loadStereo(url: outDir.appendingPathComponent("\(name).m4a")) {
+                    let (l, r) = lr
+                    var pk: [Float] = []
+                    var i = 0
+                    while i < l.count {
+                        let e = min(l.count, i + peakWin)
+                        var p: Float = 0
+                        for j in i..<e { p = max(p, abs(l[j]), abs(r[j])) }
+                        pk.append(p); i = e
+                    }
+                    wave[k] = pk
+                }
+            }
+        }
         // Lead vocal vs background vocals: the lead sits in the centre, backing vocals / doubles / stacks
         // are spread wider. Split the vocal part into vocals (lead) + backing.
         var names = sources
@@ -342,6 +380,31 @@ enum HQSplitter {
             }
         }
         return (peaks[0], peaks[1])
+    }
+
+    /// Sums audio files (same length / rate) into one stereo .m4a.
+    static func mixFiles(_ srcs: [URL], to dst: URL) throws {
+        var l: [Float] = [], r: [Float] = []
+        for u in srcs where FileManager.default.fileExists(atPath: u.path) {
+            let (a, b) = try StemSplitter.loadStereo(url: u)
+            if l.count < a.count { l += [Float](repeating: 0, count: a.count - l.count); r += [Float](repeating: 0, count: a.count - r.count) }
+            for i in a.indices { l[i] += a[i]; r[i] += b[i] }
+        }
+        try? FileManager.default.removeItem(at: dst)
+        let f = try AVAudioFile(forWriting: dst, settings: [AVFormatIDKey: kAudioFormatMPEG4AAC, AVSampleRateKey: StemSplitter.rate,
+                                                            AVNumberOfChannelsKey: 2, AVEncoderBitRateKey: 192_000],
+                                commonFormat: .pcmFormatFloat32, interleaved: false)
+        let block = 32768
+        guard let buf = AVAudioPCMBuffer(pcmFormat: f.processingFormat, frameCapacity: AVAudioFrameCount(block)),
+              let ch = buf.floatChannelData else { return }
+        var pos = 0
+        while pos < l.count {
+            let m = min(block, l.count - pos)
+            for i in 0..<m { ch[0][i] = l[pos + i]; ch[1][i] = r[pos + i] }
+            buf.frameLength = AVAudioFrameCount(m)
+            try f.write(from: buf)
+            pos += m
+        }
     }
 
     /// numpy-style "reflect" padding (mirror without repeating the edge sample).

@@ -32,8 +32,8 @@ struct StemsTab: View {
                 HStack(spacing: 10) {
                     Text("Splitting").foregroundColor(.secondary)
                     Picker("", selection: $highQuality) {
-                        Text("Fast (4 parts)").tag(false)
-                        Text("High Quality AI (6 parts)").tag(true)
+                        Text("Fast").tag(false)
+                        Text("High Quality AI").tag(true)
                     }
                     .pickerStyle(.segmented).frame(width: 330)
                     if highQuality && !HQSplitter.isInstalled {
@@ -70,6 +70,10 @@ struct StemsTab: View {
                     if let p = model.hqProgress[song.id] {
                         HStack { ProgressView(value: p).frame(width: 140); Ticking { model.hqCountdown(song.id) }.font(.caption).monospacedDigit() }
                     }
+                    Toggle("Also split guitar + piano (6 parts — about twice as slow)", isOn: Binding(
+                        get: { UserDefaults.standard.bool(forKey: "hqSixParts") },
+                        set: { UserDefaults.standard.set($0, forKey: "hqSixParts"); model.objectWillChange.send() }))
+                        .font(.caption)
                     #if arch(x86_64)
                     Toggle("Use the graphics chip for the AI (faster; turn off if the Mac freezes)", isOn: Binding(
                         get: { UserDefaults.standard.bool(forKey: "aiUseGPU") },
