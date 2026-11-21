@@ -1008,7 +1008,7 @@ struct LiveScreen: View {
                 VStack(alignment: .leading, spacing: 18) {
                     HStack {
                         Text("Live Control").font(.system(size: 22, weight: .heavy))
-                        Text("Play the lights by hand: a look replaces the song's show until you tap it again; strobes and flash only while held. Pads follow the song's beat, or TAP / Listen with no song.")
+                        Text("Hold a pad to play it over the show; let go and the programmed show comes back. Release (below) can make pads stay on or last 1–10 s instead.")
                             .font(.caption).foregroundColor(Theme.subtle)
                         Spacer()
                         Button { model.tapTempo() } label: {
@@ -1032,8 +1032,10 @@ struct LiveScreen: View {
                         Text(group.name == "Essentials" ? "Looks" : group.name).font(.headline).foregroundColor(Theme.subtle)
                         LazyVGrid(columns: cols, spacing: 14) {
                             ForEach(group.presets) { p in
-                                LivePad(title: p.name, icon: p.icon, colors: Palette.named(p.palette).colors.prefix(3).map { $0.color },
-                                        active: model.activePresetID == p.id) { model.togglePreset(p.id) }
+                                let colors = Palette.named(p.palette).colors.prefix(3).map { $0.color }
+                                // every pad runs only while held (or as the Release setting says),
+                                // then the programmed show comes back
+                                LiveMomentPad(title: p.name, icon: p.icon, colors: colors, presetID: p.id)
                             }
                         }
                     }
@@ -1052,8 +1054,7 @@ struct LiveScreen: View {
                         LiveHoldPad(title: "Strobe", icon: "bolt.fill", color: .yellow, isHeld: $model.strobeHeld)
                         LiveHoldPad(title: "Blinder", icon: "sun.max.circle.fill", color: Color(red: 1, green: 0.95, blue: 0.8), isHeld: $model.blinderHeld)
                         LiveHoldPad(title: "Paparazzi", icon: "camera.fill", color: .cyan, isHeld: $model.paparazziHeld)
-                        LivePad(title: model.blackout ? "Blackout ON" : "Blackout", icon: "lightbulb.slash.fill",
-                                colors: [Color.red.opacity(0.8), Color.black], active: model.blackout) { model.blackout.toggle() }
+                        LiveHoldPad(title: "Blackout", icon: "lightbulb.slash.fill", color: .red, isHeld: $model.blackout)
                         LivePad(title: "Stop Look", icon: "stop.fill", colors: [Color.gray, Color.black], active: false) { model.activePresetID = nil }
                     }
                 }
@@ -1083,6 +1084,46 @@ struct LivePad: View {
             .overlay(RoundedRectangle(cornerRadius: 18, style: .continuous).stroke(active ? Color.white : .clear, lineWidth: 2))
         }
         .buttonStyle(.plain)
+    }
+}
+
+/// A pad that runs its look only while it's held down (Release setting: Hold / Toggle / 1–10 s)
+struct LiveMomentPad: View {
+    @EnvironmentObject var model: AppModel
+    let title: String
+    let icon: String
+    let colors: [Color]
+    let presetID: UUID
+    @AppStorage("hitRelease") private var release = HitRelease.hold.rawValue
+    @State private var pressed = false
+
+    var body: some View {
+        let active = model.activePresetID == presetID
+        VStack(spacing: 10) {
+            Image(systemName: icon).font(.system(size: 26, weight: .bold))
+            Text(title).font(.system(size: 13, weight: .bold)).lineLimit(1)
+        }
+        .frame(maxWidth: .infinity, minHeight: 110)
+        .foregroundColor(active ? .black.opacity(0.8) : .white)
+        .background(GlowPadBackground(color: colors.first ?? .white, lit: active, corner: 18))
+        .overlay(RoundedRectangle(cornerRadius: 18, style: .continuous).stroke(active ? Color.white : .clear, lineWidth: 2))
+        .contentShape(Rectangle())
+        .help("Hold to run it; let go and the show comes back")
+        .gesture(DragGesture(minimumDistance: 0)
+            .onChanged { _ in
+                guard !pressed else { return }
+                pressed = true
+                let mode = HitRelease(rawValue: release) ?? .hold
+                if mode == .toggle && active { model.releasePreset(presetID) } else { model.holdPreset(presetID) }
+            }
+            .onEnded { _ in
+                pressed = false
+                let mode = HitRelease(rawValue: release) ?? .hold
+                if mode == .hold { model.releasePreset(presetID) }
+                else if let s = mode.seconds {
+                    DispatchQueue.main.asyncAfter(deadline: .now() + s) { model.releasePreset(presetID) }
+                }
+            })
     }
 }
 

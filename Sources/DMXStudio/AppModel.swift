@@ -793,6 +793,24 @@ final class AppModel: ObservableObject {
         }
     }
 
+    /// Strobe / blinder pads: on only while held, then whatever was running before comes back
+    private var heldPresetID: UUID?
+    private var presetBeforeHold: UUID?
+    func holdPreset(_ id: UUID) {
+        if pauseTime != nil && playingSongID == nil && activeBlock == nil { resumeFromPause() }
+        if heldPresetID == nil { presetBeforeHold = activePresetID }
+        heldPresetID = id
+        activePresetID = id
+        presetStart = Date().timeIntervalSinceReferenceDate
+        testMode = .off
+    }
+    func releasePreset(_ id: UUID) {
+        guard heldPresetID == id else { return }
+        heldPresetID = nil
+        activePresetID = presetBeforeHold
+        presetBeforeHold = nil
+    }
+
     func togglePreset(_ id: UUID) {
         if pauseTime != nil && playingSongID == nil && activeBlock == nil { resumeFromPause() }
         if activePresetID == id { activePresetID = nil; return }
