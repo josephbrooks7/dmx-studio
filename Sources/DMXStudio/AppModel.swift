@@ -231,6 +231,13 @@ final class AppModel: ObservableObject {
     @Published var blinderHeld = false   // full white; fades out after release
     @Published var paparazziHeld = false // camera-flash pops on random heads
     private var blinderLevel = 0.0
+    private var lastLoud = 0.0
+    private var breakBlend = 0.0
+    /// Live with the mic / computer audio: pause effects when the music drops out (a break), resume on its return
+    var musicBreak: Bool {
+        get { UserDefaults.standard.object(forKey: "musicBreak") as? Bool ?? true }
+        set { UserDefaults.standard.set(newValue, forKey: "musicBreak"); objectWillChange.send() }
+    }
     @Published var testMode: TestMode = .off
     @Published var identifyFixtureID: UUID?
     /// Opens the step-by-step light setup walkthrough (nil = closed; empty = all lights)
@@ -3039,6 +3046,7 @@ final class AppModel: ObservableObject {
                     let snap = mic.snapshot()
                     clock.bpm = snap.bpm; clock.anchor = snap.anchor
                     onsets = snap.onsets; level = max(0.3, snap.level)
+                    if snap.level > 0.08 { lastLoud = now }
                 }
                 let la = clock.liveAnalysis(now: now, onsets: onsets, level: level, useOnsetsAsKicks: beatSource == .mic)
                 let linked = fixtures.indices.filter { fixtures[$0].isOn && fixtures[$0].effectiveBehavior == .sequence && copySource(of: $0) == nil }
@@ -3047,7 +3055,10 @@ final class AppModel: ObservableObject {
                 let part = r.render(at: now)
                 var full = idleFrame
                 for (j, fi) in linked.enumerated() where j < part.count { full[fi] = part[j] }
-                showFrame = full
+                // Music Break: the music dropped out → ease to the idle look until it comes back
+                let quiet = beatSource == .mic && musicBreak && now - lastLoud > 1.2
+                breakBlend = quiet ? min(1, breakBlend + 1.0 / 20) : max(0, breakBlend - 1.0 / 4)
+                showFrame = breakBlend > 0.001 ? blendRendered(full, idleFrame, breakBlend) : full
                 t = now
             }
 

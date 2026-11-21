@@ -997,6 +997,9 @@ struct LiveScreen: View {
                     }
                     if model.beatSource == .mic {
                         Panel { AudioSourcePicker() }
+                        Toggle("Music Break: pause effects when the music drops out", isOn: Binding(get: { model.musicBreak }, set: { model.musicBreak = $0 }))
+                            .toggleStyle(.switch)
+                            .help("When it hears a break (no music for about a second), the lights ease to the idle look and come back with the music")
                     }
                     ForEach(model.presetGroups, id: \.name) { group in
                         Text(group.name == "Essentials" ? "Looks" : group.name).font(.headline).foregroundColor(Theme.subtle)
