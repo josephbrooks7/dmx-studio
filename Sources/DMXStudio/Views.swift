@@ -836,6 +836,14 @@ struct LightsView: View {
                 LightSetupGuide()
                 AudioOutputCard()
                 Card {
+                    VStack(alignment: .leading, spacing: 6) {
+                        Toggle("Build shows with transitions and the effects library", isOn: Binding(get: { model.useLibraryInShows }, set: { model.useLibraryInShows = $0 }))
+                            .font(.headline)
+                        Text("When a song is learned (or a show is rebuilt): strobe ramps and rises into choruses, a blackout drop before drops, a sweep into the bridge; repeated verses and choruses get a different effect from Color FX / Move FX / Beam FX in the song's colors; later choruses mirror or roll across the heads, and drops get beam patterns. Turn off for the plain shows.")
+                            .font(.caption).foregroundColor(.secondary).fixedSize(horizontal: false, vertical: true)
+                    }
+                }
+                Card {
                     VStack(alignment: .leading, spacing: 8) {
                         Text("Flashing & strobes").font(.headline)
                         Picker("", selection: $model.flashLimit) {

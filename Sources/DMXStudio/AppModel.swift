@@ -785,6 +785,7 @@ final class AppModel: ObservableObject {
         let onLights = fixtures.filter { $0.isOn }
         for j in songs[i].shows.indices {
             var secs = ShowGenerator.generateShaped(a, style: songs[i].shows[j].style, variation: songs[i].shows[j].variation, design: songs[i].shows[j].design)
+            if useLibraryInShows { ShowGenerator.enrich(&secs, a, presets: presets, variation: songs[i].shows[j].variation) }
             ShowGenerator.fit(&secs, to: onLights.filter { $0.effectiveBehavior == .sequence })
             songs[i].shows[j].sections = secs
             songs[i].shows[j].fixtureIDs = onLights.isEmpty ? nil : onLights.map(\.id)
@@ -2154,6 +2155,7 @@ final class AppModel: ObservableObject {
         let onLights = fixtures.filter { $0.isOn }
         var secs = ShowGenerator.generateShaped(a, style: songs[i].shows[j].style, variation: songs[i].shows[j].variation,
                                                 design: songs[i].shows[j].design)
+        if useLibraryInShows { ShowGenerator.enrich(&secs, a, presets: presets, variation: songs[i].shows[j].variation) }
         ShowGenerator.fit(&secs, to: onLights.filter { $0.effectiveBehavior == .sequence })
         songs[i].shows[j].sections = secs
         songs[i].shows[j].builtFor = rigDescription
@@ -2170,6 +2172,7 @@ final class AppModel: ObservableObject {
         let onLights = fixtures.filter { $0.isOn }
         let blend = design ?? songs[i].activeShow?.design
         var sections = ShowGenerator.generateShaped(a, style: st, variation: variation, design: blend)
+        if useLibraryInShows { ShowGenerator.enrich(&sections, a, presets: presets, variation: variation) }
         ShowGenerator.fit(&sections, to: onLights.filter { $0.effectiveBehavior == .sequence })
         var show = LightShow(name: name, style: st, variation: variation, sections: sections,
                              fixtureIDs: onLights.isEmpty ? nil : onLights.map(\.id))
@@ -2242,6 +2245,12 @@ final class AppModel: ObservableObject {
         guard let i = index(of: songID), let si = songs[i].activeShowIndex,
               let k = songs[i].shows[si].sections.firstIndex(where: { $0.id == sectionID }) else { return }
         songs[i].shows[si].sections[k].empty = true
+    }
+
+    /// Show building uses transitions, the effects library and the new block controls (setting, on by default)
+    var useLibraryInShows: Bool {
+        get { UserDefaults.standard.object(forKey: "useLibraryInShows") as? Bool ?? true }
+        set { UserDefaults.standard.set(newValue, forKey: "useLibraryInShows"); objectWillChange.send() }
     }
 
     /// Songs picked in the library (click, ⇧/⌘-click or drag to pick several)
@@ -2483,6 +2492,7 @@ final class AppModel: ObservableObject {
             guard let a = songs[i].analysis else { continue }
             for j in songs[i].shows.indices {
                 var secs = ShowGenerator.generateShaped(a, style: songs[i].shows[j].style, variation: songs[i].shows[j].variation, design: songs[i].shows[j].design)
+                if useLibraryInShows { ShowGenerator.enrich(&secs, a, presets: presets, variation: songs[i].shows[j].variation) }
                 ShowGenerator.fit(&secs, to: seq)
                 songs[i].shows[j].sections = secs
                 songs[i].shows[j].fixtureIDs = onLights.isEmpty ? nil : onLights.map(\.id)
