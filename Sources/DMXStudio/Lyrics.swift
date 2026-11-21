@@ -27,6 +27,8 @@ struct LyricLine: Codable, Hashable, Identifiable {
 struct LyricSectionLabel: Codable, Hashable {
     var name: String
     var line: Int
+    var drop: Bool? = nil           // "[Chorus 1 / Drop]": the loudest kind of part
+    var instrumental: Bool? = nil   // "[Instrumental Break]": no singing; starts where the singing before it ends
 }
 
 struct Lyrics: Codable, Hashable {
@@ -224,7 +226,8 @@ enum LyricsLearner {
     /// view counts, "AI can make mistakes", and often the lyrics twice. Keep just one copy of the words.
     static let labelMark = "\u{1}SECTION:"
 
-    /// "Verse 1", "VERSE I:", "[Pre-Chorus]", "Prechorus 2", "Ending", "Hook" → a section name, or nil for a sung line
+    /// "Verse 1", "VERSE I:", "[Pre-Chorus]", "Prechorus 2", "Ending", "[Chorus 1 / Drop]", "[Final Chorus]",
+    /// "[Instrumental Break]" → a section name (with "|drop" / "|inst" flags), or nil for a sung line
     static func sectionLabel(_ raw: String) -> String? {
         var s = raw.trimmingCharacters(in: .whitespaces)
         // [Chorus] (Chorus) {Chorus} <Chorus> **Chorus** Chorus:
@@ -234,33 +237,63 @@ enum LyricsLearner {
         s = s.trimmingCharacters(in: CharacterSet(charactersIn: " :-–—.*#()[]{}<>_")).lowercased()
         // "[Chorus: Artist name]" style
         if let c = s.firstIndex(of: ":") { s = String(s[..<c]).trimmingCharacters(in: .whitespaces) }
+        var drop = false, inst = false
+        // "Chorus 1 / Drop", "Drop / Chorus", "Chorus + Drop"
+        let parts = s.components(separatedBy: CharacterSet(charactersIn: "/+&")).map { $0.trimmingCharacters(in: .whitespaces) }.filter { !$0.isEmpty }
+        if parts.count > 1 {
+            if parts.dropFirst().contains(where: { $0.hasPrefix("drop") }) { drop = true }
+            s = parts[0].hasPrefix("drop") && parts.count > 1 ? parts[1] : parts[0]
+            if parts[0].hasPrefix("drop") { drop = true }
+        }
+        for w in ["final ", "last ", "big ", "main ", "double ", "first ", "second ", "third "] where s.hasPrefix(w) {
+            s = String(s.dropFirst(w.count))
+        }
+        if s.hasPrefix("instrumental") {
+            inst = true
+            s = s.dropFirst("instrumental".count).trimmingCharacters(in: .whitespaces)
+            if s.isEmpty { return "Instrumental|inst" }
+        }
         let kinds: [(String, String)] = [("pre-chorus", "Pre-Chorus"), ("pre chorus", "Pre-Chorus"), ("prechorus", "Pre-Chorus"),
                                          ("post-chorus", "Post-Chorus"), ("post chorus", "Post-Chorus"), ("postchorus", "Post-Chorus"),
                                          ("chorus", "Chorus"), ("hook", "Chorus"), ("refrain", "Chorus"), ("verse", "Verse"),
                                          ("bridge", "Bridge"), ("intro", "Intro"), ("outro", "Outro"), ("ending", "Outro"),
-                                         ("breakdown", "Breakdown"), ("drop", "Drop"), ("interlude", "Interlude"), ("build", "Build"),
+                                         ("breakdown", "Breakdown"), ("break", "Breakdown"), ("drop", "Drop"), ("interlude", "Interlude"),
+                                         ("build up", "Build"), ("buildup", "Build"), ("build", "Build"), ("solo", "Instrumental"),
                                          ("instrumental", "Instrumental")]
-        guard let (key, name) = kinds.first(where: { s.hasPrefix($0.0) }) else { return nil }
+        guard let (key, base) = kinds.first(where: { s.hasPrefix($0.0) }) else { return nil }
         let rest = s.dropFirst(key.count).trimmingCharacters(in: .whitespaces)
-        if rest.isEmpty { return name }
-        // a number: 2, II, iv…
-        if let n = Int(rest) { return "\(name) \(n)" }
-        let romans = ["i": 1, "ii": 2, "iii": 3, "iv": 4, "v": 5, "vi": 6]
-        if let n = romans[rest] { return "\(name) \(n)" }
-        return nil    // "Chorus girls dance…" is a sung line
+        var name = base
+        if !rest.isEmpty {
+            // a number: 2, II, iv…
+            let romans = ["i": 1, "ii": 2, "iii": 3, "iv": 4, "v": 5, "vi": 6]
+            if let n = Int(rest) { name = "\(base) \(n)" }
+            else if let n = romans[rest] { name = "\(base) \(n)" }
+            else { return nil }    // "Chorus girls dance…" is a sung line
+        }
+        if base == "Drop" { drop = true }
+        if ["Intro", "Outro", "Breakdown", "Interlude", "Instrumental"].contains(base) && !inst {
+            // these usually have no singing; treat them like instrumental parts
+            inst = true
+        }
+        return name + (drop ? "|drop" : "") + (inst ? "|inst" : "")
     }
 
     /// The sung lines (web extras and duplicate copies removed) and the section labels between them
     static func cleanPastedWithLabels(_ text: String) -> (lines: [String], labels: [LyricSectionLabel]) {
         var lines: [String] = [], labels: [LyricSectionLabel] = []
         for l in cleanPasted(text) {
-            if l.hasPrefix(labelMark) { labels.append(LyricSectionLabel(name: String(l.dropFirst(labelMark.count)), line: lines.count)) }
-            else { lines.append(l) }
+            if l.hasPrefix(labelMark) {
+                let parts = String(l.dropFirst(labelMark.count)).components(separatedBy: "|")
+                labels.append(LyricSectionLabel(name: parts[0], line: lines.count,
+                                                drop: parts.contains("drop") ? true : nil,
+                                                instrumental: parts.contains("inst") ? true : nil))
+            } else { lines.append(l) }
         }
-        // a label with nothing after it, or two labels on the same line: keep the last one
+        // two sung-part labels on the same line: keep the last one (instrumental parts stay: they come before it)
         var out: [LyricSectionLabel] = []
-        for lb in labels where lb.line < lines.count {
-            if out.last?.line == lb.line { out[out.count - 1] = lb } else { out.append(lb) }
+        for lb in labels {
+            if lb.instrumental != true && lb.line >= lines.count { continue }
+            if let last = out.last, last.line == lb.line, last.instrumental != true { out[out.count - 1] = lb } else { out.append(lb) }
         }
         return (lines, out)
     }

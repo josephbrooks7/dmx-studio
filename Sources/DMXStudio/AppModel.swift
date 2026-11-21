@@ -1852,7 +1852,18 @@ final class AppModel: ObservableObject {
     }
 
     /// Official lyrics pasted in: placed on the sung parts and analyzed for topic and mood.
-    func pasteLyrics(_ id: UUID, text: String) {
+    /// A first line that's just the song's title isn't sung: leave it out
+    static func withoutTitleLine(_ text: String, title: String) -> String {
+        var lines = text.components(separatedBy: .newlines)
+        if let k = lines.firstIndex(where: { !$0.trimmingCharacters(in: .whitespaces).isEmpty }),
+           LyricsLibrary.key(lines[k]) == LyricsLibrary.key(title), !LyricsLibrary.key(title).isEmpty {
+            lines.remove(at: k)
+        }
+        return lines.joined(separator: "\n")
+    }
+
+    func pasteLyrics(_ id: UUID, text rawText: String) {
+        let text = index(of: id).map { AppModel.withoutTitleLine(rawText, title: songs[$0].title) } ?? rawText
         if let i = index(of: id) { LyricsLibrary.save(title: songs[i].title, text: text) }   // keep them in the Lyrics Library
         guard let i = index(of: id), let a = songs[i].analysis else { return }
         let heard = ["Pasted", "Edited"].contains(songs[i].lyrics?.source ?? "") ? [] : (songs[i].lyrics?.words ?? [])
@@ -2052,24 +2063,33 @@ final class AppModel: ObservableObject {
             guard let n = bars.min(by: { abs($0 - t) < abs($1 - t) }), abs(n - t) < 1.5 else { return t }
             return n
         }
-        var marks: [(name: String, t: Double)] = []
-        for l in labels where l.line < ly.lines.count {
-            let t = snap(max(a.musicStart, ly.lines[l.line].start - 0.3))
-            if let last = marks.last, t - last.t < 2 { marks[marks.count - 1].name = l.name; continue }
-            marks.append((l.name, t))
+        var marks: [(name: String, t: Double, drop: Bool)] = []
+        for l in labels {
+            let raw: Double
+            if l.instrumental == true {
+                // no singing in it: starts where the singing before it ends (the intro starts with the music)
+                raw = l.line == 0 ? a.musicStart : ly.lines[min(l.line, ly.lines.count) - 1].end + 0.2
+            } else {
+                guard l.line < ly.lines.count else { continue }
+                raw = ly.lines[l.line].start - 0.3
+            }
+            let t = snap(max(a.musicStart, raw))
+            if let last = marks.last, t - last.t < 2 { marks[marks.count - 1].name = l.name; marks[marks.count - 1].drop = l.drop == true; continue }
+            if let last = marks.last, t < last.t { continue }
+            marks.append((l.name, t, l.drop == true))
         }
         guard marks.count >= 2 else { return }
         // number repeated parts: Chorus → Chorus 1, Chorus 2 (written numbers are kept)
         var counts: [String: Int] = [:]
-        let named: [(String, Double)] = marks.map { m in
+        let named: [(String, Double, Bool)] = marks.map { m in
             let base = m.name.split(separator: " ").first.map(String.init) ?? m.name
-            if m.name != base { return (m.name, m.t) }
-            if ["Intro", "Outro", "Instrumental", "Interlude"].contains(base) { return (base, m.t) }
+            if m.name != base { return (m.name, m.t, m.drop) }
+            if ["Intro", "Outro", "Instrumental", "Interlude"].contains(base) { return (base, m.t, m.drop) }
             counts[base, default: 0] += 1
-            return ("\(base) \(counts[base]!)", m.t)
+            return ("\(base) \(counts[base]!)", m.t, m.drop)
         }
         let old = a.detectedSections
-        func section(_ name: String, _ s: Double, _ e: Double) -> DetectedSection {
+        func section(_ name: String, _ s: Double, _ e: Double, drop: Bool = false) -> DetectedSection {
             // loudness from the sections it overlaps
             var w = 0.0, en = 0.0, levelTime: [EnergyLevel: Double] = [:]
             for o in old {
@@ -2077,7 +2097,7 @@ final class AppModel: ObservableObject {
                 guard ov > 0 else { continue }
                 w += ov; en += o.energy * ov; levelTime[o.level, default: 0] += ov
             }
-            let level = levelTime.max { $0.value < $1.value }?.key ?? .medium
+            let level = drop ? .drop : (levelTime.max { $0.value < $1.value }?.key ?? .medium)
             return DetectedSection(start: s, end: e, energy: w > 0 ? en / w : 0.5, level: level, name: name)
         }
         var secs: [DetectedSection] = []
@@ -2087,7 +2107,7 @@ final class AppModel: ObservableObject {
             var end = k + 1 < named.count ? named[k + 1].1 : a.musicEnd
             // music carries on well after the last line: that's an outro
             if k + 1 == named.count && a.musicEnd - lastSung > 8 && !m.0.hasPrefix("Outro") { end = snap(lastSung + 0.5) }
-            if end - m.1 >= 1 { secs.append(section(m.0, m.1, end)) }
+            if end - m.1 >= 1 { secs.append(section(m.0, m.1, end, drop: m.2)) }
         }
         if let last = secs.last, a.musicEnd - last.end > 2 { secs.append(section("Outro", last.end, a.musicEnd)) }
         a.detectedSections = secs
