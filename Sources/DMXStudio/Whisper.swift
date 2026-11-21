@@ -117,7 +117,11 @@ enum WhisperEngine {
                 var phys: Int32 = 0; var sz = MemoryLayout<Int32>.size
                 sysctlbyname("hw.physicalcpu", &phys, &sz, nil, 0)
                 let threads = max(2, min(8, phys > 0 ? Int(phys) : ProcessInfo.processInfo.activeProcessorCount / 2))
-                p.arguments = ["-m", modelPath.path, "-f", wav.path, "-ml", "1", "-sow", "-ojf", "-bs", "1", "-bo", "1",
+                // Settings that make Whisper hear singing in a full song (tested on a real song: from
+                // "[Music]" everywhere to the full lyrics): beam search, no "[Music]"-type tokens, and a hint
+                // that this is a song
+                p.arguments = ["-m", modelPath.path, "-f", wav.path, "-ml", "1", "-sow", "-ojf", "-sns",
+                               "--prompt", language == .es ? "Letra de la canción:" : "Song lyrics:",
                                "-of", tmp.appendingPathComponent("out").path, "-np", "-pp", "-t", "\(threads)",
                                // English-only models can only do English
                                "-l", modelPath.lastPathComponent.contains(".en") ? "en" : language.code]
