@@ -286,7 +286,11 @@ final class Updater: ObservableObject {
         p.executableURL = URL(fileURLWithPath: "/bin/sh")
         p.arguments = ["-c", "while kill -0 \(pid) 2>/dev/null; do sleep 0.3; done; open \"\(app.path)\""]
         try? p.run()
-        NSApp.terminate(nil)
+        // A normal quit can be held up (an open sheet, a window that won't close), which left the
+        // update stuck on "Done · restarting". Save, then leave directly; the helper opens the new copy.
+        Updater.shared.showing = false
+        AppModel.current?.prepareToQuit()
+        DispatchQueue.main.asyncAfter(deadline: .now() + 0.5) { exit(0) }
     }
 }
 
