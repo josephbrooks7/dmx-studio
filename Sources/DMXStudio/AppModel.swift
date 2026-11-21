@@ -170,7 +170,15 @@ final class AppModel: ObservableObject {
     private var pausedPresetElapsed: Double?
     private var lastSongBPM: Double = 120
     @Published var isPlaying = false { didSet { if isPlaying != oldValue { updateNowPlayingInfo() } } }
-    var currentTime: Double { get { live.currentTime } set { if live.currentTime != newValue { live.currentTime = newValue } } }
+    var currentTime: Double {
+        get { live.currentTime }
+        set {
+            if live.currentTime != newValue { live.currentTime = newValue }
+            // big lists (lyrics) follow a slower clock: 4 updates a second instead of 40
+            if abs(coarse.time - newValue) >= 0.25 { coarse.time = newValue }
+        }
+    }
+    let coarse = CoarseClock()
     @Published var learning: [UUID: Double] = [:]
     var preview: [RenderedFixture] { get { live.preview } set { live.preview = newValue } }
     /// Fast-changing state (light preview, playhead, beat light, mic level) lives in its own object, so only
@@ -402,9 +410,13 @@ final class AppModel: ObservableObject {
         }
         // Songs learned before the built-in stem splitter: split them and relearn from the stems
         // (one at a time in the background), then rebuild their light shows from the better hits
+        // (once per song: one that fails isn't retried at every launch)
+        var tried = Set(UserDefaults.standard.stringArray(forKey: "autoSplitTried") ?? [])
         let unsplit = songs.filter { $0.analysis != nil && $0.analysis?.stemsFolder == nil
-            && FileManager.default.fileExists(atPath: $0.path) }.map(\.id)
+            && FileManager.default.fileExists(atPath: $0.path) && !tried.contains($0.id.uuidString) }.map(\.id)
         if !unsplit.isEmpty {
+            unsplit.forEach { tried.insert($0.uuidString) }
+            UserDefaults.standard.set(Array(tried), forKey: "autoSplitTried")
             DispatchQueue.main.asyncAfter(deadline: .now() + 3) { for id in unsplit { self.learn(id, rebuildShows: true) } }
         }
     }
@@ -961,6 +973,7 @@ final class AppModel: ObservableObject {
         saveNow(sync: true)
     }
 
+    private var mirrorWork: DispatchWorkItem?
     func saveNow(sync: Bool = false) {
         captureCurrentSession()
         let lib = Library(fixtures: fixtures, songs: songs, lineups: lineups, output: output,
@@ -981,9 +994,20 @@ final class AppModel: ObservableObject {
                     ErrorCenter.shared.report(area: "Saving", message: "Your latest changes couldn't be saved: \(error.localizedDescription)", details: "\(error)")
                 }
             }
-            LibraryFiles.mirror(sessions: allSessions, songs: allSongs, userPresets: mine, lineups: sets)
+            if sync { LibraryFiles.mirror(sessions: allSessions, songs: allSongs, userPresets: mine, lineups: sets) }
         }
         if sync { write() } else { DispatchQueue.global(qos: .utility).async(execute: write) }
+        // the readable copies in Documents re-encode every song: at most every 15 s, not after every change
+        if !sync {
+            mirrorWork?.cancel()
+            let m = DispatchWorkItem {
+                DispatchQueue.global(qos: .background).async {
+                    LibraryFiles.mirror(sessions: allSessions, songs: allSongs, userPresets: mine, lineups: sets)
+                }
+            }
+            mirrorWork = m
+            DispatchQueue.main.asyncAfter(deadline: .now() + 15, execute: m)
+        }
     }
 
     // MARK: - Output
@@ -1334,6 +1358,8 @@ final class AppModel: ObservableObject {
         let settings = songs[i].detection ?? DetectionSettings()
         hqProgress[id] = 0.01
         hqQueue.async {
+            // one heavy job at a time: wait while lyrics are being listened to
+            while DispatchQueue.main.sync(execute: { self.lyricsBusy }) { Thread.sleep(forTimeInterval: 1) }
             DispatchQueue.main.async { if self.hqProgress[id] != nil { self.hqProgress[id] = 0.02; self.hqStarted[id] = Date() } }
             let out = FileManager.default.temporaryDirectory.appendingPathComponent("hq-\(id.uuidString).json")
             let settingsFile = FileManager.default.temporaryDirectory.appendingPathComponent("hq-\(id.uuidString)-settings.json")
@@ -1355,11 +1381,7 @@ final class AppModel: ObservableObject {
                     return
                 }
                 self.songs[i].analysis = analysis
-                let words = self.songs[i].lyrics?.words.count ?? 0
-                if words < 8, !["Pasted", "Edited"].contains(self.songs[i].lyrics?.source ?? "") {
-                    self.lyricsRetryOnVocals.insert(id)      // hardly any words from the whole song: try the clean vocals
-                    self.learnLyrics(id)
-                } else { self.refreshLyricLighting(id) }
+                self.refreshLyricLighting(id)
             }
         }
     }
@@ -1376,8 +1398,8 @@ final class AppModel: ObservableObject {
             ErrorCenter.shared.report(area: "Learn", message: "Couldn't find the file for \"\(title)\". It may have been moved or deleted.", details: url.path)
             return
         }
-        // lyrics: listen to the whole song right away (no splitting needed), alongside learning
-        if !["Pasted", "Edited"].contains(songs[i].lyrics?.source ?? ""), lyricsProgress[id] == nil { learnLyrics(id) }
+        // Lyrics and the High Quality split only run when you ask (Listen / Split in their tabs): they're
+        // heavy, and running them on their own alongside learning overloaded an older Mac
         learnQueue.async {
             DispatchQueue.main.async { if self.learning[id] != nil { self.learning[id] = 0.05; self.learnStarted[id] = Date() } }
             let out = FileManager.default.temporaryDirectory.appendingPathComponent("learn-\(id.uuidString).json")
@@ -1412,7 +1434,6 @@ final class AppModel: ObservableObject {
                 self.makeLooks(from: id)
                 // lyrics were started with learning; now that the song is known, make their lighting cues
                 if self.songs[i].lyrics != nil { self.refreshLyricLighting(id) }
-                if self.wantsHQ { self.upgradeToHQ(id) }   // cleaner parts follow in the background
             }
         }
     }
@@ -1553,6 +1574,11 @@ final class AppModel: ObservableObject {
 
     private func nextLyrics() {
         guard !lyricsBusy, !lyricsQueue.isEmpty else { return }
+        // one heavy job at a time: wait for a High Quality split or learning to finish first
+        if hqProgress.values.contains(where: { $0 > 0.015 }) || !learning.isEmpty {
+            DispatchQueue.main.asyncAfter(deadline: .now() + 2) { [weak self] in self?.nextLyrics() }
+            return
+        }
         let id = lyricsQueue.removeFirst()
         guard let i = index(of: id) else {
             lyricsProgress[id] = nil; nextLyrics(); return
@@ -1562,7 +1588,10 @@ final class AppModel: ObservableObject {
         // or when the whole song gave hardly any words
         let folder = a?.stemsFolder ?? ""
         let vocalPart = URL(fileURLWithPath: folder).appendingPathComponent("vocals.m4a")
+        // only the High Quality vocals help (the quick split's vocal part made lyrics worse in tests);
+        // the High Quality split is the one that also writes backing.m4a
         let haveVocalPart = !folder.isEmpty && FileManager.default.fileExists(atPath: vocalPart.path)
+            && FileManager.default.fileExists(atPath: URL(fileURLWithPath: folder).appendingPathComponent("backing.m4a").path)
         let useVocalPart = haveVocalPart && (lyricsFromVocalPart || lyricsRetryOnVocals.contains(id))
         lyricsRetryOnVocals.remove(id)
         let vocals = useVocalPart ? vocalPart : songs[i].url
@@ -2753,6 +2782,17 @@ final class LiveState: ObservableObject {
     @Published var currentTime: Double = 0
     @Published var beatOn = false
     @Published var micLevel: Double = 0
+}
+
+/// The play position at 4 updates a second, for big views (the lyrics list) that don't need 40.
+final class CoarseClock: ObservableObject {
+    @Published var time: Double = 0
+}
+struct CoarseReader<Content: View>: View {
+    @ObservedObject var clock: CoarseClock
+    let content: () -> Content
+    init(_ clock: CoarseClock, @ViewBuilder content: @escaping () -> Content) { self.clock = clock; self.content = content }
+    var body: some View { content() }
 }
 
 /// Redraws only its contents when the live values change.

@@ -81,8 +81,8 @@ enum HQSplitter {
     static func separate(url: URL, outDir: URL, onlyNear: [TimeSpan]? = nil, progress: (Double) -> Void) throws {
         let cfg = MLModelConfiguration()
         #if arch(x86_64)
-        // Intel Macs: CPU only unless you turn on the graphics chip (it caused a freeze on the 3D stage before)
-        cfg.computeUnits = UserDefaults.standard.bool(forKey: "aiUseGPU") ? .cpuAndGPU : .cpuOnly
+        // Intel Macs: CPU only. Their AMD graphics chips crashed the Mac before (3D stage), so the AI never uses them
+        cfg.computeUnits = .cpuOnly
         #else
         cfg.computeUnits = .all
         #endif

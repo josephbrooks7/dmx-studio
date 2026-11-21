@@ -117,10 +117,13 @@ enum WhisperEngine {
                 func listen(noContext: Bool) throws -> [LyricWord] {
                     let p = Process()
                     p.executableURL = bin
+                    p.qualityOfService = .utility
                     // real cores (the doubled-up "hyper-threads" only slow it down)
                     var phys: Int32 = 0; var sz = MemoryLayout<Int32>.size
                     sysctlbyname("hw.physicalcpu", &phys, &sz, nil, 0)
-                    let threads = max(2, min(8, phys > 0 ? Int(phys) : ProcessInfo.processInfo.activeProcessorCount / 2))
+                    // half the real cores: the Mac stays cool and responsive (all cores at once overloaded a 2016 MacBook Pro)
+                    let cores = phys > 0 ? Int(phys) : ProcessInfo.processInfo.activeProcessorCount / 2
+                    let threads = max(2, min(4, cores / 2))
                     // Settings that make Whisper hear singing in a full song (tested on a real song: from
                     // "[Music]" everywhere to the full lyrics): beam search, no "[Music]"-type tokens, and a hint
                     // that this is a song

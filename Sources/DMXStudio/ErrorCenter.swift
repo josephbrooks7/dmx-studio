@@ -140,6 +140,7 @@ enum Helper {
         let p = Process()
         p.executableURL = URL(fileURLWithPath: Bundle.main.executablePath ?? CommandLine.arguments[0])
         p.arguments = args
+        p.qualityOfService = .utility        // background work: lights, playback and the screen come first
         let out = Pipe(), err = Pipe()
         p.standardOutput = out
         p.standardError = err

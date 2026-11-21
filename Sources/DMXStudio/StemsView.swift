@@ -65,7 +65,7 @@ struct StemsTab: View {
                         .font(.caption).foregroundColor(.orange)
                 }
                 if highQuality {
-                    Text("High Quality uses Meta's Demucs AI models on this Mac: much cleaner parts (vocals, BG vocals, guitar, piano). The song is ready right away from a quick split; the High Quality split follows in the background.")
+                    Text("High Quality uses Meta's Demucs AI models on this Mac: much cleaner parts (vocals, BG vocals, guitar, piano). Learning uses the quick split. The High Quality split only runs when you press Split Again here (one song at a time, at low priority).")
                         .font(.caption).foregroundColor(.secondary)
                     if let p = model.hqProgress[song.id] {
                         HStack {
@@ -78,12 +78,6 @@ struct StemsTab: View {
                         get: { UserDefaults.standard.bool(forKey: "hqSixParts") },
                         set: { UserDefaults.standard.set($0, forKey: "hqSixParts"); model.objectWillChange.send() }))
                         .font(.caption)
-                    #if arch(x86_64)
-                    Toggle("Use the graphics chip for the AI (faster; turn off if the Mac freezes)", isOn: Binding(
-                        get: { UserDefaults.standard.bool(forKey: "aiUseGPU") },
-                        set: { UserDefaults.standard.set($0, forKey: "aiUseGPU"); model.objectWillChange.send() }))
-                        .font(.caption)
-                    #endif
                 }
                 if let a = song.analysis, let folder = a.stemsFolder {
                     StemMixerView(song: song, analysis: a, folder: folder)
@@ -512,8 +506,8 @@ struct LyricsTab: View {
                 Text("Mood: \(ly.moodLabel)   ·   \(ly.engine ?? ly.source)").font(.caption).foregroundColor(.secondary)
                 if !ly.keywords.isEmpty { Text("Key words: " + ly.keywords.joined(separator: ", ")).font(.caption).foregroundColor(.secondary) }
             }
-            LiveReader(model.live) {
-                let t = model.playingSongID == song.id ? model.currentTime : -1
+            CoarseReader(model.coarse) {
+                let t = model.playingSongID == song.id ? model.coarse.time : -1
                 ScrollView {
                     VStack(alignment: .leading, spacing: 4) {
                         ForEach(Array(ly.lines.enumerated()), id: \.element.id) { idx, line in
