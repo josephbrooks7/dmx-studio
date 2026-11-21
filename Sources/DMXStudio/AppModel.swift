@@ -489,6 +489,7 @@ final class AppModel: ObservableObject {
         fixtures = s.fixtures
         lineups = s.lineups.isEmpty ? [Lineup(name: "My Set List")] : s.lineups
         presets = s.presets ?? LookPreset.defaults
+        trimSongLooks()
         if !presets.contains(where: { $0.effect == .soundLevel }), let fs = LookPreset.essentials.last { presets.append(fs) }
         // One time per session: add the themed looks (Fairy, EDM, Dubstep, Techno, Disco, Pop, Psychedelic…)
         for i in presets.indices where presets[i].mode == nil {
@@ -1599,14 +1600,26 @@ final class AppModel: ObservableObject {
         presets.removeAll { $0.group == group }
         guard !made.isEmpty else { return 0 }
         presets += made
-        // keep at most a few song groups: the oldest automatic "From Songs" group goes first
+        trimSongLooks(keep: group)
+        return made.count
+    }
+
+    /// At most `maxSongGroups` automatic "From Songs" groups (oldest go first) with `looksPerSong` looks each
+    func trimSongLooks(keep: String? = nil) {
         var songGroups: [String] = []
         for p in presets { if let g = p.group, g.hasPrefix("From Songs: "), !songGroups.contains(g) { songGroups.append(g) } }
-        while songGroups.count > Self.maxSongGroups, let oldest = songGroups.first, oldest != group {
-            presets.removeAll { $0.group == oldest }
-            songGroups.removeFirst()
+        var list = presets
+        while songGroups.count > Self.maxSongGroups, let oldest = songGroups.first(where: { $0 != keep }) {
+            list.removeAll { $0.group == oldest }
+            songGroups.removeAll { $0 == oldest }
         }
-        return made.count
+        var counts: [String: Int] = [:]
+        list = list.filter { p in
+            guard let g = p.group, g.hasPrefix("From Songs: ") else { return true }
+            counts[g, default: 0] += 1
+            return counts[g]! <= Self.looksPerSong
+        }
+        if list != presets { presets = list }
     }
     static let looksPerSong = 4
     static let maxSongGroups = 10
