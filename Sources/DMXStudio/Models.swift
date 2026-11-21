@@ -426,6 +426,28 @@ struct ShowSection: Identifiable, Codable, Hashable {
     var phase: Double? = nil        // 0…1: each head runs a little later than the one before (rolls across)
     var order: HeadOrder? = nil     // which way patterns run across the heads
     var fan: Double? = nil          // 0…1: spread the beams of the lights apart
+    var beamSteps: [UInt8]? = nil   // beam sequencer: 16 steps, each a mask of which of the 8 heads are on
+}
+
+/// Ready-made beam sequencer patterns (16 steps × 8 heads, bit 0 = left head)
+enum BeamPattern: String, CaseIterable, Identifiable {
+    case chase = "Chase", bounce = "Bounce", alternate = "Alternate", centerOut = "Center Out", outsideIn = "Outside In",
+         oddEven = "Odd / Even", pairs = "Pairs", fill = "Fill Up", random = "Random"
+    var id: String { rawValue }
+    var steps: [UInt8] {
+        func bit(_ i: Int) -> UInt8 { UInt8(1 << (i & 7)) }
+        switch self {
+        case .chase: return (0..<16).map { bit($0 % 8) }
+        case .bounce: return (0..<16).map { s in let p = s % 14; return bit(p < 8 ? p : 14 - p) }
+        case .alternate: return (0..<16).map { $0 % 2 == 0 ? 0x0F : 0xF0 }
+        case .centerOut: return (0..<16).map { s in let k = s % 4; return bit(3 - k) | bit(4 + k) }
+        case .outsideIn: return (0..<16).map { s in let k = s % 4; return bit(k) | bit(7 - k) }
+        case .oddEven: return (0..<16).map { $0 % 2 == 0 ? 0x55 : 0xAA }
+        case .pairs: return (0..<16).map { s in let k = s % 4; return bit(2 * k) | bit(2 * k + 1) }
+        case .fill: return (0..<16).map { s in UInt8((1 << ((s % 8) + 1)) - 1) }
+        case .random: return [0x91, 0x24, 0x4A, 0x18, 0xC2, 0x05, 0x60, 0x89, 0x32, 0x44, 0x0C, 0xA1, 0x50, 0x86, 0x13, 0x68]
+        }
+    }
 }
 
 enum HeadOrder: String, Codable, CaseIterable, Identifiable {

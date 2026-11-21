@@ -767,6 +767,16 @@ struct ShowRenderer {
             var n = 0
             for f in out.indices { for h in out[f].heads.indices { out[f].heads[h] = flat[n]; n += 1 } }
         }
+        // Beam sequencer: 16 steps (two per beat); only the heads ticked for the current step show the look
+        if let steps = sec.beamSteps, steps.count == 16 {
+            let step = ((Int(floor(ctx.beatPos * sec.rate * 2)) % 16) + 16) % 16
+            let mask = steps[step]
+            for f in out.indices {
+                for h in out[f].heads.indices where mask & UInt8(1 << (h & 7)) == 0 {
+                    out[f].heads[h].intensity = 0
+                }
+            }
+        }
         // Fan: spread the lights' beams apart (left light leans left, right light leans right)
         if let fan = sec.fan, fan > 0.01, out.count > 1 {
             for f in out.indices {

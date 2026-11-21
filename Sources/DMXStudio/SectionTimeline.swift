@@ -64,6 +64,7 @@ struct SectionTimelineEditor: View {
     @State private var edgeOrigin: Double?
     @State private var edgeDragging: Int?
     @State private var timelineWidth: CGFloat = 1
+    @State private var stepsOpen = false
     @AppStorage("timelineBlockHeight") private var blockH: Double = 78
     @State private var tool: TimelineTool = .pointer
     @State private var paint: Paint?                 // what the Pencil puts on a block (the last pad clicked)
@@ -666,6 +667,18 @@ struct SectionTimelineEditor: View {
                         ForEach(HeadOrder.allCases) { Text($0.rawValue).tag($0) }
                     }.labelsHidden().frame(width: 110).help("Which way the pattern runs across the heads (Symmetric mirrors it from the middle)")
                 }
+                labeled("Beam steps") {
+                    HStack(spacing: 6) {
+                        Menu {
+                            Button("Off (all heads)") { sec.wrappedValue.beamSteps = nil }
+                            Divider()
+                            ForEach(BeamPattern.allCases) { p in Button(p.rawValue) { sec.wrappedValue.beamSteps = p.steps } }
+                        } label: { Text(sec.wrappedValue.beamSteps == nil ? "Off" : "Custom") }
+                        .frame(width: 90)
+                        Button { stepsOpen.toggle() } label: { Image(systemName: "square.grid.4x3.fill") }
+                            .help("Edit the 16 steps: which heads are on at each step")
+                    }
+                }
                 labeled("Fan") {
                     Slider(value: Binding(get: { sec.wrappedValue.fan ?? 0 }, set: { sec.wrappedValue.fan = $0 < 0.01 ? nil : $0 }), in: 0...1)
                         .frame(width: 120).help("Spread the beams of your lights apart")
@@ -675,6 +688,11 @@ struct SectionTimelineEditor: View {
         }
         .padding(12)
         .background(RoundedRectangle(cornerRadius: 10).fill(Color.white.opacity(0.04)))
+        if stepsOpen {
+            BeamStepGrid(steps: Binding(get: { sec.wrappedValue.beamSteps ?? Array(repeating: 0xFF, count: 16) },
+                                        set: { sec.wrappedValue.beamSteps = $0 }),
+                         color: Palette.named(s.palette).color(0).color)
+        }
     }
 
     private func labeled<C: View>(_ title: String, @ViewBuilder _ c: () -> C) -> some View {
@@ -725,9 +743,60 @@ struct SectionTimelineEditor: View {
         s.intensity = src.intensity; s.accentStrobe = src.accentStrobe; s.colorShift = src.colorShift; s.accents = src.accents
         s.empty = src.empty
         s.transition = src.transition
-        s.phase = src.phase; s.order = src.order; s.fan = src.fan
+        s.phase = src.phase; s.order = src.order; s.fan = src.fan; s.beamSteps = src.beamSteps
         song.shows[showIndex].sections[k] = s
         select(id)
     }
 }
 
+
+
+/// 16 steps × 8 heads: click (or drag across) the pads to switch heads on or off at each step
+struct BeamStepGrid: View {
+    @Binding var steps: [UInt8]
+    let color: Color
+    @State private var painting: Bool?
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 6) {
+            HStack {
+                Text("Beam sequencer").font(.subheadline.bold())
+                Text("16 steps, two per beat · a lit pad = that head is on at that step · click or drag to paint").font(.caption).foregroundColor(.secondary)
+                Spacer()
+                Menu("Pattern") { ForEach(BeamPattern.allCases) { p in Button(p.rawValue) { steps = p.steps } } }
+                    .frame(width: 110)
+                Button("All On") { steps = Array(repeating: 0xFF, count: 16) }
+                Button("Clear") { steps = Array(repeating: 0, count: 16) }
+            }
+            VStack(spacing: 3) {
+                ForEach(0..<8, id: \.self) { head in
+                    HStack(spacing: 3) {
+                        Text("\(head + 1)").font(.system(size: 9)).foregroundColor(.secondary).frame(width: 14)
+                        ForEach(0..<16, id: \.self) { step in
+                            let on = steps.indices.contains(step) && steps[step] & UInt8(1 << head) != 0
+                            RoundedRectangle(cornerRadius: 3)
+                                .fill(on ? color : Color.white.opacity(step % 4 == 0 ? 0.12 : 0.06))
+                                .shadow(color: on ? color.opacity(0.7) : .clear, radius: 3)
+                                .frame(width: 22, height: 14)
+                                .contentShape(Rectangle())
+                                .gesture(DragGesture(minimumDistance: 0)
+                                    .onChanged { _ in
+                                        if painting == nil { painting = !on }
+                                        set(step, head, painting ?? true)
+                                    }
+                                    .onEnded { _ in painting = nil })
+                        }
+                    }
+                }
+            }
+        }
+        .padding(10)
+        .background(RoundedRectangle(cornerRadius: 10).fill(Color.black.opacity(0.3)))
+    }
+
+    private func set(_ step: Int, _ head: Int, _ on: Bool) {
+        var s = steps.count == 16 ? steps : Array(repeating: 0xFF, count: 16)
+        if on { s[step] |= UInt8(1 << head) } else { s[step] &= ~UInt8(1 << head) }
+        steps = s
+    }
+}
