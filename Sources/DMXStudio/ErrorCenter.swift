@@ -58,7 +58,7 @@ final class ErrorCenter: ObservableObject {
         var c = URLComponents(string: "https://github.com/\(Self.repo)/issues/new")!
         c.queryItems = [URLQueryItem(name: "title", value: "[\(p.area)] \(p.message)".prefix(120).description),
                         URLQueryItem(name: "body", value: body),
-                        URLQueryItem(name: "labels", value: "bug")]
+                        URLQueryItem(name: "labels", value: p.area == "Lyrics report" ? "lyrics" : "bug")]
         if let url = c.url { NSWorkspace.shared.open(url) }
         if let i = problems.firstIndex(where: { $0.id == p.id }) { problems[i].reported = true }
     }

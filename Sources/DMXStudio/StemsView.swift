@@ -473,6 +473,9 @@ struct LyricsTab: View {
             Button { pasteText = song.lyrics.map { $0.lines.map(\.text).joined(separator: "\n") } ?? ""; pasting = true } label: {
                 Label("Paste / Edit All", systemImage: "doc.on.clipboard")
             }
+            Button { model.sendLyricsReport(song.id) } label: { Label("Send Lyrics Report", systemImage: "paperplane") }
+                .disabled(song.lyrics == nil)
+                .help("Sends what was heard (every line and word with its timing and how sure it was) so it can be checked against the real lyrics. Also copies it to the clipboard")
             Button(role: .destructive) { confirmClear = true } label: { Label("Clear Lyrics", systemImage: "trash") }
                 .disabled(song.lyrics == nil)
                 .help("Remove these lyrics (and the light cues made from them). Then Listen again or paste the right ones")

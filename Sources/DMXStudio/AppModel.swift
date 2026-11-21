@@ -1816,6 +1816,36 @@ final class AppModel: ObservableObject {
 
     /// Re-reads the lyrics (emotion, imagery, delivery) and remakes the lighting cues from them.
     /// Your accept / reject choices are kept for cues that are still there.
+    /// The lyrics as heard, with timing and how sure it was, as a report (opens a pre-filled report and
+    /// copies the whole thing to the clipboard) so wrong words can be compared with the real lyrics
+    func sendLyricsReport(_ id: UUID) {
+        guard let i = index(of: id), let ly = songs[i].lyrics else { return }
+        let s = songs[i]
+        func t(_ x: Double) -> String { String(format: "%d:%04.1f", Int(x) / 60, x.truncatingRemainder(dividingBy: 60)) }
+        var d = """
+        Song: \(s.title)\(s.artist.map { " — " + $0 } ?? "")
+        Length: \(s.analysis.map { t($0.duration) } ?? "?")  ·  BPM: \(s.analysis.map { String(Int($0.bpm.rounded())) } ?? "?")
+        Heard by: \(ly.engine ?? ly.source)  ·  model: \(WhisperEngine.chosen.label)  ·  language: \(WhisperEngine.language.rawValue)
+        Listened to: \(lyricsFromVocalPart ? "vocal part" : "whole song")  ·  stems: \(s.analysis?.stemsFolder == nil ? "none" : "yes")
+        Lines: \(ly.lines.count)  ·  words: \(ly.words.count)  ·  sung parts found: \(s.analysis?.vocalPhrases?.count ?? 0)
+
+        LINES (start–end  sure%  [who]  text)
+
+        """
+        for l in ly.lines {
+            d += "\(t(l.start))–\(t(l.end))  \(Int((l.confidence * 100).rounded()))%  [\(l.vocalist ?? "Lead")]  \(l.text)\n"
+        }
+        // stretches of the song with singing but no words (missed parts)
+        if let ph = s.analysis?.vocalPhrases, !ph.isEmpty {
+            let missed = ph.filter { p in !ly.lines.contains { $0.start < p.end && $0.end > p.start } && p.end - p.start >= 2 }
+            if !missed.isEmpty {
+                d += "\nSINGING WITH NO WORDS HEARD\n" + missed.map { "\(t($0.start))–\(t($0.end))" }.joined(separator: ", ") + "\n"
+            }
+        }
+        d += "\nWORDS (time word sure%)\n" + ly.words.map { "\(t($0.start)) \($0.text) \(Int(($0.confidence * 100).rounded()))" }.joined(separator: "\n")
+        ErrorCenter.shared.sendReport(AppProblem(area: "Lyrics report", message: "Lyrics heard for \"\(s.title)\"", details: d))
+    }
+
     /// Throw away this song's lyrics (and the lighting cues made from them), e.g. when they were heard wrong
     func clearLyrics(_ id: UUID) {
         stopLyrics(id)
