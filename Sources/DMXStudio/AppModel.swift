@@ -1401,6 +1401,9 @@ final class AppModel: ObservableObject {
         learnMusic(id, rebuildShows: rebuildShows)
     }
 
+    /// Learn is on step 1 (lyrics) for this song
+    func learningLyricsFirst(_ id: UUID) -> Bool { musicAfterLyrics[id] != nil }
+
     /// After a song's lyrics are done (or stopped): learn its music next.
     private func lyricsDone(_ id: UUID) {
         if let rebuild = musicAfterLyrics.removeValue(forKey: id) { learnMusic(id, rebuildShows: rebuild) }
@@ -1543,6 +1546,11 @@ final class AppModel: ObservableObject {
     }
     func lyricsCountdown(_ id: UUID) -> String {
         guard let p = lyricsProgress[id] else { return "" }
+        if lyricsCurrent != id {
+            // not its turn yet: one heavy job at a time
+            let ahead = (lyricsQueue.firstIndex(of: id) ?? 0) + (lyricsCurrent != nil ? 1 : 0) + learning.count
+            return ahead > 0 ? "waiting · \(ahead) ahead in line" : "starting…"
+        }
         return AppModel.eta(started: lyricsStarted[id], progress: p)
     }
     var songListHovered = false

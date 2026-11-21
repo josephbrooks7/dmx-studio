@@ -118,6 +118,13 @@ struct SongView: View {
                             Ticking { model.learnCountdown(song.id) }.font(.caption)
                             Button("Stop") { model.stopLearn(song.id) }.controlSize(.small).foregroundColor(.secondary).monospacedDigit()
                         }
+                    } else if model.learningLyricsFirst(song.id) {
+                        ProgressView(value: model.lyricsProgress[song.id] ?? 0).frame(width: 120)
+                        VStack(alignment: .leading, spacing: 1) {
+                            Text("Learning… lyrics first (1 of 2), then the music").foregroundColor(.secondary)
+                            Ticking { model.lyricsCountdown(song.id) }.font(.caption).monospacedDigit()
+                            Button("Stop") { model.stopLyrics(song.id) }.controlSize(.small).foregroundColor(.secondary)
+                        }
                     } else {
                         Button {
                             model.learn(song.id)
