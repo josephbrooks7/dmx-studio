@@ -234,6 +234,8 @@ struct RealLightsSwitch: View {
 struct StageCanvas: View {
     @EnvironmentObject var model: AppModel
     let editing: Bool
+    /// Small corner preview: a close-up where the lights themselves stay visible, with shorter, wider rays
+    var compact = false
 
     var body: some View {
         GeometryReader { geo in
@@ -305,11 +307,23 @@ struct StageCanvas: View {
         var glow = ctx
         glow.blendMode = .plusLighter
 
+        // close-up layout: lights spread in a row (floor ones low, hanging ones high), big enough to see
+        let shown = model.fixtures.indices.filter { i in i < model.preview.count && model.fixtures[i].isOn }
+        func compactOrigin(_ i: Int, _ p: StagePlacement) -> CGPoint {
+            let k = shown.firstIndex(of: i) ?? 0
+            let x = w * (CGFloat(k) + 0.5) / CGFloat(max(1, shown.count))
+            switch p.mount {
+            case .hanging: return CGPoint(x: x, y: h * 0.14)
+            case .frontOfHouse: return CGPoint(x: x, y: h * 0.88)
+            case .floor: return CGPoint(x: x, y: h * 0.80)
+            }
+        }
         for (i, fx) in model.fixtures.enumerated() {
             guard i < model.preview.count else { continue }
+            if compact && !shown.contains(i) { continue }
             let rf = model.preview[i]
             let p = model.placement(for: fx)
-            let origin = CGPoint(x: p.x * w, y: p.y * h)
+            let origin = compact ? compactOrigin(i, p) : CGPoint(x: p.x * w, y: p.y * h)
 
             // Strobe flicker
             var gate = 1.0
@@ -319,7 +333,17 @@ struct StageCanvas: View {
             }
 
             let n = max(1, rf.heads.count)
-            let barWidth = n > 1 ? w * 0.17 : 0
+            let barWidth = n > 1 ? (compact ? min(w * 0.82 / CGFloat(max(1, shown.count)), w * 0.44) : w * 0.17) : 0
+            if compact {
+                // the light's body first, so the lenses and rays sit on it
+                if n > 1 {
+                    ctx.fill(Path(roundedRect: CGRect(x: origin.x - barWidth / 2 - 5, y: origin.y - 6, width: barWidth + 10, height: 14), cornerRadius: 4),
+                             with: .color(Color(white: 0.2)))
+                } else {
+                    ctx.fill(Path(roundedRect: CGRect(x: origin.x - 11, y: origin.y - 9, width: 22, height: 22), cornerRadius: 5),
+                             with: .color(Color(white: 0.2)))
+                }
+            }
             for hIdx in 0..<n {
                 let st = hIdx < rf.heads.count ? rf.heads[hIdx] : .off
                 let level = st.intensity * master * gate
@@ -333,15 +357,16 @@ struct StageCanvas: View {
                 switch p.mount {
                 case .floor:
                     angle = -90 + (rf.tilt - 0.5) * 150 + (rf.pan - 0.5) * (fx.channels.contains(.role(.pan, head: 0)) ? 120 : 0)
-                    length = Double(h) * 1.1
+                    length = Double(h) * (compact ? 0.78 : 1.1)
                 case .hanging:
                     angle = 90 + (rf.tilt - 0.5) * 150
-                    length = Double(h) * 0.9
+                    length = Double(h) * (compact ? 0.7 : 0.9)
                 case .frontOfHouse:
                     angle = atan2(Double(target.y - head.y), Double(target.x - head.x)) * 180 / .pi
                     length = Double(hypot(target.x - head.x, target.y - head.y)) * 1.05
                     spread = 7
                 }
+                if compact { spread *= 1.8 }
                 guard level > 0.01 else {
                     // dark lens
                     ctx.fill(Path(ellipseIn: CGRect(x: head.x - 4, y: head.y - 4, width: 8, height: 8)), with: .color(Color(white: 0.15)))
@@ -376,11 +401,17 @@ struct StageCanvas: View {
                 }
 
                 // Lens glow
-                glow.fill(Path(ellipseIn: CGRect(x: head.x - 9, y: head.y - 9, width: 18, height: 18)),
+                let lr: CGFloat = compact ? 5 : 9
+                glow.fill(Path(ellipseIn: CGRect(x: head.x - lr, y: head.y - lr, width: lr * 2, height: lr * 2)),
                           with: .radialGradient(Gradient(colors: [Color.white.opacity(level), col.opacity(0.8 * level), col.opacity(0)]),
-                                                center: head, startRadius: 0, endRadius: 9))
+                                                center: head, startRadius: 0, endRadius: lr))
             }
 
+            if compact {
+                ctx.draw(Text(fx.name).font(.system(size: 9, weight: .semibold)).foregroundColor(Color.white.opacity(0.6)),
+                         at: CGPoint(x: origin.x, y: origin.y + (p.mount == .hanging ? -16 : 18)))
+                continue
+            }
             // Fixture body + label
             if n > 1 {
                 let body = CGRect(x: origin.x - barWidth / 2 - 6, y: origin.y + 6, width: barWidth + 12, height: 10)
@@ -393,7 +424,7 @@ struct StageCanvas: View {
                      at: CGPoint(x: origin.x, y: origin.y + 28))
         }
 
-        if !model.outputEnabled {
+        if !model.outputEnabled && !compact {
             ctx.draw(Text("PREVIEW ONLY · your lights aren't being controlled").font(.system(size: 11, weight: .heavy)).foregroundColor(.orange),
                      at: CGPoint(x: w - 12, y: 16), anchor: .trailing)
         }

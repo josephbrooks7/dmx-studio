@@ -1617,7 +1617,7 @@ struct FadeToButton: View {
 struct MiniOutputPreview: View {
     @EnvironmentObject var model: AppModel
     @AppStorage("miniPreviewShown") private var shown = true
-    @AppStorage("miniPreviewLarge") private var large = false
+    @AppStorage("miniPreviewTall") private var tall = false
     let openStage: () -> Void
 
     var body: some View {
@@ -1628,25 +1628,25 @@ struct MiniOutputPreview: View {
                     Text(model.outputEnabled ? "LIVE" : "PREVIEW")
                         .font(.system(size: 10, weight: .bold)).lineLimit(1)
                     Spacer(minLength: 4)
-                    Button { large.toggle() } label: {
-                        Image(systemName: large ? "arrow.down.right.and.arrow.up.left" : "arrow.up.left.and.arrow.down.right")
+                    Button { tall.toggle() } label: {
+                        Image(systemName: tall ? "square" : "rectangle.portrait")
                     }
-                    .buttonStyle(.plain).help(large ? "Smaller" : "Bigger")
+                    .buttonStyle(.plain).help(tall ? "Square view (1:1)" : "Tall side view (9:16)")
                     Button { shown = false } label: { Image(systemName: "chevron.down") }
                         .buttonStyle(.plain).help("Hide the preview")
                 }
                 .font(.system(size: 10))
                 .padding(.horizontal, 9).padding(.vertical, 5)
                 .background(Color.black.opacity(0.85))
-                StageCanvas(editing: false)
-                    .frame(height: large ? 214 : 148)
+                StageCanvas(editing: false, compact: true)
+                    .frame(width: 230, height: tall ? 409 : 230)    // 1:1, or 9:16
                     .clipped()
                     .contentShape(Rectangle())
                     .onTapGesture { openStage() }
                     .help("Open the Stage page")
             }
             // a fixed size: without it the title bar stretched the window across the whole page
-            .frame(width: large ? 380 : 264)
+            .frame(width: 230)
             .fixedSize(horizontal: true, vertical: true)
             .background(Color.black)
             .clipShape(RoundedRectangle(cornerRadius: 10, style: .continuous))
