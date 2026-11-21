@@ -281,11 +281,17 @@ struct SongRow: View {
                 }
             }
             Spacer(minLength: 0)
+        }
+        // small ✕ in the top-right corner while hovering
+        .overlay(alignment: .topTrailing) {
             if model.hoveredSongID == song.id {
                 Button { model.requestRemove(model.pickedSongs.contains(song.id) && model.pickedSongs.count > 1 ? Array(model.pickedSongs) : [song.id]) } label: {
-                    Image(systemName: "xmark.circle.fill").font(.system(size: 15)).foregroundColor(.secondary)
+                    Image(systemName: "xmark.circle.fill").font(.system(size: 10, weight: .semibold))
+                        .foregroundColor(.white.opacity(0.55))
+                        .frame(width: 14, height: 14).contentShape(Rectangle())
                 }
                 .buttonStyle(.plain)
+                .offset(x: 6, y: -3)
                 .help("Remove from the library")
             }
         }
