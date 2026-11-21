@@ -340,17 +340,8 @@ struct SongView: View {
 
     // Per-section editor
     @ViewBuilder func sectionEditor(_ binding: Binding<Song>, _ si: Int) -> some View {
-        Card {
-            VStack(alignment: .leading, spacing: 8) {
-                HStack {
-                    Text("Sections").font(.headline)
-                    Text("Tweak any part. Click a time to jump there.").font(.caption).foregroundColor(.secondary)
-                }
-                ForEach(binding.shows[si].sections) { $sec in
-                    SectionRow(section: $sec, songID: binding.wrappedValue.id)
-                    Divider()
-                }
-            }
+        if let a = binding.wrappedValue.analysis {
+            SectionTimelineEditor(song: binding, showIndex: si, analysis: a)
         }
     }
 }
