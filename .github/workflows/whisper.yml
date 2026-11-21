@@ -43,5 +43,5 @@ jobs:
               --notes "whisper.cpp v1.7.4 (MIT license), built for macOS 12+ (Intel + Apple silicon). Bundled in DMX Studio."
           gh release upload whisper-1 -R "$GITHUB_REPOSITORY" /tmp/whisper-cli --clobber
           # the speech models too (MIT), so builds and tests can get them from here
-          for m in ggml-base.bin; do curl -sfL -o /tmp/$m https://huggingface.co/ggerganov/whisper.cpp/resolve/main/$m && \
+          for m in ggml-base.bin ggml-small.bin; do curl -sfL -o /tmp/$m https://huggingface.co/ggerganov/whisper.cpp/resolve/main/$m && \
             gh release upload whisper-1 -R "$GITHUB_REPOSITORY" /tmp/$m --clobber; done

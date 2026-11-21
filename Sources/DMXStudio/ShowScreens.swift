@@ -1061,6 +1061,10 @@ struct SongsScreen: View {
                             })
                             .contextMenu {
                                 Button("Learn Again") { model.learn(s.id) }
+                                Button("Show in Finder") { NSWorkspace.shared.activateFileViewerSelecting([s.url]) }
+                                if let f = s.analysis?.stemsFolder, FileManager.default.fileExists(atPath: f) {
+                                    Button("Show Stems in Finder") { NSWorkspace.shared.activateFileViewerSelecting([URL(fileURLWithPath: f)]) }
+                                }
                                 Menu("Add to Set List") {
                                     ForEach(model.lineups) { l in
                                         Button(l.name) { model.addToLineup(l.id, songID: s.id, showID: s.activeShow?.id) }
