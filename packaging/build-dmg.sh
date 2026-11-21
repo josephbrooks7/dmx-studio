@@ -87,6 +87,10 @@ mkdir -p "$APP/Contents/Resources/Models"
 if curl -sfL -o "$APP/Contents/Resources/Models/ggml-base.bin" "https://huggingface.co/ggerganov/whisper.cpp/resolve/main/ggml-base.bin"; then
   echo "bundled lyrics model: $(du -h "$APP/Contents/Resources/Models/ggml-base.bin" | cut -f1)"
 else rm -f "$APP/Contents/Resources/Models/ggml-base.bin"; echo "lyrics model not bundled"; fi
+# the Accurate lyrics model (default) — built in so it works offline on the lighting network
+if curl -sfL -o "$APP/Contents/Resources/Models/ggml-small-q8_0.bin" "https://github.com/josephbrooks7/dmx-studio/releases/download/whisper-1/ggml-small-q8_0.bin"; then
+  echo "bundled accurate lyrics model: $(du -h "$APP/Contents/Resources/Models/ggml-small-q8_0.bin" | cut -f1)"
+else rm -f "$APP/Contents/Resources/Models/ggml-small-q8_0.bin"; echo "accurate lyrics model not published yet"; fi
 if curl -sfL -o /tmp/DemucsHQ.zip "https://github.com/josephbrooks7/dmx-studio/releases/download/hq-model-1/DemucsHQ.mlmodelc.zip"; then
   ditto -x -k /tmp/DemucsHQ.zip "$APP/Contents/Resources/Models/" && echo "bundled High Quality splitter model"
 else echo "High Quality model not bundled"; fi

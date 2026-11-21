@@ -57,9 +57,10 @@ enum WhisperEngine {
     enum ModelSize: String, CaseIterable, Identifiable {
         case base, small
         var id: String { rawValue }
-        var file: String { "ggml-\(rawValue).bin" }
-        var label: String { self == .base ? "Standard (built in)" : "Accurate (466 MB download)" }
-        var url: URL { URL(string: "https://huggingface.co/ggerganov/whisper.cpp/resolve/main/\(file)")! }
+        // small at 8-bit: 90% of the words right on a real song (base: 78%), about 3× slower
+        var file: String { self == .base ? "ggml-base.bin" : "ggml-small-q8_0.bin" }
+        var label: String { self == .base ? "Fast" : "Accurate" }
+        var url: URL { URL(string: "https://github.com/josephbrooks7/dmx-studio/releases/download/whisper-1/\(file)")! }
     }
 
     static var binary: URL? {
@@ -89,8 +90,9 @@ enum WhisperEngine {
         set { UserDefaults.standard.set(newValue.rawValue, forKey: "lyricsLanguage") }
     }
     static var chosen: ModelSize {
-        get { ModelSize(rawValue: UserDefaults.standard.string(forKey: "whisperModel") ?? "") ?? .base }
-        set { UserDefaults.standard.set(newValue.rawValue, forKey: "whisperModel") }
+        get { ModelSize(rawValue: UserDefaults.standard.string(forKey: "whisperModel2") ?? "")
+            ?? (isInstalled(.small) ? .small : .base) }
+        set { UserDefaults.standard.set(newValue.rawValue, forKey: "whisperModel2") }
     }
 
     /// Transcribes the vocals. Runs in the background; `done` is called on the main thread.
@@ -111,68 +113,81 @@ enum WhisperEngine {
                 let sung = phrases.reduce(0) { $0 + $1.end - $1.start }
                 let trusted = !background && dur > 0 && sung / dur >= 0.15 ? phrases : []
                 let timeMap = try writeSpeechWav([vocals] + extra, to: wav, keep: trusted, boost: background)
-                let p = Process()
-                p.executableURL = bin
-                // real cores (the doubled-up "hyper-threads" only slow it down)
-                var phys: Int32 = 0; var sz = MemoryLayout<Int32>.size
-                sysctlbyname("hw.physicalcpu", &phys, &sz, nil, 0)
-                let threads = max(2, min(8, phys > 0 ? Int(phys) : ProcessInfo.processInfo.activeProcessorCount / 2))
-                // Settings that make Whisper hear singing in a full song (tested on a real song: from
-                // "[Music]" everywhere to the full lyrics): beam search, no "[Music]"-type tokens, and a hint
-                // that this is a song
-                p.arguments = ["-m", modelPath.path, "-f", wav.path, "-ml", "1", "-sow", "-ojf", "-sns",
-                               // no carried-over context: stops Whisper looping one line for minutes
-                               "-mc", "0",
-                               "--prompt", language == .es ? "Letra de la canción:" : "Song lyrics:",
-                               "-of", tmp.appendingPathComponent("out").path, "-np", "-pp", "-t", "\(threads)",
-                               // a wider search: tested on a real song, 85% → 89% of the words right
-                               "-bs", "8", "-bo", "8",
-                               // English-only models can only do English
-                               "-l", modelPath.lastPathComponent.contains(".en") ? "en" : language.code]
-                // exact word timing (DTW): the normal timing often stretches the first words of a passage
-                // back to the start of the listening window (a line sung at 0:13 shown at 0:00)
-                if let dtw = dtwName(modelPath) { p.arguments! += ["-dtw", dtw] }
-                let err = Pipe()
-                p.standardError = err
-                p.standardOutput = FileHandle.nullDevice
-                try p.run()
-                running = p
-                defer { running = nil }
-                // progress lines on stderr: "...progress = 42%"
-                var pending = "", errLog = ""
-                while true {
-                    let chunk = err.fileHandleForReading.availableData
-                    if chunk.isEmpty { break }
-                    pending += String(decoding: chunk, as: UTF8.self)
-                    errLog += String(decoding: chunk, as: UTF8.self)
-                    if errLog.count > 20000 { errLog = String(errLog.suffix(6000)) }
-                    while let r = pending.range(of: "progress =") {
-                        let rest = pending[r.upperBound...]
-                        guard let pct = rest.firstIndex(of: "%") else { break }
-                        if let v = Double(rest[..<pct].trimmingCharacters(in: .whitespaces)) {
-                            DispatchQueue.main.async { progress(v / 100) }
+                var lastLog = "", lastData = Data()
+                func listen(noContext: Bool) throws -> [LyricWord] {
+                    let p = Process()
+                    p.executableURL = bin
+                    // real cores (the doubled-up "hyper-threads" only slow it down)
+                    var phys: Int32 = 0; var sz = MemoryLayout<Int32>.size
+                    sysctlbyname("hw.physicalcpu", &phys, &sz, nil, 0)
+                    let threads = max(2, min(8, phys > 0 ? Int(phys) : ProcessInfo.processInfo.activeProcessorCount / 2))
+                    // Settings that make Whisper hear singing in a full song (tested on a real song: from
+                    // "[Music]" everywhere to the full lyrics): beam search, no "[Music]"-type tokens, and a hint
+                    // that this is a song
+                    p.arguments = ["-m", modelPath.path, "-f", wav.path, "-ml", "1", "-sow", "-ojf", "-sns",
+                                   "--prompt", language == .es ? "Letra de la canción:" : "Song lyrics:",
+                                   "-of", tmp.appendingPathComponent("out").path, "-np", "-pp", "-t", "\(threads)",
+                                   // a wider search: tested on a real song, 85% → 89% of the words right
+                                   "-bs", "8", "-bo", "8",
+                                   // English-only models can only do English
+                                   "-l", modelPath.lastPathComponent.contains(".en") ? "en" : language.code]
+                    // exact word timing (DTW): the normal timing often stretches the first words of a passage
+                    // back to the start of the listening window (a line sung at 0:13 shown at 0:00)
+                    if let dtw = dtwName(modelPath) { p.arguments! += ["-dtw", dtw] }
+                    // no carried-over context: stops Whisper looping one line for minutes (but it hears
+                    // a bit less: 91% → 89% on a real song), so it's the second try
+                    if noContext { p.arguments! += ["-mc", "0"] }
+                    let err = Pipe()
+                    p.standardError = err
+                    p.standardOutput = FileHandle.nullDevice
+                    try p.run()
+                    running = p
+                    defer { running = nil }
+                    // progress lines on stderr: "...progress = 42%"
+                    var pending = "", errLog = ""
+                    while true {
+                        let chunk = err.fileHandleForReading.availableData
+                        if chunk.isEmpty { break }
+                        pending += String(decoding: chunk, as: UTF8.self)
+                        errLog += String(decoding: chunk, as: UTF8.self)
+                        if errLog.count > 20000 { errLog = String(errLog.suffix(6000)) }
+                        while let r = pending.range(of: "progress =") {
+                            let rest = pending[r.upperBound...]
+                            guard let pct = rest.firstIndex(of: "%") else { break }
+                            if let v = Double(rest[..<pct].trimmingCharacters(in: .whitespaces)) {
+                                DispatchQueue.main.async { progress(v / 100) }
+                            }
+                            pending = String(rest[rest.index(after: pct)...])
                         }
-                        pending = String(rest[rest.index(after: pct)...])
+                        if pending.count > 4000 { pending = String(pending.suffix(200)) }
                     }
-                    if pending.count > 4000 { pending = String(pending.suffix(200)) }
+                    p.waitUntilExit()
+                    guard p.terminationStatus == 0 else { throw LyricsError.unavailable }
+                    let data = try Data(contentsOf: tmp.appendingPathComponent("out.json"))
+                    var words = parse(data, phrases: [], minConfidence: background ? 0.2 : 0.3)
+                    lastLog = errLog; lastData = data
+                    // back to song time (silent stretches were cut out to save time)
+                    for k in words.indices {
+                        words[k].start = mapTime(words[k].start, timeMap)
+                        words[k].end = mapTime(words[k].end, timeMap)
+                    }
+                    return words
                 }
-                p.waitUntilExit()
-                guard p.terminationStatus == 0 else { throw LyricsError.unavailable }
-                let data = try Data(contentsOf: tmp.appendingPathComponent("out.json"))
-                var words = parse(data, phrases: [], minConfidence: background ? 0.2 : 0.3)
-                // back to song time (silent stretches were cut out to save time)
-                for k in words.indices {
-                    words[k].start = mapTime(words[k].start, timeMap)
-                    words[k].end = mapTime(words[k].end, timeMap)
+                // 1) with context (hears the most); 2) if it got stuck looping, again without
+                let first = try listen(noContext: false)
+                var words = removeLoops(first)
+                if looksPoor(words) || Double(words.count) < Double(first.count) * 0.85 {
+                    DispatchQueue.main.async { progress(0) }
+                    let second = removeLoops(try listen(noContext: true))
+                    if !looksPoor(second) || second.count > words.count { words = second }
                 }
-                words = removeLoops(words)
                 if !trusted.isEmpty {
                     words = words.filter { w in trusted.contains { w.start < $0.end + 0.6 && w.end > $0.start - 0.6 } }
                 }
                 for k in words.indices { words[k].vocalist = background ? "Background" : "Lead" }
                 if ProcessInfo.processInfo.environment["DMX_DEBUG_WHISPER"] != nil {
-                    print("whisper stderr: \(errLog.suffix(3000))")
-                    print("whisper json: \(String(decoding: data.prefix(1500), as: UTF8.self))")
+                    print("whisper stderr: \(lastLog.suffix(3000))")
+                    print("whisper json: \(String(decoding: lastData.prefix(1500), as: UTF8.self))")
                     let wavSize = (try? FileManager.default.attributesOfItem(atPath: wav.path)[.size] as? Int) ?? -1
                     print("wav bytes: \(wavSize)")
                 }
