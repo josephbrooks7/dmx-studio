@@ -109,7 +109,7 @@ jobs:
         run: |
           APP="build/DMX Studio.app"
           if [ -x "$APP/Contents/Resources/whisper-cli" ]; then
-            if nm -u "$APP/Contents/Resources/whisper-cli" | grep -i cblas; then echo "FAIL whisper-cli needs macOS 13.3"; exit 1; fi
+            if nm -u "$APP/Contents/Resources/whisper-cli" | grep -i NEWLAPACK; then echo "FAIL whisper-cli needs macOS 13.3"; exit 1; fi
             curl -sL -o /tmp/tiny.bin https://huggingface.co/ggerganov/whisper.cpp/resolve/main/ggml-tiny.en.bin
             say -o /tmp/l.aiff "I'm lost in the darkness and I'm all alone. But I can finally see the light."
             afconvert -f m4af -d aac /tmp/l.aiff /tmp/l.m4a

@@ -109,11 +109,14 @@ enum WhisperEngine {
                 let dur = (try? AVAudioFile(forReading: vocals)).map { Double($0.length) / $0.processingFormat.sampleRate } ?? 0
                 let sung = phrases.reduce(0) { $0 + $1.end - $1.start }
                 let trusted = !background && dur > 0 && sung / dur >= 0.15 ? phrases : []
-                try writeSpeechWav([vocals] + extra, to: wav, keep: trusted, boost: background)
+                let timeMap = try writeSpeechWav([vocals] + extra, to: wav, keep: trusted, boost: background)
                 let p = Process()
                 p.executableURL = bin
-                let threads = max(2, min(8, ProcessInfo.processInfo.activeProcessorCount))
-                p.arguments = ["-m", modelPath.path, "-f", wav.path, "-ml", "1", "-sow", "-ojf",
+                // real cores (the doubled-up "hyper-threads" only slow it down)
+                var phys: Int32 = 0; var sz = MemoryLayout<Int32>.size
+                sysctlbyname("hw.physicalcpu", &phys, &sz, nil, 0)
+                let threads = max(2, min(8, phys > 0 ? Int(phys) : ProcessInfo.processInfo.activeProcessorCount / 2))
+                p.arguments = ["-m", modelPath.path, "-f", wav.path, "-ml", "1", "-sow", "-ojf", "-bs", "1", "-bo", "1",
                                "-of", tmp.appendingPathComponent("out").path, "-np", "-pp", "-t", "\(threads)",
                                // English-only models can only do English
                                "-l", modelPath.lastPathComponent.contains(".en") ? "en" : language.code]
@@ -142,7 +145,15 @@ enum WhisperEngine {
                 p.waitUntilExit()
                 guard p.terminationStatus == 0 else { throw LyricsError.unavailable }
                 let data = try Data(contentsOf: tmp.appendingPathComponent("out.json"))
-                var words = parse(data, phrases: trusted, minConfidence: background ? 0.2 : 0.3)
+                var words = parse(data, phrases: [], minConfidence: background ? 0.2 : 0.3)
+                // back to song time (silent stretches were cut out to save time)
+                for k in words.indices {
+                    words[k].start = mapTime(words[k].start, timeMap)
+                    words[k].end = mapTime(words[k].end, timeMap)
+                }
+                if !trusted.isEmpty {
+                    words = words.filter { w in trusted.contains { w.start < $0.end + 0.6 && w.end > $0.start - 0.6 } }
+                }
                 for k in words.indices { words[k].vocalist = background ? "Background" : "Lead" }
                 if ProcessInfo.processInfo.environment["DMX_DEBUG_WHISPER"] != nil {
                     print("whisper stderr: \(errLog.suffix(3000))")
@@ -209,7 +220,16 @@ enum WhisperEngine {
         return all
     }
 
-    static func writeSpeechWav(_ srcs: [URL], to dst: URL, keep: [TimeSpan], boost: Bool = false) throws {
+    /// (where a piece starts in the shortened file, where it is in the song, how long) — seconds
+    typealias TimeMap = [(out: Double, src: Double, len: Double)]
+    static func mapTime(_ t: Double, _ map: TimeMap) -> Double {
+        guard !map.isEmpty else { return t }
+        let piece = map.last { $0.out <= t + 1e-6 } ?? map[0]
+        return piece.src + (t - piece.out)
+    }
+
+    @discardableResult
+    static func writeSpeechWav(_ srcs: [URL], to dst: URL, keep: [TimeSpan], boost: Bool = false) throws -> TimeMap {
         guard let outFmt = AVAudioFormat(commonFormat: .pcmFormatFloat32, sampleRate: 16000, channels: 1, interleaved: false) else {
             throw LyricsError.unavailable
         }
@@ -243,6 +263,42 @@ enum WhisperEngine {
             let gain = min(boost ? 60 : 12, max(1, (boost ? 0.15 : 0.1) / max(ref, 1e-6)))
             if gain > 1.05 { for k in all.indices { all[k] = tanhf(all[k] * gain) } }
         }
+        // Cut out the silent stretches (no point making Whisper listen to them): keep everything with
+        // sound in 0.5 s windows (plus a little either side), joined with short gaps
+        var map: TimeMap = []
+        let sr = 16000.0, step = 8000
+        var levels: [Float] = []
+        var j = 0
+        while j < all.count {
+            let e = min(all.count, j + step)
+            var v: Float = 0
+            all[j..<e].withUnsafeBufferPointer { vDSP_rmsqv($0.baseAddress!, 1, &v, vDSP_Length(e - j)) }
+            levels.append(v); j = e
+        }
+        let peak = levels.max() ?? 0
+        let gate = max(0.004, peak * 0.03)
+        var keepWin = levels.map { $0 > gate }
+        for (k, on) in keepWin.enumerated() where on {         // half a second of margin either side
+            if k > 0 { keepWin[k - 1] = true }
+            if k + 1 < keepWin.count { keepWin[k + 1] = true }
+        }
+        let kept = keepWin.filter { $0 }.count
+        if kept > 0 && kept < keepWin.count * 9 / 10 {
+            var out: [Float] = []
+            let gap = [Float](repeating: 0, count: Int(0.3 * sr))
+            var k = 0
+            while k < keepWin.count {
+                guard keepWin[k] else { k += 1; continue }
+                var e = k
+                while e < keepWin.count && keepWin[e] { e += 1 }
+                let a = k * step, b = min(all.count, e * step)
+                if !out.isEmpty { out += gap }
+                map.append((out: Double(out.count) / sr, src: Double(a) / sr, len: Double(b - a) / sr))
+                out.append(contentsOf: all[a..<b])
+                k = e
+            }
+            all = out
+        }
         let w = try AVAudioFile(forWriting: dst, settings: [AVFormatIDKey: kAudioFormatLinearPCM, AVSampleRateKey: 16000,
                                                             AVNumberOfChannelsKey: 1, AVLinearPCMBitDepthKey: 16,
                                                             AVLinearPCMIsFloatKey: false],
@@ -260,5 +316,6 @@ enum WhisperEngine {
             try w.write(from: buf)
             pos += n
         }
+        return map
     }
 }
