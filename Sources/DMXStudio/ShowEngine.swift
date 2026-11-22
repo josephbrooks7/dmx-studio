@@ -1216,28 +1216,29 @@ struct ShowRenderer {
             return (0.5, 0.5)
         case .sweep:
             // end to end in one bar (4 beats), arriving on the downbeat
-            let v = 0.05 + 0.9 * leg(beats, 4, offset: Double(fi) * 0.5)
+            // the whole 180° of the SHEHDS head (DMX 0–255 = one end to the other)
+            let v = leg(beats, 4, offset: Double(fi) * 0.5)
             return (v, v)
         case .circle:
             let a = 2 * .pi * barPos + phase
-            return (0.5 + 0.42 * sin(a), 0.5 + 0.42 * cos(a))
+            return (0.5 + 0.5 * sin(a), 0.5 + 0.5 * cos(a))
         case .fan:
             // open out and back in, 2 beats each way
             let s = leg(beats, 2)
             let dir: Double = fi % 2 == 0 ? 1 : -1
-            return (0.5 + dir * 0.45 * s, 0.5 + dir * 0.45 * s)
+            return (0.5 + dir * 0.5 * s, 0.5 + dir * 0.5 * s)
         case .beatNod:
             // up and down, 2 beats each way, landing on the beat
             let v = 0.15 + 0.7 * leg(beats, 2, offset: Double(fi))
             return (0.5, v)
         case .fullRotate:
             // the whole 180°, one way per 2 bars (8 beats)
-            let v = 0.02 + 0.96 * leg(beats, 8, offset: Double(fi) * 0.5)
+            let v = leg(beats, 8, offset: Double(fi) * 0.5)
             return (v, v)
         case .flip:
             // Snap end to end on every other beat
             let side = ((idx / 4) + fi) % 2 == 0   // once a bar
-            return (side ? 0.05 : 0.95, side ? 0.05 : 0.95)
+            return (side ? 0 : 1, side ? 0 : 1)
         }
     }
 }

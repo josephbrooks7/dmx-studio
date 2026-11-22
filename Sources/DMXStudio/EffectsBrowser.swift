@@ -315,6 +315,8 @@ struct StagePreviewSim: View {
         ctx.fill(Path(CGRect(x: 0, y: size.height - 26, width: size.width, height: 26)),
                  with: .linearGradient(Gradient(colors: [Color(white: 0.05), Color(white: 0.0)]),
                                        startPoint: CGPoint(x: 0, y: size.height - 26), endPoint: CGPoint(x: 0, y: size.height)))
+        ctx.draw(Text("Side view · head tilts 180°, front to back").font(.system(size: 9)).foregroundColor(.white.opacity(0.35)),
+                 at: CGPoint(x: 8, y: 10), anchor: .leading)
         let n = max(1, frame.count)
         let floorY = size.height - 30
         let slotW = size.width / CGFloat(n)
@@ -324,16 +326,18 @@ struct StagePreviewSim: View {
             let cx = slotW * (CGFloat(fi) + 0.5)
             let barW = min(slotW - 24, size.width * 0.86)
             let heads = max(1, f.heads.count)
-            // movement: pan swings the beams sideways, tilt changes their reach
-            let swing = CGFloat(f.pan - 0.5) * 1.3
-            let reach = size.height * (0.55 + 0.4 * CGFloat(f.tilt))
+            // movement, seen from the side: the head tilts through its full 180° (straight up at the
+            // middle, flat out at either end). Lights with pan also turn a little toward you.
+            let hasPan = fi < rig.count && rig[fi].channels.contains(.role(.pan, head: 0))
+            let tiltRad = Double(f.tilt - 0.5) * .pi + (hasPan ? Double(f.pan - 0.5) * 0.6 : 0)
+            let reach = size.height * 0.8
             for (hi, h) in f.heads.enumerated() {
                 let k = max(0, min(1, h.intensity)) * fade
                 guard k > 0.02 else { continue }
                 let hx = cx - barW / 2 + barW * (CGFloat(hi) + 0.5) / CGFloat(heads)
                 let c = Color(red: h.color.r, green: h.color.g, blue: h.color.b)
-                let tipX = hx + swing * reach * 0.6
-                let tipY = floorY - reach
+                let tipX = hx + CGFloat(sin(tiltRad)) * reach
+                let tipY = floorY - CGFloat(cos(tiltRad)) * reach
                 var beam = Path()
                 beam.move(to: CGPoint(x: hx - 5, y: floorY))
                 beam.addLine(to: CGPoint(x: tipX - 16, y: tipY))
