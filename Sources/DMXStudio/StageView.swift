@@ -363,13 +363,21 @@ struct StageCanvas: View {
                 var angle: Double
                 var length: Double
                 var spread: Double = n > 1 ? 4.5 : 9          // degrees (SHEHDS lens is 8°)
+                // Tilt turns the head front to back (the SHEHDS bar: 180°, no side to side). This view
+                // looks at the stage from the front, so a tilt shows as the beam leaning toward you or
+                // away: shorter and wider the further it tilts. Only lights with pan swing sideways.
+                let hasPan = fx.channels.contains(.role(.pan, head: 0))
+                let fore = max(0.14, abs(cos((rf.tilt - 0.5) * .pi)))
+                let side = hasPan ? (rf.pan - 0.5) * 120 : 0
                 switch p.mount {
                 case .floor:
-                    angle = -90 + (rf.tilt - 0.5) * 150 + (rf.pan - 0.5) * (fx.channels.contains(.role(.pan, head: 0)) ? 120 : 0)
-                    length = Double(h) * (compact ? 0.78 : 1.1)
+                    angle = -90 + side
+                    length = Double(h) * (compact ? 0.78 : 1.1) * fore
+                    spread *= 1 + (1 - fore) * 1.6
                 case .hanging:
-                    angle = 90 + (rf.tilt - 0.5) * 150
-                    length = Double(h) * (compact ? 0.7 : 0.9)
+                    angle = 90 + side
+                    length = Double(h) * (compact ? 0.7 : 0.9) * fore
+                    spread *= 1 + (1 - fore) * 1.6
                 case .frontOfHouse:
                     angle = atan2(Double(target.y - head.y), Double(target.x - head.x)) * 180 / .pi
                     length = Double(hypot(target.x - head.x, target.y - head.y)) * 1.05
