@@ -502,7 +502,7 @@ struct Stage3DView: NSViewRepresentable {
             buildRoom()
             camera.camera = SCNCamera()
             camera.camera?.zFar = 200
-            camera.camera?.fieldOfView = 50
+            camera.camera?.fieldOfView = 38   // a normal lens: 50 on a wide window shrank the stage to the middle
             camera.camera?.wantsHDR = true
             camera.camera?.wantsExposureAdaptation = false   // keep the venue dark, like a real show
             camera.camera?.exposureOffset = 0
@@ -564,7 +564,7 @@ struct Stage3DView: NSViewRepresentable {
             case "Audience": camera.position = SCNVector3(0, 2.3, 8.2); camera.look(at: SCNVector3(0, 2.2, -2))
             // Overview (the starting view): close enough to see the lights and the stage fill the frame,
             // from the front-left a little above stage height; zoom out / in from here
-            default: camera.position = SCNVector3(-3.6, 3.4, 4.6); camera.look(at: SCNVector3(0.2, 1.5, -1.8))
+            default: camera.position = SCNVector3(-3.0, 3.0, 3.6); camera.look(at: SCNVector3(0.2, 1.5, -1.8))
             }
             view?.pointOfView = camera
         }
