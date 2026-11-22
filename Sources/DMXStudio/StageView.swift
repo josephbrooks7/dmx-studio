@@ -52,7 +52,7 @@ struct StageScreen: View {
                 VStack(alignment: .leading, spacing: 2) {
                     Text("Stage").font(.system(size: 22, weight: .heavy))
                     Text(model.stageEditing ? "Click something to select it, drag it across the floor. Fine-tune on the right."
-                                            : "Your venue in 3D. Drag to orbit, scroll or pinch to zoom. Everything you play shows up here.")
+                                            : "Your venue in 3D. Drag to orbit, scroll, pinch or ⌘+ / ⌘− to zoom. Everything you play shows up here.")
                         .font(.caption).foregroundColor(Theme.subtle).lineLimit(1)
                 }
                 Spacer()
@@ -62,10 +62,19 @@ struct StageScreen: View {
                 }
                 HStack(spacing: 2) {
                     Button { model.stageCameraRequest = ("Zoom Out", UUID()) } label: { Image(systemName: "minus.magnifyingglass") }
-                        .help("Zoom out")
+                        .keyboardShortcut("-", modifiers: .command)
+                        .help("Zoom out (⌘−)")
                     Button { model.stageCameraRequest = ("Zoom In", UUID()) } label: { Image(systemName: "plus.magnifyingglass") }
-                        .help("Zoom in (you can also scroll or pinch)")
+                        .keyboardShortcut("=", modifiers: .command)
+                        .help("Zoom in (⌘+ · you can also scroll or pinch)")
                 }
+                .background(
+                    // ⌘+ typed with Shift, and ⌘0 to go back to the full view
+                    ZStack {
+                        Button("") { model.stageCameraRequest = ("Zoom In", UUID()) }.keyboardShortcut("+", modifiers: .command)
+                        Button("") { model.stageCameraRequest = ("Overview", UUID()) }.keyboardShortcut("0", modifiers: .command)
+                    }.opacity(0).allowsHitTesting(false)
+                )
                 .buttonStyle(PillButtonStyle())
                 HStack(spacing: 6) {
                     Image(systemName: "cloud.fog").foregroundColor(Theme.subtle)
