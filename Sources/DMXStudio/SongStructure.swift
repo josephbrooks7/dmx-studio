@@ -75,13 +75,28 @@ enum SongStructure {
             (x.a..<x.b).reduce(0.0) { $0 + v[$1] } / Double(max(1, x.b - x.a))
         }
         let eMinB = blocks.map { avg($0, eng) }.min() ?? 0, eMaxB = blocks.map { avg($0, eng) }.max() ?? 1
-        func bsim(_ x: (a: Int, b: Int), _ y: (a: Int, b: Int)) -> Double {
+        func chordSim(_ x: (a: Int, b: Int), _ y: (a: Int, b: Int)) -> Double {
             let n = min(x.b - x.a, y.b - y.a)
             guard n > 0 else { return -1 }
             var c = 0.0
             for j in 0..<n { c += cosine(chromaBar[x.a + j], chromaBar[y.a + j]) }
+            return c / Double(n)
+        }
+        // Many songs loop one chord progression the whole way through (Zedd "Clarity": the same 4 chords
+        // in the verse, pre-chorus, chorus and drop; Britney's verse / pre-chorus / chorus share most chords).
+        // Then the chords can't tell the parts apart, so loudness and singing decide instead.
+        var pairSum = 0.0, pairs = 0
+        let stepB = max(1, blocks.count / 24)
+        for i in stride(from: 0, to: blocks.count, by: stepB) {
+            for j in stride(from: i + stepB, to: blocks.count, by: stepB) { pairSum += chordSim(blocks[i], blocks[j]); pairs += 1 }
+        }
+        let oneLoop = pairs > 3 && pairSum / Double(pairs) > 0.7
+        let eW = oneLoop ? 0.9 : 0.35, vW = oneLoop ? 0.5 : 0.25
+        func bsim(_ x: (a: Int, b: Int), _ y: (a: Int, b: Int)) -> Double {
+            let c = chordSim(x, y)
+            guard c > -1 else { return -1 }
             let de = abs(avg(x, eng) - avg(y, eng)) / max(eMaxB - eMinB, 1e-4)
-            return c / Double(n) - 0.35 * de - 0.25 * abs(avg(x, voc) - avg(y, voc))
+            return c - eW * de - vW * abs(avg(x, voc) - avg(y, voc))
         }
         var bgroup = [Int](repeating: -1, count: blocks.count)
         var ng = 0

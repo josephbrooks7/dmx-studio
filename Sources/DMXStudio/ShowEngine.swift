@@ -269,7 +269,7 @@ enum ShowGenerator {
         }
 
         var out: [ShowSection] = []
-        for d in a.detectedSections {
+        for d in ShowGenerator.edmNamed(a.detectedSections, style: style) {
             if d.name == "Silence" {
                 // A short break inside the song: keep the sequence going (repeat the section before)
                 let inside = d.start > a.musicStart + 1 && d.end < a.musicEnd - 1
@@ -1368,5 +1368,39 @@ private extension ShowRenderer.Ctx {
         c.bassPart = st["bass"].map { a.value($0, at: t) } ?? 0.5
         c.otherPart = st["other"].map { a.value($0, at: t) } ?? 0.5
         return c
+    }
+}
+
+
+extension ShowGenerator {
+    /// Electronic tracks are built as intro → build → drop → breakdown → build → drop → outro, not verses
+    /// and choruses: the big part is the drop, the lift before it (8 bars, up to 16) is the build, and the
+    /// quieter middle part is the breakdown. Renames the parts for electronic / dubstep / techno shows.
+    static func edmNamed(_ secs: [DetectedSection], style: ShowStyle) -> [DetectedSection] {
+        guard [.electronic, .dubstep, .techno].contains(style) else { return secs }
+        let rename: [String: String] = ["Chorus": "Drop", "Post-Chorus": "Drop", "Pre-Chorus": "Build", "Bridge": "Breakdown"]
+        var out: [DetectedSection] = []
+        for var d in secs {
+            let base = d.name.split(separator: " ").first.map(String.init) ?? d.name
+            let role = d.name.hasPrefix("Pre-Chorus") ? "Pre-Chorus" : d.name.hasPrefix("Post-Chorus") ? "Post-Chorus" : base
+            if let n = rename[role] { d.name = n }
+            else { d.name = role }
+            if d.name == "Drop", d.level == .medium { d.level = .high }
+            // a drop right after a drop (old chorus + post-chorus) is one longer drop
+            if let last = out.last, last.name == d.name, d.name == "Drop" {
+                out[out.count - 1] = DetectedSection(start: last.start, end: d.end, energy: max(last.energy, d.energy), level: last.level, name: last.name)
+                continue
+            }
+            out.append(d)
+        }
+        // number them again: Drop 1, Drop 2, Build 1 …
+        let totals = Dictionary(grouping: out.filter { $0.name != "Silence" }, by: \.name).mapValues(\.count)
+        var counts: [String: Int] = [:]
+        for i in out.indices where out[i].name != "Silence" {
+            let n = out[i].name
+            counts[n, default: 0] += 1
+            if (totals[n] ?? 0) > 1 || ["Build", "Drop", "Verse"].contains(n) { out[i].name = "\(n) \(counts[n]!)" }
+        }
+        return out
     }
 }
