@@ -61,9 +61,7 @@ extension ShowGenerator {
         //    • energy shows as how busy the light is, not how bright: quiet breaks are a steady, bright,
         //      saturated wash in a neighboring color; loud parts are darker with fast changes
         //    • the stage goes almost dark for the bars before the band's big entrance
-        concertRules(&s, beat: beat, variation: variation)
-        // 5. Rules from an electronic live show (Röyksopp & Jamie Irrepressibles, P3 Gull 2014)
-        if [.club, .electronic].contains(a.suggestedStyle) { electronicRules(&s, a, beat: beat) }
+        learnedRules(&s, a, variation: variation)
 
         // 3. Transitions into the big moments (taken from the end of the block before: nothing moves)
         for k in stride(from: s.count - 1, through: 1, by: -1) {
@@ -96,6 +94,15 @@ extension ShowGenerator {
     }
 
     // MARK: - Concert rules
+
+    /// What real concerts taught the show builder. Runs for every new show (with or without the library).
+    static func learnedRules(_ s: inout [ShowSection], _ a: SongAnalysis, variation: Int) {
+        guard s.count > 1, a.bpm > 30 else { return }
+        let beat = 60 / a.bpm
+        concertRules(&s, beat: beat, variation: variation)
+        // Rules from an electronic live show (Röyksopp & Jamie Irrepressibles, P3 Gull 2014)
+        if [.club, .electronic].contains(a.suggestedStyle) { electronicRules(&s, a, beat: beat) }
+    }
 
     /// Main hue of a palette in degrees, and how spread its colors are (rainbows are wide)
     static func hueInfo(_ name: String) -> (hue: Double, spread: Double, white: Bool) {
