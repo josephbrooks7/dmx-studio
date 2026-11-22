@@ -1892,12 +1892,14 @@ final class AppModel: ObservableObject {
         // take the app down), then listen to that instead of the whole mix
         let sepVocal = AppModel.lyricVocal(id)
         let voxInstalled = FileManager.default.fileExists(atPath: HQSplitter.voxURL.appendingPathComponent("coremldata.bin").path)
-        if !useVocalPart, lyricsSeparateVocal, voxInstalled, WhisperEngine.isAvailable, lyricsSkipSeparation.remove(id) == nil,
+        // your own lyrics only need timing, not words: listen to the whole song (fast), no separating
+        let lyricsGiven = songs[i].lyrics?.pastedText != nil || pendingPaste[id] != nil
+        if !useVocalPart, !lyricsGiven, lyricsSeparateVocal, voxInstalled, WhisperEngine.isAvailable, lyricsSkipSeparation.remove(id) == nil,
            !FileManager.default.fileExists(atPath: sepVocal.path) {
             separateVocalForLyrics(id, url: songs[i].url)
             return
         }
-        let useSeparated = !useVocalPart && FileManager.default.fileExists(atPath: sepVocal.path)
+        let useSeparated = !useVocalPart && !lyricsGiven && FileManager.default.fileExists(atPath: sepVocal.path)
         let vocals = useVocalPart ? vocalPart : (useSeparated ? sepVocal : songs[i].url)
         let title = songs[i].title
         let phrases = a?.vocalPhrases ?? []
