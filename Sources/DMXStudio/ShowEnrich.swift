@@ -17,12 +17,26 @@ extension ShowGenerator {
         let calm: Set<LightEffect> = [.steady, .breathe, .gradient, .aurora, .water, .tide, .shimmer, .magic, .goldDust, .embers]
 
         // 1. Repeated parts (Verse 2, Chorus 3…) get a different matching effect from the library; colors stay
+        //    Pieces of one part ("Chorus 1 ·2", a phrase or loudness change inside it) are the same part, not
+        //    a repeat: they keep the part's look so the big changes land on the arrangement changes. A chorus
+        //    is the hook, so later choruses may keep Chorus 1's look (same effect twice is fine); the last
+        //    chorus gets a fresh one to lift the ending.
         var seen: [String: Int] = [:]
+        var partEffect: [String: (LightEffect, Double, MoveEffect)] = [:]   // "Chorus 1" -> its look
+        let lastChorus = s.lastIndex { base($0.name) == "Chorus" && !$0.name.contains("·") }
         for k in s.indices {
             let b = base(s[k].name)
-            guard !b.isEmpty, b != "Silence", s[k].effect != .blackout, s[k].empty != true else { continue }
+            guard !b.isEmpty, b != "Silence", s[k].effect != .blackout, s[k].empty != true, s[k].transition == nil else { continue }
+            let part = (s[k].name.components(separatedBy: "·").first ?? s[k].name).trimmingCharacters(in: .whitespaces)
+            if s[k].name.contains("·") {
+                // a piece of a part: same effect as the part's start (its color / energy shift stays)
+                if let pe = partEffect[part], s[k].level == s[max(0, k - 1)].level { s[k].effect = pe.0; s[k].rate = pe.1; s[k].movement = pe.2 }
+                continue
+            }
             seen[b, default: 0] += 1
+            defer { partEffect[part] = (s[k].effect, s[k].rate, s[k].movement) }
             guard seen[b]! >= 2, s[k].end - s[k].start >= 4 * beat else { continue }
+            if b == "Chorus", k != lastChorus, rng.next(2) == 0 { continue }   // the hook look comes back
             let banks: [String]
             switch s[k].level {
             case .low: banks = ["Color FX"]

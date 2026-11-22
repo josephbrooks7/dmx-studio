@@ -335,7 +335,8 @@ enum ShowGenerator {
                 let here = barLoud(edges[p], edges[p + 1])
                 let rel = (here - secLoud) / max(songLoud, 1e-6)
                 let lvl: EnergyLevel = rel > 0.3 ? (d.level == .low ? .medium : .high) : rel < -0.3 ? (d.level == .high || d.level == .drop ? .medium : .low) : d.level
-                let look = lvl != d.level ? altFor(lvl, lookFor(lvl, false)) : (p % 2 == 0 ? l : altFor(d.level, l))
+                // same energy: same effect, the color moves on (the big changes are saved for the part changes)
+                let look = lvl != d.level ? altFor(lvl, lookFor(lvl, false)) : l
                 out.append(ShowSection(name: p == 0 ? d.name : "\(d.name) ·\(p + 1)",
                                        start: edges[p], end: edges[p + 1], level: lvl,
                                        effect: look.effect, palette: pal, intensity: look.intensity,
