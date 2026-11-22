@@ -148,7 +148,7 @@ enum DesignMode: String, CaseIterable, Codable, Identifiable {
         case .automatic: return "The genre decides."
         case .atmospheric: return "Restraint and darkness; follows the vocal; big changes only at real turning points."
         case .cinematic: return "One consistent color world, strong contrast, dramatic scene changes."
-        case .industrialClub: return "Limited palette, hard contrast, sudden cuts, rhythmic repetition."
+        case .industrialClub: return "Stark white in haze, hard cuts to black, rapid strobes on the peaks, one bold color moment."
         case .fantasyTheater: return "Surreal, storybook colors; gentle atmosphere with dramatic moments."
         case .retroPop: return "Warm theatrical washes, polished transitions, playful hits on the hooks."
         case .organic: return "Slow, evolving, textural; doesn't depend on drums."
@@ -170,6 +170,8 @@ enum DesignMode: String, CaseIterable, Codable, Identifiable {
         var peakPalette: String? = nil
         var darkBetween = false    // dark gaps / hard cuts at section changes
         var slow = false           // slower, evolving effects
+        var statement: String? = nil   // one bold color moment in the song (everything else stays in `palette`)
+        var stillQuiet = false     // sung, quieter parts: a still wash, nothing flashing
     }
 
     var traits: Traits {
@@ -177,7 +179,11 @@ enum DesignMode: String, CaseIterable, Codable, Identifiable {
         case .automatic: return Traits()
         case .atmospheric: return Traits(restraint: 0.8, movement: 0.4, accents: 0.4, palette: "Deep Blue", peakPalette: nil, darkBetween: true, slow: true)
         case .cinematic: return Traits(restraint: 0.5, movement: 0.7, accents: 0.8, palette: "Red Velvet", darkBetween: true)
-        case .industrialClub: return Traits(restraint: 0.3, movement: 0.6, accents: 1.4, palette: "Lime Club", darkBetween: true)
+        // From a live Charli xcx performance (Primavera Sound): stark white light in haze almost all song,
+        // a still white wash while she sings, rapid strobes in the big parts, hard cuts to black,
+        // and one bold color moment (deep red) late in the song
+        case .industrialClub: return Traits(restraint: 0.3, movement: 0.6, accents: 1.4, palette: "Full White", darkBetween: true,
+                                            statement: "Red Room", stillQuiet: true)
         case .fantasyTheater: return Traits(restraint: 0.4, movement: 0.8, accents: 0.6, palette: "Fantasy", peakPalette: "Fairy")
         case .retroPop: return Traits(restraint: 0.3, movement: 0.8, accents: 0.8, palette: "Gold", peakPalette: "Pop Candy")
         case .organic: return Traits(restraint: 0.6, movement: 0.6, accents: 0.3, palette: "Aurora", slow: true)
@@ -238,6 +244,18 @@ extension ShowGenerator {
             if t.darkBetween && !quiet && i > 0 && sections[i - 1].level != sections[i].level {
                 sections[i].accentStrobe = false     // a hard cut in, no strobe intro
             }
+            if t.stillQuiet && quiet && sections[i].effect != .blackout {
+                sections[i].effect = .steady; sections[i].movement = .none; sections[i].accentStrobe = false
+            }
+        }
+        // one bold color moment: the longest section past the middle of the song that isn't a peak
+        let statements = sections.indices.filter { design.mode(for: sections[$0].level).traits.statement != nil }
+        if let first = statements.first, let color = design.mode(for: sections[first].level).traits.statement, Palette.exists(color) {
+            let total = (sections.last?.end ?? 0)
+            let pick = sections.indices
+                .filter { sections[$0].start > total * 0.5 && sections[$0].level != .drop && sections[$0].effect != .blackout && sections[$0].empty != true }
+                .max { (sections[$0].end - sections[$0].start) < (sections[$1].end - sections[$1].start) }
+            if let k = pick { sections[k].palette = color; sections[k].effect = .steady; sections[k].intensity = max(sections[k].intensity, 0.9) }
         }
     }
 }
