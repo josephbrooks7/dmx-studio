@@ -235,9 +235,13 @@ enum SongStructure {
         // it's the chorus (the change was missed), and only the bars just before the jump are the pre-chorus
         func barE(_ b: Int) -> Double { b >= 0 && b < eng.count ? (eng[b] - eMin) / eRange : 0 }
         var split: [Seg] = []
-        for s in merged {
+        for (mi, s) in merged.enumerated() {
             let n = s.b - s.a
             guard s.role == "Pre-Chorus", !silent(s), n > 8, s.b <= bars.count else { split.append(s); continue }
+            // a pre-chorus always leads into a chorus. If this one runs into the outro / the end instead,
+            // the chorus is inside it, so be quicker to find where it starts.
+            let leadsToChorus = mi + 1 < merged.count && merged[mi + 1].role == "Chorus"
+            let needJump = leadsToChorus ? 0.15 : 0.06, needE = leadsToChorus ? 0.18 : 0.32
             var best = -1, bestJump = 0.0
             for k in stride(from: s.a + 4, to: s.b - 3, by: 4) where k < bars.count {
                 let before = (s.a..<k).map(barE).reduce(0, +) / Double(k - s.a)
@@ -245,12 +249,18 @@ enum SongStructure {
                 if after - before > bestJump { bestJump = after - before; best = k }
             }
             let afterE = best > 0 ? (best..<s.b).map(barE).reduce(0, +) / Double(s.b - best) : 0
-            if best > 0, bestJump > 0.15, afterE >= chorusE - 0.18 {
+            if best > 0, bestJump > needJump, afterE >= chorusE - needE {
                 var pre = s, ch = s
                 pre.b = best; pre.end = bars[best]
                 ch.a = best; ch.start = bars[best]; ch.role = "Chorus"
                 split.append(pre)
                 split.append(ch)
+            } else if !leadsToChorus, n >= 16 {
+                let k = s.a + 8
+                var pre = s, ch = s
+                pre.b = k; pre.end = bars[k]
+                ch.a = k; ch.start = bars[k]; ch.role = "Chorus"
+                split.append(pre); split.append(ch)
             } else { split.append(s) }
         }
         // the chorus that was split off joins the chorus right after it

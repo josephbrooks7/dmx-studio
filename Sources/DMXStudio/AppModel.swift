@@ -2300,9 +2300,80 @@ final class AppModel: ObservableObject {
             if end - m.1 >= 1 { secs.append(section(m.0, m.1, end, drop: m.2)) }
         }
         if let last = secs.last, a.musicEnd - last.end > 2 { secs.append(section("Outro", last.end, a.musicEnd)) }
+        secs = fillMissingParts(secs, lyrics: ly, heard: old, bars: bars, section: section)
         a.detectedSections = secs
         songs[i].analysis = a
         rebuildShows(for: id)
+    }
+
+    /// Lyric sheets often leave parts out (a repeated chorus not written again, "(repeat)", an instrumental
+    /// post-chorus), so a labelled part can run on over the next one. Where a part is longer than that kind of
+    /// part ever is, or the singing in it stops well before it ends, the missing part is taken from what Learn
+    /// heard in the music. A pre-chorus is always followed by a chorus.
+    private func fillMissingParts(_ secs: [DetectedSection], lyrics ly: Lyrics, heard: [DetectedSection], bars: [Double],
+                                  section: (String, Double, Double, Bool) -> DetectedSection) -> [DetectedSection] {
+        guard bars.count > 4 else { return secs }
+        let gaps = zip(bars.dropFirst(), bars).map { $0 - $1 }.sorted()
+        let bar = gaps[gaps.count / 2]
+        func role(_ n: String) -> String {
+            for r in ["Pre-Chorus", "Post-Chorus"] where n.hasPrefix(r) { return r }
+            return n.split(separator: " ").first.map(String.init) ?? n
+        }
+        let maxBars: [String: Double] = ["Pre-Chorus": 8, "Post-Chorus": 8, "Build": 16, "Intro": 16,
+                                         "Chorus": 16, "Verse": 16, "Bridge": 16, "Drop": 32, "Breakdown": 32]
+        func snap(_ t: Double) -> Double { bars.min { abs($0 - t) < abs($1 - t) } ?? t }
+        func heardRole(at t: Double) -> String? {
+            heard.first { $0.start <= t + 0.5 && $0.end > t + 0.5 }.map { role($0.name) }
+        }
+        var out: [DetectedSection] = []
+        var queue = secs
+        var guardN = 0
+        while !queue.isEmpty && guardN < 200 {
+            guardN += 1
+            let s = queue.removeFirst()
+            let r = role(s.name)
+            let len = (s.end - s.start) / bar
+            var cut: Double? = nil
+            var nextName: String? = nil
+            // 1. the singing in this part stops well before it ends: the rest is another part
+            let sungInside = ly.lines.filter { $0.start >= s.start - 0.5 && $0.start < s.end }
+            if !["Intro", "Outro", "Instrumental", "Interlude", "Breakdown"].contains(r),
+               let lastLine = sungInside.last, s.end - lastLine.end > 4 * bar {
+                let c = snap(lastLine.end + 0.3)
+                if c - s.start >= 2 * bar && s.end - c >= 2 * bar {
+                    cut = c
+                    nextName = r == "Chorus" ? "Post-Chorus" : (heardRole(at: c) ?? "Instrumental")
+                }
+            }
+            // 2. too long for this kind of part: split where the music changes (or after the longest it can be)
+            if cut == nil, let mx = maxBars[r], len > mx + 2 {
+                let inner = heard.map(\.start).filter { $0 > s.start + 2 * bar && $0 < s.end - 2 * bar }
+                let c = inner.min { abs($0 - (s.start + mx * bar)) < abs($1 - (s.start + mx * bar)) }
+                    .flatMap { abs($0 - s.start) <= (mx + 2) * bar ? $0 : nil } ?? snap(s.start + mx * bar)
+                cut = c
+                nextName = heardRole(at: c)
+            }
+            guard let c = cut, c > s.start + bar, c < s.end - bar else { out.append(s); continue }
+            // what comes next: a pre-chorus always leads into the chorus; never the same part twice in a row
+            var n = nextName ?? r
+            if r == "Pre-Chorus" { n = "Chorus" }
+            if n == r { n = r == "Chorus" ? "Post-Chorus" : r == "Verse" ? "Pre-Chorus" : "Instrumental" }
+            if n == "Silence" { n = "Instrumental" }
+            out.append(section(s.name, s.start, c, s.level == .drop))
+            queue.insert(section(n, c, s.end, false), at: 0)
+        }
+        // number them again in order (Chorus 1, Chorus 2…), since parts were added
+        var counts: [String: Int] = [:]
+        let totals = Dictionary(grouping: out, by: { role($0.name) }).mapValues(\.count)
+        return out.map { d in
+            var d = d
+            let r = role(d.name)
+            guard !["Intro", "Outro", "Instrumental", "Interlude", "Silence"].contains(r) else { d.name = r; return d }
+            counts[r, default: 0] += 1
+            let suffix = d.name.contains("·") ? " ·" + (d.name.components(separatedBy: "·").last ?? "") : ""
+            d.name = ((totals[r] ?? 0) > 1 || ["Verse", "Chorus", "Pre-Chorus"].contains(r) ? "\(r) \(counts[r]!)" : r) + suffix
+            return d
+        }
     }
 
     /// Corrected lyrics are kept in the Lyrics Library (by song title)
