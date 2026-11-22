@@ -230,8 +230,8 @@ struct DesignBlend: Codable, Hashable {
 
 extension ShowGenerator {
     /// A show for the song in a genre, shaped by its groove and the chosen lighting mode(s).
-    static func generateShaped(_ a: SongAnalysis, style: ShowStyle, variation: Int, design: DesignBlend?) -> [ShowSection] {
-        var secs = generate(a, style: style, variation: variation)
+    static func generateShaped(_ a: SongAnalysis, peak: ShowStyle? = nil, style: ShowStyle, variation: Int, design: DesignBlend?) -> [ShowSection] {
+        var secs = generate(a, style: style, variation: variation, peakStyle: peak == style ? nil : peak)
         shape(&secs, analysis: a, design: design)
         return secs
     }

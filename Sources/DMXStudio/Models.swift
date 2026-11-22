@@ -524,6 +524,7 @@ struct Song: Identifiable, Codable {
     var path: String
     var artist: String? = nil
     var genre: ShowStyle?            // what you tagged it as (nil = use the suggestion)
+    var peakGenre: ShowStyle?        // a different genre for the choruses / drops (nil = automatic)
     var syncOffsetMs: Double = 0     // positive = lights fire earlier
     var analysis: SongAnalysis?      // what the app learned
     var shows: [LightShow] = []
@@ -563,6 +564,14 @@ extension SongAnalysis {
         guard let top = g.first else { return .pop }
         if genreUnsure && ![.pop, .club, .electronic].contains(top.style) { return .pop }
         return top.style
+    }
+    /// A second genre for the big parts: an electronic / pop song where dubstep scores almost as high
+    /// (half-time, heavy bass) gets dubstep looks in its choruses and drops.
+    var suggestedPeakStyle: ShowStyle? {
+        let g = genreScores
+        guard let top = g.first, top.style != .dubstep,
+              let dub = g.first(where: { $0.style == .dubstep }), dub.score >= 0.12, dub.score >= top.score * 0.55 else { return nil }
+        return .dubstep
     }
     /// The top two genres are within a few percent, or the best one is weak.
     var genreUnsure: Bool {

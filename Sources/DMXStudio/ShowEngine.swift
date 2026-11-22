@@ -247,7 +247,9 @@ enum ShowGenerator {
         }
     }
 
-    static func generate(_ a: SongAnalysis, style: ShowStyle, variation: Int) -> [ShowSection] {
+    /// `peakStyle`: a second genre for the big parts (choruses / drops), e.g. an electronic song with dubstep
+    /// in the chorus: verses use the song's style, choruses and drops get dubstep looks.
+    static func generate(_ a: SongAnalysis, style: ShowStyle, variation: Int, peakStyle: ShowStyle? = nil) -> [ShowSection] {
         let pals = palettes(for: style)
         let shift = max(0, variation - 1)
         var rng = SeededRandom(seed: UInt64(variation) &* 0x9E37_79B9_7F4A_7C15 &+ style.rawValue.utf8.reduce(UInt64(7)) { $0 &* 31 &+ UInt64($1) })
@@ -256,6 +258,7 @@ enum ShowGenerator {
         func lookFor(_ level: EnergyLevel, _ isBuild: Bool) -> Look {
             let key = "\(level.rawValue)\(isBuild)"
             if let l = looks[key] { return l }
+            let style = (level == .high || level == .drop) && !isBuild ? (peakStyle ?? style) : style
             var l: Look
             if variation <= 1 {
                 l = signature(style: style, level: level, isBuild: isBuild)

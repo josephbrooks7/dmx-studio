@@ -140,6 +140,18 @@ struct SongView: View {
                     }
                     .labelsHidden()
                     .frame(width: 260)
+                    Text("Choruses:").foregroundColor(.secondary)
+                    Picker("", selection: Binding(get: { song.peakGenre }, set: { v in
+                        model.songBinding(song.id).peakGenre.wrappedValue = v
+                        model.rebuildShows(for: song.id)
+                    })) {
+                        Text(song.analysis?.suggestedPeakStyle.map { "Auto (\($0.rawValue))" } ?? "Same as the song").tag(ShowStyle?.none)
+                        Divider()
+                        ForEach(ShowStyle.allCases) { s in Text(s.rawValue).tag(ShowStyle?.some(s)) }
+                    }
+                    .labelsHidden()
+                    .frame(width: 170)
+                    .help("A different genre for the big parts, e.g. an electronic song with dubstep in the chorus")
                 }
             }
             HStack(spacing: 10) {
