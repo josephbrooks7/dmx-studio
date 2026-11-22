@@ -325,7 +325,16 @@ struct StageCanvas: View {
         glow.blendMode = .plusLighter
 
         // close-up layout: lights spread in a row (floor ones low, hanging ones high), big enough to see
-        let shown = model.fixtures.indices.filter { i in i < model.preview.count && model.fixtures[i].isOn }
+        func sameType(_ f: Fixture) -> Int { model.fixtures.filter { $0.isOn && $0.profileName == f.profileName && $0.layout == f.layout }.count }
+        // one light of each type (e.g. one beam bar, one followspot), not two copies of the same light
+        let shown: [Int] = {
+            var seen = Set<String>(); var out: [Int] = []
+            for i in model.fixtures.indices where i < model.preview.count && model.fixtures[i].isOn {
+                let f = model.fixtures[i]
+                if !compact || seen.insert(f.profileName + "|" + f.layout).inserted { out.append(i) }
+            }
+            return out
+        }()
         func compactOrigin(_ i: Int, _ p: StagePlacement) -> CGPoint {
             let k = shown.firstIndex(of: i) ?? 0
             let x = w * (CGFloat(k) + 0.5) / CGFloat(max(1, shown.count))
@@ -456,7 +465,7 @@ struct StageCanvas: View {
 
             if compact {
                 let deg = Int(((rf.tilt - 0.5) * 180).rounded())
-                ctx.draw(Text("\(fx.name) · tilt \(deg > 0 ? "+" : "")\(deg)°").font(.system(size: 9, weight: .semibold).monospacedDigit())
+                ctx.draw(Text("\(sameType(fx) > 1 ? "\(fx.profileName) ×\(sameType(fx))" : fx.name) · tilt \(deg > 0 ? "+" : "")\(deg)°").font(.system(size: 9, weight: .semibold).monospacedDigit())
                             .foregroundColor(Color.white.opacity(0.6)),
                          at: CGPoint(x: origin.x, y: origin.y + (p.mount == .hanging ? -16 : p.mount == .upright ? barWidth / 2 + 14 : 18)))
                 continue
