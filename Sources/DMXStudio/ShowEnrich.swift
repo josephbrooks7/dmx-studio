@@ -62,6 +62,8 @@ extension ShowGenerator {
         //      saturated wash in a neighboring color; loud parts are darker with fast changes
         //    • the stage goes almost dark for the bars before the band's big entrance
         concertRules(&s, beat: beat, variation: variation)
+        // 5. Rules from an electronic live show (Röyksopp & Jamie Irrepressibles, P3 Gull 2014)
+        if [.club, .electronic].contains(a.suggestedStyle) { electronicRules(&s, a, beat: beat) }
 
         // 3. Transitions into the big moments (taken from the end of the block before: nothing moves)
         for k in stride(from: s.count - 1, through: 1, by: -1) {
@@ -172,6 +174,47 @@ extension ShowGenerator {
                 s[p].end = slot.start
                 s.insert(slot, at: first)
             }
+        }
+    }
+
+    /// Electronic acts: the singer gets a warm wash in the sung parts, the band's instrumental peaks
+    /// are cool; peaks are one color with white hits locked to every other beat; the break before
+    /// the build has no flashing at all; the song ends on a steady, bright single color.
+    private static func electronicRules(_ s: inout [ShowSection], _ a: SongAnalysis, beat: Double) {
+        let phrases = a.vocalPhrases ?? []
+        func sung(_ x: ShowSection) -> Double {
+            guard x.end > x.start else { return 0 }
+            let total = phrases.reduce(0.0) { acc, p in acc + max(0, min(p.end, x.end) - max(p.start, x.start)) }
+            return total / (x.end - x.start)
+        }
+        let warm = ["Sunset", "Red Room", "Warm White", "Gold"].filter { Palette.all.map(\.id).contains($0) }
+        let cool = ["Deep Blue", "Ice", "Ocean", "Purple Haze"].filter { Palette.all.map(\.id).contains($0) }
+        guard !warm.isEmpty, !cool.isEmpty else { return }
+        let live = s.indices.filter { s[$0].empty != true && s[$0].effect != .blackout && s[$0].transition == nil }
+        for (n, k) in live.enumerated() {
+            let loud = s[k].level == .high || s[k].level == .drop
+            if loud {
+                // one cool color, white hits on every other beat (half-time, on the beat)
+                s[k].palette = cool[n % cool.count]
+                if s[k].level == .drop { s[k].effect = .pulse; s[k].rate = 0.5; s[k].accentStrobe = true }
+            } else if !phrases.isEmpty && sung(s[k]) > 0.45 {
+                // a sung, quieter part: warm on the singer
+                s[k].palette = warm[n % warm.count]
+            }
+        }
+        // the break right before a build or peak: no flashing, one dim color
+        for k in s.indices.dropLast() where s[k].level == .low && (s[k + 1].level == .high || s[k + 1].level == .drop) && s[k].empty != true {
+            if [.strobe, .stutter, .kickFlash, .snareHit, .riseStrobe, .blinderHits].contains(s[k].effect) { s[k].effect = .breathe }
+            s[k].accentStrobe = false
+            s[k].intensity = min(s[k].intensity, 0.55)
+        }
+        // the last part: steady and bright in one color, nothing flashing
+        if let last = s.indices.last(where: { s[$0].empty != true && s[$0].effect != .blackout && s[$0].transition == nil }),
+           s[last].level == .low || s[last].name.hasPrefix("Outro") {
+            s[last].effect = .steady
+            s[last].movement = .none
+            s[last].accentStrobe = false
+            s[last].intensity = max(s[last].intensity, 0.85)
         }
     }
 }
