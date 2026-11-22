@@ -1726,10 +1726,13 @@ struct OutputPanel: View {
     @EnvironmentObject var model: AppModel
     @AppStorage("outputPanelOpen") private var open = true
     @AppStorage("miniPreviewTall") private var tall = true
+    @AppStorage("outputPanelWidth") private var panelWidth: Double = 252
     let openStage: () -> Void
 
     var body: some View {
         if open {
+            HStack(spacing: 0) {
+            ResizeHandle(width: $panelWidth, range: 180...720, growsLeft: true, resetTo: 252)
             VStack(spacing: 0) {
                 HStack(spacing: 6) {
                     Circle().fill(model.outputEnabled ? Color.green : Color.orange).frame(width: 7, height: 7)
@@ -1744,7 +1747,7 @@ struct OutputPanel: View {
                 .font(.system(size: 11))
                 .padding(.horizontal, 10).padding(.vertical, 8)
                 StageCanvas(editing: false, compact: true)
-                    .frame(width: 232, height: tall ? nil : 232)
+                    .frame(width: max(120, panelWidth - 20), height: tall ? nil : max(120, panelWidth - 20))
                     .frame(maxHeight: tall ? .infinity : nil)
                     .background(Color.black)
                     .clipShape(RoundedRectangle(cornerRadius: 8, style: .continuous))
@@ -1756,10 +1759,10 @@ struct OutputPanel: View {
                 Text("Click the picture for the full Stage")
                     .font(.system(size: 9)).foregroundColor(Theme.subtle).padding(8)
             }
-            .frame(width: 252)
+            .frame(width: panelWidth)
             .frame(maxHeight: .infinity)
             .background(Color.white.opacity(0.03))
-            .overlay(Rectangle().fill(Color.white.opacity(0.08)).frame(width: 1), alignment: .leading)
+            }
         } else {
             Button { open = true } label: {
                 VStack(spacing: 6) {
@@ -1773,5 +1776,50 @@ struct OutputPanel: View {
             .buttonStyle(.plain)
             .help("Show the output preview")
         }
+    }
+}
+
+
+/// A thin bar between two panels (like CapCut's dividers): drag it to resize, double-click to reset.
+/// The size is remembered by the caller. `vertical` = a bar between stacked panels (drag up/down);
+/// `growsLeft` / growsUp = the panel being sized is on the right / above-is-fixed side.
+struct ResizeHandle: View {
+    @Binding var width: Double
+    let range: ClosedRange<Double>
+    var growsLeft = false
+    var resetTo: Double? = nil
+    var vertical = false
+    @State private var start: Double? = nil
+    @State private var hover = false
+
+    var body: some View {
+        let active = hover || start != nil
+        ZStack {
+            if vertical {
+                Rectangle().fill(Color.white.opacity(active ? 0.25 : 0.08)).frame(height: active ? 3 : 1)
+                Capsule().fill(Color.white.opacity(active ? 0.6 : 0.22)).frame(width: 28, height: 4)
+            } else {
+                Rectangle().fill(Color.white.opacity(active ? 0.25 : 0.08)).frame(width: active ? 3 : 1)
+                Capsule().fill(Color.white.opacity(active ? 0.6 : 0.22)).frame(width: 4, height: 28)
+            }
+        }
+        .frame(width: vertical ? nil : 9, height: vertical ? 9 : nil)
+        .frame(maxWidth: vertical ? .infinity : nil, maxHeight: vertical ? nil : .infinity)
+        .contentShape(Rectangle())
+        .onHover { h in
+            hover = h
+            if h { (vertical ? NSCursor.resizeUpDown : NSCursor.resizeLeftRight).push() } else { NSCursor.pop() }
+        }
+        .gesture(
+            DragGesture(minimumDistance: 1, coordinateSpace: .global)
+                .onChanged { g in
+                    if start == nil { start = width }
+                    let d = Double(vertical ? g.translation.height : g.translation.width) * (growsLeft ? -1 : 1)
+                    width = min(range.upperBound, max(range.lowerBound, (start ?? width) + d))
+                }
+                .onEnded { _ in start = nil }
+        )
+        .onTapGesture(count: 2) { width = resetTo ?? (range.lowerBound + range.upperBound) / 2 }
+        .help("Drag to resize · double-click to reset")
     }
 }

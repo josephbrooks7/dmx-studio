@@ -66,6 +66,7 @@ struct SectionTimelineEditor: View {
     @State private var timelineWidth: CGFloat = 1
     @State private var stepsOpen = false
     @AppStorage("timelineBlockHeight") private var blockH: Double = 78
+    @AppStorage("looksPanelHeight") private var looksH: Double = 330
     @State private var tool: TimelineTool = .pointer
     @State private var paint: Paint?                 // what the Pencil puts on a block (the last pad clicked)
     @State private var repeatFrom: UUID?             // block whose repeat handle is being dragged
@@ -117,9 +118,13 @@ struct SectionTimelineEditor: View {
                     Image(systemName: "plus.magnifyingglass").foregroundColor(.secondary)
                 }
                 timeline
+                // drag to make the tracks taller or shorter
+                ResizeHandle(width: $blockH, range: 50...150, resetTo: 78, vertical: true)
                 if let id = selected ?? sections.first?.id, let k = sections.firstIndex(where: { $0.id == id }) {
                     inspector(k)
                 }
+                // drag up for a bigger looks browser, down for a smaller one
+                ResizeHandle(width: $looksH, range: 160...800, growsLeft: true, resetTo: 330, vertical: true)
                 EffectsBrowser(onPick: { item in
                     switch item {
                     case .look(let p):
@@ -133,7 +138,7 @@ struct SectionTimelineEditor: View {
                         if let s = target { model.setTransition(k, songID: song.id, sectionID: s.id); select(s.id) }
                     }
                 }, current: (selected ?? sections.first?.id).flatMap { id in sections.first { $0.id == id } })
-                .frame(height: 330)
+                .frame(height: looksH)
             }
         }
         // a cut made with "." selects the new slot
