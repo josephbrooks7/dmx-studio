@@ -299,9 +299,9 @@ enum ShowGenerator {
             // every 8 bars in parts of 12+ bars, so a long part never sits on one look.
             let inner = barTimes.filter { $0 > d.start + 0.1 && $0 < d.end - 0.1 }
             let barLen = barTimes.count > 1 ? (barTimes.last! - barTimes.first!) / Double(barTimes.count - 1) : 2.0
-            func barLoud(_ a: Double, _ b: Double) -> Double {
+            func barLoud(_ from: Double, _ to: Double) -> Double {
                 let fps = a.frameRate
-                let s = max(0, Int(a * fps)), e = min(a.energy.count, max(s + 1, Int(b * fps)))
+                let s = max(0, Int(from * fps)), e = min(a.energy.count, max(s + 1, Int(to * fps)))
                 guard e > s else { return 0 }
                 return Double(a.energy[s..<e].reduce(0, +)) / Double(e - s)
             }
