@@ -149,7 +149,7 @@ final class AppModel: ObservableObject {
     var wirelessPageOpen = false
     var songsPageOpen = false
     private var lastAutoChange: Double = 0      // when Auto Lighting last switched looks
-    private var clock = BeatClock()
+    var clock = BeatClock()
     private var tapTimes: [Double] = []
     private let mic = MicBeatTracker()
     @Published var manual: [UUID: ManualControl] = [:]   // hands-on control per light
