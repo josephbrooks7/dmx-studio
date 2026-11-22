@@ -562,7 +562,9 @@ struct Stage3DView: NSViewRepresentable {
             case "Top": camera.position = SCNVector3(0, 16, 1); camera.look(at: SCNVector3(0, 0, -1))
             case "Side": camera.position = SCNVector3(12, 3, -1); camera.look(at: SCNVector3(0, 1.8, -1.5))
             case "Audience": camera.position = SCNVector3(0, 2.3, 8.2); camera.look(at: SCNVector3(0, 2.2, -2))
-            default: camera.position = SCNVector3(-7.5, 6.5, 8.5); camera.look(at: SCNVector3(0, 1.2, -1.8))   // Overview
+            // Overview (the starting view): close enough to see the lights and the stage fill the frame,
+            // from the front-left a little above stage height; zoom out / in from here
+            default: camera.position = SCNVector3(-3.6, 3.4, 4.6); camera.look(at: SCNVector3(0.2, 1.5, -1.8))
             }
             view?.pointOfView = camera
         }
