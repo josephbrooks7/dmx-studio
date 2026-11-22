@@ -214,6 +214,7 @@ struct LookPreset: Identifiable, Codable, Hashable {
 enum BeatSource: String, CaseIterable, Codable, Identifiable {
     case manual = "Manual (tap)"
     case mic = "Listen (mic or computer audio)"
+    case midiClock = "MIDI Clock (DJ software / DAW)"
     var id: String { rawValue }
 }
 

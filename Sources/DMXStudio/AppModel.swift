@@ -130,6 +130,14 @@ final class AppModel: ObservableObject {
     @Published var activePresetID: UUID?
     private var presetStart: Double = 0
     @Published var beatSource: BeatSource = .manual { didSet { beatSourceChanged(oldValue) } }
+    // MIDI (see Midi.swift)
+    @Published var midiDevices: [String] = []
+    @Published var midiBindings: [String: MIDIBinding] = [:]
+    @Published var midiLearnTarget: String?
+    @Published var lastMIDI: String?
+    var midiClockSeen: Date?
+    var midiClock = MIDIClockFollower()
+    var midiIgnoreRelease: MIDIBinding?
     @Published var displayBPM: Double = 120
     var beatOn: Bool { get { live.beatOn } set { live.beatOn = newValue } }   // pulses on each beat (for the BPM light)
     var micLevel: Double { get { live.micLevel } set { live.micLevel = newValue } }
@@ -284,6 +292,7 @@ final class AppModel: ObservableObject {
         AppModel.current = self
         load()
         setupMediaKeys()
+        startMIDI()
         engine.onError = { [weak self] msg in
             self?.statusMessage = "Output error: \(msg)"
         }

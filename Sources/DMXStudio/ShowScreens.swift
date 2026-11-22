@@ -616,9 +616,15 @@ struct MasterColumn: View {
                 Text("Master").font(.system(size: 13, weight: .semibold)).foregroundColor(Theme.subtle)
                 VerticalFader(value: $model.master)
                     .frame(width: 64)
+                    .contextMenu { MIDILearnMenu(target: "master") }
+                    .overlay(alignment: .top) { MIDITag(target: "master").padding(.top, 4) }
                 Text("\(Int(model.master * 100))%").font(.caption).monospacedDigit()
                 HoldPad(title: "FLASH", icon: "sun.max.fill", color: .white, isHeld: $model.flashHeld)
+                    .contextMenu { MIDILearnMenu(target: "flash") }
+                    .overlay(alignment: .top) { MIDITag(target: "flash").offset(y: -6) }
                 HoldPad(title: "STROBE", icon: "bolt.fill", color: .yellow, isHeld: $model.strobeHeld)
+                    .contextMenu { MIDILearnMenu(target: "strobe") }
+                    .overlay(alignment: .top) { MIDITag(target: "strobe").offset(y: -6) }
                 Button { model.blackout.toggle() } label: {
                     VStack(spacing: 2) {
                         Image(systemName: "lightbulb.slash.fill")
@@ -628,6 +634,8 @@ struct MasterColumn: View {
                     .background(RoundedRectangle(cornerRadius: 12).fill(model.blackout ? Color.red : Color.white.opacity(0.08)))
                 }
                 .buttonStyle(.plain)
+                .contextMenu { MIDILearnMenu(target: "blackout") }
+                .overlay(alignment: .top) { MIDITag(target: "blackout").offset(y: -6) }
             }
         }
         .frame(width: 92)
@@ -1038,7 +1046,7 @@ struct LiveScreen: View {
                 VStack(alignment: .leading, spacing: 18) {
                     HStack {
                         Text("Live Control").font(.system(size: 22, weight: .heavy))
-                        Text("Hold a pad to play it over the show; let go and the programmed show comes back. Release (below) can make pads stay on or last 1–10 s instead.")
+                        Text("Hold a pad to play it over the show; let go and the show comes back. Right-click a pad → Learn MIDI to play it from a controller.")
                             .font(.caption).foregroundColor(Theme.subtle)
                         Spacer()
                         Button {
@@ -1066,10 +1074,16 @@ struct LiveScreen: View {
                             }
                         }
                         .buttonStyle(PillButtonStyle())
+                        .contextMenu { MIDILearnMenu(target: "tap") }
+                        .overlay(alignment: .topTrailing) { MIDITag(target: "tap").offset(x: 6, y: -8) }
                         Toggle("Listen", isOn: Binding(get: { model.beatSource == .mic }, set: { model.beatSource = $0 ? .mic : .manual }))
                             .toggleStyle(.switch)
                             .help("Follow the beat from the microphone or computer audio")
+                        Toggle("MIDI Clock", isOn: Binding(get: { model.beatSource == .midiClock }, set: { model.beatSource = $0 ? .midiClock : .manual }))
+                            .toggleStyle(.switch)
+                            .help("Follow tempo and beat from DJ software or a DAW sending MIDI Clock (rekordbox, Serato, Traktor, VirtualDJ, Ableton…)")
                     }
+                    MIDIStatusBar()
                     if model.recordToShow {
                         HStack(spacing: 8) {
                             Image(systemName: "record.circle").foregroundColor(.red)
@@ -1096,7 +1110,10 @@ struct LiveScreen: View {
                                 // every pad runs only while held (or as the Release setting says),
                                 // then the programmed show comes back
                                 LiveMomentPad(title: p.name, icon: p.icon, colors: colors, presetID: p.id)
+                                    .overlay(alignment: .topTrailing) { MIDITag(target: "preset:\(p.id)").padding(8) }
                                     .contextMenu {
+                                        MIDILearnMenu(target: "preset:\(p.id)")
+                                        Divider()
                                         Button("Play Once (4 bars)") { model.previewPresetOnce(p.id) }
                                         Divider()
                                         Button("Edit…") { editingPreset = p.id }
