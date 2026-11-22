@@ -106,13 +106,13 @@ private enum Build {
             }
         }
 
-        // Lower housing with the rear panel facing +z
+        // Lower housing with the rear panel (ports, display) on the back, facing upstage (-z), away from the audience
         let baseH: CGFloat = 0.06
         let base = box(inner, baseH, depth - 0.006, Mat.black, chamfer: 0.003)
         base.position = SCNVector3(0, baseH / 2, 0); root.addChildNode(base)
-        let face = depth / 2 - 0.002
+        let face = -(depth / 2 - 0.002)
         func onPanel(_ n: SCNNode, x: CGFloat, y: CGFloat) {
-            n.position = SCNVector3(x, y, face); root.addChildNode(n)
+            n.position = SCNVector3(-x, y, face); root.addChildNode(n)   // mirrored: reads left-to-right from behind
         }
         func round(_ r: CGFloat, _ m: SCNMaterial) -> SCNNode { let c = cyl(r, 0.006, m); c.eulerAngles.x = .pi / 2; return c }
         let blue = Mat.make(NSColor(calibratedRed: 0.1, green: 0.35, blue: 0.85, alpha: 1), rough: 0.5)
