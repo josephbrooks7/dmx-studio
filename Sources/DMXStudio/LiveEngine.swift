@@ -59,6 +59,7 @@ struct LookPreset: Identifiable, Codable, Hashable {
         }
         return [p("Slow Sweep", .steady, "Deep Blue", .sweep, rate: 0.5), p("Fast Sweep", .steady, "Neon", .sweep, rate: 2),
                 p("Circles", .gradient, "Purple Haze", .circle), p("Ballyhoo", .colorBeat, "Rave", .circle, rate: 2),
+                p("Rise & Strobe", .riseStrobe, "Ice", .riseToMiddle),
                 p("Fan Out", .steady, "Ice", .fan), p("Beat Nod", .pulse, "Red Velvet", .beatNod),
                 p("Full Rotate", .gradient, "Rainbow", .fullRotate), p("Flip on Beat", .kickFlash, "EDM", .flip),
                 p("Sunset Sway", .gradient, "Sunset", .sweep, rate: 0.5), p("Techno Nod", .chase, "Techno", .beatNod)]

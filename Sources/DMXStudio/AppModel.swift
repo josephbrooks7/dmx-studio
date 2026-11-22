@@ -518,7 +518,8 @@ final class AppModel: ObservableObject {
         }
         for (pack, list) in [("themes1", LookPreset.themePack), ("beams4", LookPreset.beamPack), ("bars9ch1", LookPreset.barPack),
                              ("strobes1", LookPreset.strobePack), ("colorfx1", LookPreset.colorFXPack),
-                             ("movefx1", LookPreset.moveFXPack), ("beamfx1", LookPreset.beamFXPack)] {
+                             ("movefx1", LookPreset.moveFXPack), ("beamfx1", LookPreset.beamFXPack),
+                             ("risestrobe1", LookPreset.moveFXPack.filter { $0.effect == .riseStrobe })] {
             let packKey = "presetPack.\(pack).\(s.id.uuidString)"
             if !UserDefaults.standard.bool(forKey: packKey) {
                 let have = Set(presets.map(\.name))

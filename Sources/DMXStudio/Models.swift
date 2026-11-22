@@ -370,6 +370,7 @@ enum LightEffect: String, CaseIterable, Codable, Identifiable {
     // white accents
     case blinderHits = "Blinder Hits"     // color look, full white on the big drum hits
     case stutter = "Strobe Stutter"       // strobe chops that speed up across each bar
+    case riseStrobe = "Rise & Strobe"     // a bar of solid flash, then a bar of strobe (pairs with Rise to Middle)
     var id: String { rawValue }
     /// Uses each beam of a bar separately.
     var perBeam: Bool { [.wave, .centerOut, .split, .pixelPop, .bounce, .gradient, .ripple, .scan, .fill, .fire, .embers, .water, .tide, .magic, .aurora, .glitch, .shimmer, .goldDust, .chase, .alternate, .rainbow, .sparkle, .colorBeat].contains(self) }
@@ -383,6 +384,7 @@ enum MoveEffect: String, CaseIterable, Codable, Identifiable {
     case beatNod = "Beat Nod"
     case fullRotate = "Full Rotate"
     case flip = "Flip on Beat"
+    case riseToMiddle = "Rise to Middle"   // from lying flat up to straight up over a bar, then hold a bar
     var id: String { rawValue }
 }
 

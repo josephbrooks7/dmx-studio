@@ -897,7 +897,10 @@ struct ShowRenderer {
             var rf = RenderedFixture(heads: heads)
             // The light's own strobe channel only for strobes too fast to flash in software (and only
             // when fast strobes are turned on); slower strobes are flashed on the beat above.
-            if Self.maxFlashHz >= 10 && ((accentOn && s.level == .drop) || (s.effect == .strobe && s.rate / max(c.beatLen, 0.05) > 10)) {
+            let riseStrobing = s.effect == .riseStrobe && (c.beatPos * s.rate).truncatingRemainder(dividingBy: 8) >= 4
+            if riseStrobing && Self.maxFlashHz >= 10 {
+                rf.strobe = 1   // rapid: the light's own strobe at full speed
+            } else if Self.maxFlashHz >= 10 && ((accentOn && s.level == .drop) || (s.effect == .strobe && s.rate / max(c.beatLen, 0.05) > 10)) {
                 rf.strobe = 0.6 + 0.4 * c.energy
             }
             if fx.isMover {
@@ -1024,6 +1027,21 @@ struct ShowRenderer {
                 return FixtureState(intensity: 0.3 + 0.7 * beatInBar / 4, color: col.mix(.white, beatInBar / 8))
             }
             return FixtureState(intensity: on ? 1 : 0.03, color: on ? col.mix(.white, 0.6) : col)
+
+        case .riseStrobe:
+            // 2-bar cycle: a solid flash for a bar (while the head rises to the middle), then a strobe
+            let beats = rb / max(c.rate, 0.01)
+            let cyc = beats.truncatingRemainder(dividingBy: 8)
+            let col = pal.color(0)
+            if cyc < 4 {
+                let punch = exp(-cyc * 3)   // a bright hit at the start that settles to solid
+                return FixtureState(intensity: 1, color: col.mix(.white, 0.25 + 0.5 * punch))
+            }
+            // rapid strobe: 32nd notes (as fast as the Flashing setting allows)
+            guard let on = gate(beats, div: 8, beatLen: c.beatLen) else {
+                return FixtureState(intensity: 1, color: col.mix(.white, 0.5))   // flashing turned off: stay solid
+            }
+            return FixtureState(intensity: on ? 1 : 0.03, color: on ? col.mix(.white, 0.7) : col)
 
         case .blinderHits:
             // the palette's color look, and on strong snares / kick+snare hits a white blinder flash
@@ -1234,6 +1252,12 @@ struct ShowRenderer {
         case .fullRotate:
             // the whole 180°, one way per 2 bars (8 beats)
             let v = leg(beats, 8, offset: Double(fi) * 0.5)
+            return (v, v)
+        case .riseToMiddle:
+            // from lying flat (one end of the 180°) up to straight up over a bar, then hold there a bar
+            let cyc = beats.truncatingRemainder(dividingBy: 8)
+            let x = min(1, cyc / 4)
+            let v = 0.5 * x * x * (3 - 2 * x)
             return (v, v)
         case .flip:
             // Snap end to end on every other beat
