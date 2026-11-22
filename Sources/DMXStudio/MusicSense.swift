@@ -239,7 +239,10 @@ extension ShowGenerator {
             }
             // a calm style moves slowly rather than not at all (only the quietest parts hold still)
             if t.movement < 0.5 && sections[i].level != .drop {
-                if sections[i].level == .low { sections[i].movement = .none } else { sections[i].rate = min(sections[i].rate, 0.5) }
+                if sections[i].level != .low || sections[i].movement != .none {
+                    sections[i].moveSpeed = (sections[i].moveSpeed ?? 1) * 0.5
+                    sections[i].moveSize = min(sections[i].moveSize ?? 1, 0.6)
+                }
             }
             if t.slow && quiet { sections[i].rate *= 0.5 }
             if let p = (quiet ? nil : t.peakPalette) ?? t.palette, Palette.exists(p) { sections[i].palette = p }

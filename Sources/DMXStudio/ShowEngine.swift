@@ -160,29 +160,31 @@ enum ShowGenerator {
             // Beams carry the show; tilting is an accent. Quiet and mid parts (verses, pre-choruses, builds)
             // hold still and let the beams cycle; choruses tilt only on every other phrase; drops move.
             let calm = ["Verse", "Pre-Chorus", "Build", "Intro", "Outro", "Breakdown", "Bridge", "Groove", "Break"].contains { secs[i].name.hasPrefix($0) }
-            // Every part moves in a way that fits its energy, so a calm song still has motion:
-            //   quiet: the heads hold, but at a new angle each part (the stage looks different part to part)
-            //   medium: a slow sweep (half speed); a pre-chorus / build rises to the middle
-            //   loud: sweeps and fans every phrase; drops get the big moves
+            // Movement comes in steps, not all or nothing:
+            //   still (hold at an angle) · subtle (a small, slow drift) · gentle (half the swing, half speed)
+            //   · full (end to end, every phrase) · big (drops)
+            // Soft parts are mostly still or subtle, and the amount changes from part to part.
             let isLift = secs[i].name.hasPrefix("Pre-Chorus") || secs[i].name.hasPrefix("Build")
             let holdAims = [0.62, 0.42, 0.78, 0.5, 0.7, 0.35]
+            let aimHere = holdAims[i % holdAims.count]
+            func still() { secs[i].movement = .none; secs[i].aim = aimHere; secs[i].moveSize = nil; secs[i].moveSpeed = nil }
+            func subtle() { secs[i].movement = .sweep; secs[i].aim = aimHere; secs[i].moveSize = 0.2; secs[i].moveSpeed = 0.25 }
+            func gentle(_ m: MoveEffect) { secs[i].movement = m; secs[i].moveSize = 0.5; secs[i].moveSpeed = 0.5 }
             switch secs[i].level {
             case .low:
-                secs[i].movement = .none
-                secs[i].aim = holdAims[i % holdAims.count]
+                if i % 3 == 1 { subtle() } else { still() }
             case .medium:
                 if isLift { secs[i].movement = .riseToMiddle }
-                else if secs[i].name.hasPrefix("Intro") || secs[i].name.hasPrefix("Outro") {
-                    secs[i].movement = .none; secs[i].aim = holdAims[i % holdAims.count]
-                } else {
-                    secs[i].movement = i % 2 == 0 ? .sweep : .fan
-                    secs[i].rate = min(secs[i].rate, 0.5)
+                else if secs[i].name.hasPrefix("Intro") || secs[i].name.hasPrefix("Outro") { if i % 2 == 0 { still() } else { subtle() } }
+                else {
+                    switch i % 3 { case 0: subtle(); case 1: gentle(.sweep); default: still() }
                 }
             case .high:
                 if isLift { secs[i].movement = .riseToMiddle }
-                else if calm { secs[i].movement = .sweep }
+                else if calm { gentle(i % 2 == 0 ? .sweep : .fan) }
                 else if [.flip, .fullRotate, .beatNod].contains(secs[i].movement) || secs[i].movement == .none {
                     secs[i].movement = i % 2 == 0 ? .sweep : .fan
+                    secs[i].moveSize = 0.85
                 }
             case .drop:
                 if secs[i].movement == .fullRotate || secs[i].movement == .none { secs[i].movement = .fan }
@@ -959,7 +961,7 @@ struct ShowRenderer {
                 // Each light's motor needs its own head start (set per light: Movement Timing),
                 // plus the app's own smoothing of the move (~70 ms)
                 let lead = ((fx.moveLeadMs ?? 300) / 1000 + 0.07) / max(c.beatLen, 0.1)
-                let mBeats = (c.beatPos + lead) * s.rate
+                let mBeats = (c.beatPos + lead) * s.rate * (s.moveSpeed ?? 1)
                 let mBar = mBeats / 4
                 let mIdx = Int(floor(mBeats))
                 switch rig {
@@ -978,6 +980,12 @@ struct ShowRenderer {
                 }
                 // Hold with an aim: the heads stay tilted there (e.g. at the crowd)
                 if s.movement == .none, let aim = s.aim { rf.tilt = max(0, min(1, aim)); rf.pan = 0.5 }
+                // a smaller swing: drift around the aim (or straight up) instead of end to end
+                else if s.movement != .none, let size = s.moveSize, size < 1 {
+                    let center = s.aim ?? 0.5
+                    rf.tilt = max(0, min(1, center + (rf.tilt - 0.5) * size))
+                    rf.pan = max(0, min(1, 0.5 + (rf.pan - 0.5) * size))
+                }
                 moverIdx += 1
             }
             result.append(rf)

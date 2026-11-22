@@ -689,6 +689,18 @@ struct SectionTimelineEditor: View {
                         }
                         .help("Where the heads point while this part holds still: straight up in the middle, toward the audience on the right (the bar's 180° tilt)")
                     }
+                } else {
+                    labeled("Amount") {
+                        Picker("", selection: Binding(get: { (s.moveSize ?? 1) <= 0.3 ? 0 : (s.moveSize ?? 1) < 0.9 ? 1 : 2 },
+                                                      set: { v in
+                                                          sec.moveSize.wrappedValue = [0.2, 0.5, nil][v]
+                                                          sec.moveSpeed.wrappedValue = [0.25, 0.5, nil][v]
+                                                      })) {
+                            Text("Subtle").tag(0); Text("Gentle").tag(1); Text("Full").tag(2)
+                        }
+                        .pickerStyle(.segmented).labelsHidden().frame(width: 180)
+                        .help("How far and how fast the heads move: a slow small drift, half the swing at half speed, or end to end")
+                    }
                 }
                 labeled("Speed") {
                     Picker("", selection: sec.rate) {

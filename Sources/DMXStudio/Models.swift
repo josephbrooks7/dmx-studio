@@ -429,6 +429,8 @@ struct ShowSection: Identifiable, Codable, Hashable {
     var order: HeadOrder? = nil     // which way patterns run across the heads
     var fan: Double? = nil          // 0…1: spread the beams of the lights apart
     var beamSteps: [UInt8]? = nil   // beam sequencer: 16 steps, each a mask of which of the 8 heads are on
+    var moveSize: Double? = nil     // 0…1: how far the heads swing (nil = full); small = a subtle drift around the aim
+    var moveSpeed: Double? = nil    // movement speed (nil = 1; 0.25 = a quarter as fast), separate from the effect speed
     var aim: Double? = nil          // with movement Hold: where the heads point, 0…1 of the tilt (0.5 straight up, 1 = at the audience)
 }
 
