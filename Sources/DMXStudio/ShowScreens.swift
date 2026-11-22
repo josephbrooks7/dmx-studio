@@ -1579,23 +1579,20 @@ struct SetupScreen: View {
 /// Master music volume: click the speaker to mute / unmute.
 struct VolumeControl: View {
     @EnvironmentObject var model: AppModel
-    @State private var beforeMute: Double = 1
-
     var body: some View {
         HStack(spacing: 6) {
-            Button {
-                if model.musicVolume > 0 { beforeMute = model.musicVolume; model.musicVolume = 0 }
-                else { model.musicVolume = max(0.2, beforeMute) }
-            } label: {
-                Image(systemName: icon).frame(width: 18)
+            Button { model.toggleMute() } label: {
+                Image(systemName: icon)
+                    .foregroundColor(model.musicVolume == 0 ? .orange : .primary)
+                    .frame(width: 24, height: 22)
+                    .contentShape(Rectangle())
             }
             .buttonStyle(.plain)
-            .help(model.musicVolume > 0 ? "Mute the music" : "Unmute")
+            .help(model.musicVolume > 0 ? "Mute the music" : "Muted · click to unmute")
             Slider(value: $model.musicVolume, in: 0...1).frame(width: 90).controlSize(.small)
             Text("\(Int((model.musicVolume * 100).rounded()))").font(.caption2).monospacedDigit()
                 .foregroundColor(Theme.subtle).frame(width: 24, alignment: .trailing)
         }
-        .help("Music volume for all songs")
     }
 
     private var icon: String {

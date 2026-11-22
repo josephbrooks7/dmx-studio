@@ -237,7 +237,18 @@ final class AppModel: ObservableObject {
     @Published var musicVolume: Double = UserDefaults.standard.object(forKey: "musicVolume") as? Double ?? 1 {
         didSet {
             UserDefaults.standard.set(musicVolume, forKey: "musicVolume")
-            player?.volume = Float(musicVolume)
+            // with stems playing the main player is silent and the stems carry the sound
+            if stemPlayers.isEmpty { player?.volume = Float(musicVolume) }
+            else if let id = stemPlayersSong { for (name, sp) in stemPlayers { sp.volume = Float(musicVolume * stemGain(id, name)) } }
+        }
+    }
+    /// Mute / unmute the music (the speaker icon): remembers the volume to go back to.
+    func toggleMute() {
+        if musicVolume > 0 {
+            UserDefaults.standard.set(musicVolume, forKey: "volumeBeforeMute")
+            musicVolume = 0
+        } else {
+            musicVolume = max(0.2, UserDefaults.standard.object(forKey: "volumeBeforeMute") as? Double ?? 1)
         }
     }
     private var pausedPresetElapsed: Double?
