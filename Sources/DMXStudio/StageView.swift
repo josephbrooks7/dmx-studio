@@ -113,7 +113,6 @@ struct StageScreen: View {
                 }
             }
             HStack(spacing: 10) {
-                RealLightsSwitch()
                 Text("Quick looks").font(.caption).foregroundColor(Theme.subtle)
                 ScrollView(.horizontal, showsIndicators: false) {
                     HStack(spacing: 8) {

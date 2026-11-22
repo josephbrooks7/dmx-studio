@@ -234,10 +234,8 @@ struct MainShell: View {
                 }
             }
             .frame(maxWidth: .infinity, maxHeight: .infinity)
-            // a small window showing what the lights are doing, on every page but Stage
-            .overlay(alignment: miniCorner(tab).alignment) {
-                if tab != .stage { MiniOutputPreview(page: tab.rawValue) { tab = .stage }.padding(14) }
-            }
+            // what the lights are doing, docked on the right of every page but Stage (the page makes room)
+            .modifier(OutputSidePanel(show: tab != .stage) { tab = .stage })
             BottomBar(tab: $tab)
         }
         .background(Theme.bg)
@@ -1711,111 +1709,69 @@ struct FadeToButton: View {
 }
 
 
-/// Where the corner preview sits on a page (drag it by its title bar to move it; saved per page).
-/// The Songs page starts bottom-left, over the song list, clear of the section editor.
-enum MiniCorner: String { case topLeading, topTrailing, bottomLeading, bottomTrailing
-    var alignment: Alignment {
-        switch self {
-        case .topLeading: return .topLeading
-        case .topTrailing: return .topTrailing
-        case .bottomLeading: return .bottomLeading
-        case .bottomTrailing: return .bottomTrailing
-        }
-    }
-    var next: MiniCorner {
-        switch self {
-        case .bottomTrailing: return .bottomLeading
-        case .bottomLeading: return .topLeading
-        case .topLeading: return .topTrailing
-        case .topTrailing: return .bottomTrailing
-        }
-    }
-}
-func miniCorner(_ tab: MainTab) -> MiniCorner {
-    let saved = UserDefaults.standard.string(forKey: "miniPreviewCorner.\(tab.rawValue)").flatMap(MiniCorner.init)
-    return saved ?? (tab == .songs ? .bottomLeading : .bottomTrailing)
-}
-
-/// Picture-in-picture view of the output: the same stage drawing as the Stage page, small, in a corner.
-/// Click it to open the Stage page; the chevron folds it away.
-struct MiniOutputPreview: View {
-    @EnvironmentObject var model: AppModel
-    @AppStorage("miniPreviewShown") private var shown = true
-    @AppStorage("miniPreviewTall") private var tall = false
-    let page: String
+/// The output preview, docked as a slim panel on the right of the page (not floating over it).
+/// It folds away to a thin strip; click the picture to open the Stage page.
+struct OutputSidePanel: ViewModifier {
+    let show: Bool
     let openStage: () -> Void
-    @State private var drag = CGSize.zero
-    @State private var cornerTick = 0     // redraws after a move
+    func body(content: Content) -> some View {
+        HStack(spacing: 0) {
+            content
+            if show { OutputPanel(openStage: openStage) }
+        }
+    }
+}
 
-    private var corner: MiniCorner {
-        _ = cornerTick
-        return UserDefaults.standard.string(forKey: "miniPreviewCorner.\(page)").flatMap(MiniCorner.init)
-            ?? (page == MainTab.songs.rawValue ? .bottomLeading : .bottomTrailing)
-    }
-    private func move(to c: MiniCorner) {
-        UserDefaults.standard.set(c.rawValue, forKey: "miniPreviewCorner.\(page)")
-        cornerTick += 1
-        model.objectWillChange.send()       // the page re-reads where to put it
-    }
+struct OutputPanel: View {
+    @EnvironmentObject var model: AppModel
+    @AppStorage("outputPanelOpen") private var open = true
+    @AppStorage("miniPreviewTall") private var tall = true
+    let openStage: () -> Void
 
     var body: some View {
-        if shown {
+        if open {
             VStack(spacing: 0) {
                 HStack(spacing: 6) {
                     Circle().fill(model.outputEnabled ? Color.green : Color.orange).frame(width: 7, height: 7)
-                    Text(model.outputEnabled ? "LIVE" : "PREVIEW")
-                        .font(.system(size: 10, weight: .bold)).lineLimit(1)
+                    Text(model.outputEnabled ? "LIVE" : "PREVIEW").font(.system(size: 10, weight: .heavy))
+                    Text("Output").font(.system(size: 10)).foregroundColor(Theme.subtle)
                     Spacer(minLength: 4)
-                    Button { move(to: corner.next) } label: { Image(systemName: "rectangle.inset.topleft.filled") }
-                        .buttonStyle(.plain).help("Move to another corner (or drag the title bar)")
-                    Button { tall.toggle() } label: {
-                        Image(systemName: tall ? "square" : "rectangle.portrait")
-                    }
-                    .buttonStyle(.plain).help(tall ? "Square view (1:1)" : "Tall side view (9:16)")
-                    Button { shown = false } label: { Image(systemName: "chevron.down") }
-                        .buttonStyle(.plain).help("Hide the preview")
+                    Button { tall.toggle() } label: { Image(systemName: tall ? "square" : "rectangle.portrait") }
+                        .buttonStyle(.plain).help(tall ? "Square view" : "Tall view (fills the panel)")
+                    Button { open = false } label: { Image(systemName: "sidebar.trailing") }
+                        .buttonStyle(.plain).help("Hide the preview panel")
                 }
-                .font(.system(size: 10))
-                .padding(.horizontal, 9).padding(.vertical, 5)
-                .background(Color.black.opacity(0.85))
-                .contentShape(Rectangle())
-                .gesture(DragGesture()
-                    .onChanged { drag = $0.translation }
-                    .onEnded { v in
-                        // snap to the corner it was dragged toward
-                        var left = corner == .topLeading || corner == .bottomLeading
-                        var top = corner == .topLeading || corner == .topTrailing
-                        if v.translation.width < -120 { left = true } else if v.translation.width > 120 { left = false }
-                        if v.translation.height < -100 { top = true } else if v.translation.height > 100 { top = false }
-                        drag = .zero
-                        move(to: top ? (left ? .topLeading : .topTrailing) : (left ? .bottomLeading : .bottomTrailing))
-                    })
+                .font(.system(size: 11))
+                .padding(.horizontal, 10).padding(.vertical, 8)
                 StageCanvas(editing: false, compact: true)
-                    .frame(width: 230, height: tall ? 409 : 230)    // 1:1, or 9:16
-                    .clipped()
+                    .frame(width: 232, height: tall ? nil : 232)
+                    .frame(maxHeight: tall ? .infinity : nil)
+                    .background(Color.black)
+                    .clipShape(RoundedRectangle(cornerRadius: 8, style: .continuous))
                     .contentShape(Rectangle())
                     .onTapGesture { openStage() }
                     .help("Open the Stage page")
+                    .padding(.horizontal, 10)
+                if !tall { Spacer(minLength: 0) }
+                Text("Click the picture for the full Stage")
+                    .font(.system(size: 9)).foregroundColor(Theme.subtle).padding(8)
             }
-            // a fixed size: without it the title bar stretched the window across the whole page
-            .frame(width: 230)
-            .fixedSize(horizontal: true, vertical: true)
-            .background(Color.black)
-            .clipShape(RoundedRectangle(cornerRadius: 10, style: .continuous))
-            .overlay(RoundedRectangle(cornerRadius: 10, style: .continuous)
-                .stroke(model.outputEnabled ? Color.green.opacity(0.7) : Color.white.opacity(0.15), lineWidth: 1))
-            .shadow(color: .black.opacity(0.6), radius: 12, y: 4)
-            .offset(drag)
+            .frame(width: 252)
+            .frame(maxHeight: .infinity)
+            .background(Color.white.opacity(0.03))
+            .overlay(Rectangle().fill(Color.white.opacity(0.08)).frame(width: 1), alignment: .leading)
         } else {
-            Button { shown = true } label: {
-                Label("Preview", systemImage: "eye")
-                    .font(.system(size: 11, weight: .semibold))
-                    .padding(.horizontal, 10).padding(.vertical, 6)
-                    .background(Capsule().fill(Color.black.opacity(0.85)))
-                    .overlay(Capsule().stroke(Color.white.opacity(0.15)))
+            Button { open = true } label: {
+                VStack(spacing: 6) {
+                    Image(systemName: "sidebar.trailing")
+                    Circle().fill(model.outputEnabled ? Color.green : Color.orange).frame(width: 6, height: 6)
+                }
+                .frame(width: 26).frame(maxHeight: .infinity)
+                .background(Color.white.opacity(0.03))
+                .overlay(Rectangle().fill(Color.white.opacity(0.08)).frame(width: 1), alignment: .leading)
             }
             .buttonStyle(.plain)
-            .help("Show a small preview of what your lights are doing")
+            .help("Show the output preview")
         }
     }
 }
