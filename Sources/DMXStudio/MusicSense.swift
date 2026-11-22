@@ -64,28 +64,59 @@ extension SongAnalysis {
 
     /// Likely genres with a confidence for each (they add up to 1), best first. A song can be a mix:
     /// these are tendencies, not rules, and you can always pick the genre yourself.
-    var genreScores: [(style: ShowStyle, score: Double)] {
+    var genreScores: [(style: ShowStyle, score: Double)] { genreScores(from: 0, to: duration) }
+
+    /// The genre scores for one stretch of the song (a part), from how that stretch sounds: its bass and
+    /// brightness, kick pattern, half-time snare, hats and singing. The tempo is the song's.
+    /// A part is compared with the whole song's loudness, so "soft" means soft for this song.
+    func genreScores(from t0: Double, to t1: Double) -> [(style: ShowStyle, score: Double)] {
+        let whole = t0 <= 0.01 && t1 >= duration - 0.01
+        func slice(_ a: [Float]) -> [Float] {
+            guard !whole else { return a }
+            let s = max(0, Int(t0 * frameRate)), e = min(a.count, Int(t1 * frameRate))
+            return e > s ? Array(a[s..<e]) : []
+        }
+        func inside(_ x: [Double]) -> [Double] { whole ? x : x.filter { $0 >= t0 && $0 < t1 } }
+        let len = max(t1 - t0, 1)
+        let beatsHere = len * max(bpm, 30) / 60
         func avg(_ a: [Float]) -> Double { a.isEmpty ? 0 : Double(a.reduce(0, +)) / Double(a.count) }
         func fit(_ v: Double, _ lo: Double, _ hi: Double) -> Double {
             if v >= lo && v <= hi { return 1 }
             return exp(-min(abs(v - lo), abs(v - hi)) / 8)
         }
-        let bassAvg = avg(bass), highAvg = avg(high), energyAvg = avg(energy)
+        let en = slice(energy)
+        let bassAvg = avg(slice(bass)), highAvg = avg(slice(high)), energyAvg = avg(en)
         let mean = energyAvg
-        let dyn = energy.isEmpty ? 0 : (energy.reduce(0) { $0 + pow(Double($1) - mean, 2) } / Double(energy.count)).squareRoot()
-        let g = groove
-        let half = g.feel == .half ? g.confidence : 0
-        let ff = fourOnTheFloor
-        let hatsPerBeat = Double(hats.count) / max(duration * max(bpm, 30) / 60, 1)
-        let vocal = vocalShare
-        var ph = [0, 0, 0, 0]; for s in snares { if let p = beatPhase(s) { ph[p] += 1 } }
-        let backbeat = snares.isEmpty ? 0 : Double(ph[1] + ph[3]) / Double(max(ph.reduce(0, +), 1))
-        let raw0 = bpm, felt = feltBPM
+        let dyn = en.isEmpty ? 0 : (en.reduce(0) { $0 + pow(Double($1) - mean, 2) } / Double(en.count)).squareRoot()
+        let snaresHere = inside(snares)
+        var ph = [0, 0, 0, 0]; for s in snaresHere { if let p = beatPhase(s) { ph[p] += 1 } }
+        let snTotal = ph.reduce(0, +)
+        let half: Double
+        if whole { let g = groove; half = g.feel == .half ? g.confidence : 0 }
+        else {
+            // half-time here: the snare lands on beat 3, not 2 and 4
+            let three = Double(ph[2]) / Double(max(snTotal, 1)), back = Double(ph[1] + ph[3]) / Double(max(snTotal, 1))
+            half = snTotal >= 4 && three > 0.5 && three > back * 1.5 ? min(1, three) : 0
+        }
+        let ff: Double = {
+            guard !whole else { return fourOnTheFloor }
+            let bs = inside(beats), ks = inside(kicks)
+            guard !bs.isEmpty, !ks.isEmpty else { return 0 }
+            return Double(bs.filter { b in ks.contains { abs($0 - b) < 0.05 } }.count) / Double(bs.count)
+        }()
+        let hatsPerBeat = Double(inside(hats).count) / max(beatsHere, 1)
+        let vocal: Double = {
+            guard !whole else { return vocalShare }
+            let sung = (vocalPhrases ?? []).reduce(0.0) { $0 + max(0, min($1.end, t1) - max($1.start, t0)) }
+            return min(1, sung / len)
+        }()
+        let backbeat = snTotal == 0 ? 0 : Double(ph[1] + ph[3]) / Double(max(snTotal, 1))
+        let raw0 = bpm, felt = half > 0.5 ? bpm / 2 : (whole ? feltBPM : bpm)
         // the beat finder can land on half or double the real tempo (83 for a 166 track): every tempo check
         // also accepts the doubled / halved tempo, a little less strongly
         func fitT(_ v: Double, _ lo: Double, _ hi: Double) -> Double { max(fit(v, lo, hi), 0.8 * fit(v * 2, lo, hi), 0.8 * fit(v / 2, lo, hi)) }
         let raw = raw0
-        let kicksPerBeat = Double(kicks.count) / max(duration * max(bpm, 30) / 60, 1)
+        let kicksPerBeat = Double(inside(kicks).count) / max(beatsHere, 1)
         var s: [ShowStyle: Double] = [:]
         s[.dubstep] = fit(raw, 130, 150) * (0.25 + 0.75 * half) * (0.4 + bassAvg)
         s[.club] = fitT(raw, 110, 135) * (0.25 + 0.75 * ff) * (0.5 + bassAvg)

@@ -255,10 +255,13 @@ enum ShowGenerator {
         var rng = SeededRandom(seed: UInt64(variation) &* 0x9E37_79B9_7F4A_7C15 &+ style.rawValue.utf8.reduce(UInt64(7)) { $0 &* 31 &+ UInt64($1) })
         // Decide one look per (level, build) up front so repeated sections match.
         var looks: [String: Look] = [:]
+        // the genre of the part being built (a part can sound different from the song: a dubstep chorus
+        // in an electronic song, a rap verse in a pop song)
+        var partStyle: ShowStyle? = nil
         func lookFor(_ level: EnergyLevel, _ isBuild: Bool) -> Look {
-            let key = "\(level.rawValue)\(isBuild)"
+            let style = (level == .high || level == .drop) && !isBuild ? (peakStyle ?? partStyle ?? style) : (partStyle ?? style)
+            let key = "\(level.rawValue)\(isBuild)\(style.rawValue)"
             if let l = looks[key] { return l }
-            let style = (level == .high || level == .drop) && !isBuild ? (peakStyle ?? style) : style
             var l: Look
             if variation <= 1 {
                 l = signature(style: style, level: level, isBuild: isBuild)
@@ -307,6 +310,7 @@ enum ShowGenerator {
                 continue
             }
             let isBuild = d.name.hasPrefix("Build") || d.name.hasPrefix("Pre-Chorus")
+            partStyle = ShowGenerator.partGenre(a, d, songStyle: style)
             // a bridge gets a contrasting look; everything else keeps one look per kind of part
             let l = d.name.hasPrefix("Bridge") ? altFor(d.level, lookFor(d.level, false)) : lookFor(d.level, isBuild)
             let levelSlot: Int
@@ -1479,5 +1483,22 @@ extension ShowGenerator {
             if (totals[n] ?? 0) > 1 { out[i].name = "\(n) \(counts[n]!)" }
         }
         return out
+    }
+}
+
+
+extension ShowGenerator {
+    /// The genre a part sounds like, when it clearly differs from the song's: only for parts of 8+ bars,
+    /// and only when that genre wins in this part by a clear margin and is a real step away from the song's
+    /// (so a show doesn't flip style on noise). nil = the song's genre.
+    static func partGenre(_ a: SongAnalysis, _ d: DetectedSection, songStyle: ShowStyle) -> ShowStyle? {
+        let bar = 240 / max(a.bpm, 30)
+        guard d.name != "Silence", d.end - d.start >= 8 * bar else { return nil }
+        let g = a.genreScores(from: d.start, to: d.end)
+        guard g.count > 1, let top = g.first, top.style != songStyle,
+              ![.psychedelic, .fantasy].contains(top.style) else { return nil }
+        let songHere = g.first { $0.style == songStyle }?.score ?? 0
+        guard top.score >= 0.24, top.score - g[1].score >= 0.04, top.score >= songHere * 1.35 else { return nil }
+        return top.style
     }
 }
