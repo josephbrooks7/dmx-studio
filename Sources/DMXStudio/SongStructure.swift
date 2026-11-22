@@ -154,7 +154,7 @@ enum SongStructure {
             else if s.group == verseGroup && chorusesSoFar < 3 { role = "Verse" }
             // a bridge: comes after two choruses, appears once, and is a full part (not a 4-bar lead-in)
             else if chorusesSoFar >= 2 && once(i) && barsLong >= 6 { role = "Bridge" }
-            else if let ni = nextI, segs[ni].group == chorusGroup, barsLong <= 12 { role = "Pre-Chorus" }
+            else if let ni = nextI, segs[ni].group == chorusGroup, barsLong <= 16 { role = "Pre-Chorus" }   // trimmed to its last 4–8 bars below
             else if n > 0, segs[musical[n - 1]].role == "Chorus", e >= chorusE - 0.15, barsLong <= 8 { role = "Post-Chorus" }
             else if chorusesSoFar >= 2 && once(i) { role = "Bridge" }
             else if e < 0.25 { role = "Breakdown" }
@@ -181,6 +181,32 @@ enum SongStructure {
                 merged[merged.count - 1].energy = (last.energy + s.energy) / 2
             } else { merged.append(s) }
         }
+        // ---- 4b. keep parts to real-song lengths. A pre-chorus is a short lift into the chorus,
+        //          usually 4 bars (8 at most); a post-chorus / hook is 4–8. Anything longer than that is
+        //          really the end of the verse (or the next verse), so only the last bars keep the name.
+        func shorten(_ role: String, keepLastBars: Bool, max cap: Int, rest: String) {
+            var fixed: [Seg] = []
+            for s in merged {
+                let n = s.b - s.a
+                guard s.role == role, !silent(s), n > cap, s.a >= 0, s.b <= bars.count else { fixed.append(s); continue }
+                let keep = n >= 16 ? cap : min(4, cap)
+                let cut = keepLastBars ? s.b - keep : s.a + keep
+                guard cut > s.a, cut < s.b, cut < bars.count else { fixed.append(s); continue }
+                var first = s, second = s
+                first.b = cut; first.end = bars[cut]
+                second.a = cut; second.start = bars[cut]
+                if keepLastBars { first.role = rest } else { second.role = rest }
+                // join the leftover onto a neighbour that's already that part
+                if keepLastBars, let last = fixed.last, last.role == rest, !silent(last) {
+                    fixed[fixed.count - 1].b = first.b; fixed[fixed.count - 1].end = first.end
+                } else { fixed.append(first) }
+                fixed.append(second)
+            }
+            merged = fixed
+        }
+        shorten("Pre-Chorus", keepLastBars: true, max: 8, rest: "Verse")
+        shorten("Post-Chorus", keepLastBars: false, max: 8, rest: "Verse")
+
         let numbered: Set<String> = ["Verse", "Chorus", "Pre-Chorus"]
         var counts: [String: Int] = [:]
         let totals = Dictionary(grouping: merged.filter { !silent($0) }, by: \.role).mapValues(\.count)
