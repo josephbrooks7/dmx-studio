@@ -77,6 +77,19 @@ final class AppModel: ObservableObject {
     @Published var showDeviceLibrary = false
     @Published var showHueSetup = false
 
+    /// Mount every beam bar the same way (floor / upright on truss legs / hanging) to compare setups
+    func stageScenario(_ m: StageMount) {
+        for k in stage.items.indices {
+            guard let fid = stage.items[k].fixtureID, let fx = fixtures.first(where: { $0.id == fid }), fx.headCount > 1 else { continue }
+            switch m {
+            case .upright: stage.items[k].upright = true; stage.items[k].hanging = false; stage.items[k].y = 1.2
+            case .hanging: stage.items[k].upright = nil; stage.items[k].hanging = true; stage.items[k].y = 3.3
+            default: stage.items[k].upright = nil; stage.items[k].hanging = false; stage.items[k].y = 0.6
+            }
+            syncMount(stage.items[k].id)
+        }
+    }
+
     /// A light's 3D mounting also sets how the flat previews draw it
     func syncMount(_ itemID: UUID) {
         guard let item = stage.items.first(where: { $0.id == itemID }), let fid = item.fixtureID,

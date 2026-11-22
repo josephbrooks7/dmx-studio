@@ -103,14 +103,14 @@ extension ShowGenerator {
         // Rules from an electronic live show (Röyksopp & Jamie Irrepressibles, P3 Gull 2014)
         if [.club, .electronic].contains(a.suggestedStyle) { electronicRules(&s, a, beat: beat) }
         // Electro-funk band (Chromeo, live on CBC Music)
-        if a.suggestedStyle == .disco { funkRules(&s) }
+        if a.suggestedStyle == .disco { funkRules(&s, musicEnd: a.musicEnd) }
         // Hyperpop / club pop (Charli xcx, live at Primavera Sound)
         if a.suggestedStyle == .hyperpop { hyperpopRules(&s) }
     }
 
     /// Funk: the groove never stops. Cool white / lavender light all song, a pulse on every beat in
     /// the groove parts (no long washes), and the song ends on a hard cut to black on the last hit.
-    private static func funkRules(_ s: inout [ShowSection]) {
+    private static func funkRules(_ s: inout [ShowSection], musicEnd: Double) {
         let live = s.indices.filter { s[$0].empty != true && s[$0].effect != .blackout && s[$0].transition == nil }
         for (n, k) in live.enumerated() {
             s[k].palette = n % 3 == 2 ? "Purple Haze" : "Ice"
@@ -118,10 +118,23 @@ extension ShowGenerator {
                 s[k].effect = .pulse; s[k].rate = 1
             }
         }
-        // no fade-out at the end: the last part stays up and stops dead
-        if let last = live.last, s[last].effect == .breathe || s[last].effect == .steady || s[last].level == .low {
-            s[last].effect = .pulse; s[last].rate = 1
-            s[last].intensity = max(s[last].intensity, 0.9)
+        // the lights aim at the crowd while the band grooves (Hold parts only: moving parts keep moving)
+        for k in live where (s[k].level == .medium || s[k].level == .high) && s[k].movement == .none { s[k].aim = 0.82 }
+        // no fade-out at the end: the last part stays up and stops dead on the last hit
+        if let last = live.last {
+            if s[last].effect == .breathe || s[last].effect == .steady || s[last].level == .low {
+                s[last].effect = .pulse; s[last].rate = 1
+                s[last].intensity = max(s[last].intensity, 0.9)
+            }
+            if musicEnd > s[last].start + 1, s[last].end >= musicEnd - 0.05 {
+                let oldEnd = s[last].end
+                s[last].end = musicEnd
+                var cut = s[last]
+                cut.id = UUID(); cut.start = musicEnd; cut.end = max(oldEnd, musicEnd + 2)
+                cut.name = "Cut to Black"; cut.effect = .blackout; cut.movement = .none; cut.accentStrobe = false
+                cut.transition = nil; cut.beamSteps = nil
+                if let k = s.firstIndex(where: { $0.id == s[last].id }) { s.insert(cut, at: k + 1) }
+            }
         }
     }
 

@@ -76,6 +76,13 @@ struct StageScreen: View {
                     .toggleStyle(.switch).controlSize(.small)
                     .help("High-quality 3D: glow, smoothing, light pools on the floor, 60 fps. Leave off on older Intel MacBooks, where heavy 3D can restart the Mac.")
                 Menu {
+                    Button("Bars lying flat on the floor") { model.stageScenario(.floor) }
+                    Button("Bars upright on truss legs (vertical)") { model.stageScenario(.upright) }
+                    Button("Bars hanging from the truss") { model.stageScenario(.hanging) }
+                } label: { Label("Mounting", systemImage: "rectangle.portrait.on.rectangle.portrait") }
+                .menuStyle(.borderlessButton).fixedSize()
+                .help("Show your stage with the bars mounted another way: lying flat (beams go front to back) or upright (beams sweep side to side)")
+                Menu {
                     Section("Lights") {
                         ForEach(FixtureProfile.all) { p in Button(p.name) { model.stageEditing = true; model.addStageLight(p) } }
                     }

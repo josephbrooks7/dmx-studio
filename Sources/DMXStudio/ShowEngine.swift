@@ -924,6 +924,8 @@ struct ShowRenderer {
                     let m = movement(s.movement, barPos: mBar, idx: mIdx, fi: moverIdx, n: moverCount)
                     rf.pan = m.pan; rf.tilt = m.tilt
                 }
+                // Hold with an aim: the heads stay tilted there (e.g. at the crowd)
+                if s.movement == .none, let aim = s.aim { rf.tilt = max(0, min(1, aim)); rf.pan = 0.5 }
                 moverIdx += 1
             }
             result.append(rf)

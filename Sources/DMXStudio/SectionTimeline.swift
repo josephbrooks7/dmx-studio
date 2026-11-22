@@ -644,6 +644,18 @@ struct SectionTimelineEditor: View {
                         ForEach(MoveEffect.allCases) { Text($0.rawValue).tag($0) }
                     }.labelsHidden().frame(width: 110)
                 }
+                if s.movement == .none {
+                    labeled("Aim") {
+                        HStack(spacing: 4) {
+                            Text("Back").font(.caption2).foregroundColor(.secondary)
+                            Slider(value: Binding(get: { s.aim ?? 0.5 }, set: { sec.aim.wrappedValue = ($0 * 20).rounded() / 20 }), in: 0...1)
+                                .frame(width: 110)
+                            Text("Crowd").font(.caption2).foregroundColor(.secondary)
+                            Text("\(Int((((s.aim ?? 0.5) - 0.5) * 180).rounded()))°").font(.caption.monospacedDigit()).frame(width: 34)
+                        }
+                        .help("Where the heads point while this part holds still: straight up in the middle, toward the audience on the right (the bar's 180° tilt)")
+                    }
+                }
                 labeled("Speed") {
                     Picker("", selection: sec.rate) {
                         Text("Freeze").tag(0.0)
