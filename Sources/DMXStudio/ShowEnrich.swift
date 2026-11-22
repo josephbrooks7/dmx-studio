@@ -102,6 +102,43 @@ extension ShowGenerator {
         concertRules(&s, beat: beat, variation: variation)
         // Rules from an electronic live show (Röyksopp & Jamie Irrepressibles, P3 Gull 2014)
         if [.club, .electronic].contains(a.suggestedStyle) { electronicRules(&s, a, beat: beat) }
+        // Electro-funk band (Chromeo, live on CBC Music)
+        if a.suggestedStyle == .disco { funkRules(&s) }
+        // Hyperpop / club pop (Charli xcx, live at Primavera Sound)
+        if a.suggestedStyle == .hyperpop { hyperpopRules(&s) }
+    }
+
+    /// Funk: the groove never stops. Cool white / lavender light all song, a pulse on every beat in
+    /// the groove parts (no long washes), and the song ends on a hard cut to black on the last hit.
+    private static func funkRules(_ s: inout [ShowSection]) {
+        let live = s.indices.filter { s[$0].empty != true && s[$0].effect != .blackout && s[$0].transition == nil }
+        for (n, k) in live.enumerated() {
+            s[k].palette = n % 3 == 2 ? "Purple Haze" : "Ice"
+            if s[k].level == .medium || s[k].level == .high {
+                s[k].effect = .pulse; s[k].rate = 1
+            }
+        }
+        // no fade-out at the end: the last part stays up and stops dead
+        if let last = live.last, s[last].effect == .breathe || s[last].effect == .steady || s[last].level == .low {
+            s[last].effect = .pulse; s[last].rate = 1
+            s[last].intensity = max(s[last].intensity, 0.9)
+        }
+    }
+
+    /// Hyperpop: stark white in haze almost all song, a still white wash while singing, and one bold
+    /// deep-red moment late in the song.
+    private static func hyperpopRules(_ s: inout [ShowSection]) {
+        let live = s.indices.filter { s[$0].empty != true && s[$0].effect != .blackout && s[$0].transition == nil }
+        guard !live.isEmpty else { return }
+        for k in live {
+            s[k].palette = "Full White"
+            if s[k].level == .low || s[k].level == .medium { s[k].effect = .steady; s[k].movement = .none }
+        }
+        let total = s.last?.end ?? 0
+        if let k = live.filter({ s[$0].start > total * 0.5 && s[$0].level != .drop })
+            .max(by: { (s[$0].end - s[$0].start) < (s[$1].end - s[$1].start) }) {
+            s[k].palette = "Red Room"; s[k].effect = .steady
+        }
     }
 
     /// Main hue of a palette in degrees, and how spread its colors are (rainbows are wide)
