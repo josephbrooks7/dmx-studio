@@ -556,7 +556,20 @@ extension SongAnalysis {
     }
 
     /// The most likely genre (see `genreScores` for the full list with confidences).
-    var suggestedStyle: ShowStyle { genreScores.first?.style ?? .pop }
+    /// When the guess is a near tie, a niche style (chill, hip-hop, latin…) isn't forced on the song:
+    /// it falls back to Pop, the most general show, and the app says it isn't sure.
+    var suggestedStyle: ShowStyle {
+        let g = genreScores
+        guard let top = g.first else { return .pop }
+        if genreUnsure && ![.pop, .club, .electronic].contains(top.style) { return .pop }
+        return top.style
+    }
+    /// The top two genres are within a few percent, or the best one is weak.
+    var genreUnsure: Bool {
+        let g = genreScores
+        guard g.count > 1 else { return false }
+        return g[0].score < 0.26 || g[0].score - g[1].score < 0.04
+    }
 }
 
 // MARK: - Output settings

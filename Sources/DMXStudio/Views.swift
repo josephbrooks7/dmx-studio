@@ -131,7 +131,7 @@ struct SongView: View {
                     Text("Genre:").foregroundColor(.secondary)
                     Picker("", selection: model.songBinding(song.id).genre) {
                         if let s = song.analysis?.suggestedStyle {
-                            Text("Auto (sounds like \(s.rawValue))").tag(ShowStyle?.none)
+                            Text(song.analysis?.genreUnsure == true ? "Auto (not sure · using \(s.rawValue))" : "Auto (sounds like \(s.rawValue))").tag(ShowStyle?.none)
                         } else {
                             Text("Auto").tag(ShowStyle?.none)
                         }

@@ -80,19 +80,35 @@ extension SongAnalysis {
         let vocal = vocalShare
         var ph = [0, 0, 0, 0]; for s in snares { if let p = beatPhase(s) { ph[p] += 1 } }
         let backbeat = snares.isEmpty ? 0 : Double(ph[1] + ph[3]) / Double(max(ph.reduce(0, +), 1))
-        let raw = bpm, felt = feltBPM
+        let raw0 = bpm, felt = feltBPM
+        // the beat finder can land on half or double the real tempo (83 for a 166 track): every tempo check
+        // also accepts the doubled / halved tempo, a little less strongly
+        func fitT(_ v: Double, _ lo: Double, _ hi: Double) -> Double { max(fit(v, lo, hi), 0.8 * fit(v * 2, lo, hi), 0.8 * fit(v / 2, lo, hi)) }
+        let raw = raw0
+        let kicksPerBeat = Double(kicks.count) / max(duration * max(bpm, 30) / 60, 1)
         var s: [ShowStyle: Double] = [:]
-        s[.dubstep] = fit(raw, 135, 150) * (0.25 + 0.75 * half) * (0.4 + bassAvg)
-        s[.club] = fit(raw, 118, 132) * (0.25 + 0.75 * ff) * (0.5 + bassAvg)
-        s[.techno] = fit(raw, 125, 145) * (0.2 + 0.8 * ff) * (1.1 - vocal) * (0.6 + 0.4 * min(1, hatsPerBeat))
-        s[.electronic] = fit(raw, 100, 140) * 0.45 * (0.6 + 0.4 * (1 - vocal)) * (0.5 + bassAvg)
-        s[.disco] = fit(raw, 110, 130) * (0.3 + 0.7 * ff) * (0.4 + 0.6 * min(1, hatsPerBeat / 2)) * (0.4 + 0.6 * vocal) * 0.8
+        s[.dubstep] = fit(raw, 130, 150) * (0.25 + 0.75 * half) * (0.4 + bassAvg)
+        s[.club] = fitT(raw, 110, 135) * (0.25 + 0.75 * ff) * (0.5 + bassAvg)
+        s[.techno] = fit(raw, 120, 150) * (0.2 + 0.8 * ff) * (1.1 - vocal) * (0.6 + 0.4 * min(1, hatsPerBeat))
+        // electronic covers the rest of the dance range (tempos from the user's EDM chart):
+        // downtempo / synthwave 80–120, hardstyle 140–160 on a steady kick, drum & bass 160–200 on fast breakbeats
+        let downtempo = fit(raw, 80, 120) * 0.35
+        let hardstyle = fit(raw, 140, 160) * (0.2 + 0.8 * ff) * 0.8
+        let dnb = fit(raw, 160, 200) * (0.3 + 0.7 * min(1, hatsPerBeat / 2)) * (1 - ff * 0.5)
+        s[.electronic] = max(fitT(raw, 100, 140) * 0.45, downtempo, hardstyle, dnb) * (0.6 + 0.4 * (1 - vocal)) * (0.5 + bassAvg)
+        s[.disco] = fitT(raw, 110, 130) * (0.3 + 0.7 * ff) * (0.4 + 0.6 * min(1, hatsPerBeat / 2)) * (0.4 + 0.6 * vocal) * 0.8
         s[.hiphop] = fit(felt, 70, 105) * (0.4 + bassAvg) * (0.3 + 0.7 * max(backbeat, half)) * (1 - ff * 0.6)
         s[.latin] = fit(raw, 85, 105) * 0.35 * (0.5 + bassAvg) * (1 - ff * 0.5)
-        s[.pop] = fit(raw, 90, 130) * (0.3 + 0.7 * vocal) * 0.75
-        s[.rock] = fit(raw, 90, 160) * (0.3 + 0.7 * backbeat) * (0.5 + highAvg) * (1 - ff * 0.5) * (1 - bassAvg * 0.5)
-        s[.chill] = (1 - energyAvg) * fit(raw, 60, 110) * 0.9
-        s[.hyperpop] = fit(raw, 140, 185) * (0.4 + highAvg) * (0.5 + dyn * 2) * 0.6
+        // pop: many performance / backing tracks have no lead vocal, so a missing voice only lowers it a little
+        s[.pop] = fitT(raw, 90, 130) * (0.55 + 0.45 * vocal) * 0.8
+        s[.rock] = fitT(raw, 90, 160) * (0.3 + 0.7 * backbeat) * (0.5 + highAvg) * (1 - ff * 0.5) * (1 - bassAvg * 0.5)
+        // chill: soft AND sparse — a steady kick, busy hats or big loud/quiet swings mean it isn't
+        // R&B tempos (60–80 slow jams, 80–100 neo-soul, 100–125 uptempo, 130–150 trap-R&B felt in half time)
+        // overlap almost every genre, so tempo is weak evidence here: it's the felt tempo, and the soft,
+        // sparse, laid-back sound below decides it
+        s[.chill] = (1 - energyAvg) * (0.6 + 0.4 * fit(felt, 60, 100)) * 0.75 * (1 - min(0.7, kicksPerBeat * 0.6))
+            * (1 - min(0.5, hatsPerBeat * 0.25)) * (1 - min(0.5, dyn * 3))
+        s[.hyperpop] = fitT(raw, 140, 185) * (0.4 + highAvg) * (0.5 + dyn * 2) * 0.6
         s[.psychedelic] = 0.08
         s[.fantasy] = 0.06
         let total = max(s.values.reduce(0, +), 1e-9)
