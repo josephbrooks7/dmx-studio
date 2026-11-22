@@ -4,7 +4,7 @@ extension ShowGenerator {
     /// Uses the newer tools when a show is built: transitions at the big moments, variety from the effects
     /// library for repeated parts, and phase / mirrored order / beam patterns on the big sections.
     /// Runs before `fit`, so the result still matches what the lights can do.
-    static func enrich(_ s: inout [ShowSection], _ a: SongAnalysis, presets: [LookPreset], variation: Int) {
+    static func enrich(_ s: inout [ShowSection], _ a: SongAnalysis, presets: [LookPreset], variation: Int, lyrics: Lyrics? = nil) {
         guard s.count > 1, a.bpm > 30 else { return }
         let beat = 60 / a.bpm
         var rng = SeededRandom(seed: UInt64(max(1, variation)) &* 7919 &+ UInt64(max(0, Int(a.duration * 10))))
@@ -61,7 +61,7 @@ extension ShowGenerator {
         //    • energy shows as how busy the light is, not how bright: quiet breaks are a steady, bright,
         //      saturated wash in a neighboring color; loud parts are darker with fast changes
         //    • the stage goes almost dark for the bars before the band's big entrance
-        learnedRules(&s, a, variation: variation)
+        learnedRules(&s, a, variation: variation, lyrics: lyrics)
 
         // 3. Transitions into the big moments (taken from the end of the block before: nothing moves)
         for k in stride(from: s.count - 1, through: 1, by: -1) {
@@ -93,13 +93,89 @@ extension ShowGenerator {
         }
     }
 
+    // MARK: - Lyrics → lights
+
+    static let themePalettes: [String: [String]] = [
+        "Love & Romance": ["Red Velvet", "Pop Candy"], "Heartbreak": ["Deep Blue", "Ocean"],
+        "Night & Party": ["Neon", "Dance"], "Freedom & Escape": ["Ocean", "Aurora"],
+        "Dreams & Fantasy": ["Fairy", "Fantasy"], "Sun & Summer": ["Sunset", "Gold"],
+        "Dark & Intense": ["Red Room", "Fire"], "Power & Confidence": ["Gold", "Red Velvet"],
+    ]
+
+    /// What the song is about sets its colors: quieter parts take the theme's first palette, big parts the second
+    private static func lyricThemeColors(_ s: inout [ShowSection], _ lyrics: Lyrics?, variation: Int) {
+        guard let ly = lyrics, ly.lines.count >= 4, let theme = ly.themes.first,
+              let pals = themePalettes[theme]?.filter({ Palette.exists($0) }), !pals.isEmpty else { return }
+        for k in s.indices where s[k].empty != true && s[k].effect != .blackout && s[k].transition == nil {
+            let big = s[k].level == .high || s[k].level == .drop
+            s[k].palette = pals[(big ? 1 : 0) % pals.count]
+        }
+    }
+
+    /// Words, feelings and delivery of the lines sung in each part shape that part's look
+    private static func lyricSectionLooks(_ s: inout [ShowSection], _ lyrics: Lyrics?) {
+        guard let ly = lyrics, !ly.lines.isEmpty else { return }
+        let imagery: [(words: [String], palette: String, sky: Bool)] = [
+            (["sun", "sunset", "sunrise", "fire", "flame", "burn", "gold", "golden", "warm", "summer"], "Sunset", false),
+            (["ocean", "sea", "wave", "rain", "river", "water", "tears", "cry", "cold", "ice", "blue"], "Ocean", false),
+            (["heaven", "angel", "sky", "star", "stars", "moon", "light", "shine", "glow", "sparkle", "glisten", "glistening"], "Ice", true),
+            (["heart", "hearts", "love", "kiss", "rose", "roses"], "Red Velvet", false),
+            (["dark", "night", "shadow", "midnight", "black"], "Deep Blue", false),
+        ]
+        let emotionPalette: [String: String] = ["Anger": "Red Room", "Joy": "Pop Candy", "Sadness": "Deep Blue",
+                                                "Fear": "Purple Haze", "Love": "Red Velvet", "Calm": "Aurora"]
+        for k in s.indices where s[k].empty != true && s[k].effect != .blackout && s[k].transition == nil {
+            let idx = ly.lines.indices.filter { ly.lines[$0].start >= s[k].start - 0.3 && ly.lines[$0].start < s[k].end }
+            guard !idx.isEmpty else { continue }
+            let words = idx.flatMap { ly.lines[$0].text.lowercased().split { !$0.isLetter }.map(String.init) }
+            let big = s[k].level == .high || s[k].level == .drop
+            // 1. imagery in the words (two or more mentions)
+            var bestHits = 0, best: (palette: String, sky: Bool)?
+            for im in imagery {
+                let hits = words.filter { w in im.words.contains { w == $0 || (w.count > 4 && w.hasPrefix($0)) } }.count
+                if hits > bestHits { bestHits = hits; best = (im.palette, im.sky) }
+            }
+            if bestHits >= 2, let b = best, Palette.exists(b.palette) {
+                s[k].palette = b.palette
+                if b.sky && !big {                      // heaven / stars / light: sparkle, beams straight up
+                    s[k].effect = .sparkle; s[k].movement = .none; s[k].aim = 0.5
+                }
+            } else if let ins = ly.insights {
+                // 2. the feeling of the lines (when it's clear)
+                var votes: [String: Double] = [:]
+                for i in idx where i < ins.count { if let e = ins[i].emotions.first { votes[e, default: 0] += ins[i].emotionScore } }
+                if let (e, v) = votes.max(by: { $0.value < $1.value }), v >= 0.5 * Double(idx.count) * 0.6,
+                   let pal = emotionPalette[e], Palette.exists(pal) {
+                    s[k].palette = pal
+                }
+            }
+            // 3. how it's sung
+            if let ins = ly.insights {
+                let del = idx.compactMap { $0 < ins.count ? ins[$0].delivery : nil }
+                let share = { (d: String) in Double(del.filter { $0 == d }.count) / Double(max(1, del.count)) }
+                if share("Sustained note") >= 0.4 && !big {
+                    if ![.sparkle].contains(s[k].effect) { s[k].effect = .breathe }
+                    s[k].movement = .none               // let the held note ring: the lights hold and glow
+                } else if share("Rapid / Rap") >= 0.4 {
+                    s[k].effect = .pulse; s[k].rate = 1   // fast words: pulse on every beat
+                } else if share("Belting") >= 0.4 && big {
+                    s[k].accentStrobe = true             // belted lines in the big parts get the hits
+                }
+            }
+        }
+    }
+
     // MARK: - Concert rules
 
     /// What real concerts taught the show builder. Runs for every new show (with or without the library).
-    static func learnedRules(_ s: inout [ShowSection], _ a: SongAnalysis, variation: Int) {
+    static func learnedRules(_ s: inout [ShowSection], _ a: SongAnalysis, variation: Int, lyrics: Lyrics? = nil) {
         guard s.count > 1, a.bpm > 30 else { return }
         let beat = 60 / a.bpm
+        // the lyrics first: what the song is about sets its colors (the concert rules then keep it in one family)
+        lyricThemeColors(&s, lyrics, variation: variation)
         concertRules(&s, beat: beat, variation: variation)
+        // then the words sung in each part, how they're sung, and how they feel
+        lyricSectionLooks(&s, lyrics)
         // Rules from an electronic live show (Röyksopp & Jamie Irrepressibles, P3 Gull 2014)
         if [.club, .electronic].contains(a.suggestedStyle) { electronicRules(&s, a, beat: beat) }
         // Electro-funk band (Chromeo, live on CBC Music)
