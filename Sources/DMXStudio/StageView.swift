@@ -373,17 +373,26 @@ struct StageCanvas: View {
                 // looks at the stage from the front, so a tilt shows as the beam leaning toward you or
                 // away: shorter and wider the further it tilts. Only lights with pan swing sideways.
                 let hasPan = fx.channels.contains(.role(.pan, head: 0))
-                let fore = max(0.14, abs(cos((rf.tilt - 0.5) * .pi)))
                 let side = hasPan ? (rf.pan - 0.5) * 120 : 0
+                // Seen from the audience (like a phone video of the bar): tilted toward you, the beams
+                // fan out from the middle and look longer and wider; tilted away, they stay nearly
+                // parallel and look shorter as they go into the room.
+                let a = (rf.tilt - 0.5) * .pi
+                let toward = sin(a)                     // + toward the audience, − away
+                let up = cos(a)
+                let off = Double((head.x - origin.x) / max(1, barWidth / 2 + 1))   // −1 … 1 along the bar
+                let fanX = toward > 0 ? toward * off * 0.9 : toward * off * 0.25
+                let downY = toward > 0 ? toward * 0.45 : 0
+                let lenK = toward > 0 ? 1 + toward * 0.35 : max(0.22, 1 + toward * 0.75)
                 switch p.mount {
                 case .floor:
-                    angle = -90 + side
-                    length = Double(h) * (compact ? 0.78 : 1.1) * fore
-                    spread *= 1 + (1 - fore) * 1.6
+                    angle = atan2(-up + downY, fanX) * 180 / .pi + side
+                    length = Double(h) * (compact ? 0.78 : 1.1) * lenK
+                    spread *= toward > 0 ? 1 + toward * 1.8 : 1
                 case .hanging:
-                    angle = 90 + side
-                    length = Double(h) * (compact ? 0.7 : 0.9) * fore
-                    spread *= 1 + (1 - fore) * 1.6
+                    angle = atan2(up - downY, fanX) * 180 / .pi + side
+                    length = Double(h) * (compact ? 0.7 : 0.9) * lenK
+                    spread *= toward > 0 ? 1 + toward * 1.8 : 1
                 case .upright:
                     // tilt turns the head around the upright bar: from facing you (short), out to the
                     // left or right (full length) — the crossing sweeps on a truss leg
@@ -432,7 +441,8 @@ struct StageCanvas: View {
                 }
 
                 // Lens glow
-                let lr: CGFloat = compact ? 5 : 9
+                // pointed at you, the lens flares (as in a phone video of the bar)
+                let lr: CGFloat = (compact ? 5 : 9) * CGFloat(1 + max(0, toward - 0.4) * 2.2)
                 glow.fill(Path(ellipseIn: CGRect(x: head.x - lr, y: head.y - lr, width: lr * 2, height: lr * 2)),
                           with: .radialGradient(Gradient(colors: [Color.white.opacity(level), col.opacity(0.8 * level), col.opacity(0)]),
                                                 center: head, startRadius: 0, endRadius: lr))
