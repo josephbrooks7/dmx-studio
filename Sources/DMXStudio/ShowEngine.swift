@@ -294,18 +294,50 @@ enum ShowGenerator {
             }
             let pal = pals[(levelSlot + shift) % pals.count]
 
-            // Phrase boundaries every 8 bars inside sections of 16+ bars
+            // Changes inside a part: where the music itself gets louder or quieter (so a part that was named
+            // wrong, or a build / break that was missed, still changes when the music does), and otherwise
+            // every 8 bars in parts of 12+ bars, so a long part never sits on one look.
             let inner = barTimes.filter { $0 > d.start + 0.1 && $0 < d.end - 0.1 }
-            var cuts: [Double] = []
-            if inner.count + 1 >= 16 && !isBuild {
-                var k = 8
-                while k < inner.count - 3 { cuts.append(inner[k - 1]); k += 8 }
+            let barLen = barTimes.count > 1 ? (barTimes.last! - barTimes.first!) / Double(barTimes.count - 1) : 2.0
+            func barLoud(_ a: Double, _ b: Double) -> Double {
+                let fps = a.frameRate
+                let s = max(0, Int(a * fps)), e = min(a.energy.count, max(s + 1, Int(b * fps)))
+                guard e > s else { return 0 }
+                return Double(a.energy[s..<e].reduce(0, +)) / Double(e - s)
             }
+            let songLoud = barLoud(a.musicStart, a.musicEnd)
+            var cuts: [Double] = []
+            if !isBuild && inner.count >= 3 {
+                let pts = [d.start] + inner + [d.end]
+                // a 2-bar window before and after each bar line: a big change in loudness is a new part
+                var last = d.start
+                for j in 2..<(pts.count - 2) {
+                    let before = barLoud(pts[j - 2], pts[j]), after = barLoud(pts[j], pts[j + 2])
+                    let change = abs(after - before) / max(songLoud, 1e-6)
+                    if change > 0.35, pts[j] - last >= 4 * (barLen > 0 ? barLen : 2), d.end - pts[j] >= 2 * (barLen > 0 ? barLen : 2) {
+                        cuts.append(pts[j]); last = pts[j]
+                    }
+                }
+            }
+            if inner.count + 1 >= 12 && !isBuild {
+                var k = 8
+                while k < inner.count - 3 {
+                    let t = inner[k - 1]
+                    if !cuts.contains(where: { abs($0 - t) < 3.5 * (barLen > 0 ? barLen : 2) }) { cuts.append(t) }
+                    k += 8
+                }
+            }
+            cuts.sort()
             let edges = [d.start] + cuts + [d.end]
+            let secLoud = barLoud(d.start, d.end)
             for p in 0..<(edges.count - 1) {
-                let look = p % 2 == 0 ? l : altFor(d.level, l)
+                // a stretch much louder or quieter than the rest of the part gets the look for that energy
+                let here = barLoud(edges[p], edges[p + 1])
+                let rel = (here - secLoud) / max(songLoud, 1e-6)
+                let lvl: EnergyLevel = rel > 0.3 ? (d.level == .low ? .medium : .high) : rel < -0.3 ? (d.level == .high || d.level == .drop ? .medium : .low) : d.level
+                let look = lvl != d.level ? altFor(lvl, lookFor(lvl, false)) : (p % 2 == 0 ? l : altFor(d.level, l))
                 out.append(ShowSection(name: p == 0 ? d.name : "\(d.name) ·\(p + 1)",
-                                       start: edges[p], end: edges[p + 1], level: d.level,
+                                       start: edges[p], end: edges[p + 1], level: lvl,
                                        effect: look.effect, palette: pal, intensity: look.intensity,
                                        rate: look.rate, movement: look.movement,
                                        accentStrobe: p == 0 && look.accent,
