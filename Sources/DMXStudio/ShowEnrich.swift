@@ -56,6 +56,13 @@ extension ShowGenerator {
             }
         }
 
+        // 4. Rules learned from a live concert (Robyn, live at the Trocadero):
+        //    • the whole song stays in one color family (blue → cyan → green), never a rainbow of looks
+        //    • energy shows as how busy the light is, not how bright: quiet breaks are a steady, bright,
+        //      saturated wash in a neighboring color; loud parts are darker with fast changes
+        //    • the stage goes almost dark for the bars before the band's big entrance
+        concertRules(&s, beat: beat, variation: variation)
+
         // 3. Transitions into the big moments (taken from the end of the block before: nothing moves)
         for k in stride(from: s.count - 1, through: 1, by: -1) {
             let prev = s[k - 1], cur = s[k]
@@ -83,6 +90,88 @@ extension ShowGenerator {
             slot.beamSteps = nil
             s[k - 1].end = slot.start
             s.insert(slot, at: k)
+        }
+    }
+
+    // MARK: - Concert rules
+
+    /// Main hue of a palette in degrees, and how spread its colors are (rainbows are wide)
+    static func hueInfo(_ name: String) -> (hue: Double, spread: Double, white: Bool) {
+        let cols = Palette.named(name).colors
+        var x = 0.0, y = 0.0, sat = 0.0
+        for c in cols {
+            let mx = max(c.r, c.g, c.b), mn = min(c.r, c.g, c.b)
+            let d = mx - mn
+            sat += mx > 0 ? d / mx : 0
+            guard d > 0.0001 else { continue }
+            var h: Double
+            if mx == c.r { h = (c.g - c.b) / d } else if mx == c.g { h = 2 + (c.b - c.r) / d } else { h = 4 + (c.r - c.g) / d }
+            h = (h * 60).truncatingRemainder(dividingBy: 360); if h < 0 { h += 360 }
+            x += cos(h * .pi / 180); y += sin(h * .pi / 180)
+        }
+        let n = Double(max(1, cols.count))
+        let len = sqrt(x * x + y * y) / n
+        var hue = atan2(y, x) * 180 / .pi; if hue < 0 { hue += 360 }
+        return (hue, 1 - len, sat / n < 0.25)
+    }
+
+    static func hueGap(_ a: Double, _ b: Double) -> Double { let d = abs(a - b).truncatingRemainder(dividingBy: 360); return min(d, 360 - d) }
+
+    private static func concertRules(_ s: inout [ShowSection], beat: Double, variation: Int) {
+        let live = s.indices.filter { s[$0].empty != true && s[$0].effect != .blackout && s[$0].transition == nil }
+        guard live.count >= 3 else { return }
+        // the song's color family: the palette the show uses the longest (weighted toward the loud parts)
+        var weight: [String: Double] = [:]
+        for k in live {
+            let w = (s[k].end - s[k].start) * (s[k].level == .high || s[k].level == .drop ? 1.5 : 1)
+            weight[s[k].palette, default: 0] += w
+        }
+        guard let main = weight.max(by: { $0.value < $1.value })?.key else { return }
+        let fam = hueInfo(main)
+        guard !fam.white, fam.spread < 0.5 else { return }      // a white or rainbow song: leave it
+        let family = Palette.all.map(\.id).filter { id in
+            let h = hueInfo(id); return !h.white && h.spread < 0.5 && hueGap(h.hue, fam.hue) <= 70
+        }
+        guard !family.isEmpty else { return }
+        let neighbors = family.filter { $0 != main }
+
+        var loudSeen = false
+        for (n, k) in live.enumerated() {
+            let h = hueInfo(s[k].palette)
+            // keep every part in the family (white / gold accents are fine)
+            if !h.white && (h.spread >= 0.5 || hueGap(h.hue, fam.hue) > 70) {
+                s[k].palette = family[(n + variation) % family.count]
+            }
+            let loud = s[k].level == .high || s[k].level == .drop
+            if loud { loudSeen = true; continue }
+            // a quiet break after loud parts: a steady, bright, saturated wash in a neighboring color
+            if loudSeen && s[k].level == .low && s[k].end - s[k].start >= 8 * beat {
+                s[k].effect = n % 2 == 0 ? .steady : .breathe
+                s[k].movement = .none
+                s[k].intensity = max(s[k].intensity, 0.95)
+                s[k].beamSteps = nil
+                s[k].phase = nil
+                if let nb = neighbors.isEmpty ? nil : neighbors[(n + variation) % neighbors.count] { s[k].palette = nb }
+            }
+        }
+
+        // the bars before the band's first big entrance go almost dark
+        if let first = s.indices.first(where: { (s[$0].level == .high || s[$0].level == .drop) && s[$0].empty != true }), first > 0 {
+            let p = first - 1
+            let hush = 8 * beat   // two bars
+            if s[p].empty != true, s[p].transition == nil, s[p].effect != .blackout, s[p].end - s[p].start >= hush + 8 * beat {
+                var slot = s[p]
+                slot.id = UUID()
+                slot.start = s[p].end - hush
+                slot.name = "Hush"
+                slot.effect = .breathe
+                slot.movement = .none
+                slot.intensity = 0.18
+                slot.beamSteps = nil
+                slot.accentStrobe = false
+                s[p].end = slot.start
+                s.insert(slot, at: first)
+            }
         }
     }
 }
