@@ -159,7 +159,7 @@ enum ShowGenerator {
             // big moves (flips, full swings) are saved for the high points.
             // Beams carry the show; tilting is an accent. Quiet and mid parts (verses, pre-choruses, builds)
             // hold still and let the beams cycle; choruses tilt only on every other phrase; drops move.
-            let calm = ["Verse", "Pre-Chorus", "Build", "Intro", "Outro", "Breakdown", "Bridge"].contains { secs[i].name.hasPrefix($0) }
+            let calm = ["Verse", "Pre-Chorus", "Build", "Intro", "Outro", "Breakdown", "Bridge", "Groove", "Break"].contains { secs[i].name.hasPrefix($0) }
             switch secs[i].level {
             case .low, .medium: secs[i].movement = .none
             case .high:
@@ -1373,21 +1373,35 @@ private extension ShowRenderer.Ctx {
 
 
 extension ShowGenerator {
-    /// Electronic tracks are built as intro → build → drop → breakdown → build → drop → outro, not verses
-    /// and choruses: the big part is the drop, the lift before it (8 bars, up to 16) is the build, and the
-    /// quieter middle part is the breakdown. Renames the parts for electronic / dubstep / techno shows.
+    /// Section names by genre (from the song-structure guide): pop keeps Verse / Pre-Chorus / Chorus;
+    /// house & EDM are Intro → Groove → Build → Drop → Breakdown → Build → Drop → Outro; dubstep / bass music
+    /// the same with a Break; techno is Groove → Break → Peak. A chorus is a songwriting part and a drop is an
+    /// energy part, so in dance-pop a chorus that hits like a drop keeps both names ("Chorus 2 · Drop").
     static func edmNamed(_ secs: [DetectedSection], style: ShowStyle) -> [DetectedSection] {
-        guard [.electronic, .dubstep, .techno].contains(style) else { return secs }
-        let rename: [String: String] = ["Chorus": "Drop", "Post-Chorus": "Drop", "Pre-Chorus": "Build", "Bridge": "Breakdown"]
+        let rename: [String: String]
+        switch style {
+        case .electronic: rename = ["Verse": "Groove", "Chorus": "Drop", "Post-Chorus": "Drop", "Pre-Chorus": "Build", "Bridge": "Breakdown"]
+        case .dubstep:    rename = ["Verse": "Groove", "Chorus": "Drop", "Post-Chorus": "Drop", "Pre-Chorus": "Build", "Bridge": "Break", "Breakdown": "Break"]
+        case .techno:     rename = ["Verse": "Groove", "Chorus": "Peak", "Post-Chorus": "Peak", "Pre-Chorus": "Build", "Bridge": "Break", "Breakdown": "Break"]
+        default:
+            // dance-pop: the chorus can be the drop too
+            guard [.pop, .club, .hyperpop, .latin, .disco].contains(style) else { return secs }
+            return secs.map { d in
+                var d = d
+                if d.level == .drop, d.name.hasPrefix("Chorus") || d.name.hasPrefix("Post-Chorus") { d.name += " · Drop" }
+                return d
+            }
+        }
+        func role(_ n: String) -> String {
+            for r in ["Pre-Chorus", "Post-Chorus"] where n.hasPrefix(r) { return r }
+            return n.split(separator: " ").first.map(String.init) ?? n
+        }
         var out: [DetectedSection] = []
         for var d in secs {
-            let base = d.name.split(separator: " ").first.map(String.init) ?? d.name
-            let role = d.name.hasPrefix("Pre-Chorus") ? "Pre-Chorus" : d.name.hasPrefix("Post-Chorus") ? "Post-Chorus" : base
-            if let n = rename[role] { d.name = n }
-            else { d.name = role }
-            if d.name == "Drop", d.level == .medium { d.level = .high }
+            d.name = rename[role(d.name)] ?? role(d.name)
+            if (d.name == "Drop" || d.name == "Peak"), d.level == .medium { d.level = .high }
             // a drop right after a drop (old chorus + post-chorus) is one longer drop
-            if let last = out.last, last.name == d.name, d.name == "Drop" {
+            if let last = out.last, last.name == d.name, d.name == "Drop" || d.name == "Peak" || d.name == "Groove" {
                 out[out.count - 1] = DetectedSection(start: last.start, end: d.end, energy: max(last.energy, d.energy), level: last.level, name: last.name)
                 continue
             }
@@ -1399,7 +1413,7 @@ extension ShowGenerator {
         for i in out.indices where out[i].name != "Silence" {
             let n = out[i].name
             counts[n, default: 0] += 1
-            if (totals[n] ?? 0) > 1 || ["Build", "Drop", "Verse"].contains(n) { out[i].name = "\(n) \(counts[n]!)" }
+            if (totals[n] ?? 0) > 1 { out[i].name = "\(n) \(counts[n]!)" }
         }
         return out
     }

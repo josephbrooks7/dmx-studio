@@ -10,8 +10,9 @@ extension ShowGenerator {
         var rng = SeededRandom(seed: UInt64(max(1, variation)) &* 7919 &+ UInt64(max(0, Int(a.duration * 10))))
 
         func base(_ name: String) -> String {
-            name.components(separatedBy: CharacterSet.decimalDigits).joined()
-                .replacingOccurrences(of: "·", with: "").trimmingCharacters(in: .whitespaces)
+            // "Chorus 2 · Drop" → "Chorus" (the songwriting part; the drop shows in the level)
+            (name.components(separatedBy: "·").first ?? name).components(separatedBy: CharacterSet.decimalDigits).joined()
+                .trimmingCharacters(in: .whitespaces)
         }
         let calm: Set<LightEffect> = [.steady, .breathe, .gradient, .aurora, .water, .tide, .shimmer, .magic, .goldDust, .embers]
 
@@ -77,7 +78,10 @@ extension ShowGenerator {
             if cur.level == .drop && prev.level != .drop { kind = .blackout }
             else if to == "Chorus" && from == "Chorus" { kind = .doubleFlash }
             else if to == "Chorus" { kind = from == "Pre-Chorus" ? .strobeRamp : .rise }
+            else if to == "Drop" || to == "Peak" { kind = from == "Build" ? .strobeRamp : .rise }
             else if to == "Pre-Chorus" || to == "Build" { kind = .chaseRun }
+            else if to == "Break" { kind = .fadeOut }
+            else if to == "Groove" { kind = bigFrom ? .fadeOut : .colorPop }
             else if to == "Bridge" { kind = .sweep }
             else if to == "Post-Chorus" { kind = .splitFlash }
             else if ["Breakdown", "Interlude", "Instrumental"].contains(to) { kind = .fadeOut }

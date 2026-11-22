@@ -264,7 +264,13 @@ enum LyricsLearner {
             s = s.dropFirst("instrumental".count).trimmingCharacters(in: .whitespaces)
             if s.isEmpty { return "Instrumental|inst" }
         }
-        let kinds: [(String, String)] = [("pre-chorus", "Pre-Chorus"), ("pre chorus", "Pre-Chorus"), ("prechorus", "Pre-Chorus"),
+        let kinds: [(String, String)] = [("pre-hook", "Pre-Chorus"), ("pre hook", "Pre-Chorus"), ("lift", "Pre-Chorus"),
+                                         ("post-hook", "Post-Chorus"), ("post hook", "Post-Chorus"), ("vocal tag", "Post-Chorus"), ("tag", "Post-Chorus"),
+                                         ("middle eight", "Bridge"), ("middle 8", "Bridge"),
+                                         ("pre-drop", "Build"), ("pre drop", "Build"), ("riser", "Build"),
+                                         ("main groove", "Groove"), ("groove", "Groove"), ("drive", "Groove"),
+                                         ("peak", "Drop"), ("climax", "Drop"), ("final drop", "Drop"), ("second drop", "Drop"),
+                                         ("pre-chorus", "Pre-Chorus"), ("pre chorus", "Pre-Chorus"), ("prechorus", "Pre-Chorus"),
                                          ("post-chorus", "Post-Chorus"), ("post chorus", "Post-Chorus"), ("postchorus", "Post-Chorus"),
                                          ("chorus", "Chorus"), ("hook", "Chorus"), ("refrain", "Chorus"), ("verse", "Verse"),
                                          ("bridge", "Bridge"), ("intro", "Intro"), ("outro", "Outro"), ("ending", "Outro"),
