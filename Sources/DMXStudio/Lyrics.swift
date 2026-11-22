@@ -173,12 +173,24 @@ enum LyricsLearner {
         let total = lineWords.reduce(0) { $0 + $1.count }
         var words: [LyricWord] = []
         var lines: [LyricLine] = []
-        if heard.count >= 4, let matched = matchToHeard(lineWords, heard: heard, duration: duration) {
-            // the pasted words lined up with the words that were actually heard
+        let windows = heard.count >= 4 ? phraseWindows(lineWords, heard: heard, phrases: phrases, duration: duration) : nil
+        if heard.count >= 4, var matched = matchToHeard(lineWords, heard: heard, duration: duration) {
+            // the pasted words lined up with the words that were actually heard; where a line landed
+            // outside the sung phrase it matches, the phrase wins (word matches can pin a repeated line
+            // to the wrong chorus)
+            if let windows { matched = fitToWindows(matched, windows) }
             for (li, lw) in matched.enumerated() {
                 words += lw
                 let c = lw.map(\.confidence).reduce(0, +) / Double(max(1, lw.count))
                 lines.append(LyricLine(text: raw[li], start: lw.first?.start ?? 0, end: lw.last?.end ?? 0, confidence: c))
+            }
+        } else if let windows {
+            // too few single words in common, but whole phrases still match: place each line on its phrase
+            for (li, lw) in lineWords.enumerated() {
+                let win = windows[li]
+                let placed = spread(lw, win.start, win.end, confidence: win.matched ? 0.6 : 0.35)
+                words += placed
+                lines.append(LyricLine(text: raw[li], start: win.start, end: win.end, confidence: win.matched ? 0.6 : 0.35))
             }
         } else if heard.count >= 4 {
             // spread the pasted words over the heard words in order
@@ -357,6 +369,196 @@ enum LyricsLearner {
             prev = row
         }
         return prev[y.count] <= 1
+    }
+
+    // MARK: Phrase-level timing for pasted lyrics
+
+    struct LineWindow { var start: Double; var end: Double; var matched: Bool }
+
+    /// Heard words grouped into sung phrases: a new phrase after a breath (a gap of 0.45 s or more)
+    static func heardPhrases(_ heard: [LyricWord]) -> [(words: [LyricWord], start: Double, end: Double)] {
+        let h = heard.sorted { $0.start < $1.start }.filter { !normWord($0.text).isEmpty }
+        var out: [(words: [LyricWord], start: Double, end: Double)] = []
+        var cur: [LyricWord] = []
+        for w in h {
+            if let last = cur.last, w.start - last.end >= 0.45 || cur.count >= 14 {
+                out.append((cur, cur.first!.start, cur.last!.end)); cur = []
+            }
+            cur.append(w)
+        }
+        if !cur.isEmpty { out.append((cur, cur.first!.start, cur.last!.end)) }
+        return out
+    }
+
+    /// How much of a pasted line shows up in some heard words (0…1). Distinctive words count most;
+    /// the little common ones count a bit, so short lines like "Just you" can still match.
+    static func lineScore(_ line: [String], _ heard: [String]) -> Double {
+        let lw = line.map(normWord).filter { !$0.isEmpty }
+        guard !lw.isEmpty, !heard.isEmpty else { return 0 }
+        let small: Set<String> = ["i", "me", "my", "you", "your", "it", "is", "a", "the", "of", "to", "and", "in", "on", "am",
+                                  "be", "we", "oh", "so", "but", "or", "im", "its", "youre", "dont", "are", "was", "that", "this"]
+        var got = 0.0, total = 0.0
+        var pool = heard
+        for w in lw {
+            let weight = small.contains(w) || w.count <= 2 ? 0.35 : 1
+            total += weight
+            if let k = pool.firstIndex(where: { sameWord(w, $0) }) { got += weight; pool.remove(at: k) }
+        }
+        return total > 0 ? got / total : 0
+    }
+
+    /// Best in-order placement of the pasted lines on the sung phrases. A line can take one to three
+    /// phrases (a breath in the middle of a line), two short lines can share a phrase, and a line
+    /// nothing matches is skipped here and fitted in between its neighbours afterwards.
+    static func phraseWindows(_ lineWords: [[String]], heard: [LyricWord], phrases: [TimeSpan], duration: Double) -> [LineWindow]? {
+        let ph = heardPhrases(heard)
+        let n = lineWords.count, m = ph.count
+        guard n > 0, m >= 2, n * m < 200_000 else { return nil }
+        let pw = ph.map { $0.words.map { normWord($0.text) } }
+        // score of line i on phrases j…j+span
+        func score(_ i: Int, _ j: Int, _ span: Int) -> Double {
+            guard j + span < m else { return -1 }
+            let words = (j...(j + span)).flatMap { pw[$0] }
+            let s = lineScore(lineWords[i], words)
+            // the line should roughly fill those phrases: penalize taking far more words than the line has
+            let extra = Double(max(0, words.count - lineWords[i].count * 2)) / Double(max(1, words.count))
+            return s - 0.12 * Double(span) - 0.3 * extra
+        }
+        let skipLine = -0.25      // a line that isn't heard anywhere
+        let minGood = 0.34        // below this a phrase doesn't count as that line
+        // best[i][e]: best total for lines 0..<i with the last placed line ending at phrase e (e = -1: none yet → index 0)
+        let NEG = -1e9
+        var best = [[Double]](repeating: [Double](repeating: NEG, count: m + 1), count: n + 1)
+        var from = [[(e: Int, j: Int, span: Int)]](repeating: [(e: Int, j: Int, span: Int)](repeating: (-2, -1, 0), count: m + 1), count: n + 1)
+        best[0][0] = 0
+        for i in 0..<n {
+            // running best over end positions ≤ e (lines stay in order)
+            var runBest = NEG, runE = 0
+            var prefix = [(Double, Int)](repeating: (NEG, 0), count: m + 1)
+            for e in 0...m {
+                if best[i][e] > runBest { runBest = best[i][e]; runE = e }
+                prefix[e] = (runBest, runE)
+            }
+            for e in 0...m where best[i][e] > NEG {
+                // skip this line (keep the end where it was)
+                let v = best[i][e] + skipLine
+                if v > best[i + 1][e] { best[i + 1][e] = v; from[i + 1][e] = (e, -1, 0) }
+            }
+            for j in 0..<m {
+                for span in 0...2 where j + span < m {
+                    let s = score(i, j, span)
+                    guard s >= minGood else { continue }
+                    let e = j + span + 1                      // stored as 1-based end
+                    // a fresh phrase: any earlier line ending at or before phrase j
+                    let (pb, pe) = prefix[j]
+                    var cand = pb > NEG ? pb + 2 * s : NEG, ce = pe
+                    // or share phrase j with the line before (two short lines in one breath)
+                    if best[i][j + 1] > NEG && span == 0 {
+                        let shared = best[i][j + 1] + 2 * s - 0.35
+                        if shared > cand { cand = shared; ce = j + 1 }
+                    }
+                    if cand > best[i + 1][e] { best[i + 1][e] = cand; from[i + 1][e] = (ce, j, span) }
+                }
+            }
+        }
+        // walk back from the best ending
+        var e = (0...m).max { best[n][$0] < best[n][$1] }!
+        var placed = [(j: Int, span: Int)?](repeating: nil, count: n)
+        var i = n
+        while i > 0 {
+            let f = from[i][e]
+            if f.j >= 0 { placed[i - 1] = (f.j, f.span) }
+            e = max(0, f.e); i -= 1
+        }
+        let matchedCount = placed.compactMap { $0 }.count
+        guard matchedCount >= max(2, n / 5) else { return nil }
+
+        // times for the matched lines: from the first to the last heard word in their phrases;
+        // lines sharing a phrase split it by their word counts
+        var win = [LineWindow?](repeating: nil, count: n)
+        var k = 0
+        while k < n {
+            guard let p = placed[k] else { k += 1; continue }
+            var group = [k]
+            var q = k + 1
+            while q < n, let pq = placed[q], pq.j == p.j + p.span, pq.span == 0, p.span == 0 { group.append(q); q += 1 }
+            let a = ph[p.j].start, b = ph[p.j + p.span].end
+            if group.count == 1 {
+                win[k] = LineWindow(start: a, end: b, matched: true)
+            } else {
+                let counts = group.map { Double(max(1, lineWords[$0].count)) }
+                let total = counts.reduce(0, +)
+                var t = a
+                for (g, li) in group.enumerated() {
+                    let len = (b - a) * counts[g] / total
+                    win[li] = LineWindow(start: t, end: t + len, matched: true); t += len
+                }
+            }
+            k = q
+        }
+        // lines not heard: fit them between their matched neighbours, on the sung parts when known
+        var out = [LineWindow](repeating: LineWindow(start: 0, end: 0, matched: false), count: n)
+        var idx = 0
+        while idx < n {
+            if let w = win[idx] { out[idx] = w; idx += 1; continue }
+            var stop = idx
+            while stop < n && win[stop] == nil { stop += 1 }
+            let lo = idx > 0 ? out[idx - 1].end + 0.05 : max(0, (stop < n ? win[stop]!.start : duration) - 3.5 * Double(stop - idx))
+            let hi = stop < n ? win[stop]!.start - 0.05 : min(duration, lo + 3.5 * Double(stop - idx))
+            // only the sung time between them
+            var spans = phrases.compactMap { s -> TimeSpan? in
+                let x = max(s.start, lo), y = min(s.end, hi); return y - x > 0.2 ? TimeSpan(start: x, end: y) : nil
+            }
+            if spans.isEmpty { spans = [TimeSpan(start: lo, end: max(lo + 0.3, hi))] }
+            let sung = spans.reduce(0) { $0 + $1.end - $1.start }
+            let counts = (idx..<stop).map { Double(max(1, lineWords[$0].count)) }
+            let total = counts.reduce(0, +)
+            func at(_ f: Double) -> Double {
+                var left = f * sung
+                for s in spans { let l = s.end - s.start; if left <= l { return s.start + left }; left -= l }
+                return spans.last!.end
+            }
+            var acc = 0.0
+            for (g, li) in (idx..<stop).enumerated() {
+                let a = at(acc / total); acc += counts[g]; let b = at(acc / total)
+                out[li] = LineWindow(start: a, end: max(a + 0.25, b), matched: false)
+            }
+            idx = stop
+        }
+        return out
+    }
+
+    /// Keep the word-level timing where it agrees with the line's phrase; otherwise move the line's
+    /// words into its phrase (keeping their spacing).
+    static func fitToWindows(_ lines: [[LyricWord]], _ windows: [LineWindow]) -> [[LyricWord]] {
+        var out = lines
+        for (li, lw) in lines.enumerated() where li < windows.count && !lw.isEmpty {
+            let win = windows[li]
+            let s = lw.first!.start, e = lw.last!.end
+            let mid = (s + e) / 2
+            let inside = mid >= win.start - 1.0 && mid <= win.end + 1.0
+            if inside && (win.matched || lw.contains { $0.confidence >= 0.7 }) { continue }
+            if !win.matched && lw.contains(where: { $0.confidence >= 0.7 }) { continue }   // heard words beat a guess
+            out[li] = spread(lw.map(\.text), win.start, win.end, confidence: win.matched ? 0.6 : 0.35)
+        }
+        // keep lines in order and not overlapping
+        for li in 1..<max(1, out.count) where !out[li].isEmpty && !out[li - 1].isEmpty {
+            let prevEnd = out[li - 1].last!.end
+            if out[li].first!.start < prevEnd - 0.05 {
+                let shift = prevEnd - out[li].first!.start + 0.02
+                out[li] = out[li].map { var w = $0; w.start += shift; w.end += shift; return w }
+            }
+        }
+        return out
+    }
+
+    /// Words of a line spread evenly over a time window
+    static func spread(_ words: [String], _ a: Double, _ b: Double, confidence: Double) -> [LyricWord] {
+        let n = max(1, words.count)
+        let step = max(0.05, (b - a) / Double(n))
+        return words.enumerated().map { k, w in
+            LyricWord(text: w, start: a + step * Double(k), end: a + step * Double(k) + step * 0.9, confidence: confidence)
+        }
     }
 
     /// Line up pasted words with the heard words (best in-order match, like lining up two texts),
