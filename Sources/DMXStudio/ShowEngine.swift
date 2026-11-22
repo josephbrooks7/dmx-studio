@@ -160,13 +160,32 @@ enum ShowGenerator {
             // Beams carry the show; tilting is an accent. Quiet and mid parts (verses, pre-choruses, builds)
             // hold still and let the beams cycle; choruses tilt only on every other phrase; drops move.
             let calm = ["Verse", "Pre-Chorus", "Build", "Intro", "Outro", "Breakdown", "Bridge", "Groove", "Break"].contains { secs[i].name.hasPrefix($0) }
+            // Every part moves in a way that fits its energy, so a calm song still has motion:
+            //   quiet: the heads hold, but at a new angle each part (the stage looks different part to part)
+            //   medium: a slow sweep (half speed); a pre-chorus / build rises to the middle
+            //   loud: sweeps and fans every phrase; drops get the big moves
+            let isLift = secs[i].name.hasPrefix("Pre-Chorus") || secs[i].name.hasPrefix("Build")
+            let holdAims = [0.62, 0.42, 0.78, 0.5, 0.7, 0.35]
             switch secs[i].level {
-            case .low, .medium: secs[i].movement = .none
+            case .low:
+                secs[i].movement = .none
+                secs[i].aim = holdAims[i % holdAims.count]
+            case .medium:
+                if isLift { secs[i].movement = .riseToMiddle }
+                else if secs[i].name.hasPrefix("Intro") || secs[i].name.hasPrefix("Outro") {
+                    secs[i].movement = .none; secs[i].aim = holdAims[i % holdAims.count]
+                } else {
+                    secs[i].movement = i % 2 == 0 ? .sweep : .fan
+                    secs[i].rate = min(secs[i].rate, 0.5)
+                }
             case .high:
-                if calm || i % 2 == 1 { secs[i].movement = .none }
-                else if [.flip, .fullRotate, .beatNod].contains(secs[i].movement) { secs[i].movement = .sweep }
+                if isLift { secs[i].movement = .riseToMiddle }
+                else if calm { secs[i].movement = .sweep }
+                else if [.flip, .fullRotate, .beatNod].contains(secs[i].movement) || secs[i].movement == .none {
+                    secs[i].movement = i % 2 == 0 ? .sweep : .fan
+                }
             case .drop:
-                if secs[i].movement == .fullRotate { secs[i].movement = .fan }
+                if secs[i].movement == .fullRotate || secs[i].movement == .none { secs[i].movement = .fan }
             }
             // Tilt-only bars (like the SHEHDS beam bars): moves that need pan become tilt moves
             if movers && !canPan {
