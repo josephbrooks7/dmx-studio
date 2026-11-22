@@ -480,6 +480,7 @@ struct ShowScreen: View {
     var body: some View {
         content
             .sheet(isPresented: $model.showDeviceLibrary) { DeviceLibraryView().environmentObject(model) }
+            .sheet(isPresented: $model.showHueSetup) { HueSetupView().environmentObject(model) }
             .alert("Remove \(model.fixtures.first { $0.id == removing }?.name ?? "this device")?",
                    isPresented: Binding(get: { removing != nil }, set: { if !$0 { removing = nil } })) {
                 Button("Remove", role: .destructive) {
@@ -559,6 +560,7 @@ struct ShowScreen: View {
                                             Button(p.name) { model.addFixture(profile: p) }
                                         }
                                     }
+                                    Button("Philips Hue…") { model.showHueSetup = true }
                                     Divider()
                                     Button("Device Library…") { model.showDeviceLibrary = true }
                                 } label: { Label("Add Device", systemImage: "plus") }
@@ -578,7 +580,8 @@ struct ShowScreen: View {
                                         Text(fx.isOn ? "Used" : "Not used").font(.caption).foregroundColor(.secondary).frame(width: 70, alignment: .leading)
                                         Text("\(fx.modeLabel) · \(fx.headCount > 1 ? "\(fx.headCount) beams" : "1 light")")
                                             .font(.caption).foregroundColor(.secondary).frame(width: 140, alignment: .leading)
-                                        Text("Address \(fx.address)–\(fx.address + max(1, fx.channels.count) - 1)")
+                                        Text(AppModel.hueLightID(fx) != nil ? "Philips Hue · Wi-Fi"
+                                             : "Address \(fx.address)–\(fx.address + max(1, fx.channels.count) - 1)")
                                             .font(.caption.monospacedDigit()).foregroundColor(.secondary)
                                         Spacer()
                                         Button {

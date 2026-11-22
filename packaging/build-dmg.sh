@@ -68,6 +68,7 @@ cat > "$APP/Contents/Info.plist" <<PLIST
       <key>UTTypeTagSpecification</key><dict><key>public.filename-extension</key><array><string>dmxsession</string></array></dict>
     </dict>
   </array>
+  <key>NSAppTransportSecurity</key><dict><key>NSAllowsLocalNetworking</key><true/></dict>
   <key>NSMicrophoneUsageDescription</key><string>DMX Studio listens to your microphone or computer audio (through BlackHole) to keep the lights on the beat and follow the sound.</string>
   <key>NSSpeechRecognitionUsageDescription</key><string>DMX Studio listens to the separated vocals of your songs to learn the lyrics, so the light show can follow what is being sung.</string>
   <key>NSLocalNetworkUsageDescription</key><string>DMX Studio looks for wireless DMX devices (like PKnight Art-Net boxes) on your network and sends lighting data to them.</string>

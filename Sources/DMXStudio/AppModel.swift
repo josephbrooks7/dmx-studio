@@ -75,6 +75,7 @@ final class AppModel: ObservableObject {
     /// Devices you've set up, kept across sessions (Device Library)
     @Published var deviceLibrary: [Fixture] = DeviceLibrary.load()
     @Published var showDeviceLibrary = false
+    @Published var showHueSetup = false
     @Published var songs: [Song] = [] { didSet { scheduleSave(); recordShowUndo(oldValue) } }
 
     // MARK: Undo / redo for light show edits (⌘Z / ⇧⌘Z)
@@ -1323,7 +1324,8 @@ final class AppModel: ObservableObject {
     }
 
     func addressConflicts(for fx: Fixture) -> [Fixture] {
-        fixtures.filter { $0.id != fx.id && $0.address <= fx.lastAddress && fx.address <= $0.lastAddress }
+        fixtures.filter { $0.id != fx.id && $0.outputKey == fx.outputKey && fx.outputKey?.hasPrefix("hue:") != true
+                          && $0.address <= fx.lastAddress && fx.address <= $0.lastAddress }
     }
 
     // MARK: - Songs
@@ -3434,7 +3436,9 @@ final class AppModel: ObservableObject {
 
         // One DMX frame per output device
         var frames: [String: [UInt8]] = [:]
-        let keys = Set(fixtures.map { $0.outputKey ?? DMXEngine.mainKey })
+        // Hue lights go over Wi-Fi to the Hue Bridge, not DMX
+        sendHue(wire)
+        let keys = Set(fixtures.map { $0.outputKey ?? DMXEngine.mainKey }).filter { !$0.hasPrefix("hue:") }
         for key in keys {
             let idx = fixtures.indices.filter { (fixtures[$0].outputKey ?? DMXEngine.mainKey) == key && $0 < wire.count && !isCopy[$0] }
             frames[key] = DMXMapper.frame(fixtures: idx.map { fixtures[$0] }, rendered: idx.map { wire[$0] },
