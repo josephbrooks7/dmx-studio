@@ -157,6 +157,17 @@ enum SongStructure {
             return pa < pb
         }?.key ?? -1
         let chorusE = groups[chorusGroup].map { $0.energy / Double($0.count) } ?? 0.8
+        // does this part sound like a chorus? as loud as the choruses, or the chorus's chords and nearly as loud
+        // (when the whole song loops one progression the chords prove nothing, so only loudness counts)
+        let chorusSegs = body.filter { segs[$0].group == chorusGroup }
+        func likeChorus(_ s: Seg) -> Bool {
+            let e = e01(s)
+            if e >= chorusE - 0.12 { return true }
+            guard !oneLoop, e >= chorusE - 0.25 else { return false }
+            let head = (a: s.a, b: min(s.a + 4, s.b))
+            let sim = chorusSegs.map { chordSim(head, (a: segs[$0].a, b: min(segs[$0].a + 4, segs[$0].b))) }.max() ?? 0
+            return sim > 0.8
+        }
         var chorusesSoFar = 0
         for (n, i) in musical.enumerated() {
             let s = segs[i], e = e01(s)
@@ -169,6 +180,7 @@ enum SongStructure {
             else if s.group == verseGroup && chorusesSoFar < 3 { role = "Verse" }
             // a bridge: comes after two choruses, appears once, and is a full part (not a 4-bar lead-in)
             else if chorusesSoFar >= 2 && once(i) && barsLong >= 6 { role = "Bridge" }
+            else if let ni = nextI, segs[ni].group == chorusGroup, likeChorus(s) { role = "Chorus" }   // a double chorus / chorus variant
             else if let ni = nextI, segs[ni].group == chorusGroup, barsLong <= 16 { role = "Pre-Chorus" }   // trimmed to its last 4–8 bars below
             else if n > 0, segs[musical[n - 1]].role == "Chorus", e >= chorusE - 0.15, barsLong <= 8 { role = "Post-Chorus" }
             else if chorusesSoFar >= 2 && once(i) { role = "Bridge" }
@@ -218,6 +230,35 @@ enum SongStructure {
                 fixed.append(second)
             }
             merged = fixed
+        }
+        // a "pre-chorus" longer than 8 bars that gets as loud as a chorus partway through: from that bar on
+        // it's the chorus (the change was missed), and only the bars just before the jump are the pre-chorus
+        func barE(_ b: Int) -> Double { b >= 0 && b < eng.count ? (eng[b] - eMin) / eRange : 0 }
+        var split: [Seg] = []
+        for s in merged {
+            let n = s.b - s.a
+            guard s.role == "Pre-Chorus", !silent(s), n > 8, s.b <= bars.count else { split.append(s); continue }
+            var best = -1, bestJump = 0.0
+            for k in stride(from: s.a + 4, to: s.b - 3, by: 4) where k < bars.count {
+                let before = (s.a..<k).map(barE).reduce(0, +) / Double(k - s.a)
+                let after = (k..<s.b).map(barE).reduce(0, +) / Double(s.b - k)
+                if after - before > bestJump { bestJump = after - before; best = k }
+            }
+            let afterE = best > 0 ? (best..<s.b).map(barE).reduce(0, +) / Double(s.b - best) : 0
+            if best > 0, bestJump > 0.15, afterE >= chorusE - 0.18 {
+                var pre = s, ch = s
+                pre.b = best; pre.end = bars[best]
+                ch.a = best; ch.start = bars[best]; ch.role = "Chorus"
+                split.append(pre)
+                split.append(ch)
+            } else { split.append(s) }
+        }
+        // the chorus that was split off joins the chorus right after it
+        merged = []
+        for s in split {
+            if let last = merged.last, last.role == "Chorus", s.role == "Chorus", !silent(s), !silent(last) {
+                merged[merged.count - 1].b = s.b; merged[merged.count - 1].end = s.end
+            } else { merged.append(s) }
         }
         shorten("Pre-Chorus", keepLastBars: true, max: 8, rest: "Verse")
         shorten("Post-Chorus", keepLastBars: false, max: 8, rest: "Verse")
