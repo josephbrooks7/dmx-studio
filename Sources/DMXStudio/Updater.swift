@@ -242,38 +242,43 @@ final class Updater: ObservableObject {
         return dst
     }
 
-    /// Run a tool and wait for it without blocking (waitUntilExit could hang forever in a background task)
+    /// Run a tool and wait for it on a plain background thread (the same way Learn's helper runs):
+    /// check every 50 ms whether it's done, with a time limit. No termination callbacks or readability
+    /// handlers: those fired after the step was cleaned up and crashed the app during an update.
     @discardableResult
     nonisolated static func shell(_ tool: String, _ args: [String], timeout: Double = 300) async throws -> String {
         try await withCheckedThrowingContinuation { (c: CheckedContinuation<String, Error>) in
-            let p = Process()
-            p.executableURL = URL(fileURLWithPath: tool)
-            p.arguments = args
-            let out = Pipe()
-            p.standardOutput = out; p.standardError = out
-            let lock = NSLock()
-            var buffer = Data(), finished = false
-            func finish(_ r: Result<String, Error>) {
-                lock.lock(); defer { lock.unlock() }
-                guard !finished else { return }
-                finished = true
-                c.resume(with: r)
-            }
-            out.fileHandleForReading.readabilityHandler = { h in
-                let d = h.availableData
-                lock.lock(); buffer.append(d); lock.unlock()
-            }
-            p.terminationHandler = { proc in
-                out.fileHandleForReading.readabilityHandler = nil
-                lock.lock(); buffer.append(out.fileHandleForReading.readDataToEndOfFile()); let text = String(data: buffer, encoding: .utf8) ?? ""; lock.unlock()
-                if proc.terminationStatus == 0 { finish(.success(text)) }
-                else { finish(.failure(UpdateError("Update step failed (\((tool as NSString).lastPathComponent)): \(text.trimmingCharacters(in: .whitespacesAndNewlines).suffix(300))"))) }
-            }
-            do { try p.run(); RunningStep.process = p } catch { finish(.failure(error)); return }
-            DispatchQueue.global().asyncAfter(deadline: .now() + timeout) {
-                if p.isRunning {
-                    p.terminate()
-                    finish(.failure(UpdateError("An update step took too long (\((tool as NSString).lastPathComponent)). Nothing was changed: try again, or use the installer.")))
+            DispatchQueue.global(qos: .utility).async {
+                let p = Process()
+                p.executableURL = URL(fileURLWithPath: tool)
+                p.arguments = args
+                let out = Pipe()
+                p.standardOutput = out; p.standardError = out
+                var data = Data()
+                let reader = DispatchGroup()
+                reader.enter()
+                DispatchQueue.global(qos: .utility).async { data = out.fileHandleForReading.readDataToEndOfFile(); reader.leave() }
+                do { try p.run() } catch {
+                    try? out.fileHandleForWriting.close()
+                    reader.wait()
+                    c.resume(throwing: error); return
+                }
+                RunningStep.process = p
+                let deadline = Date().addingTimeInterval(timeout)
+                while p.isRunning && Date() < deadline { Thread.sleep(forTimeInterval: 0.05) }
+                let timedOut = p.isRunning
+                if timedOut { p.terminate(); Thread.sleep(forTimeInterval: 0.3) }
+                if p.isRunning { kill(p.processIdentifier, SIGKILL) }
+                reader.wait()
+                RunningStep.process = nil
+                let name = (tool as NSString).lastPathComponent
+                let text = String(decoding: data, as: UTF8.self)
+                if timedOut {
+                    c.resume(throwing: UpdateError("An update step took too long (\(name)). Nothing was changed: try again, or use the installer."))
+                } else if p.terminationStatus != 0 {
+                    c.resume(throwing: UpdateError("Update step failed (\(name)): \(text.trimmingCharacters(in: .whitespacesAndNewlines).suffix(300))"))
+                } else {
+                    c.resume(returning: text)
                 }
             }
         }
