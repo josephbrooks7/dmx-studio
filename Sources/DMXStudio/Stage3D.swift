@@ -535,6 +535,30 @@ struct Stage3DView: NSViewRepresentable {
 
         func setCamera(_ name: String) {
             switch name {
+            case "Zoom In", "Zoom Out":
+                // move the camera along where it's looking (keeps any orbit you've done)
+                let pov = view?.pointOfView ?? camera
+                let f = pov.worldFront
+                let step: CGFloat = name == "Zoom In" ? 1.4 : -1.4
+                pov.position = SCNVector3(pov.position.x + f.x * step, pov.position.y + f.y * step, pov.position.z + f.z * step)
+                return
+            case "Close-up":
+                // in front of the lights, slightly below them, so you see each one tilt and its beams move
+                let pts = itemNodes.compactMap { id, n -> SCNVector3? in
+                    itemSnapshot[id]?.fixtureID != nil ? n.worldPosition : nil
+                }
+                guard !pts.isEmpty else { setCamera("Audience"); return }
+                let c = SCNVector3(pts.map { $0.x }.reduce(0, +) / CGFloat(pts.count),
+                                   pts.map { $0.y }.reduce(0, +) / CGFloat(pts.count),
+                                   pts.map { $0.z }.reduce(0, +) / CGFloat(pts.count))
+                let spread = pts.map { abs($0.x - c.x) }.max() ?? 1
+                // from the front-side (3/4 view): the bars tilt forward and back, which a straight-on
+                // view hides; from here you see the heads rotate and the beams swing
+                let d = max(3.2, spread * 1.6 + 2)
+                camera.position = SCNVector3(c.x + d * 0.75, c.y + 1.3, c.z + d * 0.75)
+                camera.look(at: SCNVector3(c.x, c.y + 0.9, c.z))
+                view?.pointOfView = camera
+                return
             case "Top": camera.position = SCNVector3(0, 16, 1); camera.look(at: SCNVector3(0, 0, -1))
             case "Side": camera.position = SCNVector3(12, 3, -1); camera.look(at: SCNVector3(0, 1.8, -1.5))
             case "Audience": camera.position = SCNVector3(0, 2.3, 8.2); camera.look(at: SCNVector3(0, 2.2, -2))

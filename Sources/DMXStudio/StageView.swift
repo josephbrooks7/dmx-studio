@@ -56,9 +56,17 @@ struct StageScreen: View {
                         .font(.caption).foregroundColor(Theme.subtle).lineLimit(1)
                 }
                 Spacer()
-                ForEach(["Overview", "Audience", "Top", "Side"], id: \.self) { v in
+                ForEach(["Overview", "Audience", "Top", "Side", "Close-up"], id: \.self) { v in
                     Button(v) { model.stageCameraRequest = (v, UUID()) }.buttonStyle(PillButtonStyle())
+                        .help(v == "Close-up" ? "Zoom in on your lights to see them tilt and move" : "")
                 }
+                HStack(spacing: 2) {
+                    Button { model.stageCameraRequest = ("Zoom Out", UUID()) } label: { Image(systemName: "minus.magnifyingglass") }
+                        .help("Zoom out")
+                    Button { model.stageCameraRequest = ("Zoom In", UUID()) } label: { Image(systemName: "plus.magnifyingglass") }
+                        .help("Zoom in (you can also scroll or pinch)")
+                }
+                .buttonStyle(PillButtonStyle())
                 HStack(spacing: 6) {
                     Image(systemName: "cloud.fog").foregroundColor(Theme.subtle)
                     Slider(value: $model.haze, in: 0.1...1).frame(width: 90)
@@ -409,7 +417,9 @@ struct StageCanvas: View {
             }
 
             if compact {
-                ctx.draw(Text(fx.name).font(.system(size: 9, weight: .semibold)).foregroundColor(Color.white.opacity(0.6)),
+                let deg = Int(((rf.tilt - 0.5) * 180).rounded())
+                ctx.draw(Text("\(fx.name) · tilt \(deg > 0 ? "+" : "")\(deg)°").font(.system(size: 9, weight: .semibold).monospacedDigit())
+                            .foregroundColor(Color.white.opacity(0.6)),
                          at: CGPoint(x: origin.x, y: origin.y + (p.mount == .hanging ? -16 : 18)))
                 continue
             }
