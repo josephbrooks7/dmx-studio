@@ -63,21 +63,28 @@ extension ShowGenerator {
         //    • the stage goes almost dark for the bars before the band's big entrance
         learnedRules(&s, a, variation: variation, lyrics: lyrics)
 
-        // 3. Transitions into the big moments (taken from the end of the block before: nothing moves)
+        // 3. A transition between every part of the arrangement (Verse 1 → transition → Pre-Chorus →
+        //    transition → Chorus…), chosen by what the change is. Taken from the end of the block before.
         for k in stride(from: s.count - 1, through: 1, by: -1) {
             let prev = s[k - 1], cur = s[k]
-            guard prev.empty != true, prev.transition == nil, prev.effect != .blackout, base(prev.name) != "Silence" else { continue }
-            let kind: HitKind?
-            if cur.level == .drop && prev.level != .drop {
-                kind = .blackout
-            } else if base(cur.name) == "Chorus" && base(prev.name) != "Chorus" {
-                kind = base(prev.name) == "Pre-Chorus" ? .strobeRamp : .rise
-            } else if base(cur.name) == "Bridge" {
-                kind = .sweep
-            } else if base(cur.name) == "Outro" && k == s.count - 1 {
-                kind = .flash
-            } else { kind = nil }
-            guard let kind else { continue }
+            guard prev.empty != true, prev.transition == nil, prev.effect != .blackout, base(prev.name) != "Silence",
+                  cur.effect != .blackout || cur.level == .drop else { continue }
+            let from = base(prev.name), to = base(cur.name)
+            let bigFrom = prev.level == .high || prev.level == .drop
+            // the same part going on (a block split by the show builder): no transition
+            if from == to && prev.name == cur.name { continue }
+            let kind: HitKind
+            if cur.level == .drop && prev.level != .drop { kind = .blackout }
+            else if to == "Chorus" && from == "Chorus" { kind = .doubleFlash }
+            else if to == "Chorus" { kind = from == "Pre-Chorus" ? .strobeRamp : .rise }
+            else if to == "Pre-Chorus" || to == "Build" { kind = .chaseRun }
+            else if to == "Bridge" { kind = .sweep }
+            else if to == "Post-Chorus" { kind = .splitFlash }
+            else if ["Breakdown", "Interlude", "Instrumental"].contains(to) { kind = .fadeOut }
+            else if to == "Outro" { kind = k == s.count - 1 && !bigFrom ? .fadeOut : (k == s.count - 1 ? .flash : .fadeOut) }
+            else if to == "Verse" && bigFrom { kind = .fadeOut }
+            else if to == "Verse" && from == "Intro" { kind = .colorPop }
+            else { kind = .colorPop }
             let len = (kind.buildsUp ? 2 : kind.beats) * beat           // build-ups: half a bar
             guard prev.end - prev.start >= len + 4 * beat else { continue }
             var slot = prev

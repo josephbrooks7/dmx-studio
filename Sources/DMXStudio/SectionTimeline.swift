@@ -153,6 +153,7 @@ struct SectionTimelineEditor: View {
                 ZStack(alignment: .topLeading) {
                     VStack(alignment: .leading, spacing: 6) {
                         ruler(width: width, dur: dur).frame(height: 16)
+                        arrangementLane(width: width, dur: dur).frame(height: 16)
                         // light show track: one block per section, side by side
                         ZStack(alignment: .topLeading) {
                             ForEach(sections) { s in
@@ -233,6 +234,34 @@ struct SectionTimelineEditor: View {
     }
 
     /// Times along the top (click to jump there)
+    /// The song's arrangement (Verse 1, Pre-Chorus, Chorus…) as labeled bars above the blocks
+    private func arrangementLane(width: CGFloat, dur: Double) -> some View {
+        ZStack(alignment: .topLeading) {
+            ForEach(Array(analysis.detectedSections.enumerated()), id: \.offset) { _, d in
+                let x0 = CGFloat(d.start / dur) * width
+                let w = max(10, CGFloat((d.end - d.start) / dur) * width - 2)
+                let tint: Color = {
+                    switch d.name.split(separator: " ").first.map(String.init) ?? d.name {
+                    case "Chorus", "Drop", "Post-Chorus": return .pink
+                    case "Pre-Chorus", "Build": return .orange
+                    case "Bridge": return .purple
+                    case "Intro", "Outro": return .gray
+                    case "Breakdown", "Interlude", "Instrumental": return .teal
+                    default: return .blue
+                    }
+                }()
+                Text(d.name).font(.system(size: 9, weight: .bold)).lineLimit(1)
+                    .padding(.horizontal, 4)
+                    .frame(width: w, height: 15, alignment: .leading)
+                    .background(RoundedRectangle(cornerRadius: 3).fill(tint.opacity(0.35)))
+                    .overlay(RoundedRectangle(cornerRadius: 3).stroke(tint.opacity(0.7), lineWidth: 1))
+                    .offset(x: x0)
+                    .help("\(d.name) · \(formatTime(d.start))–\(formatTime(d.end))")
+            }
+        }
+        .frame(width: width, alignment: .topLeading)
+    }
+
     private func ruler(width: CGFloat, dur: Double) -> some View {
         let step: Double = dur / Double(zoom) > 240 ? 30 : (dur / Double(zoom) > 90 ? 15 : 5)
         return ZStack(alignment: .topLeading) {
