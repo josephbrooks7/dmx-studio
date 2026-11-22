@@ -1526,7 +1526,7 @@ final class AppModel: ObservableObject {
     func hqCountdown(_ id: UUID) -> String {
         guard let p = hqProgress[id] else { return "" }
         if hqStarted[id] == nil { return "High Quality split waiting" }
-        return "High Quality split · " + AppModel.eta(started: hqStarted[id], progress: p)
+        return "High Quality split · \(Int(p * 100))% · " + AppModel.eta(started: hqStarted[id], progress: p)
     }
 
     /// Splits with the AI models and updates the parts, sung phrases and lyrics. Keeps the shows.
@@ -1799,7 +1799,7 @@ final class AppModel: ObservableObject {
             return waiting > 1 ? "waiting (\(waiting) songs in line)" : "waiting to start"
         }
         let queued = learning.count - 1
-        return AppModel.eta(started: learnStarted[id], progress: p) + (queued > 0 ? " · \(queued) more in line" : "")
+        return "\(Int(p * 100))% · " + AppModel.eta(started: learnStarted[id], progress: p) + (queued > 0 ? " · \(queued) more in line" : "")
     }
     func lyricsCountdown(_ id: UUID) -> String {
         guard let p = lyricsProgress[id] else { return "" }
@@ -1808,7 +1808,7 @@ final class AppModel: ObservableObject {
             let ahead = (lyricsQueue.firstIndex(of: id) ?? 0) + (lyricsCurrent != nil ? 1 : 0) + learning.count
             return ahead > 0 ? "waiting · \(ahead) ahead in line" : "starting…"
         }
-        return AppModel.eta(started: lyricsStarted[id], progress: p)
+        return "\(Int(p * 100))% · " + AppModel.eta(started: lyricsStarted[id], progress: p)
     }
     var songListHovered = false
     var hoveredSongID: UUID?

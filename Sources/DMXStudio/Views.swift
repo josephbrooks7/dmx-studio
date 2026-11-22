@@ -84,6 +84,24 @@ struct SongView: View {
                     TextField("Artist", text: Binding(get: { song.artist ?? "" },
                                                       set: { model.songBinding(song.id).wrappedValue.artist = $0 }))
                         .textFieldStyle(.plain).font(.title3).foregroundColor(.secondary)
+                    // Status: is this song ready to play with lights?
+                    HStack(spacing: 6) {
+                        if let p = model.learning[song.id] {
+                            Image(systemName: "hourglass").foregroundColor(.orange)
+                            Text("Status: Learning · \(Int(p * 100))%").foregroundColor(.orange)
+                        } else if song.analysis != nil {
+                            Image(systemName: "checkmark.seal.fill").foregroundColor(.green)
+                            Text("Status: Learned").foregroundColor(.green)
+                            Text("· ready to play with the lights").foregroundColor(.secondary)
+                            if let lp = model.lyricsProgress[song.id] {
+                                Text("· lyrics \(Int(lp * 100))%").foregroundColor(.orange)
+                            }
+                        } else {
+                            Image(systemName: "circle.dashed").foregroundColor(.secondary)
+                            Text("Status: Not learned yet").foregroundColor(.secondary)
+                        }
+                    }
+                    .font(.callout.weight(.semibold))
                     if let a = song.analysis {
                         HStack(spacing: 14) {
                             Label("\(Int(a.bpm.rounded())) BPM", systemImage: "metronome")

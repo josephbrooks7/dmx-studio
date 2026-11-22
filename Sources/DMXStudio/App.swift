@@ -299,7 +299,8 @@ struct SongRow: View {
                     ProgressView(value: p).controlSize(.small)
                     Ticking { model.learnCountdown(song.id) }.font(.caption2).foregroundStyle(.secondary).monospacedDigit()
                 } else if let a = song.analysis {
-                    Text("\(Int(a.bpm.rounded())) BPM · \(song.shows.count) show\(song.shows.count == 1 ? "" : "s")")
+                    Text("\(Int(a.bpm.rounded())) BPM · \(song.shows.count) show\(song.shows.count == 1 ? "" : "s")"
+                         + (model.learning[song.id] == nil ? " · Learned ✓" : ""))
                         .font(.caption).foregroundStyle(.secondary)
                     if model.hqProgress[song.id] != nil {
                         Ticking { model.hqCountdown(song.id) }.font(.caption2).foregroundStyle(.secondary).monospacedDigit()
