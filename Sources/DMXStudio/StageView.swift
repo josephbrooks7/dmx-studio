@@ -179,8 +179,10 @@ struct StageInspector: View {
                         if item.fixtureID != nil {
                             Toggle("Hang upside down (on a truss)", isOn: Binding(get: { item.hanging }, set: { v in model.updateStageItem(id) { $0.hanging = v } }))
                             HStack {
-                                Button("On the stage floor") { model.updateStageItem(id) { $0.y = 0.6; $0.hanging = false } }
-                                Button("On the truss") { model.updateStageItem(id) { $0.y = 3.3; $0.hanging = true } }
+                                Button("On the stage floor") { model.updateStageItem(id) { $0.y = 0.6; $0.hanging = false; $0.upright = nil }; model.syncMount(id) }
+                                Button("On the truss") { model.updateStageItem(id) { $0.y = 3.3; $0.hanging = true; $0.upright = nil }; model.syncMount(id) }
+                                Button("Upright on a truss leg") { model.updateStageItem(id) { $0.y = 1.2; $0.hanging = false; $0.upright = true }; model.syncMount(id) }
+                                    .help("Standing on end with the foot brackets: the tilt sweeps the beams side to side")
                             }
                             .font(.caption)
                         }
@@ -324,6 +326,7 @@ struct StageCanvas: View {
             switch p.mount {
             case .hanging: return CGPoint(x: x, y: h * 0.14)
             case .frontOfHouse: return CGPoint(x: x, y: h * 0.88)
+            case .upright: return CGPoint(x: x, y: h * 0.55)
             case .floor: return CGPoint(x: x, y: h * 0.80)
             }
         }
@@ -346,8 +349,10 @@ struct StageCanvas: View {
             if compact {
                 // the light's body first, so the lenses and rays sit on it
                 if n > 1 {
-                    ctx.fill(Path(roundedRect: CGRect(x: origin.x - barWidth / 2 - 5, y: origin.y - 6, width: barWidth + 10, height: 14), cornerRadius: 4),
-                             with: .color(Color(white: 0.2)))
+                    let r = p.mount == .upright
+                        ? CGRect(x: origin.x - 7, y: origin.y - barWidth / 2 - 5, width: 14, height: barWidth + 10)
+                        : CGRect(x: origin.x - barWidth / 2 - 5, y: origin.y - 6, width: barWidth + 10, height: 14)
+                    ctx.fill(Path(roundedRect: r, cornerRadius: 4), with: .color(Color(white: 0.2)))
                 } else {
                     ctx.fill(Path(roundedRect: CGRect(x: origin.x - 11, y: origin.y - 9, width: 22, height: 22), cornerRadius: 5),
                              with: .color(Color(white: 0.2)))
@@ -356,8 +361,9 @@ struct StageCanvas: View {
             for hIdx in 0..<n {
                 let st = hIdx < rf.heads.count ? rf.heads[hIdx] : .off
                 let level = st.intensity * master * gate
-                let hx = n > 1 ? origin.x - barWidth / 2 + barWidth * (CGFloat(hIdx) + 0.5) / CGFloat(n) : origin.x
-                let head = CGPoint(x: hx, y: origin.y)
+                let along = n > 1 ? -barWidth / 2 + barWidth * (CGFloat(hIdx) + 0.5) / CGFloat(n) : 0
+                // upright bars: lenses stacked bottom to top
+                let head = p.mount == .upright ? CGPoint(x: origin.x, y: origin.y - along) : CGPoint(x: origin.x + along, y: origin.y)
 
                 // Beam direction
                 var angle: Double
@@ -378,6 +384,14 @@ struct StageCanvas: View {
                     angle = 90 + side
                     length = Double(h) * (compact ? 0.7 : 0.9) * fore
                     spread *= 1 + (1 - fore) * 1.6
+                case .upright:
+                    // tilt turns the head around the upright bar: from facing you (short), out to the
+                    // left or right (full length) — the crossing sweeps on a truss leg
+                    let a = (rf.tilt - 0.5) * .pi
+                    let sideways = max(0.14, abs(sin(a)))
+                    angle = sin(a) >= 0 ? -8 : 188
+                    length = Double(w) * (compact ? 0.62 : 0.5) * sideways
+                    spread *= 1 + (1 - sideways) * 1.6
                 case .frontOfHouse:
                     angle = atan2(Double(target.y - head.y), Double(target.x - head.x)) * 180 / .pi
                     length = Double(hypot(target.x - head.x, target.y - head.y)) * 1.05
@@ -428,19 +442,21 @@ struct StageCanvas: View {
                 let deg = Int(((rf.tilt - 0.5) * 180).rounded())
                 ctx.draw(Text("\(fx.name) · tilt \(deg > 0 ? "+" : "")\(deg)°").font(.system(size: 9, weight: .semibold).monospacedDigit())
                             .foregroundColor(Color.white.opacity(0.6)),
-                         at: CGPoint(x: origin.x, y: origin.y + (p.mount == .hanging ? -16 : 18)))
+                         at: CGPoint(x: origin.x, y: origin.y + (p.mount == .hanging ? -16 : p.mount == .upright ? barWidth / 2 + 14 : 18)))
                 continue
             }
             // Fixture body + label
             if n > 1 {
-                let body = CGRect(x: origin.x - barWidth / 2 - 6, y: origin.y + 6, width: barWidth + 12, height: 10)
+                let body = p.mount == .upright
+                    ? CGRect(x: origin.x - 5, y: origin.y - barWidth / 2 - 6, width: 10, height: barWidth + 12)
+                    : CGRect(x: origin.x - barWidth / 2 - 6, y: origin.y + 6, width: barWidth + 12, height: 10)
                 ctx.fill(Path(roundedRect: body, cornerRadius: 3), with: .color(Color(white: 0.16)))
             } else {
                 ctx.fill(Path(roundedRect: CGRect(x: origin.x - 9, y: origin.y + 5, width: 18, height: 14), cornerRadius: 3),
                          with: .color(Color(white: 0.16)))
             }
             ctx.draw(Text(fx.name).font(.system(size: 10, weight: .semibold)).foregroundColor(Color.white.opacity(0.55)),
-                     at: CGPoint(x: origin.x, y: origin.y + 28))
+                     at: CGPoint(x: origin.x, y: origin.y + (p.mount == .upright ? barWidth / 2 + 18 : 28)))
         }
 
         if !model.outputEnabled && !compact {

@@ -622,8 +622,15 @@ struct Stage3DView: NSViewRepresentable {
 
         private func place(_ node: SCNNode, _ item: StageItem) {
             node.position = SCNVector3(item.x, item.y, item.z)
-            node.eulerAngles = SCNVector3(0, -item.rotation * .pi / 180, item.hanging ? .pi : 0)
-            if item.hanging { node.position.y += 0.35 }   // clamp sits below the truss
+            if item.upright == true {
+                // bar stands on its end: its length goes up, lenses face the audience, and the 180° tilt
+                // (around the bar) sweeps the beams side to side. SceneKit applies z first, then y.
+                node.eulerAngles = SCNVector3(0, .pi / 2 - item.rotation * .pi / 180, .pi / 2)
+                node.position.y += 0.48
+            } else {
+                node.eulerAngles = SCNVector3(0, -item.rotation * .pi / 180, item.hanging ? .pi : 0)
+                if item.hanging { node.position.y += 0.35 }   // clamp sits below the truss
+            }
         }
 
         private func makeNode(_ item: StageItem) -> SCNNode {

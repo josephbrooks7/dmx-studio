@@ -76,6 +76,13 @@ final class AppModel: ObservableObject {
     @Published var deviceLibrary: [Fixture] = DeviceLibrary.load()
     @Published var showDeviceLibrary = false
     @Published var showHueSetup = false
+
+    /// A light's 3D mounting also sets how the flat previews draw it
+    func syncMount(_ itemID: UUID) {
+        guard let item = stage.items.first(where: { $0.id == itemID }), let fid = item.fixtureID,
+              let i = fixtures.firstIndex(where: { $0.id == fid }) else { return }
+        fixtures[i].stageMount = item.upright == true ? .upright : (item.hanging ? .hanging : .floor)
+    }
     @Published var songs: [Song] = [] { didSet { scheduleSave(); recordShowUndo(oldValue) } }
 
     // MARK: Undo / redo for light show edits (⌘Z / ⇧⌘Z)

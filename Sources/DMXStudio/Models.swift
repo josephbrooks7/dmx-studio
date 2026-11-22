@@ -849,6 +849,7 @@ struct ManualControl: Equatable {
 enum StageMount: String, CaseIterable, Codable, Identifiable {
     case floor = "On the floor (beams up)"
     case hanging = "Hanging (beams down)"
+    case upright = "Upright on a truss leg (beams sweep side to side)"
     case frontOfHouse = "Front of house (aims at the stage)"
     var id: String { rawValue }
 }
@@ -898,6 +899,7 @@ struct StageItem: Identifiable, Codable, Hashable {
     var rotation: Double = 0   // degrees around vertical
     var size: Double = 1       // length / scale
     var hanging: Bool = false  // lights: upside down on a truss
+    var upright: Bool? = nil   // bars: standing on end (on a truss leg, with the foot brackets) — tilt sweeps side to side
     var onStand: Bool? = nil   // followspot: on its tripod (default) or just the light on its yoke
 }
 
