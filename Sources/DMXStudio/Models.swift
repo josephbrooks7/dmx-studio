@@ -896,6 +896,8 @@ enum PropKind: String, CaseIterable, Codable, Identifiable {
     case trussFrame = "Truss Frame (box)"
     case ledWall = "LED Video Wall"
     case backdrop = "LED Backdrop (artist name)"
+    case lineArray = "Speaker Line Array (flown, with subs)"
+    case monitorWedge = "Stage Monitor Wedge"
     case drumKit = "Drum Kit"
     var id: String { rawValue }
     var icon: String {
@@ -912,6 +914,8 @@ enum PropKind: String, CaseIterable, Codable, Identifiable {
         case .trussFrame: return "cube"
         case .ledWall: return "tv"
         case .backdrop: return "rectangle.inset.filled"
+        case .lineArray: return "speaker.wave.3"
+        case .monitorWedge: return "speaker.wave.1"
         case .drumKit: return "music.quarternote.3"
         }
     }
@@ -957,6 +961,24 @@ struct StageLayout: Codable, Hashable {
 
     /// Venues made before the LED backdrop: the circle truss (and the two narrow screens beside it) behind
     /// the performer become one wide LED backdrop that shows the artist's name.
+    /// Venues made before the line arrays and monitor wedges (once): the two box speakers become flown
+    /// line arrays with subs, and two monitor wedges go at the front of the stage facing the performer.
+    var version: Int? = nil
+    mutating func upgradeToRealStage() {
+        guard (version ?? 1) < 2 else { return }
+        version = 2
+        if !items.contains(where: { $0.prop == .lineArray }) {
+            for k in items.indices where items[k].prop == .speaker && abs(items[k].x) > 2.5 {
+                items[k].prop = .lineArray; items[k].x = items[k].x < 0 ? -4.1 : 4.1; items[k].z = -1.2; items[k].y = 0
+            }
+        }
+        if !items.contains(where: { $0.prop == .monitorWedge }), let st = items.first(where: { $0.prop == .stage }) {
+            let front = st.z + 2 * st.size - 0.35, top = 0.6
+            items.append(StageItem(prop: .monitorWedge, x: -0.9, z: front, y: top, rotation: 180))
+            items.append(StageItem(prop: .monitorWedge, x: 1.0, z: front, y: top, rotation: 180))
+        }
+    }
+
     mutating func useBackdrop() {
         guard !items.contains(where: { $0.prop == .backdrop }),
               let ring = items.firstIndex(where: { $0.prop == .circleTruss && abs($0.x) < 1 }) else { return }
@@ -978,8 +1000,10 @@ struct StageLayout: Codable, Hashable {
             StageItem(prop: .drumKit, x: -1.0, z: -2.9, y: 0.6),
             StageItem(prop: .micStand, x: 0, z: -0.8, y: 0.6),
             StageItem(prop: .performer, x: 0.45, z: -1.1, y: 0.6),
-            StageItem(prop: .speaker, x: -3.6, z: 0.2),
-            StageItem(prop: .speaker, x: 3.6, z: 0.2),
+            StageItem(prop: .lineArray, x: -4.1, z: -1.2),
+            StageItem(prop: .lineArray, x: 4.1, z: -1.2),
+            StageItem(prop: .monitorWedge, x: -0.9, z: -0.35, y: 0.6, rotation: 180),
+            StageItem(prop: .monitorWedge, x: 1.0, z: -0.35, y: 0.6, rotation: 180),
         ]
         var bar = 0
         for fx in fixtures {

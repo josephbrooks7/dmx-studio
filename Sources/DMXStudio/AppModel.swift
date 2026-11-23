@@ -567,6 +567,7 @@ final class AppModel: ObservableObject {
         rigMode = s.rigMode ?? .together
         stage = s.stage ?? StageLayout.starter(for: s.fixtures)
         stage.useBackdrop()
+        stage.upgradeToRealStage()
         manual = [:]
         activePresetID = nil
     }

@@ -92,6 +92,25 @@ private enum Build {
         let img = NSImage(size: size)
         img.lockFocus()
         NSColor(white: 0.03, alpha: 1).setFill(); NSRect(origin: .zero, size: size).fill()
+        // show visuals: soft light rays bursting from the middle (tinted live by the lights' colors,
+        // like the content on a real LED wall), dark at the edges
+        let center = NSPoint(x: size.width / 2, y: size.height / 2)
+        if let g = NSGradient(colors: [NSColor(white: 0.55, alpha: 1), NSColor(white: 0.12, alpha: 1), NSColor(white: 0.03, alpha: 1)]) {
+            g.draw(fromCenter: center, radius: 0, toCenter: center, radius: size.width * 0.6, options: [])
+        }
+        for k in 0..<64 {
+            let a = Double(k) / 64 * 2 * .pi + (k % 2 == 0 ? 0.03 : 0)
+            let len = size.width * (0.35 + 0.3 * Double((k * 37) % 11) / 10)
+            let p = NSBezierPath()
+            p.move(to: NSPoint(x: center.x + cos(a) * 40, y: center.y + sin(a) * 40))
+            p.curve(to: NSPoint(x: center.x + cos(a + 0.25) * len, y: center.y + sin(a + 0.25) * len),
+                    controlPoint1: NSPoint(x: center.x + cos(a) * len * 0.4, y: center.y + sin(a) * len * 0.4),
+                    controlPoint2: NSPoint(x: center.x + cos(a + 0.15) * len * 0.75, y: center.y + sin(a + 0.15) * len * 0.75))
+            p.lineWidth = CGFloat(3 + (k % 4) * 2)
+            p.lineCapStyle = .round
+            NSColor(white: 0.55 + 0.4 * Double(k % 3) / 2, alpha: 0.55).setStroke()
+            p.stroke()
+        }
         // LED panel grid
         NSColor(white: 0.07, alpha: 1).setFill()
         for x in stride(from: 0, to: size.width, by: 200) { NSRect(x: x, y: 0, width: 2, height: size.height).fill() }
@@ -449,6 +468,50 @@ private enum Build {
             return root
         case .backdrop:
             return backdrop(.ledWall, size: size)
+        case .lineArray:
+            // a flown line array: 4 cabinets curving down toward the crowd, hung from a truss tower,
+            // with two subwoofers stacked on the ground below (like a festival / club PA wing)
+            let root = SCNNode()
+            let towerH: CGFloat = 5.2 * s
+            let t = truss(length: towerH); t.eulerAngles.z = .pi / 2; t.position = SCNVector3(0, towerH / 2, -0.55); root.addChildNode(t)
+            let base = box(0.9, 0.03, 0.9, Mat.aluminum); base.position = SCNVector3(0, 0.015, -0.55); root.addChildNode(base)
+            let arm = truss(length: 0.9); arm.eulerAngles.y = .pi / 2; arm.position = SCNVector3(0, towerH - 0.1, -0.1); root.addChildNode(arm)
+            // subs on the ground
+            for k in 0..<2 {
+                let sub = box(1.1, 0.6, 0.85, Mat.black, chamfer: 0.015); sub.position = SCNVector3(0, 0.3 + CGFloat(k) * 0.62, 0); root.addChildNode(sub)
+                let grille = box(1.0, 0.5, 0.01, Mat.darkGray); grille.position = SCNVector3(0, 0.3 + CGFloat(k) * 0.62, 0.43); root.addChildNode(grille)
+            }
+            // flown cabinets, each angled a little more than the one above (the "J" curve)
+            let hang = SCNNode(); hang.position = SCNVector3(0, towerH - 0.35, 0.05); root.addChildNode(hang)
+            let bumper = box(1.15, 0.06, 0.6, Mat.darkGray); hang.addChildNode(bumper)
+            var y: CGFloat = -0.06, angle: CGFloat = 0
+            for k in 0..<5 {
+                angle += CGFloat(k == 0 ? 0.02 : 0.05 + 0.02 * Double(k))
+                let cab = box(1.1, 0.34, 0.55, Mat.black, chamfer: 0.01)
+                y -= 0.35
+                cab.position = SCNVector3(0, y, sin(angle) * 0.25)
+                cab.eulerAngles.x = angle
+                let g = box(1.02, 0.26, 0.01, Mat.darkGray); g.position = SCNVector3(0, 0, 0.28); cab.addChildNode(g)
+                hang.addChildNode(cab)
+            }
+            root.addChildNode(pipe(from: SCNVector3(-0.4, towerH - 0.1, 0.05), to: SCNVector3(-0.4, towerH - 0.33, 0.05), r: 0.008, Mat.darkGray))
+            root.addChildNode(pipe(from: SCNVector3(0.4, towerH - 0.1, 0.05), to: SCNVector3(0.4, towerH - 0.33, 0.05), r: 0.008, Mat.darkGray))
+            return root
+        case .monitorWedge:
+            // a floor monitor: a wedge lying on its back, the speaker face sloped up toward +z
+            // (the starter venue turns it around to face the performer)
+            let root = SCNNode()
+            let w: CGFloat = 0.6, d: CGFloat = 0.5
+            let path = NSBezierPath()
+            path.move(to: NSPoint(x: 0, y: 0)); path.line(to: NSPoint(x: d, y: 0))
+            path.line(to: NSPoint(x: d * 0.35, y: 0.36)); path.line(to: NSPoint(x: 0, y: 0.3)); path.close()
+            let shape = SCNShape(path: path, extrusionDepth: w); shape.chamferRadius = 0.01; shape.materials = [Mat.black]
+            let n = SCNNode(geometry: shape)
+            n.eulerAngles.y = -.pi / 2          // the profile runs front-to-back, the extrusion is the width
+            n.position = SCNVector3(0, 0, -d / 2); root.addChildNode(n)
+            let grille = box(w - 0.06, 0.4, 0.01, Mat.darkGray)
+            grille.position = SCNVector3(0, 0.2, d * 0.18); grille.eulerAngles.x = -0.92; root.addChildNode(grille)
+            return root
         case .ledWall:
             // 1.5 m × 2.5 m video panel on a frame (shown dark so the light beams carry the color)
             let root = SCNNode()
@@ -905,6 +968,13 @@ struct Stage3DView: NSViewRepresentable {
             let base = 0.035 + 0.05 * haze
             scene.fogColor = NSColor(calibratedRed: base + tint.r * 0.10 * haze, green: base + tint.g * 0.10 * haze,
                                      blue: base + tint.b * 0.10 * haze, alpha: 1)
+            // the LED wall / projection content takes on the show's colors (a banner is lit by the beams instead)
+            let mx = max(tint.r, tint.g, tint.b, 0.0001), lvl = min(1, mx * 3)
+            let wall = NSColor(calibratedRed: 0.18 + 0.82 * lvl * tint.r / mx, green: 0.18 + 0.82 * lvl * tint.g / mx,
+                               blue: 0.18 + 0.82 * lvl * tint.b / mx, alpha: 1)
+            for n in backdropNodes() where n.geometry?.firstMaterial?.lightingModel == .constant {
+                n.geometry?.firstMaterial?.multiply.contents = wall
+            }
             scene.fogStartDistance = 2
             scene.fogEndDistance = CGFloat(55 - 35 * haze)
             scene.fogDensityExponent = 1.3
