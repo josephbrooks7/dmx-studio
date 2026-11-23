@@ -874,6 +874,13 @@ struct Stage3DView: NSViewRepresentable {
                 return
             }
             applyFrame(model.preview, now: Date().timeIntervalSinceReferenceDate, master: model.blackout ? 0 : model.master)
+            // remember the camera for "Same as my Stage view" video exports
+            if let v = view, let pov = v.pointOfView, let cam = pov.camera, v.bounds.height > 10 {
+                let aspect = Double(v.bounds.width / v.bounds.height)
+                let vFOV = Double(cam.fieldOfView) * .pi / 180
+                let h = cam.projectionDirection == .horizontal ? Double(cam.fieldOfView) : 2 * atan(tan(vFOV / 2) * aspect) * 180 / .pi
+                model.stageCameraNow = (pov.worldTransform, h)
+            }
         }
 
         /// The song the LED backdrop names (a video export sets it; otherwise the playing song)

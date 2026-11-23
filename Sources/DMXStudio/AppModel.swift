@@ -1,3 +1,4 @@
+import SceneKit
 import Foundation
 import AVFoundation
 import SwiftUI
@@ -77,6 +78,8 @@ final class AppModel: ObservableObject {
     @Published var showDeviceLibrary = false
     @Published var showHueSetup = false
     @Published var showVideoExport = false
+    /// Where the Stage page's camera is (and how wide it sees, side to side), for "Same as my Stage view" videos
+    var stageCameraNow: (transform: SCNMatrix4, horizontalFOV: Double)? = nil
 
     /// The wall behind the band (adds one if the venue has none)
     func setBackdrop(_ style: BackdropStyle) {

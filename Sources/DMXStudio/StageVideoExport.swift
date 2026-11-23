@@ -53,7 +53,15 @@ final class StageVideoExporter: ObservableObject {
         let stage = Stage3DView.Coordinator(model: model)
         stage.sync()
         stage.backdropSong = (song.artist ?? "", song.title)
-        stage.setCamera(camera)
+        // match what you see on the Stage page side to side (a 16:9 video is narrower than the window)
+        stage.camera.camera?.projectionDirection = .horizontal
+        if camera == "Same as my Stage view", let now = model.stageCameraNow {
+            stage.camera.transform = now.transform
+            stage.camera.camera?.fieldOfView = CGFloat(min(100, max(30, now.horizontalFOV)))
+        } else {
+            stage.setCamera(camera == "Same as my Stage view" ? "Overview" : camera)
+            stage.camera.camera?.fieldOfView = 70
+        }
         guard let device = MTLCreateSystemDefaultDevice() else { error = "This Mac's graphics can't draw the video."; progress = nil; return }
         let renderer = SCNRenderer(device: device, options: nil)
         renderer.scene = stage.scene
@@ -177,7 +185,7 @@ struct StageVideoExportSheet: View {
     @StateObject private var exporter = StageVideoExporter()
     @Environment(\.dismiss) private var dismiss
     @State private var songID: UUID?
-    @State private var camera = "Overview"
+    @State private var camera = "Same as my Stage view"
     @State private var quality: StageVideoExporter.Quality = .phone
     @State private var labels = true
 
@@ -193,7 +201,7 @@ struct StageVideoExportSheet: View {
                     ForEach(songs) { s in Text(s.displayName).tag(Optional(s.id)) }
                 }
                 Picker("Camera", selection: $camera) {
-                    ForEach(["Overview", "Audience", "Close-up", "Side", "Top"], id: \.self) { Text($0).tag($0) }
+                    ForEach(["Same as my Stage view", "Overview", "Audience", "Close-up", "Side", "Top"], id: \.self) { Text($0).tag($0) }
                 }
                 Picker("Size", selection: $quality) {
                     ForEach(StageVideoExporter.Quality.allCases) { Text($0.rawValue).tag($0) }
