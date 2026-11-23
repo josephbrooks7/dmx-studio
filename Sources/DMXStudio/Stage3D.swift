@@ -161,7 +161,7 @@ private enum Build {
     }
 
     /// The wall behind the band. Screens named "backdropscreen…" get the artist's name drawn on them.
-    static func backdrop(_ style: BackdropStyle, size: Double) -> SCNNode {
+    static func backdrop(_ style: BackdropStyle, size: Double, panels: [Int]? = nil) -> SCNNode {
         let s = CGFloat(size)
         let root = SCNNode()
         func screen(_ w: CGFloat, _ h: CGFloat, glow: Bool) -> SCNNode {
@@ -177,8 +177,9 @@ private enum Build {
         }
         switch style {
         case .ledWall:
-            // 16:9 LED wall, 5.3 m × 3 m, on the stage behind the band
-            let w: CGFloat = 5.3 * s, h: CGFloat = 3.0 * s
+            // LED wall on the stage behind the band: 16:9, 5.3 m × 3 m, or built from 50 cm panels (columns × rows)
+            let w: CGFloat = panels.map { CGFloat($0[0]) * 0.5 } ?? 5.3 * s
+            let h: CGFloat = panels.map { CGFloat($0[1]) * 0.5 } ?? 3.0 * s
             let frame = box(w + 0.12, h + 0.12, 0.12, Mat.black); frame.position = SCNVector3(0, h / 2 + 0.05, 0); root.addChildNode(frame)
             let sc = screen(w, h, glow: true); sc.position = SCNVector3(0, h / 2 + 0.05, 0.062); root.addChildNode(sc)
         case .projection:
@@ -195,6 +196,12 @@ private enum Build {
             root.addChildNode(pipe(from: SCNVector3(-w / 2 - 0.2, bottom + h + 0.9, 0), to: SCNVector3(w / 2 + 0.2, bottom + h + 0.9, 0), r: 0.025, Mat.aluminum))
             // black drape behind, down to the stage
             let drape = box(w + 1.2, bottom + h + 0.9, 0.02, Mat.black); drape.position = SCNVector3(0, (bottom + h + 0.9) / 2, -0.25); root.addChildNode(drape)
+        case .wallProjection:
+            // a big projection right on the back wall (club / lounge): 16:9, from just above the stage up
+            let w: CGFloat = 6.4 * s, h: CGFloat = w * 9 / 16, bottom: CGFloat = 0.45
+            let sc = screen(w, h, glow: true); sc.position = SCNVector3(0, bottom + h / 2, 0.01)
+            sc.opacity = 0.85
+            root.addChildNode(sc)
         case .banner:
             // a printed fabric banner hung from a pipe, with grommets; lit only by the stage lights
             let w: CGFloat = 4.6 * s, h: CGFloat = 1.6 * s, top: CGFloat = 3.6
@@ -519,6 +526,62 @@ private enum Build {
             root.addChildNode(pipe(from: SCNVector3(-0.4, towerH - 0.1, 0.05), to: SCNVector3(-0.4, towerH - 0.33, 0.05), r: 0.008, Mat.darkGray))
             root.addChildNode(pipe(from: SCNVector3(0.4, towerH - 0.1, 0.05), to: SCNVector3(0.4, towerH - 0.33, 0.05), r: 0.008, Mat.darkGray))
             return root
+        case .curtain:
+            // red velvet drape with deep folds, floor to ceiling (size = width in meters)
+            let root = SCNNode()
+            let w = CGFloat(size), h: CGFloat = 4.6
+            let velvet = Mat.make(NSColor(calibratedRed: 0.55, green: 0.02, blue: 0.04, alpha: 1), rough: 0.85)
+            let back = box(w, h, 0.02, velvet); back.position = SCNVector3(0, h / 2, -0.06); root.addChildNode(back)
+            var x = -w / 2 + 0.1
+            while x < w / 2 {
+                let fold = cyl(0.085, h, velvet); fold.position = SCNVector3(x, h / 2, 0); root.addChildNode(fold)
+                x += 0.22
+            }
+            return root
+        case .discoBall:
+            // a mirror ball on a short rod (hangs from the ceiling at its height)
+            let root = SCNNode()
+            let ball = SCNNode(geometry: { let g = SCNSphere(radius: 0.28); g.segmentCount = 24
+                let m = SCNMaterial(); m.lightingModel = .physicallyBased; m.metalness.contents = 1.0; m.roughness.contents = 0.15
+                m.diffuse.contents = NSColor(white: 0.85, alpha: 1); g.materials = [m]; return g }())
+            ball.name = "discoball"
+            root.addChildNode(ball)
+            root.addChildNode(pipe(from: SCNVector3(0, 0.28, 0), to: SCNVector3(0, 1.2, 0), r: 0.008, Mat.darkGray))
+            let spin = CABasicAnimation(keyPath: "eulerAngles.y"); spin.fromValue = 0; spin.toValue = Double.pi * 2
+            spin.duration = 12; spin.repeatCount = .infinity
+            ball.addAnimation(spin, forKey: "spin")
+            return root
+        case .cabaretTable:
+            // a small round cocktail table with a candle and three bentwood chairs
+            let root = SCNNode()
+            let wood = Mat.make(NSColor(calibratedRed: 0.08, green: 0.05, blue: 0.04, alpha: 1), rough: 0.5)
+            let top = cyl(0.32, 0.03, wood); top.position = SCNVector3(0, 0.74, 0); root.addChildNode(top)
+            root.addChildNode(pipe(from: SCNVector3(0, 0, 0), to: SCNVector3(0, 0.74, 0), r: 0.025, Mat.black))
+            let base = cyl(0.2, 0.02, Mat.black); base.position = SCNVector3(0, 0.01, 0); root.addChildNode(base)
+            let candle = SCNNode(geometry: { let g = SCNCylinder(radius: 0.03, height: 0.07)
+                let m = SCNMaterial(); m.lightingModel = .constant; m.diffuse.contents = NSColor(calibratedRed: 1, green: 0.75, blue: 0.45, alpha: 1); g.materials = [m]; return g }())
+            candle.position = SCNVector3(0, 0.79, 0); root.addChildNode(candle)
+            for a in [0.0, 2.1, 4.2] {
+                let cx = CGFloat(cos(a)) * 0.55, cz = CGFloat(sin(a)) * 0.55
+                let seat = cyl(0.19, 0.03, wood); seat.position = SCNVector3(cx, 0.46, cz); root.addChildNode(seat)
+                for (dx, dz) in [(-0.13, -0.13), (0.13, -0.13), (-0.13, 0.13), (0.13, 0.13)] {
+                    root.addChildNode(pipe(from: SCNVector3(cx + CGFloat(dx), 0, cz + CGFloat(dz)), to: SCNVector3(cx + CGFloat(dx) * 0.8, 0.46, cz + CGFloat(dz) * 0.8), r: 0.012, wood))
+                }
+                // back, on the side away from the table
+                let bx = cx + CGFloat(cos(a)) * 0.17, bz = cz + CGFloat(sin(a)) * 0.17
+                let backRest = cyl(0.17, 0.02, wood); backRest.eulerAngles.x = .pi / 2
+                backRest.eulerAngles.y = CGFloat(-a) + .pi / 2
+                backRest.position = SCNVector3(bx, 0.82, bz); root.addChildNode(backRest)
+            }
+            return root
+        case .parCan:
+            // a small LED PAR (blue in this venue), seen as a bright dot
+            let root = SCNNode()
+            let can = cyl(0.09, 0.16, Mat.black); can.position = SCNVector3(0, -0.08, 0); root.addChildNode(can)
+            let lens = SCNNode(geometry: { let g = SCNCylinder(radius: 0.07, height: 0.01)
+                let m = SCNMaterial(); m.lightingModel = .constant; m.diffuse.contents = NSColor(calibratedRed: 0.15, green: 0.35, blue: 1, alpha: 1); g.materials = [m]; return g }())
+            lens.position = SCNVector3(0, -0.165, 0); root.addChildNode(lens)
+            return root
         case .monitorWedge:
             // a floor monitor: a wedge lying on its back, the speaker face sloped up toward +z
             // (the starter venue turns it around to face the performer)
@@ -804,7 +867,7 @@ struct Stage3DView: NSViewRepresentable {
             }
             for item in items {
                 if let old = itemSnapshot[item.id], let node = itemNodes[item.id] {
-                    if old.prop == item.prop && old.size == item.size && old.fixtureID == item.fixtureID && old.onStand == item.onStand && old.backdropStyle == item.backdropStyle {
+                    if old.prop == item.prop && old.size == item.size && old.fixtureID == item.fixtureID && old.onStand == item.onStand && old.backdropStyle == item.backdropStyle && old.panels == item.panels {
                         if old != item { place(node, item) }
                         itemSnapshot[item.id] = item
                         continue
@@ -846,7 +909,7 @@ struct Stage3DView: NSViewRepresentable {
             let root = SCNNode()
             root.name = "item:\(item.id.uuidString)"
             if let kind = item.prop {
-                root.addChildNode(kind == .backdrop ? Build.backdrop(item.backdropStyle ?? .ledWall, size: item.size)
+                root.addChildNode(kind == .backdrop ? Build.backdrop(item.backdropStyle ?? .ledWall, size: item.size, panels: item.panels)
                                                     : Build.prop(kind, size: item.size))
                 return root
             }

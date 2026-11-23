@@ -92,6 +92,23 @@ struct StageScreen: View {
                 .menuStyle(.borderlessButton).fixedSize()
                 .help("Show your stage with the bars mounted another way: lying flat (beams go front to back) or upright (beams sweep side to side)")
                 Menu {
+                    Section("Venue") {
+                        Button { model.stage = StageLayout.concert(keeping: model.stage, fixtures: model.fixtures) } label: {
+                            Label("Concert stage (truss, LED wall, line arrays)", systemImage: "music.mic")
+                        }
+                        Button {
+                            model.stage = StageLayout.lounge(keeping: model.stage)
+                            if model.stage.screenContent == nil { model.stage.screenContent = .glow }
+                        } label: {
+                            Label("Club lounge (curtains, projection, tables)", systemImage: "wineglass")
+                        }
+                        Button { model.stage = StageLayout.losGlobos(upstairs: false, keeping: model.stage) } label: {
+                            Label("Los Globos · Downstairs (16'7\" stage, 10×4 LED wall, DJ booth)", systemImage: "building.2")
+                        }
+                        Button { model.stage = StageLayout.losGlobos(upstairs: true, keeping: model.stage) } label: {
+                            Label("Los Globos · Upstairs (29'7\" stage, 6×3 LED wall, drums)", systemImage: "building.2")
+                        }
+                    }
                     Section("Backdrop") {
                         ForEach(BackdropStyle.allCases) { st in
                             Button { model.setBackdrop(st) } label: { Label(st.rawValue, systemImage: st.icon) }
@@ -110,9 +127,9 @@ struct StageScreen: View {
                             Label("Your video…", systemImage: model.stage.screenContent == .video ? "checkmark" : "film")
                         }
                     }
-                } label: { Label("Backdrop", systemImage: "rectangle.inset.filled") }
+                } label: { Label("Venue", systemImage: "rectangle.inset.filled") }
                 .menuStyle(.borderlessButton).fixedSize()
-                .help("What's behind the band: an LED wall, a projection screen above the performer, a banner, or a blank wall")
+                .help("The venue (concert stage or club lounge), what's behind the band, and what the screen shows")
                 Menu {
                     Section("Lights") {
                         ForEach(FixtureProfile.all) { p in Button(p.name) { model.stageEditing = true; model.addStageLight(p) } }

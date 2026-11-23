@@ -899,6 +899,10 @@ enum PropKind: String, CaseIterable, Codable, Identifiable {
     case backdrop = "LED Backdrop (artist name)"
     case lineArray = "Speaker Line Array (flown, with subs)"
     case monitorWedge = "Stage Monitor Wedge"
+    case curtain = "Velvet Curtain"
+    case discoBall = "Disco Ball"
+    case cabaretTable = "Cocktail Table & Chairs"
+    case parCan = "LED Uplight (PAR)"
     case drumKit = "Drum Kit"
     var id: String { rawValue }
     var icon: String {
@@ -917,6 +921,10 @@ enum PropKind: String, CaseIterable, Codable, Identifiable {
         case .backdrop: return "rectangle.inset.filled"
         case .lineArray: return "speaker.wave.3"
         case .monitorWedge: return "speaker.wave.1"
+        case .curtain: return "theatermasks"
+        case .discoBall: return "circle.hexagongrid"
+        case .cabaretTable: return "wineglass"
+        case .parCan: return "light.recessed"
         case .drumKit: return "music.quarternote.3"
         }
     }
@@ -936,6 +944,7 @@ struct StageItem: Identifiable, Codable, Hashable {
     var upright: Bool? = nil   // bars: standing on end (on a truss leg, with the foot brackets) — tilt sweeps side to side
     var onStand: Bool? = nil   // followspot: on its tripod (default) or just the light on its yoke
     var backdropStyle: BackdropStyle? = nil   // backdrop: LED wall (default), projection, banner, blank
+    var panels: [Int]? = nil                  // LED wall made of 50 cm panels: [columns, rows] (nil = 16:9, 5.3 m wide)
 }
 
 /// A screen cue in a show: what the LED wall / projection shows from that part on
@@ -960,13 +969,14 @@ enum ScreenContent: String, Codable, CaseIterable, Identifiable {
 enum BackdropStyle: String, Codable, CaseIterable, Identifiable {
     case ledWall = "LED Wall"
     case projection = "Projection Screen (above the performer)"
+    case wallProjection = "Projection on the back wall (club)"
     case banner = "Banner"
     case blank = "Blank Wall"
     var id: String { rawValue }
     var icon: String {
         switch self {
         case .ledWall: return "tv"
-        case .projection: return "videoprojector"
+        case .projection, .wallProjection: return "videoprojector"
         case .banner: return "flag"
         case .blank: return "rectangle"
         }
@@ -1007,6 +1017,89 @@ struct StageLayout: Codable, Hashable {
         if let k = items.firstIndex(where: { $0.prop == .circleTruss && abs($0.x) < 1 }) {
             items[k].prop = .backdrop; items[k].size = 1
         }
+    }
+
+    /// A club / cabaret lounge (like The 3 Clubs in LA): a low stage, red velvet curtains either side, a big
+    /// projection on the back wall and a second screen on the side wall, a disco ball, LED uplights along the
+    /// top, and cocktail tables with chairs. Your lights keep their places on the (lower) stage.
+    static func lounge(keeping old: StageLayout) -> StageLayout {
+        var items: [StageItem] = [
+            StageItem(prop: .stage, x: 0, z: -2, y: -0.25, size: 1),
+            { var b = StageItem(prop: .backdrop, x: 0, z: -4.3, y: 0, size: 1.05); b.backdropStyle = .wallProjection; return b }(),
+            StageItem(prop: .curtain, x: -4.1, z: -4.0, size: 2.4),
+            StageItem(prop: .curtain, x: 4.1, z: -4.0, size: 2.4),
+            StageItem(prop: .curtain, x: -5.6, z: -1.5, rotation: 90, size: 2.6),
+            { var b = StageItem(prop: .backdrop, x: 6.2, z: 2.5, y: 0, rotation: -90, size: 0.7); b.backdropStyle = .wallProjection; return b }(),
+            StageItem(prop: .discoBall, x: 0.8, z: 2.0, y: 4.2),
+            StageItem(prop: .micStand, x: 0, z: -0.8, y: 0.35),
+            StageItem(prop: .performer, x: 0.45, z: -1.1, y: 0.35),
+        ]
+        for k in 0..<6 { items.append(StageItem(prop: .parCan, x: -2.5 + Double(k), z: -3.6, y: 4.0, hanging: true)) }
+        for (x, z) in [(-3.2, 1.6), (-1.0, 1.9), (1.2, 1.7), (3.3, 1.8), (-2.2, 3.6), (0.2, 3.8), (2.4, 3.7), (-3.6, 5.4), (-1.2, 5.6), (1.2, 5.5), (3.6, 5.6)] {
+            items.append(StageItem(prop: .cabaretTable, x: x, z: z))
+        }
+        // your lights stay where they were, dropped to the lower stage
+        for var f in old.items where f.fixtureID != nil {
+            if f.y > 0.3 && f.y < 0.9 { f.y = 0.35 }
+            items.append(f)
+        }
+        var l = StageLayout(items: items, haze: old.haze)
+        l.version = 2
+        l.screenContent = old.screenContent; l.screenMediaPath = old.screenMediaPath
+        return l
+    }
+
+    /// Los Globos (Silver Lake, LA), from its tech specs: Downstairs stage 16'7" × 12'7" with a 10 × 4 panel
+    /// LED wall and a DJ booth; Upstairs stage 29'7" × 13'3" with a 6 × 3 panel LED wall and a drum kit.
+    /// Stage height, truss and speaker spots aren't published, so those are typical.
+    static func losGlobos(upstairs: Bool, keeping old: StageLayout) -> StageLayout {
+        let width = upstairs ? 9.02 : 5.05          // meters
+        let s = width / 6                            // the stage prop is 6 m wide at size 1
+        var items: [StageItem] = [
+            StageItem(prop: .stage, x: 0, z: -2, size: s),
+            { var b = StageItem(prop: .backdrop, x: 0, z: -3.85, y: 0.6, size: 1); b.panels = upstairs ? [6, 3] : [10, 4]; return b }(),
+            StageItem(prop: .curtain, x: -width / 2 - 0.4, z: -3.9, size: 1.2),
+            StageItem(prop: .curtain, x: width / 2 + 0.4, z: -3.9, size: 1.2),
+            StageItem(prop: .micStand, x: 0, z: -0.8, y: 0.6),
+            StageItem(prop: .performer, x: 0.45, z: -1.1, y: 0.6),
+        ]
+        // ground-stacked PA either side (subs with tops on them)
+        for x in [-width / 2 - 1.0, width / 2 + 1.0] {
+            items.append(StageItem(prop: .speaker, x: x, z: -0.3))
+            items.append(StageItem(prop: .speaker, x: x, z: -0.3, y: 1.0))
+        }
+        // wedges across the front, facing the performers
+        let wedges = upstairs ? [-2.4, -0.8, 0.8, 2.4] : [-1.4, 0, 1.4]
+        for x in wedges { items.append(StageItem(prop: .monitorWedge, x: x, z: -0.35, y: 0.6, rotation: 180)) }
+        if upstairs {
+            items.append(StageItem(prop: .drumKit, x: -1.6, z: -3.0, y: 0.6))
+        } else {
+            items.append(StageItem(prop: .monitorWedge, x: -1.2, z: -2.5, y: 0.6, rotation: 150))   // drum wedge
+            items.append(StageItem(prop: .drumKit, x: -1.0, z: -3.0, y: 0.6))
+            items.append(StageItem(prop: .djBooth, x: width / 2 + 2.6, z: 0.6, rotation: -30))
+        }
+        for var f in old.items where f.fixtureID != nil {
+            if f.y > 0.2 && f.y < 0.5 { f.y = 0.6 }
+            f.x = max(-width / 2 + 0.3, min(width / 2 - 0.3, f.x))   // keep floor lights on this stage
+            items.append(f)
+        }
+        var l = StageLayout(items: items, haze: old.haze)
+        l.version = 2
+        l.screenContent = old.screenContent; l.screenMediaPath = old.screenMediaPath
+        return l
+    }
+
+    /// The concert stage again (keeping your lights)
+    static func concert(keeping old: StageLayout, fixtures: [Fixture]) -> StageLayout {
+        var l = starter(for: fixtures)
+        l.items.removeAll { $0.fixtureID != nil }
+        for var f in old.items where f.fixtureID != nil {
+            if f.y > 0.2 && f.y < 0.5 { f.y = 0.6 }
+            l.items.append(f)
+        }
+        l.haze = old.haze; l.version = 2
+        l.screenContent = old.screenContent; l.screenMediaPath = old.screenMediaPath
+        return l
     }
 
     /// A starter venue: stage, goal-post truss, LED backdrop, mic stand, performer — then your lights placed on it.
