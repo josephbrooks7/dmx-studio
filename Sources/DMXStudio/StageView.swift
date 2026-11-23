@@ -179,7 +179,7 @@ struct StageInspector: View {
                         slider("Front / back", item.z, -6...10, "m") { v in model.updateStageItem(id) { $0.z = v } }
                         slider("Height", item.y, 0...6, "m") { v in model.updateStageItem(id) { $0.y = v } }
                         slider("Rotation", item.rotation, -180...180, "°") { v in model.updateStageItem(id) { $0.rotation = v } }
-                        if let k = item.prop, [.stage, .truss, .trussTower, .circleTruss, .lightStand, .trussFrame, .ledWall].contains(k) {
+                        if let k = item.prop, [.stage, .truss, .trussTower, .circleTruss, .lightStand, .trussFrame, .ledWall, .backdrop].contains(k) {
                             slider(k == .truss ? "Length" : (k == .stage ? "Width" : "Size"), item.size,
                                    k == .truss ? 1...12 : (k == .trussTower || k == .lightStand ? 1...6 : 0.5...3),
                                    k == .stage || k == .circleTruss ? "×" : "m") { v in model.updateStageItem(id) { $0.size = v } }

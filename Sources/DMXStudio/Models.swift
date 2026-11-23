@@ -895,6 +895,7 @@ enum PropKind: String, CaseIterable, Codable, Identifiable {
     case performer = "Performer"
     case trussFrame = "Truss Frame (box)"
     case ledWall = "LED Video Wall"
+    case backdrop = "LED Backdrop (artist name)"
     case drumKit = "Drum Kit"
     var id: String { rawValue }
     var icon: String {
@@ -910,6 +911,7 @@ enum PropKind: String, CaseIterable, Codable, Identifiable {
         case .performer: return "person.fill"
         case .trussFrame: return "cube"
         case .ledWall: return "tv"
+        case .backdrop: return "rectangle.inset.filled"
         case .drumKit: return "music.quarternote.3"
         }
     }
@@ -934,16 +936,26 @@ struct StageLayout: Codable, Hashable {
     var items: [StageItem] = []
     var haze: Double = 0.6
 
-    /// A starter venue: stage, goal-post truss, circle truss, mic stand, performer — then your lights placed on it.
+    /// Venues made before the LED backdrop: the circle truss (and the two narrow screens beside it) behind
+    /// the performer become one wide LED backdrop that shows the artist's name.
+    mutating func useBackdrop() {
+        guard !items.contains(where: { $0.prop == .backdrop }),
+              let ring = items.firstIndex(where: { $0.prop == .circleTruss && abs($0.x) < 1 }) else { return }
+        let r = items[ring]
+        items.removeAll { $0.prop == .ledWall && abs($0.z - r.z) < 0.5 && abs($0.x) < 3 }
+        if let k = items.firstIndex(where: { $0.prop == .circleTruss && abs($0.x) < 1 }) {
+            items[k].prop = .backdrop; items[k].size = 1
+        }
+    }
+
+    /// A starter venue: stage, goal-post truss, LED backdrop, mic stand, performer — then your lights placed on it.
     static func starter(for fixtures: [Fixture]) -> StageLayout {
         var items: [StageItem] = [
             StageItem(prop: .stage, x: 0, z: -2, size: 1),
             StageItem(prop: .trussTower, x: -3.2, z: -3.6, size: 3.5),
             StageItem(prop: .trussTower, x: 3.2, z: -3.6, size: 3.5),
             StageItem(prop: .truss, x: 0, z: -3.6, y: 3.5, size: 6.7),
-            StageItem(prop: .circleTruss, x: 0, z: -3.9, y: 0.6, size: 1),
-            StageItem(prop: .ledWall, x: -2.2, z: -3.85, y: 0.6, size: 1),
-            StageItem(prop: .ledWall, x: 2.2, z: -3.85, y: 0.6, size: 1),
+            StageItem(prop: .backdrop, x: 0, z: -3.9, y: 0.6, size: 1),
             StageItem(prop: .drumKit, x: -1.0, z: -2.9, y: 0.6),
             StageItem(prop: .micStand, x: 0, z: -0.8, y: 0.6),
             StageItem(prop: .performer, x: 0.45, z: -1.1, y: 0.6),

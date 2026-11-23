@@ -85,6 +85,40 @@ private enum Build {
     /// SHEHDS LED Beam 8x12W RGBW, from its spec sheet and photos: 107 × 13 × 8 cm overall.
     /// Rounded end caps, a fixed lower housing with the rear panel (powerCON in/out, DMX in/out,
     /// power switch, fuse, red display + 4 buttons), and a tilting lens bar with 8 lenses.
+    /// What the LED backdrop shows: the artist's name big, the song under it, on a dark wall with faint
+    /// LED pixels (dark when nothing is playing, so the beams carry the color).
+    static func backdropImage(artist: String, title: String) -> NSImage {
+        let size = NSSize(width: 1600, height: 900)
+        let img = NSImage(size: size)
+        img.lockFocus()
+        NSColor(white: 0.03, alpha: 1).setFill(); NSRect(origin: .zero, size: size).fill()
+        // LED panel grid
+        NSColor(white: 0.07, alpha: 1).setFill()
+        for x in stride(from: 0, to: size.width, by: 200) { NSRect(x: x, y: 0, width: 2, height: size.height).fill() }
+        for y in stride(from: 0, to: size.height, by: 225) { NSRect(x: 0, y: y, width: size.width, height: 2).fill() }
+        if !artist.isEmpty || !title.isEmpty {
+            let para = NSMutableParagraphStyle(); para.alignment = .center
+            let glow = NSShadow(); glow.shadowColor = NSColor(calibratedRed: 1, green: 0.25, blue: 0.45, alpha: 0.9); glow.shadowBlurRadius = 28
+            let name = (artist.isEmpty ? title : artist).uppercased()
+            var fontSize: CGFloat = 190
+            var attrs: [NSAttributedString.Key: Any] = [:]
+            repeat {
+                attrs = [.font: NSFont.systemFont(ofSize: fontSize, weight: .black), .foregroundColor: NSColor.white,
+                         .paragraphStyle: para, .shadow: glow, .kern: fontSize * 0.04]
+                fontSize -= 10
+            } while (name as NSString).size(withAttributes: attrs).width > size.width * 0.9 && fontSize > 50
+            let h = (name as NSString).size(withAttributes: attrs).height
+            (name as NSString).draw(in: NSRect(x: 0, y: size.height / 2 - h / 2 + 40, width: size.width, height: h), withAttributes: attrs)
+            if !artist.isEmpty && !title.isEmpty {
+                let sub: [NSAttributedString.Key: Any] = [.font: NSFont.systemFont(ofSize: 64, weight: .semibold),
+                                                          .foregroundColor: NSColor(white: 0.8, alpha: 1), .paragraphStyle: para]
+                (title as NSString).draw(in: NSRect(x: 40, y: size.height / 2 - h / 2 - 70, width: size.width - 80, height: 90), withAttributes: sub)
+            }
+        }
+        img.unlockFocus()
+        return img
+    }
+
     static func shehdsBar() -> (SCNNode, SCNNode, [SCNNode]) {
         let root = SCNNode()
         let len: CGFloat = 1.07, height: CGFloat = 0.13, depth: CGFloat = 0.08
@@ -354,6 +388,18 @@ private enum Build {
             }
             for z in [-d / 2, d / 2] { let t = truss(length: w); t.position = SCNVector3(0, h + 0.15, z); root.addChildNode(t) }
             for x in [-w / 2, w / 2] { let t = truss(length: d); t.eulerAngles.y = .pi / 2; t.position = SCNVector3(x, h + 0.15, 0); root.addChildNode(t) }
+            return root
+        case .backdrop:
+            // a wide LED wall / projection screen behind the band (16:9, 5.3 m × 3 m): shows the artist's name
+            let root = SCNNode()
+            let w: CGFloat = 5.3 * s, h: CGFloat = 3.0 * s
+            let frame = box(w + 0.12, h + 0.12, 0.12, Mat.black); frame.position = SCNVector3(0, h / 2 + 0.05, 0); root.addChildNode(frame)
+            let screen = SCNNode(geometry: { let g = SCNPlane(width: w, height: h)
+                let m = SCNMaterial(); m.lightingModel = .constant
+                m.diffuse.contents = backdropImage(artist: "", title: "")
+                g.materials = [m]; return g }())
+            screen.name = "backdropscreen"
+            screen.position = SCNVector3(0, h / 2 + 0.05, 0.062); root.addChildNode(screen)
             return root
         case .ledWall:
             // 1.5 m × 2.5 m video panel on a frame (shown dark so the light beams carry the color)
@@ -718,8 +764,35 @@ struct Stage3DView: NSViewRepresentable {
             applyFrame(model.preview, now: Date().timeIntervalSinceReferenceDate, master: model.blackout ? 0 : model.master)
         }
 
+        /// The song the LED backdrop names (a video export sets it; otherwise the playing song)
+        var backdropSong: (artist: String, title: String)? = nil
+        private var backdropKey: String? = nil
+        private var backdropImg: NSImage? = nil
+        private var backdropCache: [SCNNode] = []
+        private var backdropCheckedAt = -1.0
+        private func backdropNodes() -> [SCNNode] {
+            // look for the screens about once a second (cheap), not every frame
+            let now = Date().timeIntervalSinceReferenceDate
+            if now - backdropCheckedAt > 1 || backdropSong != nil && backdropCache.isEmpty {
+                backdropCheckedAt = now
+                backdropCache = scene.rootNode.childNodes { n, _ in n.name?.hasPrefix("backdropscreen") == true }
+            }
+            return backdropCache
+        }
+        private func updateBackdrop() {
+            let s: (artist: String, title: String) = backdropSong ?? model.playingSongID.flatMap { model.song($0) }.map { ($0.artist ?? "", $0.title) } ?? ("", "")
+            let key = s.artist + "|" + s.title
+            if key != backdropKey { backdropKey = key; backdropImg = Build.backdropImage(artist: s.artist, title: s.title) }
+            // new screens (added or rebuilt) pick it up too
+            for n in backdropNodes() where (n.name ?? "") != "backdropscreen|" + key {
+                n.geometry?.firstMaterial?.diffuse.contents = backdropImg
+                n.name = "backdropscreen|" + key
+            }
+        }
+
         /// Puts one moment of the show on the 3D lights (the Stage view, or a frame of an exported video).
         func applyFrame(_ preview: [RenderedFixture], now: Double, master: Double) {
+            updateBackdrop()
             let haze = model.haze
             let performer = model.stage.items.first { $0.prop == .performer } ?? model.stage.items.first { $0.prop == .micStand }
             let aim = performer.map { SCNVector3($0.x, $0.y + 1.3, $0.z) } ?? SCNVector3(0, 1.8, -1)

@@ -17,9 +17,23 @@ final class StageVideoExporter: ObservableObject {
     private var cancelled = false
 
     enum Quality: String, CaseIterable, Identifiable {
-        case hd720 = "720p (faster)", hd1080 = "1080p"
+        case phone = "For phones (small file, easy to text)", hd720 = "720p", hd1080 = "1080p"
         var id: String { rawValue }
-        var size: CGSize { self == .hd720 ? CGSize(width: 1280, height: 720) : CGSize(width: 1920, height: 1080) }
+        var size: CGSize {
+            switch self {
+            case .phone: return CGSize(width: 960, height: 540)
+            case .hd720: return CGSize(width: 1280, height: 720)
+            case .hd1080: return CGSize(width: 1920, height: 1080)
+            }
+        }
+        /// H.264 video + AAC audio in an .mp4: plays on iPhone, Android, in Messages, WhatsApp, email
+        var exportPreset: String {
+            switch self {
+            case .phone: return AVAssetExportPreset960x540
+            case .hd720: return AVAssetExportPreset1280x720
+            case .hd1080: return AVAssetExportPreset1920x1080
+            }
+        }
     }
 
     func cancel() { cancelled = true }
@@ -38,6 +52,7 @@ final class StageVideoExporter: ObservableObject {
         // a copy of the venue, drawn off screen
         let stage = Stage3DView.Coordinator(model: model)
         stage.sync()
+        stage.backdropSong = (song.artist ?? "", song.title)
         stage.setCamera(camera)
         guard let device = MTLCreateSystemDefaultDevice() else { error = "This Mac's graphics can't draw the video."; progress = nil; return }
         let renderer = SCNRenderer(device: device, options: nil)
@@ -50,7 +65,7 @@ final class StageVideoExporter: ObservableObject {
             let input = AVAssetWriterInput(mediaType: .video, outputSettings: [
                 AVVideoCodecKey: AVVideoCodecType.h264,
                 AVVideoWidthKey: Int(size.width), AVVideoHeightKey: Int(size.height),
-                AVVideoCompressionPropertiesKey: [AVVideoAverageBitRateKey: quality == .hd720 ? 6_000_000 : 10_000_000]
+                AVVideoCompressionPropertiesKey: [AVVideoAverageBitRateKey: quality == .hd1080 ? 10_000_000 : 6_000_000]
             ])
             input.expectsMediaDataInRealTime = false
             let adaptor = AVAssetWriterInputPixelBufferAdaptor(assetWriterInput: input, sourcePixelBufferAttributes: [
@@ -69,7 +84,7 @@ final class StageVideoExporter: ObservableObject {
                 var frame = model.songFrame(songID, show: show.id, at: t, idleFrame: idleFrame) ?? idleFrame
                 for i in frame.indices { if let src = model.copySource(of: i), src < frame.count { frame[i] = frame[src] } }
                 stage.applyFrame(frame, now: t, master: 1)
-                let image = renderer.snapshot(atTime: t, with: size, antialiasingMode: quality == .hd720 ? .multisampling2X : .multisampling4X)
+                let image = renderer.snapshot(atTime: t, with: size, antialiasingMode: quality == .hd1080 ? .multisampling4X : .multisampling2X)
                 while !input.isReadyForMoreMediaData { try await Task.sleep(nanoseconds: 2_000_000) }
                 if let pool = adaptor.pixelBufferPool, let buf = pixelBuffer(image, pool: pool, size: size,
                                                                               label: showLabels ? label(show, at: t, song: song) : nil) {
@@ -103,11 +118,12 @@ final class StageVideoExporter: ObservableObject {
                 try ct.insertTimeRange(aRange, of: at, at: .zero)
             }
             try? FileManager.default.removeItem(at: outURL)
-            guard let exp = AVAssetExportSession(asset: comp, presetName: AVAssetExportPresetHighestQuality) else {
+            guard let exp = AVAssetExportSession(asset: comp, presetName: quality.exportPreset) else {
                 throw NSError(domain: "video", code: 3, userInfo: [NSLocalizedDescriptionKey: "Couldn't start the final export"])
             }
             exp.outputURL = outURL
             exp.outputFileType = .mp4
+            exp.shouldOptimizeForNetworkUse = true   // starts playing on a phone before it's fully downloaded
             await withCheckedContinuation { (c: CheckedContinuation<Void, Never>) in exp.exportAsynchronously { c.resume() } }
             try? FileManager.default.removeItem(at: tmpVideo)
             guard exp.status == .completed else { throw exp.error ?? NSError(domain: "video", code: 4) }
@@ -162,7 +178,7 @@ struct StageVideoExportSheet: View {
     @Environment(\.dismiss) private var dismiss
     @State private var songID: UUID?
     @State private var camera = "Overview"
-    @State private var quality: StageVideoExporter.Quality = .hd720
+    @State private var quality: StageVideoExporter.Quality = .phone
     @State private var labels = true
 
     private var songs: [Song] { model.songs.filter { $0.analysis != nil && $0.activeShow != nil } }
@@ -191,12 +207,21 @@ struct StageVideoExportSheet: View {
                 HStack {
                     Image(systemName: "checkmark.circle.fill").foregroundColor(.green)
                     Text("Saved \(url.lastPathComponent)").lineLimit(1)
+                    if let bytes = (try? url.resourceValues(forKeys: [.fileSizeKey]))?.fileSize {
+                        Text(ByteCountFormatter.string(fromByteCount: Int64(bytes), countStyle: .file)).foregroundColor(.secondary)
+                    }
                     Spacer()
+                    Button("Share…") {
+                        // AirDrop to a phone, Messages, Mail…
+                        if let v = NSApp.keyWindow?.contentView {
+                            NSSharingServicePicker(items: [url]).show(relativeTo: NSRect(x: v.bounds.midX, y: 40, width: 1, height: 1), of: v, preferredEdge: .minY)
+                        }
+                    }
                     Button("Show in Finder") { NSWorkspace.shared.activateFileViewerSelecting([url]) }
                 }
             }
             if let e = exporter.error { Text(e).font(.caption).foregroundColor(.red) }
-            Text("Drawing takes a while on older Macs (often a few minutes for a 3-minute song at 720p). Keep the app open until it's done.")
+            Text("The .mp4 plays on iPhone and Android phones (Messages, WhatsApp, email). \"For phones\" keeps it small enough to text. Drawing takes a few minutes on older Macs — keep the app open until it's done.")
                 .font(.caption).foregroundColor(.secondary)
             HStack {
                 Spacer()

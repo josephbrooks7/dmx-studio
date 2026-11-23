@@ -555,6 +555,7 @@ final class AppModel: ObservableObject {
         idle = s.idle
         rigMode = s.rigMode ?? .together
         stage = s.stage ?? StageLayout.starter(for: s.fixtures)
+        stage.useBackdrop()
         manual = [:]
         activePresetID = nil
     }
