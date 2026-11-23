@@ -894,6 +894,27 @@ struct Stage3DView: NSViewRepresentable {
                 shelf.geometry?.materials = [glow(NSColor(calibratedRed: 0.9, green: 0.55, blue: 0.25, alpha: 1))]
                 shelf.position = SCNVector3(0, CGFloat(y), barZ + 1.3); scene.rootNode.addChildNode(shelf)
             }
+            // Edison-bulb pendants over the bar: clear glass, a glowing amber filament, hung at different heights
+            let glass: SCNMaterial = { let m = SCNMaterial(); m.lightingModel = .physicallyBased
+                m.diffuse.contents = NSColor(calibratedRed: 0.9, green: 0.8, blue: 0.6, alpha: 1); m.transparency = 0.22
+                m.roughness.contents = 0.05; m.metalness.contents = 0.0; m.isDoubleSided = true; return m }()
+            let filament = glow(NSColor(calibratedRed: 1.0, green: 0.66, blue: 0.28, alpha: 1))
+            for (k, x) in stride(from: -3.6, through: 3.6, by: 1.2).enumerated() {
+                let y = CGFloat(2.75 + [0.0, 0.35, 0.12, 0.45, 0.05, 0.3, 0.18][k % 7])
+                let p = SCNVector3(CGFloat(x), y, barZ)
+                scene.rootNode.addChildNode(Build.pipe(from: SCNVector3(p.x, 4.6, p.z), to: SCNVector3(p.x, y + 0.22, p.z), r: 0.004, Mat.black))
+                let cap = SCNNode(geometry: SCNCylinder(radius: 0.025, height: 0.05)); cap.geometry?.materials = [Mat.aluminum]
+                cap.position = SCNVector3(p.x, y + 0.2, p.z); scene.rootNode.addChildNode(cap)
+                // the glass: a tall diamond / teardrop shape (two cones)
+                let top = SCNNode(geometry: SCNCone(topRadius: 0.02, bottomRadius: 0.075, height: 0.12)); top.geometry?.materials = [glass]
+                top.position = SCNVector3(p.x, y + 0.11, p.z); scene.rootNode.addChildNode(top)
+                let bottom = SCNNode(geometry: SCNCone(topRadius: 0.075, bottomRadius: 0.012, height: 0.2)); bottom.geometry?.materials = [glass]
+                bottom.position = SCNVector3(p.x, y - 0.05, p.z); scene.rootNode.addChildNode(bottom)
+                // the spiral filament (a glowing coil)
+                let coil = SCNNode(geometry: SCNCylinder(radius: 0.012, height: 0.22)); coil.geometry?.materials = [filament]
+                coil.position = SCNVector3(p.x, y + 0.02, p.z); scene.rootNode.addChildNode(coil)
+                scene.rootNode.addChildNode(Build.warmHalo(0.55, at: SCNVector3(p.x, y + 0.02, p.z)))
+            }
             let barLight = SCNNode(); barLight.light = SCNLight(); barLight.light?.type = .omni
             barLight.light?.color = warm; barLight.light?.intensity = 220
             barLight.light?.attenuationStartDistance = 0.5; barLight.light?.attenuationEndDistance = 6
