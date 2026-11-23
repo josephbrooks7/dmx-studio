@@ -160,6 +160,17 @@ private enum Build {
         return img
     }
 
+    /// A soft warm glow that always faces the camera (lamps, sconces): light without an extra light source
+    static func warmHalo(_ size: CGFloat, at p: SCNVector3) -> SCNNode {
+        let g = SCNPlane(width: size, height: size)
+        let m = SCNMaterial(); m.lightingModel = .constant; m.blendMode = .add; m.writesToDepthBuffer = false
+        m.diffuse.contents = Stage3DView.Coordinator.wallGlowImage(NSColor(calibratedRed: 1, green: 0.62, blue: 0.3, alpha: 1))
+        g.materials = [m]
+        let n = SCNNode(geometry: g); n.position = p
+        n.constraints = [SCNBillboardConstraint()]
+        return n
+    }
+
     /// The wall behind the band. Screens named "backdropscreen…" get the artist's name drawn on them.
     static func backdrop(_ style: BackdropStyle, size: Double, panels: [Int]? = nil) -> SCNNode {
         let s = CGFloat(size)
@@ -429,7 +440,7 @@ private enum Build {
         case .stage:
             let n = box(6 * s, 0.6, 4, Mat.stageTop, chamfer: 0.02); n.position = SCNVector3(0, 0.3, 0)
             let root = SCNNode(); root.addChildNode(n)
-            let edge = box(6 * s, 0.02, 0.03, { let m = SCNMaterial(); m.lightingModel = .constant; m.diffuse.contents = NSColor(white: 0.5, alpha: 1); return m }())
+            let edge = box(6 * s, 0.02, 0.03, { let m = SCNMaterial(); m.lightingModel = .constant; m.diffuse.contents = NSColor(calibratedRed: 0.15, green: 0.32, blue: 0.9, alpha: 1); return m }())   // LED strip on the stage lip
             edge.position = SCNVector3(0, 0.6, 2); root.addChildNode(edge)
             return root
         case .truss:
@@ -558,9 +569,12 @@ private enum Build {
             let top = cyl(0.32, 0.03, wood); top.position = SCNVector3(0, 0.74, 0); root.addChildNode(top)
             root.addChildNode(pipe(from: SCNVector3(0, 0, 0), to: SCNVector3(0, 0.74, 0), r: 0.025, Mat.black))
             let base = cyl(0.2, 0.02, Mat.black); base.position = SCNVector3(0, 0.01, 0); root.addChildNode(base)
-            let candle = SCNNode(geometry: { let g = SCNCylinder(radius: 0.03, height: 0.07)
-                let m = SCNMaterial(); m.lightingModel = .constant; m.diffuse.contents = NSColor(calibratedRed: 1, green: 0.75, blue: 0.45, alpha: 1); g.materials = [m]; return g }())
-            candle.position = SCNVector3(0, 0.79, 0); root.addChildNode(candle)
+            // a small table lamp: glowing shade with a soft warm halo around it
+            let shade = SCNNode(geometry: { let g = SCNCone(topRadius: 0.05, bottomRadius: 0.09, height: 0.12)
+                let m = SCNMaterial(); m.lightingModel = .constant; m.diffuse.contents = NSColor(calibratedRed: 0.75, green: 0.5, blue: 0.27, alpha: 1); g.materials = [m]; return g }())
+            shade.position = SCNVector3(0, 0.93, 0); root.addChildNode(shade)
+            root.addChildNode(pipe(from: SCNVector3(0, 0.76, 0), to: SCNVector3(0, 0.87, 0), r: 0.01, Mat.aluminum))
+            root.addChildNode(warmHalo(0.9, at: SCNVector3(0, 0.92, 0)))
             for a in [0.0, 2.1, 4.2] {
                 let cx = CGFloat(cos(a)) * 0.55, cz = CGFloat(sin(a)) * 0.55
                 let seat = cyl(0.19, 0.03, wood); seat.position = SCNVector3(cx, 0.46, cz); root.addChildNode(seat)
@@ -829,10 +843,10 @@ struct Stage3DView: NSViewRepresentable {
                 scene.rootNode.addChildNode(side)
             }
             // house lights at a low level
-            let amb = SCNNode(); amb.light = SCNLight(); amb.light?.type = .ambient; amb.light?.intensity = 170
+            let amb = SCNNode(); amb.light = SCNLight(); amb.light?.type = .ambient; amb.light?.intensity = 210   // every venue has some light in the room
             amb.light?.color = NSColor(calibratedRed: 0.85, green: 0.88, blue: 1.0, alpha: 1)
             scene.rootNode.addChildNode(amb)
-            let key = SCNNode(); key.light = SCNLight(); key.light?.type = .directional; key.light?.intensity = 260
+            let key = SCNNode(); key.light = SCNLight(); key.light?.type = .directional; key.light?.intensity = 250
             key.light?.color = NSColor(calibratedRed: 0.9, green: 0.92, blue: 1.0, alpha: 1)
             key.eulerAngles = SCNVector3(-0.9, 0.35, 0)
             scene.rootNode.addChildNode(key)
@@ -846,15 +860,34 @@ struct Stage3DView: NSViewRepresentable {
                 fw.look(at: SCNVector3(0, 1.2, -2))
                 scene.rootNode.addChildNode(fw)
             }
+            // house lights, dimmed: a broad soft fill from the ceiling over the audience
+            let house = SCNNode(); house.light = SCNLight(); house.light?.type = .omni
+            house.light?.color = NSColor(calibratedRed: 1.0, green: 0.9, blue: 0.8, alpha: 1); house.light?.intensity = 170
+            house.light?.attenuationStartDistance = 3; house.light?.attenuationEndDistance = 18
+            house.position = SCNVector3(0, 7, 5); scene.rootNode.addChildNode(house)
+            // warm pendant lamps hanging over the audience
+            for (x, z) in [(-4.5, 3.0), (0.0, 4.0), (4.5, 3.0), (-3.0, 7.5), (3.0, 7.5)] {
+                let p = SCNVector3(CGFloat(x), 4.6, CGFloat(z))
+                scene.rootNode.addChildNode(Build.pipe(from: SCNVector3(p.x, 7.5, p.z), to: SCNVector3(p.x, p.y + 0.12, p.z), r: 0.006, Mat.darkGray))
+                let bulb = SCNNode(geometry: { let g = SCNCone(topRadius: 0.06, bottomRadius: 0.2, height: 0.22)
+                    let m = SCNMaterial(); m.lightingModel = .constant; m.diffuse.contents = NSColor(calibratedRed: 0.7, green: 0.48, blue: 0.26, alpha: 1); g.materials = [m]; return g }())
+                bulb.position = p; scene.rootNode.addChildNode(bulb)
+                scene.rootNode.addChildNode(Build.warmHalo(1.6, at: SCNVector3(p.x, p.y - 0.05, p.z)))
+            }
+            let pendants = SCNNode(); pendants.light = SCNLight(); pendants.light?.type = .omni
+            pendants.light?.color = NSColor(calibratedRed: 1, green: 0.7, blue: 0.42, alpha: 1); pendants.light?.intensity = 140
+            pendants.light?.attenuationStartDistance = 1; pendants.light?.attenuationEndDistance = 9
+            pendants.position = SCNVector3(0, 4.3, 5); scene.rootNode.addChildNode(pendants)
             // the room's own light, on even when the stage is dark: a bar at the back with a warm under-glow and
             // lit shelves, warm wall sconces, faint blue uplights on the walls and green exit signs
             func glow(_ c: NSColor) -> SCNMaterial { let m = SCNMaterial(); m.lightingModel = .constant; m.diffuse.contents = c; return m }
-            let warm = NSColor(calibratedRed: 1.0, green: 0.62, blue: 0.3, alpha: 1)
+            let warm = NSColor(calibratedRed: 0.72, green: 0.44, blue: 0.2, alpha: 1)   // dimmed, not full
             let barZ: CGFloat = 11.5
             let counter = SCNNode(geometry: SCNBox(width: 9, height: 1.1, length: 0.7, chamferRadius: 0.03))
             counter.geometry?.materials = [Mat.make(NSColor(calibratedRed: 0.07, green: 0.045, blue: 0.035, alpha: 1), rough: 0.35)]
             counter.position = SCNVector3(0, 0.55, barZ); scene.rootNode.addChildNode(counter)
-            let strip = SCNNode(geometry: SCNBox(width: 9, height: 0.03, length: 0.02, chamferRadius: 0)); strip.geometry?.materials = [glow(warm)]
+            let strip = SCNNode(geometry: SCNBox(width: 9, height: 0.03, length: 0.02, chamferRadius: 0))
+            strip.geometry?.materials = [glow(NSColor(calibratedRed: 0.55, green: 0.65, blue: 0.8, alpha: 1))]   // cool under-counter LED
             strip.position = SCNVector3(0, 0.08, barZ - 0.36); scene.rootNode.addChildNode(strip)
             for y in [1.6, 2.1, 2.6] {   // backlit shelves behind the bar
                 let shelf = SCNNode(geometry: SCNBox(width: 7, height: 0.04, length: 0.3, chamferRadius: 0))
@@ -862,7 +895,7 @@ struct Stage3DView: NSViewRepresentable {
                 shelf.position = SCNVector3(0, CGFloat(y), barZ + 1.3); scene.rootNode.addChildNode(shelf)
             }
             let barLight = SCNNode(); barLight.light = SCNLight(); barLight.light?.type = .omni
-            barLight.light?.color = warm; barLight.light?.intensity = 420
+            barLight.light?.color = warm; barLight.light?.intensity = 220
             barLight.light?.attenuationStartDistance = 0.5; barLight.light?.attenuationEndDistance = 6
             barLight.position = SCNVector3(0, 2.4, barZ + 0.4); scene.rootNode.addChildNode(barLight)
             // sconces: small glowing shades on the side walls (glow only, no extra light sources)
@@ -877,10 +910,23 @@ struct Stage3DView: NSViewRepresentable {
                 }
                 // faint blue house uplight on each side wall
                 let up = SCNNode(); up.light = SCNLight(); up.light?.type = .omni
-                up.light?.color = NSColor(calibratedRed: 0.35, green: 0.45, blue: 1.0, alpha: 1); up.light?.intensity = 180
+                up.light?.color = NSColor(calibratedRed: 0.35, green: 0.45, blue: 1.0, alpha: 1); up.light?.intensity = 110
                 up.light?.attenuationStartDistance = 1; up.light?.attenuationEndDistance = 8
                 up.position = SCNVector3(CGFloat(x) * 0.93, 0.6, 4); scene.rootNode.addChildNode(up)
             }
+            // blue LED cove strips tracing the room (along the tops of the side walls and around the back wall),
+            // like the accent lighting in real venues — dim, so they outline the room without lighting it up
+            let cove = glow(NSColor(calibratedRed: 0.12, green: 0.28, blue: 0.85, alpha: 1))
+            for x in [-13.95, 13.95] {
+                for y in [4.6, 1.0] {
+                    let s = SCNNode(geometry: SCNBox(width: 0.04, height: 0.035, length: 18, chamferRadius: 0)); s.geometry?.materials = [cove]
+                    s.position = SCNVector3(CGFloat(x), CGFloat(y), 4); scene.rootNode.addChildNode(s)
+                }
+            }
+            let backCove = SCNNode(geometry: SCNBox(width: 27.8, height: 0.035, length: 0.04, chamferRadius: 0)); backCove.geometry?.materials = [cove]
+            backCove.position = SCNVector3(0, 4.6, 13.45); scene.rootNode.addChildNode(backCove)
+            let frontCove = SCNNode(geometry: SCNBox(width: 39, height: 0.035, length: 0.04, chamferRadius: 0)); frontCove.geometry?.materials = [cove]
+            frontCove.position = SCNVector3(0, 6.2, -5.95); scene.rootNode.addChildNode(frontCove)
             // exit signs in the back corners
             for x in [-12.5, 12.5] {
                 let sign = SCNNode(geometry: SCNPlane(width: 0.5, height: 0.2)); sign.geometry?.materials = [glow(NSColor(calibratedRed: 0.1, green: 0.95, blue: 0.35, alpha: 1))]
@@ -994,7 +1040,7 @@ struct Stage3DView: NSViewRepresentable {
             img.lockFocus()
             if let ctx = NSGraphicsContext.current?.cgContext,
                let g = CGGradient(colorsSpace: CGColorSpaceCreateDeviceRGB(),
-                                  colors: [c.withAlphaComponent(0.55).cgColor, c.withAlphaComponent(0.12).cgColor, c.withAlphaComponent(0).cgColor] as CFArray,
+                                  colors: [c.withAlphaComponent(0.32).cgColor, c.withAlphaComponent(0.07).cgColor, c.withAlphaComponent(0).cgColor] as CFArray,
                                   locations: [0, 0.4, 1]) {
                 let center = CGPoint(x: size / 2, y: size / 2)
                 ctx.drawRadialGradient(g, startCenter: center, startRadius: 0, endCenter: center, endRadius: CGFloat(size / 2), options: [])
