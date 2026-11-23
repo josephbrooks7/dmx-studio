@@ -165,7 +165,7 @@ enum ShowGenerator {
             //   · full (end to end, every phrase) · big (drops)
             // Soft parts are mostly still or subtle, and the amount changes from part to part.
             let isLift = secs[i].name.hasPrefix("Pre-Chorus") || secs[i].name.hasPrefix("Build")
-            let holdAims = [0.62, 0.42, 0.78, 0.5, 0.7, 0.35]
+            let holdAims = [0.62, 0.5, 0.78, 0.55, 0.7, 0.86]   // straight up to toward the crowd, never at the back
             let aimHere = holdAims[i % holdAims.count]
             func still() { secs[i].movement = .none; secs[i].aim = aimHere; secs[i].moveSize = nil; secs[i].moveSpeed = nil }
             func subtle() { secs[i].movement = .sweep; secs[i].aim = aimHere; secs[i].moveSize = 0.2; secs[i].moveSpeed = 0.25 }
@@ -985,13 +985,19 @@ struct ShowRenderer {
                     let m = movement(s.movement, barPos: mBar, idx: mIdx, fi: moverIdx, n: moverCount)
                     rf.pan = m.pan; rf.tilt = m.tilt
                 }
+                // Moves stay in front: from a little behind straight up (0.42) out to the audience (1),
+                // never swinging over to shoot at the back of the stage
                 // Hold with an aim: the heads stay tilted there (e.g. at the crowd)
                 if s.movement == .none, let aim = s.aim { rf.tilt = max(0, min(1, aim)); rf.pan = 0.5 }
-                // a smaller swing: drift around the aim (or straight up) instead of end to end
-                else if s.movement != .none, let size = s.moveSize, size < 1 {
-                    let center = s.aim ?? 0.5
-                    rf.tilt = max(0, min(1, center + (rf.tilt - 0.5) * size))
-                    rf.pan = max(0, min(1, 0.5 + (rf.pan - 0.5) * size))
+                else if s.movement != .none {
+                    // a smaller swing: drift around the aim (or the middle) instead of end to end
+                    if let size = s.moveSize, size < 1 {
+                        rf.tilt = 0.5 + (rf.tilt - 0.5) * size
+                        rf.pan = max(0, min(1, 0.5 + (rf.pan - 0.5) * size))
+                    }
+                    // the full 180°; a small swing is centred on the aim
+                    if let size = s.moveSize, size < 1, let aim = s.aim { rf.tilt += aim - 0.5 }
+                    rf.tilt = max(0, min(1, rf.tilt))
                 }
                 moverIdx += 1
             }

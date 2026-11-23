@@ -812,7 +812,7 @@ struct Stage3DView: NSViewRepresentable {
             if fx.profileName.hasPrefix("SHEHDS") || fx.headCount == 8 {
                 let (bar, head, lenses) = Build.shehdsBar()
                 root.addChildNode(bar)
-                light.eulerAngles.x = -.pi / 2       // point along +Y of the head
+                light.eulerAngles.x = .pi / 2        // a spot shines along its -Z: turned +90° it points along +Y, the way the lenses face
                 head.addChildNode(light)
                 fixtureParts[item.id] = (head, lenses, light)
             } else if fx.colorWheel != nil {
