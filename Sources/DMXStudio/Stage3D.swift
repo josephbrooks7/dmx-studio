@@ -853,7 +853,7 @@ struct Stage3DView: NSViewRepresentable {
             // front-of-house wash: two soft warm spots from out front onto the stage and performer
             for x in [-3.5, 3.5] {
                 let fw = SCNNode(); fw.light = SCNLight(); fw.light?.type = .spot
-                fw.light?.intensity = 650; fw.light?.spotInnerAngle = 25; fw.light?.spotOuterAngle = 55
+                fw.light?.intensity = 260   // a soft front wash, not a spotlight on the band; fw.light?.spotInnerAngle = 25; fw.light?.spotOuterAngle = 55
                 fw.light?.attenuationStartDistance = 6; fw.light?.attenuationEndDistance = 22
                 fw.light?.color = NSColor(calibratedRed: 1.0, green: 0.86, blue: 0.7, alpha: 1)
                 fw.position = SCNVector3(x, 6.5, 9)
@@ -956,12 +956,7 @@ struct Stage3DView: NSViewRepresentable {
             let backWall = SCNNode(geometry: { let g = SCNPlane(width: 30, height: 14); g.materials = [wallMat]; return g }())
             backWall.position = SCNVector3(0, 7, 13.5); backWall.eulerAngles.y = .pi; scene.rootNode.addChildNode(backWall)
 
-            // a faint back light on the back wall so the stage has depth
-            let back = SCNNode(); back.light = SCNLight(); back.light?.type = .omni; back.light?.intensity = 220
-            back.light?.color = NSColor(calibratedRed: 0.55, green: 0.6, blue: 0.9, alpha: 1)
-            back.light?.attenuationStartDistance = 1; back.light?.attenuationEndDistance = 9
-            back.position = SCNVector3(0, 5.5, -5.2)
-            scene.rootNode.addChildNode(back)
+            // (no light aimed at the back wall: up close it made a hard hotspot)
         }
 
         /// Rebuild items that were added, removed or changed.
@@ -1209,12 +1204,15 @@ struct Stage3DView: NSViewRepresentable {
                     // Haze glow around each lens (light scattering in the air right in front of it)
                     let halo = lens.childNode(withName: "halo", recursively: false) ?? Self.makeHalo(on: lens, big: fx.colorWheel != nil)
                     let hk = level * haze * 0.55
+                    // off means gone: the room's haze would otherwise tint the invisible beam shapes grey
+                    halo.isHidden = hk < 0.004
                     halo.geometry?.firstMaterial?.multiply.contents = NSColor(calibratedRed: st.color.r * hk, green: st.color.g * hk, blue: st.color.b * hk, alpha: 1)
                     roomGlow.r += st.color.r * level; roomGlow.g += st.color.g * level; roomGlow.b += st.color.b * level; roomGlow.n += 1
                     if let glass = lens.childNode(withName: "lens", recursively: false)?.geometry?.firstMaterial {
                         glass.diffuse.contents = level > 0.02 ? (c.blended(withFraction: 0.35 * (1 - level), of: .black) ?? c) : NSColor(white: 0.12, alpha: 1)
                     }
                     if let beam = lens.childNode(withName: "beam", recursively: false) {
+                        beam.isHidden = level * haze < 0.004
                         for (k, fade) in [1.0, 0.62, 0.34, 0.13].enumerated() {
                             guard let m = beam.childNode(withName: "seg\(k)", recursively: false)?.geometry?.firstMaterial else { continue }
                             // Additive glow: brightness comes from the color itself, so dim the color.
