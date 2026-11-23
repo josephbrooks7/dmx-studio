@@ -127,8 +127,10 @@ struct SongView: View {
                     }
                 }
                 Spacer(minLength: 16)
-                HStack {
-                    Text("Genre:").foregroundColor(.secondary)
+                // the two genre pickers stacked, labels on one line each
+                VStack(alignment: .trailing, spacing: 8) {
+                HStack(spacing: 8) {
+                    Text("Genre").foregroundColor(.secondary).fixedSize()
                     Picker("", selection: model.songBinding(song.id).genre) {
                         if let s = song.analysis?.suggestedStyle {
                             Text(song.analysis?.genreUnsure == true ? "Auto (not sure · using \(s.rawValue))" : "Auto (sounds like \(s.rawValue))").tag(ShowStyle?.none)
@@ -140,7 +142,9 @@ struct SongView: View {
                     }
                     .labelsHidden()
                     .frame(width: 260)
-                    Text("Choruses:").foregroundColor(.secondary)
+                }
+                HStack(spacing: 8) {
+                    Text("Choruses & drops").foregroundColor(.secondary).fixedSize()
                     Picker("", selection: Binding(get: { song.peakGenre }, set: { v in
                         model.songBinding(song.id).peakGenre.wrappedValue = v
                         model.rebuildShows(for: song.id)
@@ -150,8 +154,9 @@ struct SongView: View {
                         ForEach(ShowStyle.allCases) { s in Text(s.rawValue).tag(ShowStyle?.some(s)) }
                     }
                     .labelsHidden()
-                    .frame(width: 170)
+                    .frame(width: 260)
                     .help("A different genre for the big parts, e.g. an electronic song with dubstep in the chorus")
+                }
                 }
             }
             HStack(spacing: 10) {

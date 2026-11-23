@@ -201,6 +201,7 @@ struct DMXStudioApp: App {
             CommandGroup(after: .newItem) {
                 Button("Import Session…") { model.importSessionWithPanel() }.keyboardShortcut("o", modifiers: .command)
                 Button("Export Session…") { model.exportSessionWithPanel() }.keyboardShortcut("e", modifiers: .command)
+                Button("Export Stage to Video…") { model.showVideoExport = true }.keyboardShortcut("e", modifiers: [.command, .shift])
                 Divider()
                 Button("Show Files in Finder") { model.showLibraryFolder() }
                 Button("Lyrics Library…") { model.showLyricsLibrary = true }.keyboardShortcut("l", modifiers: [.command, .shift])

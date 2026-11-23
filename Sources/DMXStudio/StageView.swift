@@ -102,6 +102,9 @@ struct StageScreen: View {
                 .menuStyle(.borderlessButton).fixedSize()
                 .padding(.horizontal, 10).padding(.vertical, 6)
                 .background(Capsule().fill(Color.white.opacity(0.09)))
+                Button { model.showVideoExport = true } label: { Image(systemName: "film") }
+                    .buttonStyle(PillButtonStyle())
+                    .help("Export Stage to Video: an .mp4 of the show on this stage, with the music")
                 Button { model.stageEditing.toggle(); if !model.stageEditing { model.selectedStageItem = nil } } label: {
                     Label(model.stageEditing ? "Done" : "Edit Venue", systemImage: model.stageEditing ? "checkmark" : "hammer")
                 }

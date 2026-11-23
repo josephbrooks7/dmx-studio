@@ -564,7 +564,7 @@ struct Stage3DView: NSViewRepresentable {
             case "Audience": camera.position = SCNVector3(0, 2.3, 8.2); camera.look(at: SCNVector3(0, 2.2, -2))
             // Overview (the starting view): close enough to see the lights and the stage fill the frame,
             // from the front-left a little above stage height; zoom out / in from here
-            default: camera.position = SCNVector3(-3.0, 3.0, 3.6); camera.look(at: SCNVector3(0.2, 1.5, -1.8))
+            default: camera.position = SCNVector3(-2.6, 3.0, 3.9); camera.look(at: SCNVector3(-0.55, 1.35, -1.7))   // stage centered in the frame
             }
             view?.pointOfView = camera
         }
@@ -715,8 +715,11 @@ struct Stage3DView: NSViewRepresentable {
                 if view?.isPlaying == true { view?.isPlaying = false }
                 return
             }
-            let now = Date().timeIntervalSinceReferenceDate
-            let master = model.blackout ? 0 : model.master
+            applyFrame(model.preview, now: Date().timeIntervalSinceReferenceDate, master: model.blackout ? 0 : model.master)
+        }
+
+        /// Puts one moment of the show on the 3D lights (the Stage view, or a frame of an exported video).
+        func applyFrame(_ preview: [RenderedFixture], now: Double, master: Double) {
             let haze = model.haze
             let performer = model.stage.items.first { $0.prop == .performer } ?? model.stage.items.first { $0.prop == .micStand }
             let aim = performer.map { SCNVector3($0.x, $0.y + 1.3, $0.z) } ?? SCNVector3(0, 1.8, -1)
@@ -726,9 +729,9 @@ struct Stage3DView: NSViewRepresentable {
             SCNTransaction.disableActions = true
             for item in model.stage.items {
                 guard let fid = item.fixtureID, let parts = fixtureParts[item.id],
-                      let fi = model.fixtures.firstIndex(where: { $0.id == fid }), fi < model.preview.count else { continue }
+                      let fi = model.fixtures.firstIndex(where: { $0.id == fid }), fi < preview.count else { continue }
                 let fx = model.fixtures[fi]
-                let rf = model.preview[fi]
+                let rf = preview[fi]
                 var gate = 1.0
                 if rf.strobe > 0 { gate = Int(now * (6 + 8 * rf.strobe) * 2) % 2 == 0 ? 1 : 0 }
 

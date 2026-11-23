@@ -76,6 +76,7 @@ final class AppModel: ObservableObject {
     @Published var deviceLibrary: [Fixture] = DeviceLibrary.load()
     @Published var showDeviceLibrary = false
     @Published var showHueSetup = false
+    @Published var showVideoExport = false
 
     /// Mount every beam bar the same way (floor / upright on truss legs / hanging) to compare setups
     func stageScenario(_ m: StageMount) {
@@ -3223,7 +3224,7 @@ final class AppModel: ObservableObject {
     }
 
     /// One song's show at a moment in that song (for blending two songs during a fade).
-    private func songFrame(_ songID: UUID, show showID: UUID?, at time: Double, idleFrame: [RenderedFixture]) -> [RenderedFixture]? {
+    func songFrame(_ songID: UUID, show showID: UUID?, at time: Double, idleFrame: [RenderedFixture]) -> [RenderedFixture]? {
         guard let i = index(of: songID), let a = songs[i].analysis,
               let show = songs[i].shows.first(where: { $0.id == showID }) ?? songs[i].activeShow else { return nil }
         let linked = fixtures.indices.filter { show.includes(fixtures[$0]) && fixtures[$0].isOn && fixtures[$0].effectiveBehavior == .sequence && copySource(of: $0) == nil }

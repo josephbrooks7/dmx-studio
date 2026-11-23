@@ -211,6 +211,7 @@ struct MainShell: View {
             .sheet(isPresented: Binding(get: { model.setupWizardFor != nil }, set: { if !$0 { model.setupWizardFor = nil } })) {
                 LightSetupWizard(only: model.setupWizardFor ?? []).environmentObject(model)
             }
+            .background(EmptyView().sheet(isPresented: $model.showVideoExport) { StageVideoExportSheet().environmentObject(model) })
     }
 
     private var shell: some View {
