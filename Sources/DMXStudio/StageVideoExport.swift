@@ -53,6 +53,7 @@ final class StageVideoExporter: ObservableObject {
         let stage = Stage3DView.Coordinator(model: model)
         stage.sync()
         stage.backdropSong = (song.artist ?? "", song.title)
+        stage.backdropSongID = songID
         // match what you see on the Stage page side to side (a 16:9 video is narrower than the window)
         stage.camera.camera?.projectionDirection = .horizontal
         if camera == "Same as my Stage view", let now = model.stageCameraNow {
@@ -91,6 +92,7 @@ final class StageVideoExporter: ObservableObject {
                 let t = Double(f) / fps
                 var frame = model.songFrame(songID, show: show.id, at: t, idleFrame: idleFrame) ?? idleFrame
                 for i in frame.indices { if let src = model.copySource(of: i), src < frame.count { frame[i] = frame[src] } }
+                stage.backdropTime = t
                 stage.applyFrame(frame, now: t, master: 1)
                 let image = renderer.snapshot(atTime: t, with: size, antialiasingMode: quality == .hd1080 ? .multisampling4X : .multisampling2X)
                 while !input.isReadyForMoreMediaData { try await Task.sleep(nanoseconds: 2_000_000) }

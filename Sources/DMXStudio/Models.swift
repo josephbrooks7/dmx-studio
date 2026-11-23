@@ -431,6 +431,7 @@ struct ShowSection: Identifiable, Codable, Hashable {
     var beamSteps: [UInt8]? = nil   // beam sequencer: 16 steps, each a mask of which of the 8 heads are on
     var moveSize: Double? = nil     // 0…1: how far the heads swing (nil = full); small = a subtle drift around the aim
     var moveSpeed: Double? = nil    // movement speed (nil = 1; 0.25 = a quarter as fast), separate from the effect speed
+    var screen: ScreenCue? = nil    // what the LED wall / projection shows from this part on (nil = keep what was on)
     var aim: Double? = nil          // with movement Hold: where the heads point, 0…1 of the tilt (0.5 straight up, 1 = at the audience)
 }
 
@@ -937,12 +938,20 @@ struct StageItem: Identifiable, Codable, Hashable {
     var backdropStyle: BackdropStyle? = nil   // backdrop: LED wall (default), projection, banner, blank
 }
 
+/// A screen cue in a show: what the LED wall / projection shows from that part on
+struct ScreenCue: Codable, Hashable {
+    var content: ScreenContent
+    var mediaPath: String? = nil
+}
+
 /// What an LED wall / projection screen shows
 enum ScreenContent: String, Codable, CaseIterable, Identifiable {
     case name = "Artist name"
     case glow = "Artist name + show colors"
-    case rays = "Light-ray visuals"
+    case rays = "Light-ray visuals"   // retired: shows the artist's name (kept so saved venues still open)
     case off = "Off (dark screen)"
+    case image = "Your image"
+    case video = "Your video"
     var id: String { rawValue }
 }
 
@@ -968,6 +977,7 @@ struct StageLayout: Codable, Hashable {
     var items: [StageItem] = []
     var haze: Double = 0.6
     var screenContent: ScreenContent? = nil   // nil = artist name only
+    var screenMediaPath: String? = nil        // your image or video for the screen
 
     /// Venues made before the LED backdrop: the circle truss (and the two narrow screens beside it) behind
     /// the performer become one wide LED backdrop that shows the artist's name.

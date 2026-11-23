@@ -98,10 +98,16 @@ struct StageScreen: View {
                         }
                     }
                     Section("On the screen") {
-                        ForEach(ScreenContent.allCases) { c in
+                        ForEach(ScreenContent.allCases.filter { ![.image, .video, .rays].contains($0) }) { c in
                             Button { model.stage.screenContent = c == .name ? nil : c } label: {
                                 Label(c.rawValue, systemImage: (model.stage.screenContent ?? .name) == c ? "checkmark" : "")
                             }
+                        }
+                        Button { model.pickScreenMedia(video: false) } label: {
+                            Label("Your image…", systemImage: model.stage.screenContent == .image ? "checkmark" : "photo")
+                        }
+                        Button { model.pickScreenMedia(video: true) } label: {
+                            Label("Your video…", systemImage: model.stage.screenContent == .video ? "checkmark" : "film")
                         }
                     }
                 } label: { Label("Backdrop", systemImage: "rectangle.inset.filled") }

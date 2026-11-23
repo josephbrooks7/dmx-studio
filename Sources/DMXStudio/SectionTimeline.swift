@@ -673,6 +673,22 @@ struct SectionTimelineEditor: View {
                         }
                     }
                 }
+                labeled("Screen") {
+                    Menu {
+                        Button("Keep what's on") { sec.screen.wrappedValue = nil }
+                        Divider()
+                        ForEach(ScreenContent.allCases.filter { ![.image, .video, .rays].contains($0) }) { c in
+                            Button(c.rawValue) { sec.screen.wrappedValue = ScreenCue(content: c) }
+                        }
+                        Button("Your image…") { if let p = AppModel.pickMedia(video: false) { sec.screen.wrappedValue = ScreenCue(content: .image, mediaPath: p) } }
+                        Button("Your video…") { if let p = AppModel.pickMedia(video: true) { sec.screen.wrappedValue = ScreenCue(content: .video, mediaPath: p) } }
+                    } label: {
+                        Text(s.screen.map { c in c.mediaPath.map { ($0 as NSString).lastPathComponent } ?? c.content.rawValue } ?? "Keep what's on")
+                            .lineLimit(1)
+                    }
+                    .menuStyle(.borderlessButton).frame(width: 170)
+                    .help("What the LED wall / projection screen shows from this part on (stays until a later part changes it)")
+                }
                 labeled("Movement") {
                     Picker("", selection: sec.movement) {
                         ForEach(MoveEffect.allCases) { Text($0.rawValue).tag($0) }

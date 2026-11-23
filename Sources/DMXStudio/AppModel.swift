@@ -1,3 +1,4 @@
+import UniformTypeIdentifiers
 import SceneKit
 import Foundation
 import AVFoundation
@@ -80,6 +81,29 @@ final class AppModel: ObservableObject {
     @Published var showVideoExport = false
     /// Where the Stage page's camera is (and how wide it sees, side to side), for "Same as my Stage view" videos
     var stageCameraNow: (transform: SCNMatrix4, horizontalFOV: Double)? = nil
+
+    /// What the screen shows in a song at a moment: the last screen cue at or before it in the show
+    /// (cues stay on until a later part changes them), else the venue's choice.
+    func screenCue(song songID: UUID?, at t: Double?) -> ScreenCue {
+        let venue = ScreenCue(content: stage.screenContent ?? .name, mediaPath: stage.screenMediaPath)
+        guard let id = songID, let t, let show = song(id)?.activeShow else { return venue }
+        return show.sections.filter { $0.start <= t + 0.05 && $0.screen != nil }.last?.screen ?? venue
+    }
+
+    /// Choose a picture or video file for a screen
+    static func pickMedia(video: Bool) -> String? {
+        let panel = NSOpenPanel()
+        panel.allowedContentTypes = video ? [.movie] : [.image]
+        panel.message = video ? "Choose a video for the screen (it loops, muted)" : "Choose a picture for the screen"
+        return panel.runModal() == .OK ? panel.url?.path : nil
+    }
+
+    /// Pick a picture or a video for the LED wall / projection screen (it plays on a loop, muted)
+    func pickScreenMedia(video: Bool) {
+        guard let path = Self.pickMedia(video: video) else { return }
+        stage.screenMediaPath = path
+        stage.screenContent = video ? .video : .image
+    }
 
     /// The wall behind the band (adds one if the venue has none)
     func setBackdrop(_ style: BackdropStyle) {

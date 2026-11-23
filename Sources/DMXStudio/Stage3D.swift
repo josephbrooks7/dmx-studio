@@ -1,5 +1,6 @@
 import SwiftUI
 import SceneKit
+import AVFoundation
 import Metal
 import AppKit
 
@@ -87,10 +88,26 @@ private enum Build {
     /// power switch, fuse, red display + 4 buttons), and a tilting lens bar with 8 lenses.
     /// What the LED backdrop shows: the artist's name big, the song under it, on a dark wall with faint
     /// LED pixels (dark when nothing is playing, so the beams carry the color).
-    static func backdropImage(artist: String, title: String, content: ScreenContent = .name) -> NSImage {
+    static func backdropImage(artist: String, title: String, content: ScreenContent = .name, projected: Bool = false) -> NSImage {
         let size = NSSize(width: 1600, height: 900)
         let img = NSImage(size: size)
         img.lockFocus()
+        // a projector on a white screen: the name in dark letters on white light
+        if projected && content == .name {
+            NSColor(white: 0.92, alpha: 1).setFill(); NSRect(origin: .zero, size: size).fill()
+            let para = NSMutableParagraphStyle(); para.alignment = .center
+            let name = artist.uppercased()
+            var fontSize: CGFloat = 190
+            var attrs: [NSAttributedString.Key: Any] = [:]
+            repeat {
+                attrs = [.font: NSFont.systemFont(ofSize: fontSize, weight: .black), .foregroundColor: NSColor(white: 0.08, alpha: 1),
+                         .paragraphStyle: para, .kern: fontSize * 0.04]
+                fontSize -= 10
+            } while (name as NSString).size(withAttributes: attrs).width > size.width * 0.9 && fontSize > 50
+            let h = (name as NSString).size(withAttributes: attrs).height
+            (name as NSString).draw(in: NSRect(x: 0, y: size.height / 2 - h / 2, width: size.width, height: h), withAttributes: attrs)
+            img.unlockFocus(); return img
+        }
         NSColor(white: 0.03, alpha: 1).setFill(); NSRect(origin: .zero, size: size).fill()
         // show visuals: soft light rays bursting from the middle (tinted live by the lights' colors,
         // like the content on a real LED wall), dark at the edges
@@ -99,10 +116,10 @@ private enum Build {
         if content == .glow, let g = NSGradient(colors: [NSColor(white: 0.5, alpha: 1), NSColor(white: 0.12, alpha: 1), NSColor(white: 0.03, alpha: 1)]) {
             g.draw(fromCenter: center, radius: 0, toCenter: center, radius: size.width * 0.65, options: [])
         }
-        if content == .rays, let g = NSGradient(colors: [NSColor(white: 0.55, alpha: 1), NSColor(white: 0.12, alpha: 1), NSColor(white: 0.03, alpha: 1)]) {
+        if false, let g = NSGradient(colors: [NSColor(white: 0.55, alpha: 1), NSColor(white: 0.12, alpha: 1), NSColor(white: 0.03, alpha: 1)]) {
             g.draw(fromCenter: center, radius: 0, toCenter: center, radius: size.width * 0.6, options: [])
         }
-        for k in 0..<(content == .rays ? 64 : 0) {
+        for k in 0..<0 {
             let a = Double(k) / 64 * 2 * .pi + (k % 2 == 0 ? 0.03 : 0)
             let len = size.width * (0.35 + 0.3 * Double((k * 37) % 11) / 10)
             let p = NSBezierPath()
@@ -680,7 +697,7 @@ struct Stage3DView: NSViewRepresentable {
             sync()
         }
 
-        func stop() { timer?.invalidate(); timer = nil; view?.isPlaying = false; view?.scene = nil }
+        func stop() { timer?.invalidate(); timer = nil; view?.isPlaying = false; view?.scene = nil; screenVideo?.pause() }
 
         private var quality: Bool?
         /// Light mode: no glow/HDR, no smoothing, 30 fps, fewer real light sources.
@@ -890,8 +907,12 @@ struct Stage3DView: NSViewRepresentable {
 
         /// The song the LED backdrop names (a video export sets it; otherwise the playing song)
         var backdropSong: (artist: String, title: String)? = nil
+        var backdropSongID: UUID? = nil     // a video export: which song, and where in it
+        var backdropTime: Double? = nil
         private var backdropKey: String? = nil
-        private var backdropImg: NSImage? = nil
+        private var backdropContents: Any? = nil
+        private var screenVideo: AVQueuePlayer? = nil
+        private var screenLooper: AVPlayerLooper? = nil
         private var backdropCache: [SCNNode] = []
         private var backdropCheckedAt = -1.0
         private func backdropNodes() -> [SCNNode] {
@@ -905,12 +926,33 @@ struct Stage3DView: NSViewRepresentable {
         }
         private func updateBackdrop() {
             let s: (artist: String, title: String) = backdropSong ?? model.playingSongID.flatMap { model.song($0) }.map { ($0.artist ?? "", $0.title) } ?? ("", "")
-            let content = model.stage.screenContent ?? .name
-            let key = s.artist + "|" + s.title + "|" + content.rawValue
-            if key != backdropKey { backdropKey = key; backdropImg = Build.backdropImage(artist: s.artist, title: s.title, content: content) }
+            // the show's screen cue right now (or the venue's choice)
+            let cue = model.screenCue(song: backdropSongID ?? model.playingSongID, at: backdropTime ?? model.showTimeNow)
+            let content = cue.content == .rays ? .name : cue.content
+            let media = cue.mediaPath ?? ""
+            let projected = model.stage.items.first { $0.prop == .backdrop }?.backdropStyle == .projection
+            let key = s.artist + "|" + s.title + "|" + content.rawValue + "|" + media + "|\(projected)"
+            if key != backdropKey {
+                backdropKey = key
+                screenVideo?.pause(); screenVideo = nil; screenLooper = nil
+                switch content {
+                case .image:
+                    backdropContents = NSImage(contentsOfFile: media) ?? Build.backdropImage(artist: s.artist, title: s.title, content: .off)
+                case .video where FileManager.default.fileExists(atPath: media):
+                    // your video, looping silently on the screen
+                    let item = AVPlayerItem(url: URL(fileURLWithPath: media))
+                    let q = AVQueuePlayer(); q.isMuted = true
+                    screenLooper = AVPlayerLooper(player: q, templateItem: item)
+                    q.play()
+                    screenVideo = q
+                    backdropContents = q
+                default:
+                    backdropContents = Build.backdropImage(artist: s.artist, title: s.title, content: content == .video ? .off : content, projected: projected)
+                }
+            }
             // new screens (added or rebuilt) pick it up too
             for n in backdropNodes() where (n.name ?? "") != "backdropscreen|" + key {
-                n.geometry?.firstMaterial?.diffuse.contents = backdropImg
+                n.geometry?.firstMaterial?.diffuse.contents = backdropContents
                 n.name = "backdropscreen|" + key
             }
         }
@@ -985,7 +1027,7 @@ struct Stage3DView: NSViewRepresentable {
             let mx = max(tint.r, tint.g, tint.b, 0.0001), lvl = min(1, mx * 3)
             let wall = NSColor(calibratedRed: 0.18 + 0.82 * lvl * tint.r / mx, green: 0.18 + 0.82 * lvl * tint.g / mx,
                                blue: 0.18 + 0.82 * lvl * tint.b / mx, alpha: 1)
-            let tinted = [.glow, .rays].contains(model.stage.screenContent ?? .name)
+            let tinted = [.glow, .rays].contains(model.screenCue(song: backdropSongID ?? model.playingSongID, at: backdropTime ?? model.showTimeNow).content) && model.screenCue(song: backdropSongID ?? model.playingSongID, at: backdropTime ?? model.showTimeNow).content != .rays
             for n in backdropNodes() where n.geometry?.firstMaterial?.lightingModel == .constant {
                 n.geometry?.firstMaterial?.multiply.contents = tinted ? wall : NSColor.white
             }
