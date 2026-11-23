@@ -728,6 +728,7 @@ struct Stage3DView: NSViewRepresentable {
             model?.updateStageItem(id) { $0.x = (x * 10).rounded() / 10; $0.z = (z * 10).rounded() / 10 }
         }
         context.coordinator.view = v
+        context.coordinator.setCamera("Overview")   // sets up the turntable orbit (no flipping upside down)
         context.coordinator.start()
         return v
     }
@@ -789,14 +790,39 @@ struct Stage3DView: NSViewRepresentable {
         }
         private var lightPools = true
 
+        /// What the camera orbits around (dragging turns around this point, like a turntable)
+        private var orbitTarget = SCNVector3(0, 1.4, -1.8)
+
+        /// Put the camera somewhere, upright, looking at a point; dragging then orbits around that point
+        private func place(at p: SCNVector3, lookAt target: SCNVector3, up: SCNVector3 = SCNVector3(0, 1, 0)) {
+            camera.eulerAngles = SCNVector3Zero
+            camera.position = p
+            camera.look(at: target, up: up, localFront: SCNVector3(0, 0, -1))
+            orbitTarget = target
+            view?.pointOfView = camera
+            if let c = view?.defaultCameraController {
+                c.pointOfView = camera
+                c.target = target
+                c.worldUp = SCNVector3(0, 1, 0)
+                c.interactionMode = .orbitTurntable    // can't roll or flip upside down
+                c.maximumVerticalAngle = 88
+                c.minimumVerticalAngle = -10
+                c.inertiaEnabled = false
+            }
+        }
+
         func setCamera(_ name: String) {
             switch name {
             case "Zoom In", "Zoom Out":
-                // move the camera along where it's looking (keeps any orbit you've done)
+                // move toward / away from what you're looking at, but never through it (that flipped the view)
                 let pov = view?.pointOfView ?? camera
-                let f = pov.worldFront
-                let step: CGFloat = name == "Zoom In" ? 1.4 : -1.4
-                pov.position = SCNVector3(pov.position.x + f.x * step, pov.position.y + f.y * step, pov.position.z + f.z * step)
+                let tgt = view?.defaultCameraController.target ?? orbitTarget
+                let d = SCNVector3(tgt.x - pov.position.x, tgt.y - pov.position.y, tgt.z - pov.position.z)
+                let dist = sqrt(d.x * d.x + d.y * d.y + d.z * d.z)
+                guard dist > 0.01 else { return }
+                let newDist = name == "Zoom In" ? max(1.5, dist * 0.78) : min(40, dist / 0.78)
+                let k = 1 - newDist / dist
+                pov.position = SCNVector3(pov.position.x + d.x * k, pov.position.y + d.y * k, pov.position.z + d.z * k)
                 return
             case "Close-up":
                 // in front of the lights, slightly below them, so you see each one tilt and its beams move
@@ -808,21 +834,16 @@ struct Stage3DView: NSViewRepresentable {
                                    pts.map { $0.y }.reduce(0, +) / CGFloat(pts.count),
                                    pts.map { $0.z }.reduce(0, +) / CGFloat(pts.count))
                 let spread = pts.map { abs($0.x - c.x) }.max() ?? 1
-                // from the front-side (3/4 view): the bars tilt forward and back, which a straight-on
-                // view hides; from here you see the heads rotate and the beams swing
                 let d = max(3.2, spread * 1.6 + 2)
-                camera.position = SCNVector3(c.x + d * 0.75, c.y + 1.3, c.z + d * 0.75)
-                camera.look(at: SCNVector3(c.x, c.y + 0.9, c.z))
-                view?.pointOfView = camera
-                return
-            case "Top": camera.position = SCNVector3(0, 16, 1); camera.look(at: SCNVector3(0, 0, -1))
-            case "Side": camera.position = SCNVector3(12, 3, -1); camera.look(at: SCNVector3(0, 1.8, -1.5))
-            case "Audience": camera.position = SCNVector3(0, 2.3, 8.2); camera.look(at: SCNVector3(0, 2.2, -2))
-            // Overview (the starting view): close enough to see the lights and the stage fill the frame,
-            // from the front-left a little above stage height; zoom out / in from here
-            default: camera.position = SCNVector3(-2.6, 3.0, 3.9); camera.look(at: SCNVector3(-0.55, 1.35, -1.7))   // stage centered in the frame
+                place(at: SCNVector3(c.x + d * 0.75, c.y + 1.3, c.z + d * 0.75), lookAt: SCNVector3(c.x, c.y + 0.9, c.z))
+            case "Top":
+                // straight down needs its own "up" (toward the back of the stage), or the view spins
+                place(at: SCNVector3(0, 16, 1.5), lookAt: SCNVector3(0, 0, -1), up: SCNVector3(0, 0, -1))
+            case "Side": place(at: SCNVector3(12, 3, -1), lookAt: SCNVector3(0, 1.8, -1.5))
+            case "Audience": place(at: SCNVector3(0, 2.3, 8.2), lookAt: SCNVector3(0, 2.2, -2))
+            // Overview (the starting view): the stage centered and filling the frame; zoom out / in from here
+            default: place(at: SCNVector3(-2.6, 3.0, 3.9), lookAt: SCNVector3(-0.55, 1.35, -1.7))
             }
-            view?.pointOfView = camera
         }
 
         private func buildRoom() {

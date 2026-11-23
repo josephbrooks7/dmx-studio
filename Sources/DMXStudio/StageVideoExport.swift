@@ -56,7 +56,20 @@ final class StageVideoExporter: ObservableObject {
         stage.backdropSongID = songID
         // match what you see on the Stage page side to side (a 16:9 video is narrower than the window)
         stage.camera.camera?.projectionDirection = .horizontal
-        if camera == "Same as my Stage view", let now = model.stageCameraNow {
+        // "Switch angles": cut between views at each part change (and at least every 10 s), like a live video edit
+        let angles = ["Overview", "Audience", "Close-up", "Side"]
+        var cutTimes: [Double] = []
+        if camera == "Switch angles" {
+            var last = 0.0
+            for s in show.sections where s.transition == nil && !s.name.contains("·") && s.start > last + 3 {
+                while s.start - last > 10 { last += 8; cutTimes.append(last) }
+                cutTimes.append(s.start); last = s.start
+            }
+            while duration - last > 10 { last += 8; cutTimes.append(last) }
+        }
+        if camera == "Switch angles" {
+            stage.setCamera("Overview"); stage.camera.camera?.fieldOfView = 70
+        } else if camera == "Same as my Stage view", let now = model.stageCameraNow {
             stage.camera.transform = now.transform
             stage.camera.camera?.fieldOfView = CGFloat(min(100, max(30, now.horizontalFOV)))
         } else {
@@ -87,11 +100,17 @@ final class StageVideoExporter: ObservableObject {
 
             let idleFrame = model.idle.render(fixtures: model.fixtures, time: 0)
             let started = Date()
+            var lastShot = -1
             for f in 0..<frames {
                 if cancelled { writer.cancelWriting(); try? FileManager.default.removeItem(at: tmpVideo); progress = nil; status = "Cancelled"; return }
                 let t = Double(f) / fps
                 var frame = model.songFrame(songID, show: show.id, at: t, idleFrame: idleFrame) ?? idleFrame
                 for i in frame.indices { if let src = model.copySource(of: i), src < frame.count { frame[i] = frame[src] } }
+                if camera == "Switch angles" {
+                    let shot = cutTimes.lastIndex { $0 <= t }.map { $0 + 1 } ?? 0
+                    let name = angles[shot % angles.count]
+                    if shot != lastShot { lastShot = shot; stage.setCamera(name); stage.camera.camera?.fieldOfView = name == "Close-up" ? 60 : 70 }
+                }
                 stage.backdropTime = t
                 stage.applyFrame(frame, now: t, master: 1)
                 let image = renderer.snapshot(atTime: t, with: size, antialiasingMode: quality == .hd1080 ? .multisampling4X : .multisampling2X)
@@ -187,7 +206,7 @@ struct StageVideoExportSheet: View {
     @StateObject private var exporter = StageVideoExporter()
     @Environment(\.dismiss) private var dismiss
     @State private var songID: UUID?
-    @State private var camera = "Same as my Stage view"
+    @State private var camera = "Switch angles"
     @State private var quality: StageVideoExporter.Quality = .phone
     @State private var labels = true
 
@@ -203,7 +222,7 @@ struct StageVideoExportSheet: View {
                     ForEach(songs) { s in Text(s.displayName).tag(Optional(s.id)) }
                 }
                 Picker("Camera", selection: $camera) {
-                    ForEach(["Same as my Stage view", "Overview", "Audience", "Close-up", "Side", "Top"], id: \.self) { Text($0).tag($0) }
+                    ForEach(["Switch angles", "Same as my Stage view", "Overview", "Audience", "Close-up", "Side", "Top"], id: \.self) { Text($0).tag($0) }
                 }
                 Picker("Size", selection: $quality) {
                     ForEach(StageVideoExporter.Quality.allCases) { Text($0.rawValue).tag($0) }
