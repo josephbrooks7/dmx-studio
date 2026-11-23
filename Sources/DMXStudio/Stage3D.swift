@@ -119,6 +119,64 @@ private enum Build {
         return img
     }
 
+    /// The wall behind the band. Screens named "backdropscreen…" get the artist's name drawn on them.
+    static func backdrop(_ style: BackdropStyle, size: Double) -> SCNNode {
+        let s = CGFloat(size)
+        let root = SCNNode()
+        func screen(_ w: CGFloat, _ h: CGFloat, glow: Bool) -> SCNNode {
+            let g = SCNPlane(width: w, height: h)
+            let m = SCNMaterial()
+            // an LED wall / projection gives off its own light; a banner is only seen when lights hit it
+            m.lightingModel = glow ? .constant : .physicallyBased
+            if !glow { m.roughness.contents = 0.95; m.metalness.contents = 0.0 }
+            m.diffuse.contents = backdropImage(artist: "", title: "")
+            g.materials = [m]
+            let n = SCNNode(geometry: g); n.name = "backdropscreen"
+            return n
+        }
+        switch style {
+        case .ledWall:
+            // 16:9 LED wall, 5.3 m × 3 m, on the stage behind the band
+            let w: CGFloat = 5.3 * s, h: CGFloat = 3.0 * s
+            let frame = box(w + 0.12, h + 0.12, 0.12, Mat.black); frame.position = SCNVector3(0, h / 2 + 0.05, 0); root.addChildNode(frame)
+            let sc = screen(w, h, glow: true); sc.position = SCNVector3(0, h / 2 + 0.05, 0.062); root.addChildNode(sc)
+        case .projection:
+            // a white screen flown above the performer (bottom edge ~2.4 m up), so heads don't block it
+            let w: CGFloat = 4.2 * s, h: CGFloat = w * 9 / 16, bottom: CGFloat = 2.4
+            let border = box(w + 0.16, h + 0.16, 0.03, Mat.black); border.position = SCNVector3(0, bottom + h / 2, 0); root.addChildNode(border)
+            let sc = screen(w, h, glow: true); sc.position = SCNVector3(0, bottom + h / 2, 0.017)
+            sc.opacity = 0.8   // projected light is softer than an LED panel
+            root.addChildNode(sc)
+            // cables / pipe it hangs from
+            for x in [-w / 2 + 0.2, w / 2 - 0.2] {
+                root.addChildNode(pipe(from: SCNVector3(x, bottom + h + 0.08, 0), to: SCNVector3(x, bottom + h + 0.9, 0), r: 0.006, Mat.darkGray))
+            }
+            root.addChildNode(pipe(from: SCNVector3(-w / 2 - 0.2, bottom + h + 0.9, 0), to: SCNVector3(w / 2 + 0.2, bottom + h + 0.9, 0), r: 0.025, Mat.aluminum))
+            // black drape behind, down to the stage
+            let drape = box(w + 1.2, bottom + h + 0.9, 0.02, Mat.black); drape.position = SCNVector3(0, (bottom + h + 0.9) / 2, -0.25); root.addChildNode(drape)
+        case .banner:
+            // a printed fabric banner hung from a pipe, with grommets; lit only by the stage lights
+            let w: CGFloat = 4.6 * s, h: CGFloat = 1.6 * s, top: CGFloat = 3.6
+            let sc = screen(w, h, glow: false); sc.position = SCNVector3(0, top - h / 2, 0.01); root.addChildNode(sc)
+            root.addChildNode(pipe(from: SCNVector3(-w / 2 - 0.15, top + 0.03, 0), to: SCNVector3(w / 2 + 0.15, top + 0.03, 0), r: 0.02, Mat.aluminum))
+            for k in 0..<7 {
+                let x = -w / 2 + 0.15 + CGFloat(k) * (w - 0.3) / 6
+                let gr = cyl(0.015, 0.01, Mat.aluminum); gr.eulerAngles.x = .pi / 2; gr.position = SCNVector3(x, top - 0.06, 0.015); root.addChildNode(gr)
+            }
+            let drape = box(w + 1.2, top + 0.2, 0.02, Mat.black); drape.position = SCNVector3(0, (top + 0.2) / 2, -0.25); root.addChildNode(drape)
+        case .blank:
+            // a plain black drape with soft folds
+            let w: CGFloat = 5.8 * s, h: CGFloat = 3.8
+            let back = box(w, h, 0.02, Mat.black); back.position = SCNVector3(0, h / 2, -0.05); root.addChildNode(back)
+            var x = -w / 2 + 0.15
+            while x < w / 2 {
+                let fold = cyl(0.06, h, Mat.black); fold.position = SCNVector3(x, h / 2, 0); root.addChildNode(fold)
+                x += 0.3
+            }
+        }
+        return root
+    }
+
     static func shehdsBar() -> (SCNNode, SCNNode, [SCNNode]) {
         let root = SCNNode()
         let len: CGFloat = 1.07, height: CGFloat = 0.13, depth: CGFloat = 0.08
@@ -390,17 +448,7 @@ private enum Build {
             for x in [-w / 2, w / 2] { let t = truss(length: d); t.eulerAngles.y = .pi / 2; t.position = SCNVector3(x, h + 0.15, 0); root.addChildNode(t) }
             return root
         case .backdrop:
-            // a wide LED wall / projection screen behind the band (16:9, 5.3 m × 3 m): shows the artist's name
-            let root = SCNNode()
-            let w: CGFloat = 5.3 * s, h: CGFloat = 3.0 * s
-            let frame = box(w + 0.12, h + 0.12, 0.12, Mat.black); frame.position = SCNVector3(0, h / 2 + 0.05, 0); root.addChildNode(frame)
-            let screen = SCNNode(geometry: { let g = SCNPlane(width: w, height: h)
-                let m = SCNMaterial(); m.lightingModel = .constant
-                m.diffuse.contents = backdropImage(artist: "", title: "")
-                g.materials = [m]; return g }())
-            screen.name = "backdropscreen"
-            screen.position = SCNVector3(0, h / 2 + 0.05, 0.062); root.addChildNode(screen)
-            return root
+            return backdrop(.ledWall, size: size)
         case .ledWall:
             // 1.5 m × 2.5 m video panel on a frame (shown dark so the light beams carry the color)
             let root = SCNNode()
@@ -643,7 +691,7 @@ struct Stage3DView: NSViewRepresentable {
             }
             for item in items {
                 if let old = itemSnapshot[item.id], let node = itemNodes[item.id] {
-                    if old.prop == item.prop && old.size == item.size && old.fixtureID == item.fixtureID && old.onStand == item.onStand {
+                    if old.prop == item.prop && old.size == item.size && old.fixtureID == item.fixtureID && old.onStand == item.onStand && old.backdropStyle == item.backdropStyle {
                         if old != item { place(node, item) }
                         itemSnapshot[item.id] = item
                         continue
@@ -685,7 +733,8 @@ struct Stage3DView: NSViewRepresentable {
             let root = SCNNode()
             root.name = "item:\(item.id.uuidString)"
             if let kind = item.prop {
-                root.addChildNode(Build.prop(kind, size: item.size))
+                root.addChildNode(kind == .backdrop ? Build.backdrop(item.backdropStyle ?? .ledWall, size: item.size)
+                                                    : Build.prop(kind, size: item.size))
                 return root
             }
             guard let fid = item.fixtureID, let fx = model.fixtures.first(where: { $0.id == fid }) else { return root }

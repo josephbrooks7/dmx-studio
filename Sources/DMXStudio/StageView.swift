@@ -92,6 +92,13 @@ struct StageScreen: View {
                 .menuStyle(.borderlessButton).fixedSize()
                 .help("Show your stage with the bars mounted another way: lying flat (beams go front to back) or upright (beams sweep side to side)")
                 Menu {
+                    ForEach(BackdropStyle.allCases) { st in
+                        Button { model.setBackdrop(st) } label: { Label(st.rawValue, systemImage: st.icon) }
+                    }
+                } label: { Label("Backdrop", systemImage: "rectangle.inset.filled") }
+                .menuStyle(.borderlessButton).fixedSize()
+                .help("What's behind the band: an LED wall, a projection screen above the performer, a banner, or a blank wall")
+                Menu {
                     Section("Lights") {
                         ForEach(FixtureProfile.all) { p in Button(p.name) { model.stageEditing = true; model.addStageLight(p) } }
                     }

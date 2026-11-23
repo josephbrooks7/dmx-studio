@@ -78,6 +78,17 @@ final class AppModel: ObservableObject {
     @Published var showHueSetup = false
     @Published var showVideoExport = false
 
+    /// The wall behind the band (adds one if the venue has none)
+    func setBackdrop(_ style: BackdropStyle) {
+        if let k = stage.items.firstIndex(where: { $0.prop == .backdrop }) {
+            stage.items[k].backdropStyle = style
+        } else {
+            var it = StageItem(prop: .backdrop, x: 0, z: -3.9, y: 0.6, size: 1)
+            it.backdropStyle = style
+            stage.items.append(it)
+        }
+    }
+
     /// Mount every beam bar the same way (floor / upright on truss legs / hanging) to compare setups
     func stageScenario(_ m: StageMount) {
         for k in stage.items.indices {

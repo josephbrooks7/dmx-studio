@@ -930,6 +930,25 @@ struct StageItem: Identifiable, Codable, Hashable {
     var hanging: Bool = false  // lights: upside down on a truss
     var upright: Bool? = nil   // bars: standing on end (on a truss leg, with the foot brackets) — tilt sweeps side to side
     var onStand: Bool? = nil   // followspot: on its tripod (default) or just the light on its yoke
+    var backdropStyle: BackdropStyle? = nil   // backdrop: LED wall (default), projection, banner, blank
+}
+
+/// What's behind the band, like real stages: an LED wall, a projection screen (raised above the
+/// performer so they don't block it), a printed banner, or a plain black wall.
+enum BackdropStyle: String, Codable, CaseIterable, Identifiable {
+    case ledWall = "LED Wall"
+    case projection = "Projection Screen (above the performer)"
+    case banner = "Banner"
+    case blank = "Blank Wall"
+    var id: String { rawValue }
+    var icon: String {
+        switch self {
+        case .ledWall: return "tv"
+        case .projection: return "videoprojector"
+        case .banner: return "flag"
+        case .blank: return "rectangle"
+        }
+    }
 }
 
 struct StageLayout: Codable, Hashable {
