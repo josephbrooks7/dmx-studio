@@ -115,10 +115,11 @@ private enum Build {
         NSColor(white: 0.07, alpha: 1).setFill()
         for x in stride(from: 0, to: size.width, by: 200) { NSRect(x: x, y: 0, width: 2, height: size.height).fill() }
         for y in stride(from: 0, to: size.height, by: 225) { NSRect(x: 0, y: y, width: size.width, height: 2).fill() }
-        if !artist.isEmpty || !title.isEmpty {
+        if !artist.isEmpty {
             let para = NSMutableParagraphStyle(); para.alignment = .center
             let glow = NSShadow(); glow.shadowColor = NSColor(calibratedRed: 1, green: 0.25, blue: 0.45, alpha: 0.9); glow.shadowBlurRadius = 28
-            let name = (artist.isEmpty ? title : artist).uppercased()
+            let name = artist.uppercased()
+            if name.isEmpty { img.unlockFocus(); return img }
             var fontSize: CGFloat = 190
             var attrs: [NSAttributedString.Key: Any] = [:]
             repeat {
@@ -128,7 +129,7 @@ private enum Build {
             } while (name as NSString).size(withAttributes: attrs).width > size.width * 0.9 && fontSize > 50
             let h = (name as NSString).size(withAttributes: attrs).height
             (name as NSString).draw(in: NSRect(x: 0, y: size.height / 2 - h / 2 + 40, width: size.width, height: h), withAttributes: attrs)
-            if !artist.isEmpty && !title.isEmpty {
+            if false, !artist.isEmpty && !title.isEmpty {   // the backdrop shows the artist only, not the track name
                 let sub: [NSAttributedString.Key: Any] = [.font: NSFont.systemFont(ofSize: 64, weight: .semibold),
                                                           .foregroundColor: NSColor(white: 0.8, alpha: 1), .paragraphStyle: para]
                 (title as NSString).draw(in: NSRect(x: 40, y: size.height / 2 - h / 2 - 70, width: size.width - 80, height: 90), withAttributes: sub)
