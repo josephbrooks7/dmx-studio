@@ -112,6 +112,7 @@ struct StageScreen: View {
                     Stage3DView(model: model)
                         .clipShape(RoundedRectangle(cornerRadius: 18, style: .continuous))
                         .overlay(RoundedRectangle(cornerRadius: 18, style: .continuous).stroke(Theme.panelBorder))
+                        .overlay(StageSectionBadge().padding(12), alignment: .topLeading)
                     if !model.outputEnabled {
                         Text("PREVIEW ONLY · your lights aren't being controlled").font(.system(size: 11, weight: .heavy)).foregroundColor(.orange)
                             .padding(8).background(Capsule().fill(Color.black.opacity(0.6))).padding(12)
@@ -497,5 +498,47 @@ struct StageCanvas: View {
             ctx.draw(Text("PREVIEW ONLY · your lights aren't being controlled").font(.system(size: 11, weight: .heavy)).foregroundColor(.orange),
                      at: CGPoint(x: w - 12, y: 16), anchor: .trailing)
         }
+    }
+}
+
+
+/// On the Stage page: which part of the song is playing (Verse 1, Pre-Chorus, Chorus 2…), what comes next
+/// and when, and the look that's on — so you can tell where you are without the timeline.
+struct StageSectionBadge: View {
+    @EnvironmentObject var model: AppModel
+
+    var body: some View {
+        CoarseReader(model.coarse) {
+            if let id = model.playingSongID, let song = model.song(id), let show = song.activeShow, let t = model.showTimeNow {
+                let parts = show.sections.filter { $0.transition == nil && $0.empty != true }
+                let cur = parts.last { $0.start <= t + 0.05 }
+                let next = parts.first { $0.start > t + 0.05 && base($0.name) != base(cur?.name ?? "") }
+                HStack(spacing: 10) {
+                    VStack(alignment: .leading, spacing: 2) {
+                        Text(song.displayName).font(.system(size: 10)).foregroundColor(Theme.subtle).lineLimit(1)
+                        Text(base(cur?.name ?? "—")).font(.system(size: 20, weight: .heavy))
+                        if let c = cur {
+                            Text("\(c.effect.rawValue) · \(c.level.rawValue)").font(.system(size: 10)).foregroundColor(Theme.subtle)
+                        }
+                    }
+                    if let n = next {
+                        Divider().frame(height: 34)
+                        VStack(alignment: .leading, spacing: 2) {
+                            Text("NEXT").font(.system(size: 9, weight: .heavy)).foregroundColor(Theme.subtle)
+                            Text(base(n.name)).font(.system(size: 13, weight: .semibold))
+                            Text("in \(Int(max(0, n.start - t).rounded())) s").font(.system(size: 10).monospacedDigit()).foregroundColor(Theme.subtle)
+                        }
+                    }
+                }
+                .padding(.horizontal, 12).padding(.vertical, 8)
+                .background(RoundedRectangle(cornerRadius: 12).fill(Color.black.opacity(0.6)))
+                .overlay(RoundedRectangle(cornerRadius: 12).stroke(Color.white.opacity(0.12)))
+            }
+        }
+    }
+
+    /// "Chorus 1 ·2" → "Chorus 1" (a phrase inside a part is still that part)
+    private func base(_ n: String) -> String {
+        (n.components(separatedBy: "·").first ?? n).trimmingCharacters(in: .whitespaces)
     }
 }
