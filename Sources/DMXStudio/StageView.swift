@@ -92,8 +92,17 @@ struct StageScreen: View {
                 .menuStyle(.borderlessButton).fixedSize()
                 .help("Show your stage with the bars mounted another way: lying flat (beams go front to back) or upright (beams sweep side to side)")
                 Menu {
-                    ForEach(BackdropStyle.allCases) { st in
-                        Button { model.setBackdrop(st) } label: { Label(st.rawValue, systemImage: st.icon) }
+                    Section("Backdrop") {
+                        ForEach(BackdropStyle.allCases) { st in
+                            Button { model.setBackdrop(st) } label: { Label(st.rawValue, systemImage: st.icon) }
+                        }
+                    }
+                    Section("On the screen") {
+                        ForEach(ScreenContent.allCases) { c in
+                            Button { model.stage.screenContent = c == .name ? nil : c } label: {
+                                Label(c.rawValue, systemImage: (model.stage.screenContent ?? .name) == c ? "checkmark" : "")
+                            }
+                        }
                     }
                 } label: { Label("Backdrop", systemImage: "rectangle.inset.filled") }
                 .menuStyle(.borderlessButton).fixedSize()

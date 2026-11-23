@@ -87,7 +87,7 @@ private enum Build {
     /// power switch, fuse, red display + 4 buttons), and a tilting lens bar with 8 lenses.
     /// What the LED backdrop shows: the artist's name big, the song under it, on a dark wall with faint
     /// LED pixels (dark when nothing is playing, so the beams carry the color).
-    static func backdropImage(artist: String, title: String) -> NSImage {
+    static func backdropImage(artist: String, title: String, content: ScreenContent = .name) -> NSImage {
         let size = NSSize(width: 1600, height: 900)
         let img = NSImage(size: size)
         img.lockFocus()
@@ -95,10 +95,14 @@ private enum Build {
         // show visuals: soft light rays bursting from the middle (tinted live by the lights' colors,
         // like the content on a real LED wall), dark at the edges
         let center = NSPoint(x: size.width / 2, y: size.height / 2)
-        if let g = NSGradient(colors: [NSColor(white: 0.55, alpha: 1), NSColor(white: 0.12, alpha: 1), NSColor(white: 0.03, alpha: 1)]) {
+        if content == .off { img.unlockFocus(); return img }
+        if content == .glow, let g = NSGradient(colors: [NSColor(white: 0.5, alpha: 1), NSColor(white: 0.12, alpha: 1), NSColor(white: 0.03, alpha: 1)]) {
+            g.draw(fromCenter: center, radius: 0, toCenter: center, radius: size.width * 0.65, options: [])
+        }
+        if content == .rays, let g = NSGradient(colors: [NSColor(white: 0.55, alpha: 1), NSColor(white: 0.12, alpha: 1), NSColor(white: 0.03, alpha: 1)]) {
             g.draw(fromCenter: center, radius: 0, toCenter: center, radius: size.width * 0.6, options: [])
         }
-        for k in 0..<64 {
+        for k in 0..<(content == .rays ? 64 : 0) {
             let a = Double(k) / 64 * 2 * .pi + (k % 2 == 0 ? 0.03 : 0)
             let len = size.width * (0.35 + 0.3 * Double((k * 37) % 11) / 10)
             let p = NSBezierPath()
@@ -901,8 +905,9 @@ struct Stage3DView: NSViewRepresentable {
         }
         private func updateBackdrop() {
             let s: (artist: String, title: String) = backdropSong ?? model.playingSongID.flatMap { model.song($0) }.map { ($0.artist ?? "", $0.title) } ?? ("", "")
-            let key = s.artist + "|" + s.title
-            if key != backdropKey { backdropKey = key; backdropImg = Build.backdropImage(artist: s.artist, title: s.title) }
+            let content = model.stage.screenContent ?? .name
+            let key = s.artist + "|" + s.title + "|" + content.rawValue
+            if key != backdropKey { backdropKey = key; backdropImg = Build.backdropImage(artist: s.artist, title: s.title, content: content) }
             // new screens (added or rebuilt) pick it up too
             for n in backdropNodes() where (n.name ?? "") != "backdropscreen|" + key {
                 n.geometry?.firstMaterial?.diffuse.contents = backdropImg
@@ -980,8 +985,9 @@ struct Stage3DView: NSViewRepresentable {
             let mx = max(tint.r, tint.g, tint.b, 0.0001), lvl = min(1, mx * 3)
             let wall = NSColor(calibratedRed: 0.18 + 0.82 * lvl * tint.r / mx, green: 0.18 + 0.82 * lvl * tint.g / mx,
                                blue: 0.18 + 0.82 * lvl * tint.b / mx, alpha: 1)
+            let tinted = [.glow, .rays].contains(model.stage.screenContent ?? .name)
             for n in backdropNodes() where n.geometry?.firstMaterial?.lightingModel == .constant {
-                n.geometry?.firstMaterial?.multiply.contents = wall
+                n.geometry?.firstMaterial?.multiply.contents = tinted ? wall : NSColor.white
             }
             scene.fogStartDistance = 2
             scene.fogEndDistance = CGFloat(55 - 35 * haze)

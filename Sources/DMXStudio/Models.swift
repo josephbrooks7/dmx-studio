@@ -937,6 +937,15 @@ struct StageItem: Identifiable, Codable, Hashable {
     var backdropStyle: BackdropStyle? = nil   // backdrop: LED wall (default), projection, banner, blank
 }
 
+/// What an LED wall / projection screen shows
+enum ScreenContent: String, Codable, CaseIterable, Identifiable {
+    case name = "Artist name"
+    case glow = "Artist name + show colors"
+    case rays = "Light-ray visuals"
+    case off = "Off (dark screen)"
+    var id: String { rawValue }
+}
+
 /// What's behind the band, like real stages: an LED wall, a projection screen (raised above the
 /// performer so they don't block it), a printed banner, or a plain black wall.
 enum BackdropStyle: String, Codable, CaseIterable, Identifiable {
@@ -958,6 +967,7 @@ enum BackdropStyle: String, Codable, CaseIterable, Identifiable {
 struct StageLayout: Codable, Hashable {
     var items: [StageItem] = []
     var haze: Double = 0.6
+    var screenContent: ScreenContent? = nil   // nil = artist name only
 
     /// Venues made before the LED backdrop: the circle truss (and the two narrow screens beside it) behind
     /// the performer become one wide LED backdrop that shows the artist's name.
