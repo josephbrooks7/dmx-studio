@@ -62,21 +62,41 @@ private enum Build {
     /// Square box truss (0.29 m) along +X, `length` meters, centered.
     static func truss(length: CGFloat) -> SCNNode {
         let root = SCNNode()
-        let s: CGFloat = 0.145, r: CGFloat = 0.024
-        let half = length / 2
-        let corners = [(s, s), (s, -s), (-s, s), (-s, -s)]
-        for (y, z) in corners {
-            root.addChildNode(pipe(from: SCNVector3(-half, y, z), to: SCNVector3(half, y, z), r: r, Mat.aluminum))
+        let s: CGFloat = 0.12, r: CGFloat = 0.024
+        let half = max(0.05,length / 2)
+        let alloy = Mat.make(NSColor(white:0.76,alpha:1),metal:true,rough:0.28)
+        let weld = Mat.make(NSColor(white:0.66,alpha:1),metal:true,rough:0.46)
+        let corners: [(CGFloat,CGFloat)] = [(s,s),(s,-s),(-s,-s),(-s,s)]
+        func tube(_ x: CGFloat,_ y: CGFloat,_ z: CGFloat,_ xx: CGFloat,_ yy: CGFloat,_ zz: CGFloat,_ radius: CGFloat,_ material: SCNMaterial) {
+            root.addChildNode(pipe(from:SCNVector3(x,y,z),to:SCNVector3(xx,yy,zz),r:radius,material))
         }
-        var x = -half
-        var flip = false
-        while x < half - 0.01 {
-            let nx = min(half, x + 0.5)
-            for (y1, z1, y2, z2) in [(s, s, -s, s), (s, -s, -s, -s), (s, s, s, -s), (-s, s, -s, -s)] {
-                root.addChildNode(pipe(from: SCNVector3(flip ? nx : x, y1, z1), to: SCNVector3(flip ? x : nx, y2, z2), r: 0.012, Mat.aluminum))
+        for (y,z) in corners {
+            tube(-half,y,z,half,y,z,r,alloy)
+            for end in [-half,half] {
+                let collar = cyl(r+0.004,0.036,weld)
+                collar.eulerAngles.z = .pi/2
+                collar.position = SCNVector3(end,y,z); root.addChildNode(collar)
+                let pin = cyl(0.006,0.057,Mat.chrome)
+                pin.position = SCNVector3(end,y,z); root.addChildNode(pin)
             }
-            flip.toggle()
-            x = nx
+        }
+        let bays = max(1,Int(ceil(2*half/0.38)))
+        for bay in 0...bays {
+            let x = -half + 2*half*CGFloat(bay)/CGFloat(bays)
+            for side in 0..<4 {
+                let (y,z) = corners[side], (yy,zz) = corners[(side+1)%4]
+                if bay == 0 || bay == bays || bay % 2 == 0 {
+                    tube(x,y,z,x,yy,zz,0.010,alloy)
+                }
+                if bay < bays {
+                    let nx = -half + 2*half*CGFloat(bay+1)/CGFloat(bays)
+                    let flip = (bay+side)%2 == 0
+                    tube(x,flip ? y : yy,flip ? z : zz,nx,flip ? yy : y,flip ? zz : z,0.010,alloy)
+                    if side % 2 == 0 {
+                        tube(x,flip ? yy : y,flip ? zz : z,nx,flip ? y : yy,flip ? z : zz,0.008,alloy)
+                    }
+                }
+            }
         }
         return root
     }
