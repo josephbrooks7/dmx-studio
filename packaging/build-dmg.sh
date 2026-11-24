@@ -22,6 +22,27 @@ fi
 
 mkdir -p "$APP/Contents/MacOS" "$APP/Contents/Resources"
 cp "$BIN" "$APP/Contents/MacOS/DMXStudio"
+# Textured human meshes, converted to native SceneKit-readable USDZ offline.
+# Source: Microsoft Rocketbox (MIT), converted GLB assets from avatar-studio.
+CHAR="$APP/Contents/Resources/Characters"
+mkdir -p "$CHAR"
+if [[ "${DMX_SKIP_CHARACTERS:-0}" != "1" ]]; then
+  if ! command -v blender >/dev/null && [[ ! -x /Applications/Blender.app/Contents/MacOS/Blender ]]; then
+    brew install --cask blender
+  fi
+  BLENDER="$(command -v blender || echo /Applications/Blender.app/Contents/MacOS/Blender)"
+  SRC="https://raw.githubusercontent.com/memoriesrohit/avatar-studio/2fd9ec82fbe1613d40ae38aadcca3f410725f740"
+  TMPCHAR="$(mktemp -d)"
+  curl -fLsS --retry 2 "https://raw.githubusercontent.com/microsoft/Microsoft-Rocketbox/master/LICENSE.md" -o "$CHAR/ROCKETBOX-LICENSE.txt"
+  curl -fLsS --retry 2 "$SRC/LICENSE" -o "$CHAR/AVATAR-STUDIO-LICENSE.txt"
+  for NAME in andre_casual emma_casual marcus_formal priya_casual; do
+    curl -fLsS --retry 2 "$SRC/models/$NAME.glb" -o "$TMPCHAR/$NAME.glb"
+    "$BLENDER" --background --factory-startup --python packaging/export-character.py -- "$TMPCHAR/$NAME.glb" "$CHAR/$NAME.usdz"
+    test -s "$CHAR/$NAME.usdz"
+  done
+  rm -rf "$TMPCHAR"
+fi
+
 
 # App icon
 ICONSET="$OUT/AppIcon.iconset"; mkdir -p "$ICONSET"
