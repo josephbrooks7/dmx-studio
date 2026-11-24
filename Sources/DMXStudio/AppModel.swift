@@ -882,6 +882,7 @@ final class AppModel: ObservableObject {
     }
 
     /// Strobe / blinder pads: on only while held, then whatever was running before comes back
+    private var padReleaseToken = UUID()
     private var heldPresetID: UUID?
     private var presetBeforeHold: UUID?
     // MARK: Record to show: holding a pad while a song plays writes that look into its show
@@ -928,6 +929,7 @@ final class AppModel: ObservableObject {
     }
 
     func holdPreset(_ id: UUID) {
+        padReleaseToken = UUID()
         if recordToShow, let song = playingSongID, let t = showTimeNow { recStart = (id, song, t) }
         if pauseTime != nil && playingSongID == nil && activeBlock == nil { resumeFromPause() }
         if heldPresetID == nil { presetBeforeHold = activePresetID }
@@ -936,6 +938,14 @@ final class AppModel: ObservableObject {
         presetStart = Date().timeIntervalSinceReferenceDate
         testMode = .off
     }
+    func schedulePresetRelease(_ id: UUID, after seconds: Double) {
+        let token = padReleaseToken
+        DispatchQueue.main.asyncAfter(deadline: .now() + seconds) { [weak self] in
+            guard let self, self.padReleaseToken == token else { return }
+            self.releasePreset(id)
+        }
+    }
+
     func releasePreset(_ id: UUID) {
         guard heldPresetID == id else { return }
         if let r = recStart, r.preset == id, playingSongID == r.song, let t = showTimeNow, t > r.t,
@@ -944,6 +954,7 @@ final class AppModel: ObservableObject {
         }
         recStart = nil
         heldPresetID = nil
+        padReleaseToken = UUID()
         activePresetID = presetBeforeHold
         presetBeforeHold = nil
     }
@@ -964,6 +975,8 @@ final class AppModel: ObservableObject {
 
     func togglePreset(_ id: UUID) {
         if pauseTime != nil && playingSongID == nil && activeBlock == nil { resumeFromPause() }
+        heldPresetID = nil; presetBeforeHold = nil; recStart = nil; padReleaseToken = UUID()
+        previewToken = UUID()
         if activePresetID == id { activePresetID = nil; return }
         activePresetID = id
         if presets.first(where: { $0.id == id })?.effect == .soundLevel && beatSource != .mic { beatSource = .mic }
@@ -1029,7 +1042,7 @@ final class AppModel: ObservableObject {
 
     /// Auto Lighting: choose looks from how energetic the audio is, changing every 16 beats.
     private func runAutoLighting(now: Double) {
-        guard autoLighting, beatSource == .mic, playingSongID == nil else { return }
+        guard autoLighting, beatSource == .mic, playingSongID == nil, heldPresetID == nil else { return }
         let lvl = mic.snapshot().level
         autoEnergy = autoEnergy * 0.995 + lvl * 0.005        // slow average (~6 s)
         // Change looks every 16 beats (the mic re-anchors the beat clock on every kick, so count time, not beat numbers)
