@@ -492,6 +492,7 @@ struct ShowRenderer {
         applyLyricCues(&out, t: t)
         applyAccents(&out, t: t, beatLen: ctx.beatLen)
         applyHits(&out, t: t, beatLen: ctx.beatLen)
+        for f in out.indices where f < fixtures.count { fixtures[f].constrainMovement(&out[f]) }
         return out
     }
 
@@ -842,7 +843,9 @@ struct ShowRenderer {
         if let fan = sec.fan, fan > 0.01, out.count > 1 {
             for f in out.indices {
                 let pos = Double(f) / Double(out.count - 1) - 0.5
-                out[f].pan = max(0, min(1, out[f].pan + pos * fan * 0.6))
+                if f < fixtures.count && fixtures[f].supportsPan {
+                    out[f].pan = max(0, min(1, out[f].pan + pos * fan * 0.6))
+                }
             }
         }
     }
@@ -966,16 +969,16 @@ struct ShowRenderer {
                 let mIdx = Int(floor(mBeats))
                 switch rig {
                 case .together:
-                    let m = movement(s.movement, barPos: mBar, idx: mIdx, fi: 0, n: 1)
+                    let m = movement(fx.supportedMovement(s.movement), barPos: mBar, idx: mIdx, fi: 0, n: 1)
                     rf.pan = m.pan; rf.tilt = m.tilt
                 case .mirror:
-                    let m = movement(s.movement, barPos: mBar, idx: mIdx, fi: 0, n: 1)
+                    let m = movement(fx.supportedMovement(s.movement), barPos: mBar, idx: mIdx, fi: 0, n: 1)
                     let flip = moverIdx % 2 == 1
                     rf.pan = flip ? 1 - m.pan : m.pan
                     // tilt-only bars: mirror the swing around center so the pair opens and closes
                     rf.tilt = flip && s.movement != .none ? 1 - m.tilt : m.tilt
                 case .independent:
-                    let m = movement(s.movement, barPos: mBar, idx: mIdx, fi: moverIdx, n: moverCount)
+                    let m = movement(fx.supportedMovement(s.movement), barPos: mBar, idx: mIdx, fi: moverIdx, n: moverCount)
                     rf.pan = m.pan; rf.tilt = m.tilt
                 }
                 // Moves stay in front: from a little behind straight up (0.42) out to the audience (1),
@@ -994,6 +997,7 @@ struct ShowRenderer {
                 }
                 moverIdx += 1
             }
+            fx.constrainMovement(&rf)
             result.append(rf)
         }
         return result
