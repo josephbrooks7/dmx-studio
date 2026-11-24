@@ -332,6 +332,7 @@ enum LyricLighting {
         let images: [(String, Set<String>, UInt32)] = [
             ("Sunset", ["sunset","sundown","atardecer","dusk"], 0xFF7838),
             ("Unicorn", ["unicorn","unicorns","unicornio","unicornios"], 0xD68BFF),
+            ("Pegasus", ["pegasus","pegaso","winged horse"], 0xB9D9FF),
             ("Bliss", ["bliss","blissful","euphoria","euphoric","dicha"], 0xFFD9A0),
             ("Heartache", ["heartache","heartbreak","heartbroken","heartaches","desamor","broken heart"], 0x2639C8),
             ("Sunrise", ["sunrise","dawn","amanecer"], 0xFFD078),
