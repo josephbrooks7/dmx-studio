@@ -43,7 +43,7 @@ extension ShowGenerator {
         var used: [LightEffect: Int] = [:]
         var previous: LightEffect?
         let gentle: Set<LightEffect> = calm.union([.sparkle, .wave, .ripple, .fire])
-        let energetic: Set<LightEffect> = [.pulse, .kickFlash, .snareHit, .chase, .alternate, .centerOut, .bounce, .pixelPop, .scan, .fill, .glitch, .rainbow, .wave, .ripple, .split, .strobe, .stutter, .blinderHits, .riseStrobe, .colorBeat]
+        let energetic: Set<LightEffect> = [.shimmer, .goldDust, .sparkle, .magic, .pulse, .kickFlash, .snareHit, .chase, .alternate, .centerOut, .bounce, .pixelPop, .scan, .fill, .glitch, .rainbow, .wave, .ripple, .split, .strobe, .stutter, .blinderHits, .riseStrobe, .colorBeat]
         for k in s.indices {
             guard s[k].empty != true, s[k].transition == nil, s[k].effect != .blackout,
                   base(s[k].name) != "Silence", s[k].end - s[k].start >= 4 * beat else { continue }
@@ -61,9 +61,18 @@ extension ShowGenerator {
             let candidates = pool.filter { $0.effect != previous }
             guard let least = candidates.map({ used[$0.effect, default: 0] }).min() else { continue }
             let fresh = candidates.filter { used[$0.effect, default: 0] == least }
-            let p = fresh[rng.next(fresh.count)]
+            // Prioritize underused sparkle textures and musical white hits, without repeating adjacent looks.
+            let preferred: Set<LightEffect> = level == .low || level == .medium
+                ? [.shimmer, .goldDust, .sparkle, .magic]
+                : [.shimmer, .goldDust, .kickFlash, .snareHit, .blinderHits]
+            let highlights = fresh.filter { preferred.contains($0.effect) }
+            let choices = !highlights.isEmpty && rng.next(3) != 0 ? highlights : fresh
+            let p = choices[rng.next(choices.count)]
             s[k].effect = p.effect
             s[k].rate = p.rate
+            // Let the texture control its own pixels instead of hiding them behind a second mask.
+            if [.shimmer, .goldDust, .sparkle, .magic].contains(p.effect) { s[k].beamSteps = nil; s[k].phase = nil }
+            if p.effect == .goldDust && (level == .low || level == .medium) { s[k].palette = p.palette }
             if level != .low && p.movement != .none { s[k].movement = p.movement }
             used[p.effect, default: 0] += 1
             previous = p.effect
@@ -82,18 +91,18 @@ extension ShowGenerator {
             let kind: HitKind
             if cur.level == .drop && prev.level != .drop { kind = .blackout }
             else if to == "Chorus" && from == "Chorus" { kind = .doubleFlash }
-            else if to == "Chorus" { kind = from == "Pre-Chorus" ? .strobeRamp : .rise }
+            else if to == "Chorus" { kind = from == "Pre-Chorus" ? .strobeRamp : (rng.next(2) == 0 ? .flash : .rise) }
             else if to == "Drop" || to == "Peak" { kind = from == "Build" ? .strobeRamp : .rise }
             else if to == "Pre-Chorus" || to == "Build" { kind = .chaseRun }
             else if to == "Break" { kind = .fadeOut }
             else if to == "Groove" { kind = bigFrom ? .fadeOut : .colorPop }
             else if to == "Bridge" { kind = .sweep }
-            else if to == "Post-Chorus" { kind = .splitFlash }
+            else if to == "Post-Chorus" { kind = rng.next(2) == 0 ? .flash : .splitFlash }
             else if ["Breakdown", "Interlude", "Instrumental"].contains(to) { kind = .fadeOut }
             else if to == "Outro" { kind = k == s.count - 1 && !bigFrom ? .fadeOut : (k == s.count - 1 ? .flash : .fadeOut) }
             else if to == "Verse" && bigFrom { kind = .fadeOut }
             else if to == "Verse" && from == "Intro" { kind = .colorPop }
-            else { kind = .colorPop }
+            else { kind = (cur.level == .high || cur.level == .drop) && rng.next(3) == 0 ? .flash : .colorPop }
             let len = (kind.buildsUp ? 2 : kind.beats) * beat           // build-ups: half a bar
             guard prev.end - prev.start >= len + 4 * beat else { continue }
             var slot = prev
