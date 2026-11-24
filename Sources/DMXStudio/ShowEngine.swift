@@ -1073,8 +1073,33 @@ struct ShowRenderer {
         let moverCount = max(1, fixtures.filter { $0.isMover }.count)
         var moverIdx = 0
 
+        // Independent fixtures can perform complementary looks, then reunite on musical hits.
+        // Never split two fixtures sharing an address on the same output.
+        let distinct = Set(fixtures.map { ($0.outputKey ?? "") + ":" + String($0.address) }).count
+        let sinceStart = max(0, c.t - s.start)
+        let untilEnd = max(0, s.end - c.t)
+        let edge = max(0.25, c.beatLen * 2)
+        let independence = rig == .independent && sections.count > 1 && distinct > 1 &&
+            s.empty != true && s.transition == nil && s.padPattern == nil &&
+            ![.blackout, .strobe, .stutter, .blinderHits, .riseStrobe].contains(s.effect) &&
+            s.level != .drop && !accentOn && fillOn == nil
+            ? min(1, sinceStart / edge, untilEnd / edge) : 0
+        var groupOrder: [String] = []
         for (fi, fx) in fixtures.enumerated() {
             var heads: [FixtureState] = []
+            let key = (fx.outputKey ?? "") + ":" + String(fx.address)
+            if !groupOrder.contains(key) { groupOrder.append(key) }
+            let group = groupOrder.firstIndex(of: key) ?? 0
+            let phrase = max(0, Int(floor((c.beatPos - startBeat) / 32)))
+            let secondary = (group + phrase) % 2 == 1
+            let companion: LightEffect
+            switch s.effect {
+            case .sparkle, .shimmer, .goldDust, .magic: companion = .wave
+            case .wave, .ripple, .chase, .bounce, .scan: companion = .shimmer
+            default: companion = s.level == .low ? .goldDust : .sparkle
+            }
+            let blend = secondary && fx.headCount > 1 ? independence * 0.82 : 0
+
             let reversed = rig == .mirror && fi % 2 == 1
             for h in 0..<fx.headCount {
                 var st: FixtureState
@@ -1084,6 +1109,10 @@ struct ShowRenderer {
                     st = FixtureState(intensity: 1, color: .white)
                 } else {
                     st = effect(s.effect, pal: pal, c: c, rb: rb, idx: idx, ph: ph, p: pixel, n: totalPixels)
+                    if blend > 0 {
+                        let alt = effect(companion, pal: pal, c: c, rb: rb, idx: idx, ph: ph, p: h, n: fx.headCount)
+                        st = st.blended(alt, blend)
+                    }
                 }
                 st.intensity = min(1, max(0, st.intensity * s.intensity * beamMask(s, c: c, head: h, of: fx.headCount)))
                 if let on = fillOn {
@@ -1120,7 +1149,10 @@ struct ShowRenderer {
                     rf.tilt = flip && s.movement != .none ? 1 - m.tilt : m.tilt
                 case .independent:
                     let m = movement(fx.supportedMovement(s.movement), barPos: mBar, idx: mIdx, fi: moverIdx, n: moverCount)
-                    rf.pan = m.pan; rf.tilt = m.tilt
+                    let shared = movement(fx.supportedMovement(s.movement), barPos: mBar, idx: mIdx, fi: 0, n: 1)
+                    let freedom = sections.count > 1 ? independence : 1
+                    rf.pan = shared.pan + (m.pan - shared.pan) * freedom
+                    rf.tilt = shared.tilt + (m.tilt - shared.tilt) * freedom
                 }
                 // Moves stay in front: from a little behind straight up (0.42) out to the audience (1),
                 // never swinging over to shoot at the back of the stage
