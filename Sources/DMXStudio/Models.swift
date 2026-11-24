@@ -959,10 +959,29 @@ enum PropKind: String, CaseIterable, Codable, Identifiable {
 }
 
 /// One thing in the venue: either a prop, or one of the session's lights.
+enum PerformerRole: String, Codable, CaseIterable, Identifiable {
+    case vocalist = "Vocalist", guitarist = "Guitarist", bassist = "Bassist", drummer = "Drummer", keyboardist = "Keyboardist", dancer = "Dancer"
+    var id: String { rawValue }
+}
+enum PerformerHair: String, Codable, CaseIterable, Identifiable {
+    case short = "Short", long = "Long", shaved = "Shaved", swept = "Swept"
+    var id: String { rawValue }
+}
+struct PerformerAppearance: Codable, Hashable {
+    var role: PerformerRole = .vocalist
+    var skin: Int = 2
+    var outfit: Int = 0
+    var hairColor: Int = 0
+    var hair: PerformerHair = .short
+    var height: Double = 1.75
+    var build: Double = 1
+}
+
 struct StageItem: Identifiable, Codable, Hashable {
     var id = UUID()
     var prop: PropKind? = nil
     var fixtureID: UUID? = nil
+    var performerAppearance: PerformerAppearance? = nil
     var x: Double = 0          // meters, left/right (audience view)
     var z: Double = 0          // meters, + toward the audience
     var y: Double = 0          // height off the floor
