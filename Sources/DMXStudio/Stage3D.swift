@@ -499,7 +499,17 @@ private enum Build {
         let candidates = [a.modelPath.map { URL(fileURLWithPath: $0) }, bundled].compactMap { $0 }
         for url in candidates {
             guard let template = avatarTemplate(url) else { continue }
-            let mesh = template.clone()
+            let mesh = SCNNode()
+            let imported = template.clone()
+            // Some exported avatars retain Blender's Z-up coordinates. Normalize
+            // the dominant vertical axis before measuring height or grounding.
+            let raw = imported.boundingBox
+            let rawY = raw.max.y - raw.min.y
+            let rawZ = raw.max.z - raw.min.z
+            if rawZ > rawY * 1.25 {
+                imported.eulerAngles.x = -.pi / 2
+            }
+            mesh.addChildNode(imported)
             let bounds = mesh.boundingBox
             let h = bounds.max.y - bounds.min.y
             if h.isFinite && h > 0.001 {
