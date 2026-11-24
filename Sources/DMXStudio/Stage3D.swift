@@ -471,22 +471,66 @@ private enum Build {
         let hip: CGFloat = seated ? 0.59 : 0.91
         let shoulder = hip+0.43
         let headY = shoulder+0.23
-        oval(0,hip+0.21,0,0.21,0.27,0.115,cloth)
-        oval(0,hip,0,0.17,0.11,0.105,pants)
+        let feminine = a.bodyStyle == "Feminine"
+        let neutral = a.bodyStyle == "Androgynous"
+        let shoulderWidth: CGFloat = feminine ? 0.155 : (neutral ? 0.17 : 0.19)
+        let hipWidth: CGFloat = feminine ? 0.185 : 0.16
+        let fashion = a.clothingStyle ?? "Casual"
+        let wide: CGFloat = a.pose == "Wide" ? 1.65 : (a.pose == "Performance" ? 1.35 : 1)
+        // Smooth tapered torso surface with anatomically shaped cross sections.
+        func torso(_ sections: [(CGFloat,CGFloat,CGFloat)], _ mat: SCNMaterial) {
+            let sides = 32
+            var vertices: [SCNVector3] = []
+            var indices: [Int32] = []
+            for (y,rx,rz) in sections {
+                for j in 0..<sides {
+                    let q = CGFloat(j)*2 * .pi/CGFloat(sides)
+                    vertices.append(SCNVector3(cos(q)*rx,y,sin(q)*rz))
+                }
+            }
+            for row in 0..<(sections.count-1) {
+                for j in 0..<sides {
+                    let p = Int32(row*sides+j), q = Int32(row*sides+(j+1)%sides)
+                    let v = p+Int32(sides), w = q+Int32(sides)
+                    indices += [p,v,q,q,v,w]
+                }
+            }
+            let data = indices.withUnsafeBufferPointer { Data(buffer:$0) }
+            let geo = SCNGeometry(sources:[SCNGeometrySource(vertices:vertices)],elements:[SCNGeometryElement(data:data,primitiveType:.triangles,primitiveCount:indices.count/3,bytesPerIndex:4)])
+            geo.materials = [mat]
+            let node = SCNNode(geometry:geo); root.addChildNode(node)
+        }
+        let waist: CGFloat = feminine ? 0.105 : 0.145
+        torso([(hip-0.05,hipWidth,0.10),(hip+0.07,hipWidth,0.11),(hip+0.17,waist,0.09),(hip+0.31,shoulderWidth,0.12),(shoulder,shoulderWidth,0.09),(shoulder+0.07,0.055,0.055)],cloth)
+        oval(0,hip,0,hipWidth,0.11,0.105,pants)
+        if fashion == "Rock Jacket" || fashion == "Formal" {
+            for side in [CGFloat(-1),CGFloat(1)] {
+                let lapel = box(0.045,0.23,0.018,Mat.darkGray,chamfer:0.007)
+                lapel.eulerAngles.z = side*0.24
+                place(lapel,side*0.065,hip+0.30,0.115)
+            }
+            for j in 0..<4 { oval(0,hip+0.12+CGFloat(j)*0.055,0.12,0.008,0.008,0.004,Mat.aluminum) }
+        }
+        if fashion == "Punk" || fashion == "Glam" || fashion == "Fantasy" {
+            place(cyl(hipWidth+0.008,0.035,Mat.black),0,hip+0.015,0)
+            for j in 0..<9 { oval(-0.12+CGFloat(j)*0.03,hip+0.015,0.107,0.008,0.008,0.005,Mat.aluminum) }
+        }
         place(cyl(0.052,0.11,skin),0,shoulder+0.095,0)
         oval(0,headY,0,0.102,0.135,0.103,skin)
         for side in [CGFloat(-1),CGFloat(1)] {
             oval(side*0.102,headY-0.005,0,0.018,0.035,0.025,skin)
-            oval(side*0.040,headY+0.016,0.094,0.014,0.009,0.008,Mat.darkGray)
-            let knee = SCNVector3(side*0.13,seated ? 0.48 : 0.49,seated ? 0.32 : 0.04)
-            let ankle = SCNVector3(side*0.15,0.10,seated ? 0.44 : 0.03)
+            oval(side*0.040,headY+0.016,0.094,0.018,0.011,0.009,Mat.make(.white))
+            oval(side*0.040,headY+0.016,0.103,0.008,0.009,0.004,Mat.darkGray)
+            oval(side*0.040,headY+0.038,0.092,0.022,0.004,0.005,hair)
+            let knee = SCNVector3(side*0.13*wide,seated ? 0.48 : 0.49,seated ? 0.32 : 0.04)
+            let ankle = SCNVector3(side*0.15*wide,0.10,seated ? 0.44 : 0.03)
             limb(SCNVector3(side*0.10,hip,0),knee,0.073,pants)
             limb(knee,ankle,0.052,pants)
-            oval(side*0.15,0.055,seated ? 0.49 : 0.08,0.068,0.055,0.13,Mat.black)
+            oval(side*0.15*wide,0.055,seated ? 0.49 : 0.08,0.068,0.055,0.13,Mat.black)
             let playing = a.role == .guitarist || a.role == .bassist || a.role == .keyboardist || seated
             let elbow = SCNVector3(side*0.27,shoulder-0.19,playing ? 0.12 : 0)
             let hand = SCNVector3(side*(playing ? 0.20 : 0.27),shoulder-(playing ? 0.32 : 0.47),playing ? 0.28 : 0.02)
-            limb(SCNVector3(side*0.18,shoulder,0),elbow,0.058,cloth)
+            limb(SCNVector3(side*shoulderWidth,shoulder,0),elbow,0.058,cloth)
             limb(elbow,hand,0.038,skin)
             oval(hand.x,hand.y,hand.z,0.041,0.06,0.033,skin)
         }
@@ -496,6 +540,38 @@ private enum Build {
             oval(0,headY+0.075,-0.017,0.111,0.082,0.108,hair)
             if a.hair == .long { oval(0,headY-0.075,-0.085,0.12,0.21,0.06,hair) }
             if a.hair == .swept { oval(0.04,headY+0.10,0.01,0.10,0.055,0.10,hair) }
+            if a.hair == .ponytail { oval(0,headY-0.07,-0.13,0.055,0.18,0.055,hair) }
+            if a.hair == .curly {
+                for j in 0..<12 {
+                    let q = CGFloat(j)*2 * .pi/12
+                    oval(cos(q)*0.09,headY+0.065,sin(q)*0.09,0.045,0.055,0.045,hair)
+                }
+            }
+            if a.hair == .spiked {
+                for j in 0..<7 {
+                    let q = CGFloat(j)*2 * .pi/7
+                    let g = SCNCone(topRadius:0,bottomRadius:0.035,height:0.13); g.materials = [hair]
+                    let n = SCNNode(geometry:g); n.eulerAngles.z = cos(q)*0.5
+                    place(n,cos(q)*0.07,headY+0.16,sin(q)*0.07)
+                }
+            }
+        }
+        switch a.accessory ?? "None" {
+        case "Top Hat":
+            place(cyl(0.145,0.015,Mat.black),0,headY+0.115,0)
+            place(cyl(0.098,0.15,Mat.black),0,headY+0.19,0)
+        case "Glasses":
+            for side in [CGFloat(-1),CGFloat(1)] { oval(side*0.044,headY+0.016,0.11,0.040,0.027,0.009,Mat.black) }
+            place(box(0.03,0.008,0.012,Mat.black),0,headY+0.016,0.11)
+        case "Choker":
+            place(cyl(0.057,0.025,Mat.black),0,shoulder+0.095,0)
+        case "Wings":
+            for side in [CGFloat(-1),CGFloat(1)] {
+                let g = SCNSphere(radius:1); g.materials = [cloth]
+                let n = SCNNode(geometry:g); n.scale = SCNVector3(0.21,0.36,0.025); n.eulerAngles.z = -side*0.65
+                place(n,side*0.25,hip+0.35,-0.14)
+            }
+        default: break
         }
         if a.role == .guitarist || a.role == .bassist {
             let guitar = SCNNode()
