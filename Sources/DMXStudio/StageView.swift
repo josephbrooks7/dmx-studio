@@ -109,6 +109,23 @@ struct StageScreen: View {
                             Label("Los Globos · Upstairs (29'7\" stage, 6×3 LED wall, drums)", systemImage: "building.2")
                         }
                     }
+                    Section("Drum kit") {
+                        Button {
+                            if !model.stage.items.contains(where: { $0.prop == .drumKit }) {
+                                model.addProp(.drumKit)
+                            }
+                        } label: {
+                            Label("Show drum kit", systemImage: model.stage.items.contains(where: { $0.prop == .drumKit }) ? "checkmark" : "drum")
+                        }
+                        Button {
+                            if let id = model.selectedStageItem, model.stage.items.contains(where: { $0.id == id && $0.prop == .drumKit }) {
+                                model.selectedStageItem = nil
+                            }
+                            model.stage.items.removeAll { $0.prop == .drumKit }
+                        } label: {
+                            Label("No drum kit", systemImage: model.stage.items.contains(where: { $0.prop == .drumKit }) ? "minus.circle" : "checkmark")
+                        }
+                    }
                     Section("Backdrop") {
                         ForEach(BackdropStyle.allCases) { st in
                             Button { model.setBackdrop(st) } label: { Label(st.rawValue, systemImage: st.icon) }
