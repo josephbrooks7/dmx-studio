@@ -888,6 +888,54 @@ final class AppModel: ObservableObject {
     // MARK: Record to show: holding a pad while a song plays writes that look into its show
     @Published var recordToShow = false
     @Published var recordNote: String?
+    @Published var patternRecording = false
+    @Published var patternQuantize: Double = 0.25
+    @Published var patternName = "My Pad Pattern"
+    @Published var patternStatus = ""
+    private var patternStart = 0.0
+    private var patternBeat = 0.5
+    private var patternSource: LookPreset?
+    private var patternPress: Double?
+    private var patternPulses: [PadPattern.Pulse] = []
+    func beginPadPattern() {
+        patternStart = ProcessInfo.processInfo.systemUptime
+        patternBeat = 60 / max(30, displayBPM)
+        patternSource = nil; patternPress = nil; patternPulses = []
+        patternRecording = true
+        patternStatus = "Press and release one preset in the rhythm you want."
+    }
+    private func patternDown(_ id: UUID) {
+        guard patternRecording, let p = presets.first(where: { $0.id == id }) else { return }
+        if patternSource == nil { patternSource = p }
+        guard patternSource?.id == id, patternPress == nil else { return }
+        patternPress = (ProcessInfo.processInfo.systemUptime - patternStart) / patternBeat
+    }
+    private func patternUp(_ id: UUID) {
+        guard patternRecording, patternSource?.id == id, let start = patternPress else { return }
+        let end = (ProcessInfo.processInfo.systemUptime - patternStart) / patternBeat
+        patternPulses.append(.init(start: start, end: max(start + 0.04, end)))
+        patternPress = nil
+    }
+    func finishPadPattern() {
+        guard patternRecording else { return }
+        if let id = patternSource?.id { patternUp(id) }
+        patternRecording = false
+        guard var p = patternSource, !patternPulses.isEmpty else { patternStatus = "No pad presses captured."; return }
+        let q = patternQuantize
+        func snap(_ x: Double) -> Double { q > 0 ? (x / q).rounded() * q : x }
+        let origin = snap(patternPulses[0].start)
+        let pulses = patternPulses.map { pulse -> PadPattern.Pulse in
+            let a = max(0, snap(pulse.start) - origin)
+            return .init(start: a, end: max(a + (q > 0 ? q : 0.04), snap(pulse.end) - origin))
+        }
+        let last = pulses.map(\.end).max() ?? 4
+        let length = max(4, ceil(last / 4) * 4)
+        p.id = UUID(); p.name = patternName.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty ? p.name + " Rhythm" : patternName
+        p.group = "Recorded Patterns"
+        p.padPattern = PadPattern(length: length, pulses: pulses)
+        presets.append(p)
+        patternStatus = "Saved " + p.name + " · " + String(Int(length)) + " beats"
+    }
     private var recStart: (preset: UUID, song: UUID, t: Double)?
     /// Where the playing song's show is right now (same timing the lights use)
     var showTimeNow: Double? {
@@ -921,6 +969,7 @@ final class AppModel: ObservableObject {
         n.id = UUID(); n.start = a; n.end = b
         n.name = p.name
         n.effect = p.effect; n.palette = p.palette; n.movement = p.movement; n.rate = p.rate; n.intensity = p.intensity
+        n.padPattern = p.padPattern
         n.colorShift = nil; n.empty = nil; n.transition = nil; n.accentStrobe = false
         out.append(n)
         secs = out.sorted { $0.start < $1.start }
@@ -930,6 +979,7 @@ final class AppModel: ObservableObject {
 
     func holdPreset(_ id: UUID) {
         padReleaseToken = UUID()
+        patternDown(id)
         if recordToShow, let song = playingSongID, let t = showTimeNow { recStart = (id, song, t) }
         if pauseTime != nil && playingSongID == nil && activeBlock == nil { resumeFromPause() }
         if heldPresetID == nil { presetBeforeHold = activePresetID }
@@ -947,6 +997,7 @@ final class AppModel: ObservableObject {
     }
 
     func releasePreset(_ id: UUID) {
+        patternUp(id)
         guard heldPresetID == id else { return }
         if let r = recStart, r.preset == id, playingSongID == r.song, let t = showTimeNow, t > r.t,
            let p = presets.first(where: { $0.id == id }) {
