@@ -240,6 +240,35 @@ struct MainShell: View {
             BottomBar(tab: $tab)
         }
         .background(Theme.bg)
+        .onAppear {
+            guard ProcessInfo.processInfo.environment["DMX_TEST_NAVIGATION"] != nil else { return }
+            runNavigationTest()
+        }
+    }
+
+    private func runNavigationTest() {
+        DispatchQueue.main.asyncAfter(deadline: .now() + 2) {
+            guard let song = model.songs.first else { print("NAV FAIL no song"); return }
+            tab = .songs
+            model.play(song.id, from: 0)
+            let modes: [MainTab] = [.stage, .live, .show, .sets, .setup, .songs, .stage, .songs]
+            var previous = model.currentTime
+            for (i, mode) in modes.enumerated() {
+                DispatchQueue.main.asyncAfter(deadline: .now() + Double(i + 1) * 1.5) {
+                    guard model.isPlaying, model.playingSongID == song.id, model.currentTime > previous + 0.15 else {
+                        print("NAV FAIL playback at " + mode.rawValue); return
+                    }
+                    previous = model.currentTime
+                    tab = mode
+                    print("NAV PASS " + mode.rawValue)
+                }
+            }
+            DispatchQueue.main.asyncAfter(deadline: .now() + Double(modes.count + 1) * 1.5) {
+                if model.isPlaying && model.playingSongID == song.id && model.currentTime > previous + 0.15 {
+                    print("NAV DONE")
+                } else { print("NAV FAIL final playback") }
+            }
+        }
     }
 }
 
