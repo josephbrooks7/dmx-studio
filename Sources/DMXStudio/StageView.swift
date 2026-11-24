@@ -223,6 +223,28 @@ struct StageInspector: View {
                                    k == .truss ? 1...12 : (k == .trussTower || k == .lightStand ? 1...6 : 0.5...3),
                                    k == .stage || k == .circleTruss ? "×" : "m") { v in model.updateStageItem(id) { $0.size = v } }
                         }
+                        if item.prop == .performer {
+                            Divider()
+                            Text("Character").font(.headline)
+                            let appearance = item.performerAppearance ?? PerformerAppearance()
+                            Picker("Role", selection: Binding(get: { appearance.role }, set: { v in model.updateStageItem(id) { var a = $0.performerAppearance ?? PerformerAppearance(); a.role = v; $0.performerAppearance = a } })) {
+                                ForEach(PerformerRole.allCases) { Text($0.rawValue).tag($0) }
+                            }
+                            Picker("Hair", selection: Binding(get: { appearance.hair }, set: { v in model.updateStageItem(id) { var a = $0.performerAppearance ?? PerformerAppearance(); a.hair = v; $0.performerAppearance = a } })) {
+                                ForEach(PerformerHair.allCases) { Text($0.rawValue).tag($0) }
+                            }
+                            Picker("Skin tone", selection: Binding(get: { appearance.skin }, set: { v in model.updateStageItem(id) { var a = $0.performerAppearance ?? PerformerAppearance(); a.skin = v; $0.performerAppearance = a } })) {
+                                ForEach(0..<6) { Text("Tone " + String($0 + 1)).tag($0) }
+                            }
+                            Picker("Outfit", selection: Binding(get: { appearance.outfit }, set: { v in model.updateStageItem(id) { var a = $0.performerAppearance ?? PerformerAppearance(); a.outfit = v; $0.performerAppearance = a } })) {
+                                ForEach(Array(["Black", "Red", "Blue", "White", "Purple", "Green"].enumerated()), id: \.offset) { i, name in Text(name).tag(i) }
+                            }
+                            Picker("Hair color", selection: Binding(get: { appearance.hairColor }, set: { v in model.updateStageItem(id) { var a = $0.performerAppearance ?? PerformerAppearance(); a.hairColor = v; $0.performerAppearance = a } })) {
+                                ForEach(Array(["Black", "Brown", "Blonde", "Red", "Blue", "Silver"].enumerated()), id: \.offset) { i, name in Text(name).tag(i) }
+                            }
+                            slider("Character height", appearance.height, 1.4...2.1, "m") { v in model.updateStageItem(id) { var a = $0.performerAppearance ?? PerformerAppearance(); a.height = v; $0.performerAppearance = a } }
+                            slider("Body build", appearance.build, 0.7...1.4, "×") { v in model.updateStageItem(id) { var a = $0.performerAppearance ?? PerformerAppearance(); a.build = v; $0.performerAppearance = a } }
+                        }
                         if fx?.colorWheel != nil {
                             Picker("", selection: Binding(get: { item.onStand ?? true }, set: { v in
                                 model.updateStageItem(id) { $0.onStand = v; if !v && $0.y == 0 { $0.y = 0.6 } }
