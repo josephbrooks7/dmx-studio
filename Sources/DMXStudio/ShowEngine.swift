@@ -694,7 +694,7 @@ struct ShowRenderer {
     func gate(_ beatsIn: Double, div: Double, beatLen: Double) -> Bool? {
         guard Self.maxFlashHz > 0 else { return nil }
         var d = div
-        while d > 0.25 && d / max(beatLen, 0.05) > Self.maxFlashHz { d /= 2 }
+        while d / max(beatLen, 0.05) > min(10, Self.maxFlashHz) { d /= 2 }
         let ph = (beatsIn * d).truncatingRemainder(dividingBy: 1)
         return ph < 0.4
     }
@@ -956,14 +956,7 @@ struct ShowRenderer {
                 for h in heads.indices { heads[h].color = col }
             }
             var rf = RenderedFixture(heads: heads)
-            // The light's own strobe channel only for strobes too fast to flash in software (and only
-            // when fast strobes are turned on); slower strobes are flashed on the beat above.
-            let riseStrobing = s.effect == .riseStrobe && (c.beatPos * s.rate).truncatingRemainder(dividingBy: 8) >= 4
-            if riseStrobing && Self.maxFlashHz >= 10 {
-                rf.strobe = 1   // rapid: the light's own strobe at full speed
-            } else if Self.maxFlashHz >= 10 && ((accentOn && s.level == .drop) || (s.effect == .strobe && s.rate / max(c.beatLen, 0.05) > 10)) {
-                rf.strobe = 0.6 + 0.4 * c.energy
-            }
+            // Programmed strobes use the intensity gate above, not fixture-specific shutter commands.
             if fx.isMover {
                 // Each light's motor needs its own head start (set per light: Movement Timing),
                 // plus the app's own smoothing of the move (~70 ms)
@@ -1091,7 +1084,7 @@ struct ShowRenderer {
             guard let on = gate(rb / max(c.rate, 0.01), div: c.rate, beatLen: c.beatLen) else {
                 return FixtureState(intensity: 0.55 + 0.45 * exp(-ph * 3), color: col)   // no flashing: a pulse
             }
-            return FixtureState(intensity: on ? 1 : 0.02, color: on ? col.mix(.white, 0.5) : col)
+            return FixtureState(intensity: on ? 1 : 0, color: on ? col.mix(.white, 0.5) : col)
 
         case .stutter:
             // chops that speed up across each bar: eighths, eighths, sixteenths, thirty-seconds
@@ -1101,7 +1094,7 @@ struct ShowRenderer {
             guard let on = gate(rb / max(c.rate, 0.01), div: div, beatLen: c.beatLen) else {
                 return FixtureState(intensity: 0.3 + 0.7 * beatInBar / 4, color: col.mix(.white, beatInBar / 8))
             }
-            return FixtureState(intensity: on ? 1 : 0.03, color: on ? col.mix(.white, 0.6) : col)
+            return FixtureState(intensity: on ? 1 : 0, color: on ? col.mix(.white, 0.6) : col)
 
         case .riseStrobe:
             // 2-bar cycle: a solid flash for a bar (while the head rises to the middle), then a strobe
@@ -1116,7 +1109,7 @@ struct ShowRenderer {
             guard let on = gate(beats, div: 8, beatLen: c.beatLen) else {
                 return FixtureState(intensity: 1, color: col.mix(.white, 0.5))   // flashing turned off: stay solid
             }
-            return FixtureState(intensity: on ? 1 : 0.03, color: on ? col.mix(.white, 0.7) : col)
+            return FixtureState(intensity: on ? 1 : 0, color: on ? col.mix(.white, 0.7) : col)
 
         case .blinderHits:
             // the palette's color look, and on strong snares / kick+snare hits a white blinder flash
