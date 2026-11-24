@@ -491,28 +491,45 @@ struct ShowRenderer {
         }
         applyLyricCues(&out, t: t)
         applyAccents(&out, t: t, beatLen: ctx.beatLen)
-        // Musical punctuation over the running look: a detected snare briefly turns the
-        // same beams white, without restarting the effect phase or moving the fixture.
+        // Short percussion overlays: the underlying color animation and motor phase continue.
         if sec.empty != true && sec.transition == nil && sec.effect != .blackout &&
             sec.effect != .strobe && sec.effect != .stutter && sec.effect != .blinderHits &&
             sec.effect != .riseStrobe && sec.padPattern == nil && (sec.accents ?? 1) >= 0.6 &&
-            (sec.level == .high || sec.level == .drop || sec.level == .medium) &&
-            Self.maxFlashHz > 0 && ctx.sinceSnare >= 0 && ctx.sinceSnare < 0.12 {
-            let snareIndex = lastIndex(analysis.snares, atOrBefore: t)
-            if snareIndex >= 0 {
-                // Thin dense rolls to a conservative accent cadence using fixed time buckets.
-                let spacing = 1 / min(3, Self.maxFlashHz)
-                let bucket = floor(analysis.snares[snareIndex] / spacing)
-                let previous = snareIndex > 0 ? analysis.snares[snareIndex - 1] : -spacing * 2
-                let strong = sec.level == .high || sec.level == .drop
-                if floor(previous / spacing) != bucket && analysis.snares[snareIndex] - previous >= spacing &&
-                    (strong || snareIndex % 2 == 0) {
-                    let k = min(1, max(0, (0.12 - ctx.sinceSnare) / 0.07))
-                    for f in out.indices {
-                        for h in out[f].heads.indices {
-                            out[f].heads[h].color = out[f].heads[h].color.mix(.white, k)
-                            out[f].heads[h].intensity = max(out[f].heads[h].intensity, k)
-                        }
+            Self.maxFlashHz > 0 {
+            let big = sec.level == .high || sec.level == .drop
+            let si = lastIndex(analysis.snares, atOrBefore: t)
+            let ki = lastIndex(analysis.kicks, atOrBefore: t)
+            let hi = lastIndex(analysis.hats, atOrBefore: t)
+            let spacing = 1 / min(3, Self.maxFlashHz)
+            // Claps share the snare detector. A close series of snare-like hits is a build.
+            let build = si >= 2 && analysis.snares[si] - analysis.snares[si-2] < 1.2 * ctx.beatLen
+            // Use one shared cadence for all full-rig flashes. Dense rolls become soft pixel glimmers.
+            let snareTime = si >= 0 ? analysis.snares[si] : -100.0
+            let kickTime = ki >= 0 ? analysis.kicks[ki] : -100.0
+            let previousSnare = si > 0 ? analysis.snares[si-1] : -100.0
+            let previousKick = ki > 0 ? analysis.kicks[ki-1] : -100.0
+            let snareFlash = !build && (big || sec.level == .medium) && ctx.sinceSnare < 0.12 &&
+                snareTime - previousSnare >= spacing && abs(snareTime - kickTime) >= spacing &&
+                (big || si % 2 == 0)
+            let kickPulse = big && ctx.sinceKick < 0.09 && kickTime - previousKick >= spacing &&
+                kickTime - snareTime >= spacing && ki % 2 == 0
+            for f in out.indices {
+                for h in out[f].heads.indices {
+                    if snareFlash {
+                        let k = min(1, max(0, (0.12 - ctx.sinceSnare) / 0.07))
+                        out[f].heads[h].color = out[f].heads[h].color.mix(.white, k)
+                        out[f].heads[h].intensity = max(out[f].heads[h].intensity, k)
+                    } else if kickPulse {
+                        let k = max(0, 1 - ctx.sinceKick / 0.09)
+                        out[f].heads[h].intensity = min(1, out[f].heads[h].intensity * (1 + 0.6 * k))
+                    } else if build && ctx.sinceSnare < 0.10 && (h + f + max(0, si)) % 3 == 0 {
+                        let k = max(0, 1 - ctx.sinceSnare / 0.10) * 0.22
+                        out[f].heads[h].color = out[f].heads[h].color.mix(.white, k)
+                        out[f].heads[h].intensity = min(1, out[f].heads[h].intensity + k)
+                    } else if hi >= 0 && ctx.sinceHat < 0.07 && hi % 4 == 0 &&
+                        (h + f + hi) % 4 == 0 && sec.level != .low {
+                        let k = max(0, 1 - ctx.sinceHat / 0.07) * 0.12
+                        out[f].heads[h].color = out[f].heads[h].color.mix(.white, k)
                     }
                 }
             }
