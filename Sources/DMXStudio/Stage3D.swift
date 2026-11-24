@@ -506,11 +506,17 @@ private enum Build {
             let raw = imported.boundingBox
             let rawY = raw.max.y - raw.min.y
             let rawZ = raw.max.z - raw.min.z
-            if rawZ > rawY * 1.25 {
-                imported.eulerAngles.x = -.pi / 2
-            }
-            mesh.addChildNode(imported)
-            let bounds = mesh.boundingBox
+            let orientation = SCNNode()
+            let zUp = rawZ > rawY * 1.25
+            if zUp { orientation.eulerAngles.x = -.pi / 2 }
+            orientation.addChildNode(imported)
+            mesh.addChildNode(orientation)
+            // Transform the original bounds explicitly; do not depend on SceneKit
+            // recomputing a nested node's cached bounds after a rotation.
+            let bounds = zUp
+                ? (min: SCNVector3(raw.min.x, raw.min.z, -raw.max.y),
+                   max: SCNVector3(raw.max.x, raw.max.z, -raw.min.y))
+                : raw
             let h = bounds.max.y - bounds.min.y
             if h.isFinite && h > 0.001 {
                 let scale = CGFloat(a.height) / h
@@ -1243,7 +1249,9 @@ struct Stage3DView: NSViewRepresentable {
     func updateNSView(_ v: StageSCNView, context: Context) {
         v.editing = model.stageEditing
         guard model.stagePageVisible else { v.isPlaying = false; return }
-        context.coordinator.applyQuality(model.stageHighQuality, to: v)
+        // Keep live audio responsive: expensive postprocessing is restored
+        // when playback ends, without changing the saved quality preference.
+        context.coordinator.applyQuality(model.stageHighQuality && model.playingSongID == nil, to: v)
         v.isPlaying = true
         context.coordinator.sync()
     }
@@ -1678,7 +1686,10 @@ struct Stage3DView: NSViewRepresentable {
                 if view?.isPlaying == true { view?.isPlaying = false }
                 return
             }
-            if view?.isPlaying == false { view?.isPlaying = true }
+            if let v = view {
+                applyQuality(model.stageHighQuality && model.playingSongID == nil, to: v)
+                if !v.isPlaying { v.isPlaying = true }
+            }
             if itemSnapshot != Dictionary(uniqueKeysWithValues: model.stage.items.map { ($0.id, $0) }) { sync() }
             applyFrame(model.preview, now: Date().timeIntervalSinceReferenceDate, master: model.blackout ? 0 : model.master)
             // remember the camera for "Same as my Stage view" video exports
