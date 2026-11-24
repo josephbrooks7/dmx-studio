@@ -489,7 +489,7 @@ struct ShowRenderer {
                 out[f].tilt = prev[f].tilt + (out[f].tilt - prev[f].tilt) * k
             }
         }
-        applyLyricCues(&out, t: t)
+        if sec.effect != .blackout && sec.empty != true && sec.transition == nil { applyLyricCues(&out, t: t) }
         applyAccents(&out, t: t, beatLen: ctx.beatLen)
         // Short percussion overlays: the underlying color animation and motor phase continue.
         if sec.empty != true && sec.transition == nil && sec.effect != .blackout &&
@@ -755,7 +755,10 @@ struct ShowRenderer {
     private func applyLyricCues(_ out: inout [RenderedFixture], t: Double) {
         guard let cues = analysis.lyricCues, !cues.isEmpty else { return }
         let w = Self.lyricWeights
-        for c in cues where t >= c.start - 0.35 && t < c.end + 0.7 {
+        // A literal reference takes precedence over generic emotion tints. Keep the
+        // musical intensity envelope and percussion accents, but choreograph its colors.
+        let active = cues.filter { t >= $0.start - 0.35 && t < $0.end + 0.7 }
+        for c in active.sorted(by: { ($0.amount == 1 && $0.kind == "Imagery" ? 1 : 0) < ($1.amount == 1 && $1.kind == "Imagery" ? 1 : 0) }) {
             let env: Double
             if c.accent {
                 let dt = t - c.start
@@ -768,9 +771,40 @@ struct ShowRenderer {
             let weight = c.kind == "Emotion" ? w.emotion : c.kind == "Imagery" ? w.imagery : w.delivery
             let k = env * weight
             guard k > 0.001 else { continue }
+            let theme: ([UInt32], Double, Double)?
+            switch c.label {
+            case "Sunset": theme = ([0xFF7838,0xFFB347,0xEF558A,0x8D439D],0.32,0.09)
+            case "Sunrise": theme = ([0xFFAA45,0xFFD078,0xFFF0B5],0.68,0.08)
+            case "Heartache": theme = ([0x2639C8,0x392079,0x7055CC],0.34,0.035)
+            case "Unicorn": theme = ([0xD68BFF,0xFF9EDB,0xA7C7FF,0x89E5CF],0.62,0.13)
+            case "Pegasus": theme = ([0xB9D9FF,0xE4D0FF,0xF8F8FF,0x8268DA],0.73,0.12)
+            case "Bliss": theme = ([0xFFD9A0,0xFFF4DD,0xFFC2DD,0xC5B3FF],0.66,0.07)
+            case "Ocean": theme = ([0x0040B8,0x00A8E8,0x00DDBA],0.48,0.16)
+            case "Fire": theme = ([0xFF2400,0xFF6500,0xFFBB22],0.55,0.12)
+            case "Heaven", "Stars", "Moonlight", "Glistening": theme = ([0xD9C9FF,0xB7D9FF,0xFFFFFF],0.70,0.08)
+            default: theme = nil
+            }
+            let literal = c.kind == "Imagery" && c.amount == 1 && !c.accent
+            let choreography = literal ? theme : nil
+            let strength = min(1, env * w.imagery * 1.5)
+            let elapsed = max(0, t - c.start)
+            let progress = min(1, elapsed / max(0.5, c.end - c.start))
+            let count = max(1, out.reduce(0) { $0 + $1.heads.count })
+            var pixel = 0
             for f in out.indices {
+                if let (_, center, sweep) = choreography {
+                    let side = rig == .together ? 0.0 : Double(f) * 0.7
+                    let target = min(0.85,max(0.15,center + sweep * sin(progress * .pi + side)))
+                    out[f].tilt += (target - out[f].tilt) * strength * 0.65
+                }
                 for h in out[f].heads.indices {
-                    if let col = c.color { out[f].heads[h].color = out[f].heads[h].color.mix(col, min(1, c.amount * k)) }
+                    defer { pixel += 1 }
+                    if let (colors, _, _) = choreography {
+                        let position = (Double(pixel) / Double(count) + progress * 0.5) * Double(colors.count)
+                        let index = Int(position) % colors.count
+                        let col = RGB(hex: colors[index]).mix(RGB(hex: colors[(index + 1) % colors.count]), position - floor(position))
+                        out[f].heads[h].color = out[f].heads[h].color.mix(col, strength)
+                    } else if let col = c.color { out[f].heads[h].color = out[f].heads[h].color.mix(col, min(1, c.amount * k)) }
                     var inten = out[f].heads[h].intensity * (1 + c.intensity * k)
                     if c.accent && c.intensity > 0 { inten = max(inten, 0.85 * k) }
                     out[f].heads[h].intensity = min(1, max(0, inten))
