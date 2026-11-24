@@ -509,33 +509,62 @@ private enum Build {
         case .backdrop:
             return backdrop(.ledWall, size: size)
         case .lineArray:
-            // a flown line array: 4 cabinets curving down toward the crowd, hung from a truss tower,
-            // with two subwoofers stacked on the ground below (like a festival / club PA wing)
             let root = SCNNode()
             let towerH: CGFloat = 5.2 * s
-            let t = truss(length: towerH); t.eulerAngles.z = .pi / 2; t.position = SCNVector3(0, towerH / 2, -0.55); root.addChildNode(t)
-            let base = box(0.9, 0.03, 0.9, Mat.aluminum); base.position = SCNVector3(0, 0.015, -0.55); root.addChildNode(base)
-            let arm = truss(length: 0.9); arm.eulerAngles.y = .pi / 2; arm.position = SCNVector3(0, towerH - 0.1, -0.1); root.addChildNode(arm)
-            // subs on the ground
-            for k in 0..<2 {
-                let sub = box(1.1, 0.6, 0.85, Mat.black, chamfer: 0.015); sub.position = SCNVector3(0, 0.3 + CGFloat(k) * 0.62, 0); root.addChildNode(sub)
-                let grille = box(1.0, 0.5, 0.01, Mat.darkGray); grille.position = SCNVector3(0, 0.3 + CGFloat(k) * 0.62, 0.43); root.addChildNode(grille)
+            let t = truss(length:towerH); t.eulerAngles.z = .pi/2
+            t.position = SCNVector3(0,towerH/2,-0.55); root.addChildNode(t)
+            let base = box(0.9,0.03,0.9,Mat.aluminum); base.position = SCNVector3(0,0.015,-0.55); root.addChildNode(base)
+            let arm = truss(length:0.9); arm.eulerAngles.y = .pi/2; arm.position = SCNVector3(0,towerH-0.1,-0.1); root.addChildNode(arm)
+            // Reusable perforated metal grille texture, backed by recessed driver silhouettes.
+            let img = NSImage(size:NSSize(width:256,height:128))
+            img.lockFocus()
+            NSColor(white:0.10,alpha:1).setFill(); NSRect(x:0,y:0,width:256,height:128).fill()
+            NSColor(white:0.025,alpha:1).setFill()
+            for row in 0..<24 { for col in 0..<48 {
+                NSBezierPath(ovalIn:NSRect(x:CGFloat(col)*5.4+CGFloat(row%2)*2.7,y:CGFloat(row)*5.4,width:3.1,height:3.1)).fill()
+            } }
+            img.unlockFocus()
+            let grilleMat = Mat.make(NSColor(white:0.10,alpha:1),metal:true,rough:0.68)
+            grilleMat.diffuse.contents = img
+            func put(_ n: SCNNode,_ p: SCNNode,_ x: CGFloat,_ y: CGFloat,_ z: CGFloat) {
+                n.position = SCNVector3(x,y,z); p.addChildNode(n)
             }
-            // flown cabinets, each angled a little more than the one above (the "J" curve)
-            let hang = SCNNode(); hang.position = SCNVector3(0, towerH - 0.35, 0.05); root.addChildNode(hang)
-            let bumper = box(1.15, 0.06, 0.6, Mat.darkGray); hang.addChildNode(bumper)
-            var y: CGFloat = -0.06, angle: CGFloat = 0
+            func cabinet(_ w: CGFloat,_ h: CGFloat,_ d: CGFloat,_ sub: Bool) -> SCNNode {
+                let n = SCNNode()
+                put(box(w,h,d,Mat.black,chamfer:0.018),n,0,0,0)
+                put(box(w-0.065,h-0.055,0.014,grilleMat,chamfer:0.006),n,0,0,d/2+0.008)
+                for side in [CGFloat(-1),CGFloat(1)] {
+                    put(box(0.035,h-0.025,0.025,Mat.darkGray),n,side*(w/2-0.022),0,d/2+0.014)
+                    put(box(0.014,h*0.34,d*0.34,Mat.darkGray,chamfer:0.008),n,side*(w/2+0.002),0,-d*0.12)
+                    for yy in [-h*0.32,h*0.32] {
+                        let bolt = cyl(0.009,0.012,Mat.aluminum); bolt.eulerAngles.z = .pi/2
+                        put(bolt,n,side*(w/2+0.01),yy,-d*0.27)
+                    }
+                }
+                if sub {
+                    for xx in [-w*0.31,w*0.31] { put(box(0.18,0.035,d*0.75,Mat.darkGray),n,xx,-h/2-0.012,0) }
+                } else {
+                    put(box(0.08,0.028,0.009,Mat.darkGray),n,0,-h*0.39,d/2+0.019)
+                }
+                return n
+            }
+            for k in 0..<2 { put(cabinet(1.1,0.60,0.85,true),root,0,0.32+CGFloat(k)*0.64,0) }
+            let hang = SCNNode(); put(hang,root,0,towerH-0.35,0.05)
+            put(box(1.15,0.065,0.62,Mat.darkGray),hang,0,0,0)
+            var yy: CGFloat = -0.22, zz: CGFloat = 0, angle: CGFloat = 0
             for k in 0..<5 {
-                angle += CGFloat(k == 0 ? 0.02 : 0.05 + 0.02 * Double(k))
-                let cab = box(1.1, 0.34, 0.55, Mat.black, chamfer: 0.01)
-                y -= 0.35
-                cab.position = SCNVector3(0, y, sin(angle) * 0.25)
-                cab.eulerAngles.x = angle
-                let g = box(1.02, 0.26, 0.01, Mat.darkGray); g.position = SCNVector3(0, 0, 0.28); cab.addChildNode(g)
-                hang.addChildNode(cab)
+                angle += k == 0 ? 0 : 0.035+CGFloat(k)*0.025
+                let cab = cabinet(1.06,0.32,0.55,false)
+                cab.eulerAngles.x = -angle
+                put(cab,hang,0,yy,zz)
+                for side in [CGFloat(-1),CGFloat(1)] {
+                    put(box(0.016,0.22,0.045,Mat.darkGray),cab,side*0.54,-0.13,-0.18)
+                }
+                yy -= 0.33*cos(angle); zz -= 0.33*sin(angle)
             }
-            root.addChildNode(pipe(from: SCNVector3(-0.4, towerH - 0.1, 0.05), to: SCNVector3(-0.4, towerH - 0.33, 0.05), r: 0.008, Mat.darkGray))
-            root.addChildNode(pipe(from: SCNVector3(0.4, towerH - 0.1, 0.05), to: SCNVector3(0.4, towerH - 0.33, 0.05), r: 0.008, Mat.darkGray))
+            for xx in [CGFloat(-0.4),CGFloat(0.4)] {
+                root.addChildNode(pipe(from:SCNVector3(xx,towerH-0.10,0.05),to:SCNVector3(xx,towerH-0.33,0.05),r:0.009,Mat.darkGray))
+            }
             return root
         case .curtain:
             // red velvet drape with deep folds, floor to ceiling (size = width in meters)
@@ -622,18 +651,87 @@ private enum Build {
             return root
         case .drumKit:
             let root = SCNNode()
-            let kick = cyl(0.28, 0.4, Mat.black); kick.eulerAngles.x = .pi / 2; kick.position = SCNVector3(0, 0.3, 0); root.addChildNode(kick)
-            let head = cyl(0.27, 0.01, Mat.make(NSColor(white: 0.9, alpha: 1))); head.eulerAngles.x = .pi / 2; head.position = SCNVector3(0, 0.3, 0.205); root.addChildNode(head)
-            for (x, y, r) in [(-0.38, 0.62, 0.16), (0.38, 0.62, 0.15), (0.5, 0.48, 0.2)] {
-                let tom = cyl(CGFloat(r), 0.2, Mat.make(NSColor(calibratedRed: 0.5, green: 0.02, blue: 0.1, alpha: 1), metal: true, rough: 0.3))
-                tom.position = SCNVector3(x, y, -0.05); root.addChildNode(tom)
+            let shell = Mat.make(NSColor(calibratedRed: 0.35, green: 0.035, blue: 0.07, alpha: 1), metal: true, rough: 0.28)
+            let skin = Mat.make(NSColor(white: 0.85, alpha: 1), rough: 0.65)
+            let bronze = Mat.make(NSColor(calibratedRed: 0.76, green: 0.52, blue: 0.20, alpha: 1), metal: true, rough: 0.3)
+            func add(_ n: SCNNode, _ parent: SCNNode, _ x: CGFloat, _ y: CGFloat, _ z: CGFloat) {
+                n.position = SCNVector3(x,y,z); parent.addChildNode(n)
             }
-            for (x, y) in [(-0.65, 1.15), (0.7, 1.25)] {
-                root.addChildNode(pipe(from: SCNVector3(x, 0, -0.1), to: SCNVector3(x, y, -0.1), r: 0.01, Mat.chrome))
-                let cym = cyl(0.22, 0.006, Mat.make(NSColor(calibratedRed: 0.8, green: 0.65, blue: 0.25, alpha: 1), metal: true, rough: 0.25))
-                cym.position = SCNVector3(x, y, -0.1); cym.eulerAngles.z = 0.15; root.addChildNode(cym)
+            func ring(_ r: CGFloat, _ p: CGFloat, _ mat: SCNMaterial) -> SCNNode {
+                let g = SCNTorus(ringRadius: r, pipeRadius: p)
+                g.ringSegmentCount = 48; g.pipeSegmentCount = 8; g.materials = [mat]
+                return SCNNode(geometry: g)
             }
-            let stool = cyl(0.17, 0.5, Mat.black); stool.position = SCNVector3(0, 0.25, -0.65); root.addChildNode(stool)
+            func drum(_ r: CGFloat, _ d: CGFloat, _ mat: SCNMaterial, _ count: Int) -> SCNNode {
+                let n = SCNNode()
+                add(cyl(r,d,mat),n,0,0,0)
+                for side in [CGFloat(-1),CGFloat(1)] {
+                    add(cyl(r-0.008,0.008,skin),n,0,side*(d/2+0.004),0)
+                    add(ring(r+0.002,0.006,Mat.chrome),n,0,side*(d/2+0.006),0)
+                    for i in 0..<count {
+                        let q = CGFloat(i)*2 * .pi / CGFloat(count)
+                        let x = cos(q)*(r+0.008), z = sin(q)*(r+0.008)
+                        add(box(0.016,0.035,0.016,Mat.chrome,chamfer:0.003),n,x,side*(d/2-0.034),z)
+                        add(cyl(0.003,0.035,Mat.chrome),n,x,side*(d/2-0.012),z)
+                    }
+                }
+                return n
+            }
+            func stand(_ x: CGFloat,_ z: CGFloat,_ h: CGFloat,_ spread: CGFloat = 0.18) {
+                add(cyl(0.012,h*0.68,Mat.chrome),root,x,h*0.34,z)
+                add(cyl(0.008,h*0.48,Mat.chrome),root,x,h*0.76,z)
+                add(cyl(0.021,0.045,Mat.chrome),root,x,h*0.58,z)
+                for i in 0..<3 {
+                    let q = CGFloat(i)*2 * .pi/3
+                    let fx = x+cos(q)*spread, fz = z+sin(q)*spread
+                    root.addChildNode(pipe(from: SCNVector3(x,0.16,z),to: SCNVector3(fx,0.025,fz),r:0.009,Mat.chrome))
+                    add(box(0.035,0.025,0.035,Mat.darkGray,chamfer:0.005),root,fx,0.014,fz)
+                }
+            }
+            func cymbal(_ x: CGFloat,_ y: CGFloat,_ z: CGFloat,_ r: CGFloat,_ tilt: CGFloat,_ hat: Bool = false) {
+                stand(x,z,y)
+                let n = SCNNode()
+                let g = SCNCone(topRadius:r*0.23,bottomRadius:r,height:0.027)
+                g.radialSegmentCount = 64; g.materials = [bronze]
+                add(SCNNode(geometry:g),n,0,0.008,0)
+                for i in 1...5 {
+                    let rr = r*(0.30+CGFloat(i)*0.11)
+                    add(ring(rr,0.0008,bronze),n,0,0.022-0.027*(rr/r-0.23)/0.77,0)
+                }
+                let bell = SCNNode(geometry:SCNSphere(radius:r*0.21))
+                bell.geometry?.materials = [bronze]; bell.scale = SCNVector3(1,0.36,1)
+                add(bell,n,0,0.02,0)
+                if hat { add(cyl(r,0.006,bronze),n,0,-0.026,0) }
+                add(cyl(0.013,0.018,Mat.darkGray),n,0,0.043,0)
+                add(cyl(0.006,0.025,Mat.chrome),n,0,0.058,0)
+                n.eulerAngles.z = tilt; add(n,root,x,y,z)
+            }
+            let kick = drum(0.28,0.43,shell,10); kick.eulerAngles.x = .pi/2
+            add(kick,root,0,0.30,0.10)
+            for side in [CGFloat(-1),CGFloat(1)] {
+                root.addChildNode(pipe(from:SCNVector3(side*0.22,0.23,0.17),to:SCNVector3(side*0.34,0.025,0.31),r:0.012,Mat.chrome))
+            }
+            for (x,r,d) in [(CGFloat(-0.17),CGFloat(0.13),CGFloat(0.20)),(0.16,0.15,0.23)] {
+                let tom = drum(r,d,shell,6); tom.eulerAngles.x = -0.20
+                add(tom,root,x,0.73,0.01)
+                root.addChildNode(pipe(from:SCNVector3(0,0.52,0.06),to:SCNVector3(x,0.68,0.01),r:0.012,Mat.chrome))
+            }
+            add(drum(0.20,0.36,shell,8),root,-0.49,0.43,-0.20)
+            for i in 0..<3 {
+                let q = CGFloat(i)*2 * .pi/3
+                let x = -0.49+cos(q)*0.19, z = -0.20+sin(q)*0.19
+                root.addChildNode(pipe(from:SCNVector3(x,0.39,z),to:SCNVector3(x+cos(q)*0.045,0.025,z+sin(q)*0.045),r:0.008,Mat.chrome))
+            }
+            stand(0.32,-0.29,0.55,0.13)
+            add(drum(0.18,0.14,Mat.chrome,8),root,0.32,0.63,-0.29)
+            cymbal(0.65,0.92,-0.28,0.18,0.02,true)
+            cymbal(0.57,1.23,0.14,0.23,-0.15)
+            cymbal(-0.60,1.13,-0.08,0.27,0.16)
+            cymbal(-0.38,1.30,0.27,0.21,0.12)
+            stand(0,-0.78,0.48,0.20)
+            add(cyl(0.17,0.075,Mat.darkGray),root,0,0.53,-0.78)
+            let pedal = box(0.075,0.025,0.23,Mat.aluminum,chamfer:0.006)
+            pedal.eulerAngles.x = -0.12; add(pedal,root,0,0.035,-0.27)
             return root
         case .performer:
             let root = SCNNode()
