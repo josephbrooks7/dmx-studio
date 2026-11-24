@@ -231,6 +231,22 @@ jobs:
               exit 1
             fi
           done
+      - name: Playback continuity while switching pages
+        run: |
+          python3 packaging/make_test_song.py /tmp/nav.wav
+          BIN="build/DMX Studio.app/Contents/MacOS/DMXStudio"
+          DMX_DEMO_OPEN=1 DMX_DEMO_SONG=/tmp/nav.wav DMX_TEST_NAVIGATION=1 "$BIN" > /tmp/nav.log 2>&1 &
+          P=$!
+          trap 'kill "$P" 2>/dev/null || true' EXIT
+          for i in $(seq 1 45); do
+            if grep -q "NAV DONE" /tmp/nav.log; then break; fi
+            if ! kill -0 "$P" 2>/dev/null; then break; fi
+            sleep 1
+          done
+          cat /tmp/nav.log
+          grep -q "NAV DONE" /tmp/nav.log
+          ! grep -q "NAV FAIL" /tmp/nav.log
+          test "$(grep -c 'NAV PASS' /tmp/nav.log)" -eq 8
       - name: Screenshots
         continue-on-error: true
         run: |
