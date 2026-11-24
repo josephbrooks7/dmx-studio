@@ -47,8 +47,52 @@ final class Updater: ObservableObject {
         Task { await check() }
     }
 
+    @Published var automaticUpdates = UserDefaults.standard.bool(forKey: "updater.automatic") {
+        didSet {
+            UserDefaults.standard.set(automaticUpdates, forKey: "updater.automatic")
+            if automaticUpdates { startAutomaticChecks() }
+        }
+    }
+    private var automaticTimer: Timer?
+    private var idleSince: Date?
+    private var lastAutomaticCheck = Date.distantPast
+    private var automaticAttempt: String?
+    private var installingAutomatically = false
+    private var safeToUpdate: Bool {
+        guard let m = AppModel.current else { return false }
+        return !m.outputEnabled && !m.isPlaying && m.activePresetID == nil &&
+            m.activeBlock == nil && m.cuedEntry == nil && !m.inGap && m.learning.isEmpty
+    }
+
+    private func startAutomaticChecks() {
+        guard automaticTimer == nil else { return }
+        automaticTimer = Timer.scheduledTimer(withTimeInterval: 15, repeats: true) { [weak self] _ in
+            Task { @MainActor in await self?.automaticTick() }
+        }
+        Task { await automaticTick() }
+    }
+
+    private func automaticTick() async {
+        guard automaticUpdates, safeToUpdate else { idleSince = nil; return }
+        if idleSince == nil { idleSince = Date() }
+        guard Date().timeIntervalSince(idleSince ?? Date()) >= 60, !canCancel, !isInstalling else { return }
+        if case .checking = state { return }
+        if case .downloading = state { return }
+        if Date().timeIntervalSince(lastAutomaticCheck) >= 300 {
+            lastAutomaticCheck = Date()
+            await check()
+        }
+        guard automaticUpdates, safeToUpdate, let version = availableVersion,
+              automaticAttempt != version else { return }
+        automaticAttempt = version
+        installingAutomatically = true
+        showing = true
+        install()
+    }
+
     /// On launch: look once a day, say nothing unless there's an update
     func checkQuietly() {
+        if automaticUpdates { startAutomaticChecks(); return }
         let key = "updater.lastCheck"
         let last = UserDefaults.standard.double(forKey: key)
         guard Date().timeIntervalSince1970 - last > 20 * 3600 else { return }
@@ -91,6 +135,7 @@ final class Updater: ObservableObject {
     }
 
     func install() {
+        guard !canCancel, !isInstalling else { return }
         cancelled = false
         canCancel = true
         Task {
@@ -128,6 +173,11 @@ final class Updater: ObservableObject {
                     try await Self.shell("/usr/bin/codesign", ["--force", "--deep", "--sign", "-", fresh.path], timeout: 600)
                     _ = try? await Self.shell("/usr/bin/xattr", ["-dr", "com.apple.quarantine", fresh.path], timeout: 60)
 
+                    // Recheck after downloads/signing: never replace the app if a show began meanwhile.
+                    if installingAutomatically && (!automaticUpdates || !safeToUpdate) {
+                        automaticAttempt = nil
+                        throw CancellationError()
+                    }
                     // 3. swap: the old copy goes to the Trash, the new one takes its place
                     try step("Step 4 of 4 · Replacing the old version", 0.9)
                     canCancel = false
@@ -146,6 +196,7 @@ final class Updater: ObservableObject {
                 try step("Done · restarting", 1)
                 Self.relaunch(app)
             } catch {
+                installingAutomatically = false
                 canCancel = false
                 if cancelled || error is CancellationError || (error as NSError).code == NSURLErrorCancelled {
                     state = latest.map { .available($0) } ?? .idle    // nothing changed: back to "Update Now"
@@ -344,6 +395,10 @@ struct UpdateSheet: View {
                         .fixedSize(horizontal: false, vertical: true)
                 }
             }
+            Toggle("Automatically install updates when idle", isOn: $up.automaticUpdates)
+                .disabled(up.canCancel || up.isInstalling)
+            Text("Checks every five minutes. Updates only with physical output off and no active show or song analysis.")
+                .font(.caption).foregroundColor(.secondary)
             Spacer(minLength: 0)
             HStack {
                 Spacer()
@@ -362,7 +417,7 @@ struct UpdateSheet: View {
             }
         }
         .padding(22)
-        .frame(width: 560, height: up.availableVersion == nil ? 230 : 460)
+        .frame(width: 560, height: up.availableVersion == nil ? 300 : 530)
     }
 }
 
