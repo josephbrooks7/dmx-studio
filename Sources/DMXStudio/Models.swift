@@ -981,11 +981,36 @@ struct PerformerAppearance: Codable, Hashable {
     var build: Double = 1
 }
 
+struct SavedPerformer: Identifiable, Codable, Hashable {
+    var id = UUID()
+    var name: String
+    var appearance: PerformerAppearance
+
+    static var starters: [SavedPerformer] {
+        func make(_ name: String, _ role: PerformerRole, _ body: String, _ fashion: String, _ hair: PerformerHair, _ skin: Int, _ color: Int, _ hairColor: Int, _ accessory: String) -> SavedPerformer {
+            var a = PerformerAppearance()
+            a.role = role; a.bodyStyle = body; a.clothingStyle = fashion
+            a.hair = hair; a.skin = skin; a.outfit = color; a.hairColor = hairColor
+            a.accessory = accessory; a.pose = "Performance"
+            return SavedPerformer(name: name, appearance: a)
+        }
+        return [
+            make("Pop Vocalist", .vocalist, "Feminine", "Glam", .ponytail, 1, 1, 3, "Choker"),
+            make("Rock Guitarist", .guitarist, "Masculine", "Rock Jacket", .curly, 2, 0, 0, "Top Hat"),
+            make("Indie Bassist", .bassist, "Androgynous", "Casual", .swept, 3, 2, 1, "Glasses"),
+            make("Studio Drummer", .drummer, "Masculine", "Casual", .short, 4, 0, 0, "None"),
+            make("Synth Player", .keyboardist, "Feminine", "Formal", .short, 2, 4, 4, "None"),
+            make("Fantasy Dancer", .dancer, "Feminine", "Fantasy", .long, 0, 4, 2, "Wings")
+        ]
+    }
+}
+
 struct StageItem: Identifiable, Codable, Hashable {
     var id = UUID()
     var prop: PropKind? = nil
     var fixtureID: UUID? = nil
     var performerAppearance: PerformerAppearance? = nil
+    var performerName: String? = nil
     var x: Double = 0          // meters, left/right (audience view)
     var z: Double = 0          // meters, + toward the audience
     var y: Double = 0          // height off the floor
