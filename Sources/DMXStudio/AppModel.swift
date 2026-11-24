@@ -350,6 +350,7 @@ final class AppModel: ObservableObject {
     private var gapWork: DispatchWorkItem?
     private var scanTimer: Timer?
     private var keyMonitor: Any?
+    private var homePositionUntil: Double = 0
     private var idleBlend: Double = 1     // 1 = fully idle look; ramps for smooth starts/stops
 
     private static var storeURL: URL {
@@ -3123,6 +3124,7 @@ final class AppModel: ObservableObject {
     func play(_ id: UUID, show: UUID? = nil, from start: Double? = nil, keepLineup: Bool = false, fadeIn: Double = 0, keepBlock: Bool = false) {
         guard let i = index(of: id) else { return }
         CrashGuard.breadcrumb("Playing \(songs[i].title)")
+        let startingShow = playingSongID != id || player == nil || start != nil
         cancelGap()
         if !keepBlock {
             activePresetID = nil      // playing a song: its own light show takes over from any live look
@@ -3147,6 +3149,7 @@ final class AppModel: ObservableObject {
         playingShowID = show ?? songs[i].activeShow?.id
         if let start { player?.currentTime = start }
         testMode = .off
+        if startingShow && !keepBlock { homePositionUntil = Date().timeIntervalSinceReferenceDate + 1.0 }
         resumeFromPause()
         if fadeIn > 0 { player?.volume = 0 }
         player?.play()
@@ -3281,6 +3284,7 @@ final class AppModel: ObservableObject {
     static let pausedLevel = 0.25
 
     func stop() {
+        homePositionUntil = Date().timeIntervalSinceReferenceDate + 1.0
         finishCrossfade()
         resumeFromPause()
         cancelGap()
@@ -3305,6 +3309,7 @@ final class AppModel: ObservableObject {
     }
 
     private func songFinished() {
+        homePositionUntil = Date().timeIntervalSinceReferenceDate + 1.0
         player?.stop()
         player = nil
         isPlaying = false
@@ -3546,6 +3551,17 @@ final class AppModel: ObservableObject {
                 if let src = copySource(of: i), src < rendered.count {
                     rendered[i].pan = rendered[src].pan
                     rendered[i].tilt = rendered[src].tilt
+                }
+            }
+        }
+
+        // Send an identical home target even in Independent mode at show boundaries or blackout.
+        if blackout || (testMode == .off && (restingMovers || Date().timeIntervalSinceReferenceDate < homePositionUntil)) {
+            for i in fixtures.indices where i < rendered.count && fixtures[i].isMover && fixtures[i].effectiveBehavior == .sequence {
+                rendered[i].pan = 0.5
+                rendered[i].tilt = idle.tilt
+                if smoothPan.indices.contains(i) && smoothTilt.indices.contains(i) {
+                    smoothPan[i] = 0.5; smoothTilt[i] = idle.tilt
                 }
             }
         }
