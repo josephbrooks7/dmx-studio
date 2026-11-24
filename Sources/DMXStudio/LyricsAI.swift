@@ -337,14 +337,19 @@ enum LyricLighting {
             ("Moonlight", ["moon","moonlight","luna"], 0x829DFF),
             ("Stars", ["stars","starlight","galaxy","estrellas"], 0x9470FF),
             ("Ice", ["ice","snow","frozen","hielo"], 0xBBEEFF),
-            ("Rose", ["rose","roses","rosas"], 0xFF4080)
+            ("Rose", ["rose","roses","rosas"], 0xFF4080),
+            ("Heaven", ["heaven","heavenly","angel","angels","paradise"], 0xD9C9FF),
+            ("Glistening", ["glistening","glisten","glitter","sparkling","shimmering"], 0xE6F6FF)
         ]
         var result: [LyricCue] = []
         for line in ly.lines {
             let words = ly.words.filter { $0.start >= line.start - 0.05 && $0.start < line.end + 0.05 }
-            for word in words where word.confidence >= 0.3 {
+            for (index, word) in words.enumerated() where word.confidence >= 0.3 {
                 let token = LyricsInterpreter.normalized(word.text)
-                guard let image = images.first(where: { $0.1.contains(token) }) else { continue }
+                let next = index + 1 < words.count ? LyricsInterpreter.normalized(words[index + 1].text) : ""
+                let cake = token == "birthday cake" || (token == "birthday" && next == "cake")
+                let match = images.first(where: { $0.1.contains(token) })
+                guard let image = cake ? ("Birthday Cake", Set<String>(), UInt32(0xFF8BCB)) : match else { continue }
                 guard !result.contains(where: { $0.label == image.0 && abs($0.start - word.start) < 1.5 }) else { continue }
                 result.append(LyricCue(start: word.start, end: max(word.end + 1.2, min(line.end, word.start + 4)),
                     kind: "Imagery", label: image.0, color: RGB(hex: image.2), amount: 1,
