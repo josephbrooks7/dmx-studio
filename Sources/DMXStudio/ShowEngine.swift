@@ -776,6 +776,7 @@ struct ShowRenderer {
             case "Sunset": theme = ([0xFF7838,0xFFB347,0xEF558A,0x8D439D],0.32,0.09)
             case "Sunrise": theme = ([0xFFAA45,0xFFD078,0xFFF0B5],0.68,0.08)
             case "Heartache": theme = ([0x2639C8,0x392079,0x7055CC],0.34,0.035)
+            case "Birthday Cake": theme = ([0xFF8BCB,0xFFF0CE,0xBCA0FF,0xA2E8DF,0xFFBE65],0.56,0.10)
             case "Unicorn": theme = ([0xD68BFF,0xFF9EDB,0xA7C7FF,0x89E5CF],0.62,0.13)
             case "Pegasus": theme = ([0xB9D9FF,0xE4D0FF,0xF8F8FF,0x8268DA],0.73,0.12)
             case "Bliss": theme = ([0xFFD9A0,0xFFF4DD,0xFFC2DD,0xC5B3FF],0.66,0.07)
