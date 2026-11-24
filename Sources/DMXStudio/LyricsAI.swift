@@ -327,6 +327,34 @@ enum LyricLighting {
         }
     }
 
+    /// Literal visual images deserve a sustained palette, even when mentioned only once.
+    static func visualCues(_ ly: Lyrics) -> [LyricCue] {
+        let images: [(String, Set<String>, UInt32)] = [
+            ("Sunset", ["sunset","sundown","atardecer","dusk"], 0xFF7838),
+            ("Sunrise", ["sunrise","dawn","amanecer"], 0xFFD078),
+            ("Fire", ["fire","flames","flame","fuego"], 0xFF4310),
+            ("Ocean", ["ocean","sea","waves","océano"], 0x00A8E8),
+            ("Moonlight", ["moon","moonlight","luna"], 0x829DFF),
+            ("Stars", ["stars","starlight","galaxy","estrellas"], 0x9470FF),
+            ("Ice", ["ice","snow","frozen","hielo"], 0xBBEEFF),
+            ("Rose", ["rose","roses","rosas"], 0xFF4080)
+        ]
+        var result: [LyricCue] = []
+        for line in ly.lines {
+            let words = ly.words.filter { $0.start >= line.start - 0.05 && $0.start < line.end + 0.05 }
+            for word in words where word.confidence >= 0.3 {
+                let token = LyricsInterpreter.normalized(word.text)
+                guard let image = images.first(where: { $0.1.contains(token) }) else { continue }
+                guard !result.contains(where: { $0.label == image.0 && abs($0.start - word.start) < 1.5 }) else { continue }
+                result.append(LyricCue(start: word.start, end: max(word.end + 1.2, min(line.end, word.start + 4)),
+                    kind: "Imagery", label: image.0, color: RGB(hex: image.2), amount: 1,
+                    intensity: 0.08, lyric: line.text, reason: "Timed visual palette: " + word.text,
+                    confidence: max(0.4, word.confidence)))
+            }
+        }
+        return result
+    }
+
     /// Cues for a song. One per sung line at most for emotion (no color change on every word), short accents
     /// only on clear imagery words, and nothing from low-confidence words.
     static func cues(_ ly: Lyrics, analysis a: SongAnalysis) -> [LyricCue] {
@@ -382,6 +410,6 @@ enum LyricLighting {
             default: break
             }
         }
-        return out
+        return out + visualCues(ly)
     }
 }
