@@ -422,6 +422,20 @@ enum ShowStyle: String, CaseIterable, Codable, Identifiable {
     var id: String { rawValue }
 }
 
+struct PadPattern: Codable, Hashable {
+    var length: Double
+    var pulses: [Pulse]
+    struct Pulse: Codable, Hashable {
+        var start: Double
+        var end: Double
+    }
+    func isOn(at beat: Double) -> Bool {
+        guard length > 0 else { return true }
+        let p = (beat.truncatingRemainder(dividingBy: length) + length).truncatingRemainder(dividingBy: length)
+        return pulses.contains { p >= $0.start && p < $0.end }
+    }
+}
+
 struct ShowSection: Identifiable, Codable, Hashable {
     var id = UUID()
     var name: String
@@ -441,6 +455,7 @@ struct ShowSection: Identifiable, Codable, Hashable {
     var phase: Double? = nil        // 0…1: each head runs a little later than the one before (rolls across)
     var order: HeadOrder? = nil     // which way patterns run across the heads
     var fan: Double? = nil          // 0…1: spread the beams of the lights apart
+    var padPattern: PadPattern? = nil
     var beamSteps: [UInt8]? = nil   // beam sequencer: 16 steps, each a mask of which of the 8 heads are on
     var moveSize: Double? = nil     // 0…1: how far the heads swing (nil = full); small = a subtle drift around the aim
     var moveSpeed: Double? = nil    // movement speed (nil = 1; 0.25 = a quarter as fast), separate from the effect speed
