@@ -331,6 +331,7 @@ enum LyricLighting {
     static func visualCues(_ ly: Lyrics) -> [LyricCue] {
         let images: [(String, Set<String>, UInt32)] = [
             ("Sunset", ["sunset","sundown","atardecer","dusk"], 0xFF7838),
+            ("Unicorn", ["unicorn","unicorns","unicornio","unicornios"], 0xD68BFF),
             ("Heartache", ["heartache","heartbreak","heartbroken","heartaches","desamor","broken heart"], 0x2639C8),
             ("Sunrise", ["sunrise","dawn","amanecer"], 0xFFD078),
             ("Fire", ["fire","flames","flame","fuego"], 0xFF4310),
