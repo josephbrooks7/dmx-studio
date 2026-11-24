@@ -53,6 +53,44 @@ final class Updater: ObservableObject {
             if automaticUpdates { startAutomaticChecks() }
         }
     }
+    @Published var remoteUpdates = UserDefaults.standard.bool(forKey: "updater.remote") {
+        didSet {
+            UserDefaults.standard.set(remoteUpdates, forKey: "updater.remote")
+            if remoteUpdates { startAutomaticChecks() }
+        }
+    }
+    @Published var remoteStatus = "No remote request pending"
+    private var lastRemoteCheck = Date.distantPast
+    private var remoteRequest: Int?
+    private var remoteInstalling = false
+
+    // Only exact, recent requests authored by the repository owner's authenticated
+    // GitHub identity are accepted. No arbitrary URLs, commands, or versions.
+    private func pollRemoteRequest() async {
+        guard remoteUpdates, Date().timeIntervalSince(lastRemoteCheck) >= 60 else { return }
+        lastRemoteCheck = Date()
+        do {
+            var req = URLRequest(url: URL(string: "https://api.github.com/repos/\(repo)/issues?state=open&sort=created&direction=desc&per_page=30")!)
+            req.setValue("application/vnd.github+json", forHTTPHeaderField: "Accept")
+            req.timeoutInterval = 15
+            let (data, response) = try await URLSession.shared.data(for: req)
+            guard (response as? HTTPURLResponse)?.statusCode == 200,
+                let issues = try JSONSerialization.jsonObject(with: data) as? [[String: Any]] else { return }
+            let consumed = UserDefaults.standard.integer(forKey: "updater.remoteConsumed")
+            let fmt = ISO8601DateFormatter()
+            for issue in issues {
+                guard issue["pull_request"] == nil, issue["title"] as? String == "DMX Studio: Update this Mac",
+                    let user = issue["user"] as? [String: Any], (user["id"] as? NSNumber)?.intValue == 113914577,
+                    let number = (issue["number"] as? NSNumber)?.intValue, number > consumed,
+                    let stamp = issue["created_at"] as? String, let date = fmt.date(from: stamp),
+                    Date().timeIntervalSince(date) >= -60, Date().timeIntervalSince(date) < 86400 else { continue }
+                remoteRequest = number
+                remoteStatus = "Remote update requested — waiting for idle"
+                return
+            }
+        } catch { remoteStatus = "Remote check unavailable — will retry" }
+    }
+
     private var automaticTimer: Timer?
     private var idleSince: Date?
     private var lastAutomaticCheck = Date.distantPast
@@ -73,7 +111,10 @@ final class Updater: ObservableObject {
     }
 
     private func automaticTick() async {
-        guard automaticUpdates, safeToUpdate else { idleSince = nil; return }
+        guard automaticUpdates || remoteUpdates else { idleSince = nil; return }
+        await pollRemoteRequest()
+        guard safeToUpdate else { idleSince = nil; return }
+        guard automaticUpdates || (remoteUpdates && remoteRequest != nil) else { return }
         if idleSince == nil { idleSince = Date() }
         guard Date().timeIntervalSince(idleSince ?? Date()) >= 60, !canCancel, !isInstalling else { return }
         if case .checking = state { return }
@@ -82,17 +123,24 @@ final class Updater: ObservableObject {
             lastAutomaticCheck = Date()
             await check()
         }
-        guard automaticUpdates, safeToUpdate, let version = availableVersion,
-              automaticAttempt != version else { return }
+        guard safeToUpdate, automaticUpdates || (remoteUpdates && remoteRequest != nil) else { return }
+        if case .upToDate = state, let number = remoteRequest {
+            UserDefaults.standard.set(number, forKey: "updater.remoteConsumed")
+            remoteRequest = nil
+            remoteStatus = "Already up to date"
+        }
+        guard let version = availableVersion, automaticAttempt != version else { return }
         automaticAttempt = version
         installingAutomatically = true
+        remoteInstalling = remoteUpdates && remoteRequest != nil
+        if remoteInstalling { remoteStatus = "Installing requested update" }
         showing = true
         install()
     }
 
     /// On launch: look once a day, say nothing unless there's an update
     func checkQuietly() {
-        if automaticUpdates { startAutomaticChecks(); return }
+        if automaticUpdates || remoteUpdates { startAutomaticChecks(); return }
         let key = "updater.lastCheck"
         let last = UserDefaults.standard.double(forKey: key)
         guard Date().timeIntervalSince1970 - last > 20 * 3600 else { return }
@@ -174,7 +222,7 @@ final class Updater: ObservableObject {
                     _ = try? await Self.shell("/usr/bin/xattr", ["-dr", "com.apple.quarantine", fresh.path], timeout: 60)
 
                     // Recheck after downloads/signing: never replace the app if a show began meanwhile.
-                    if installingAutomatically && (!automaticUpdates || !safeToUpdate) {
+                    if installingAutomatically && ((!automaticUpdates && !(remoteInstalling && remoteUpdates)) || !safeToUpdate) {
                         automaticAttempt = nil
                         throw CancellationError()
                     }
@@ -193,10 +241,16 @@ final class Updater: ObservableObject {
                     for m in moved.reversed() { try? FileManager.default.moveItem(at: m.to, to: m.from) }
                     throw error
                 }
+                if remoteInstalling, let number = remoteRequest {
+                    UserDefaults.standard.set(number, forKey: "updater.remoteConsumed")
+                    remoteRequest = nil
+                    remoteStatus = "Remote update installed"
+                }
                 try step("Done · restarting", 1)
                 Self.relaunch(app)
             } catch {
                 installingAutomatically = false
+                remoteInstalling = false
                 canCancel = false
                 if cancelled || error is CancellationError || (error as NSError).code == NSURLErrorCancelled {
                     state = latest.map { .available($0) } ?? .idle    // nothing changed: back to "Update Now"
@@ -399,6 +453,13 @@ struct UpdateSheet: View {
                 .disabled(up.canCancel || up.isInstalling)
             Text("Checks every five minutes. Updates only with physical output off and no active show or song analysis.")
                 .font(.caption).foregroundColor(.secondary)
+            Toggle("Allow remote update requests from my GitHub account", isOn: $up.remoteUpdates)
+                .disabled(up.canCancel || up.isInstalling)
+            if up.remoteUpdates {
+                Text(up.remoteStatus).font(.caption).foregroundColor(.secondary)
+                Link("Request an update from another device", destination: URL(string: "https://github.com/josephbrooks7/dmx-studio/issues/new?title=DMX%20Studio%3A%20Update%20this%20Mac")!)
+                    .font(.caption)
+            }
             Spacer(minLength: 0)
             HStack {
                 Spacer()
@@ -417,7 +478,7 @@ struct UpdateSheet: View {
             }
         }
         .padding(22)
-        .frame(width: 560, height: up.availableVersion == nil ? 300 : 530)
+        .frame(width: 560, height: up.availableVersion == nil ? 380 : 610)
     }
 }
 
