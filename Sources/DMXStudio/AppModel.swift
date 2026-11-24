@@ -3462,6 +3462,8 @@ final class AppModel: ObservableObject {
             }
         }
 
+        // All sequence movers share the configured idle/home angle, even in independent mode.
+        let restingMovers = testMode == .off && idleBlend >= 1
         // Stationary lights (like the spotlight) hold their own settings
         if testMode == .off {
             let showRunning = playingSongID != nil || inGap || activeBlock != nil || cuedEntry != nil
@@ -3525,7 +3527,7 @@ final class AppModel: ObservableObject {
 
         // In linked modes use a single movement target after blending and smoothing.
         // Separate DMX addresses must receive synchronized positions too, not just copies.
-        if testMode == .off && rigMode != .independent {
+        if testMode == .off && (rigMode != .independent || restingMovers) {
             let movers = fixtures.indices.filter {
                 $0 < rendered.count && fixtures[$0].isOn &&
                 fixtures[$0].isMover && fixtures[$0].effectiveBehavior == .sequence &&
@@ -3535,7 +3537,7 @@ final class AppModel: ObservableObject {
                 let pan = rendered[leader].pan
                 let tilt = rendered[leader].tilt
                 for (index, i) in movers.enumerated() {
-                    let flip = rigMode == .mirror && index % 2 == 1
+                    let flip = !restingMovers && rigMode == .mirror && index % 2 == 1
                     rendered[i].pan = flip ? 1 - pan : pan
                     rendered[i].tilt = flip ? 1 - tilt : tilt
                 }
