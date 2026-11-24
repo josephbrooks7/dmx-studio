@@ -60,14 +60,20 @@ final class SerialPort {
 
     func write(_ bytes: [UInt8]) throws {
         var offset = 0
+        let deadline = ProcessInfo.processInfo.systemUptime + 0.1
         while offset < bytes.count {
+            guard ProcessInfo.processInfo.systemUptime < deadline else {
+                throw DMXError.configFailed("Serial write timed out; check the DMX interface")
+            }
             let n = bytes.withUnsafeBytes { buf in
                 Darwin.write(fd, buf.baseAddress! + offset, bytes.count - offset)
             }
             if n < 0 {
-                if errno == EINTR || errno == EAGAIN { continue }
+                if errno == EINTR { continue }
+                if errno == EAGAIN { Thread.sleep(forTimeInterval: 0.001); continue }
                 throw DMXError.configFailed("write failed: \(String(cString: strerror(errno)))")
             }
+            if n == 0 { Thread.sleep(forTimeInterval: 0.001) }
             offset += n
         }
     }
