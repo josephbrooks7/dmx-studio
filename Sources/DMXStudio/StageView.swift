@@ -276,9 +276,34 @@ struct StageInspector: View {
                                             }.pickerStyle(.segmented).frame(width: 200)
                                             Button("Done") { characterPreviewOpen = false }.keyboardShortcut(.defaultAction)
                                         }
-                                        CharacterModelPreview(appearance: current.performerAppearance ?? PerformerAppearance(), faceCloseup: characterFaceCloseup)
-                                            .frame(minHeight: 420)
-                                        Text("Drag to rotate · scroll to zoom. Imported models keep their original textures and clothing.")
+                                        HStack(alignment: .top, spacing: 20) {
+                                            CharacterModelPreview(appearance: current.performerAppearance ?? PerformerAppearance(), faceCloseup: characterFaceCloseup)
+                                                .frame(minWidth: 420, minHeight: 420)
+                                            ScrollView {
+                                                VStack(alignment: .leading, spacing: 14) {
+                                                    let a = current.performerAppearance ?? PerformerAppearance()
+                                                    Text("Appearance").font(.headline)
+                                                    TextField("Character name", text: Binding(get: { current.performerName ?? "" }, set: { v in model.updateStageItem(id) { $0.performerName = v } }))
+                                                    if a.modelPath == nil {
+                                                        Picker("Body style", selection: Binding(get: { a.bodyStyle ?? "Masculine" }, set: { v in model.updateStageItem(id) { var p = $0.performerAppearance ?? PerformerAppearance(); p.bodyStyle = v; $0.performerAppearance = p } })) {
+                                                            ForEach(["Masculine", "Feminine"], id: \.self) { Text($0).tag($0) }
+                                                        }
+                                                        Picker("Model tone", selection: Binding(get: { a.skin >= 3 ? 3 : 0 }, set: { v in model.updateStageItem(id) { var p = $0.performerAppearance ?? PerformerAppearance(); p.skin = v; $0.performerAppearance = p } })) {
+                                                            Text("Lighter").tag(0)
+                                                            Text("Darker").tag(3)
+                                                        }
+                                                        Text("Body style and tone select an authored base model, not a skin recolor.").font(.caption).foregroundColor(Theme.subtle)
+                                                    }
+                                                    slider("Height", a.height, 1.4...2.1, "m") { v in model.updateStageItem(id) { var p = $0.performerAppearance ?? PerformerAppearance(); p.height = v; $0.performerAppearance = p } }
+                                                    slider("Body build", a.build, 0.7...1.4, "×") { v in model.updateStageItem(id) { var p = $0.performerAppearance ?? PerformerAppearance(); p.build = v; $0.performerAppearance = p } }
+                                                    Divider()
+                                                    Text("Hair, clothing and facial details are currently authored in the textured model.").font(.caption).foregroundColor(Theme.subtle)
+                                                }
+                                                .padding(.trailing, 8)
+                                            }
+                                            .frame(width: 250)
+                                        }
+                                        Text("Drag to rotate · scroll to zoom. Textured models retain their authored materials.")
                                             .font(.caption).foregroundColor(Theme.subtle)
                                         HStack {
                                             Menu("Choose starter") {
@@ -291,7 +316,7 @@ struct StageInspector: View {
                                             let a = current.performerAppearance ?? PerformerAppearance()
                                             Text(a.role.rawValue).foregroundColor(Theme.subtle)
                                         }
-                                    }.padding(20).frame(width: 700, height: 590)
+                                    }.padding(20).frame(width: 860, height: 590)
                                 }
                             }
 
