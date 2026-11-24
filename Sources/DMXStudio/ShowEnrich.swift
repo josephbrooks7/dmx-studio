@@ -116,6 +116,63 @@ extension ShowGenerator {
             s[k - 1].end = slot.start
             s.insert(slot, at: k)
         }
+        // Add phrase-scale fills inside long arrangement sections, retaining the main look.
+        // Use the detected beat grid, not arbitrary seconds, and preserve existing transitions.
+        var expanded: [ShowSection] = []
+        var lastFill: LightEffect?
+        for original in s {
+            guard original.empty != true, original.transition == nil, original.effect != .blackout,
+                  base(original.name) != "Silence", original.end - original.start >= 12 * beat else {
+                expanded.append(original); continue
+            }
+            let grid = a.beats.filter { $0 > original.start + 0.01 && $0 < original.end - 0.01 }
+            let big = original.level == .high || original.level == .drop
+            let spacing = big ? 4 : 8
+            let quietEffects: [LightEffect] = [.shimmer, .goldDust, .magic, .sparkle, .ripple, .aurora, .wave]
+            let loudEffects: [LightEffect] = [.centerOut, .bounce, .pixelPop, .chase, .shimmer, .goldDust, .kickFlash, .blinderHits, .glitch]
+            var cursor = original.start
+            var index = spacing - 1
+            var fillNumber = 0
+            while index + 2 < grid.count {
+                let start = grid[index]
+                let finish = grid[min(index + (big ? 2 : 4), grid.count - 1)]
+                guard start > cursor + beat, finish < original.end - beat else { index += spacing; continue }
+                var main = original
+                main.id = UUID(); main.start = cursor; main.end = start
+                if cursor > original.start { main.accentStrobe = false; main.screen = nil }
+                expanded.append(main)
+                var fill = original
+                fill.id = UUID(); fill.start = start; fill.end = finish
+                fill.accentStrobe = false; fill.screen = nil; fill.beamSteps = nil; fill.phase = nil
+                fill.order = nil; fill.padPattern = nil
+                let effects = big ? loudEffects : quietEffects
+                let choices = presets.filter { effects.contains($0.effect) && $0.effect != original.effect && $0.effect != lastFill }
+                if big && fillNumber % 3 == 2 {
+                    fill.transition = .flash
+                    fill.end = grid[index + 1]
+                    fill.name = original.name + " · White Flash"
+                } else if !choices.isEmpty {
+                    let p = choices[rng.next(choices.count)]
+                    fill.effect = p.effect; fill.rate = p.rate
+                    fill.name = original.name + " · " + p.name
+                    lastFill = p.effect
+                } else {
+                    fill.effect = effects.first { $0 != original.effect && $0 != lastFill } ?? .shimmer
+                    fill.name = original.name + " · " + fill.effect.rawValue
+                    lastFill = fill.effect
+                }
+                expanded.append(fill)
+                cursor = fill.end
+                fillNumber += 1
+                index += spacing + (big ? 2 : 4)
+            }
+            if cursor < original.end {
+                var tail = original
+                if cursor > original.start { tail.id = UUID(); tail.start = cursor; tail.accentStrobe = false; tail.screen = nil }
+                expanded.append(tail)
+            }
+        }
+        s = expanded
     }
 
     // MARK: - Lyrics → lights
