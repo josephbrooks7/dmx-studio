@@ -511,6 +511,23 @@ private enum Build {
                 mesh.scale = SCNVector3(width, scale, depth)
                 mesh.position = SCNVector3(-(bounds.min.x+bounds.max.x)*width/2, -bounds.min.y*scale, -(bounds.min.z+bounds.max.z)*depth/2)
                 root.addChildNode(mesh)
+                // Independent accessory geometry leaves imported skin/clothing textures untouched.
+                // A hat is placed using the normalized avatar bounds, not a guessed bone name.
+                if a.accessory == "Top Hat" && a.modelPath == nil {
+                    let hat = SCNNode()
+                    let felt = Mat.make(NSColor(white: 0.045, alpha: 1), rough: 0.85)
+                    let brim = SCNCylinder(radius: 0.145 * build, height: 0.018)
+                    brim.materials = [felt]
+                    let brimNode = SCNNode(geometry: brim)
+                    hat.addChildNode(brimNode)
+                    let crown = SCNCylinder(radius: 0.095 * build, height: 0.13)
+                    crown.materials = [felt]
+                    let crownNode = SCNNode(geometry: crown)
+                    crownNode.position.y = 0.073
+                    hat.addChildNode(crownNode)
+                    hat.position.y = CGFloat(a.height) - 0.025
+                    root.addChildNode(hat)
+                }
                 return root
             }
         }
