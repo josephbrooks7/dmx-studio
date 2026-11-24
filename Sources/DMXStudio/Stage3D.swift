@@ -440,14 +440,33 @@ private enum Build {
         let beam = SCNNode(); beam.name = "beam"
         let segs = 4
         let tanH = tan(spreadDeg / 2 * .pi / 180)
+        // Open tapered shells instead of closed cone sections: no bright horizontal caps.
+        // A soft radial falloff reduces the hard rectangular edges of overlapping beams.
         for i in 0..<segs {
             let d0 = length * Double(i) / Double(segs), d1 = length * Double(i + 1) / Double(segs)
-            let g = SCNCone(topRadius: CGFloat(0.02 + d1 * tanH * 0.7), bottomRadius: CGFloat(0.02 + d0 * tanH * 0.7), height: CGFloat(d1 - d0))
-            g.radialSegmentCount = 16
-            g.materials = [Mat.beam()]
+            let r0 = CGFloat(0.02 + d0 * tanH * 0.46)
+            let r1 = CGFloat(0.02 + d1 * tanH * 0.46)
+            let sides = 20
+            var vertices: [SCNVector3] = []
+            var normals: [SCNVector3] = []
+            var indices: [Int32] = []
+            for k in 0...sides {
+                let a = CGFloat(k) * 2 * .pi / CGFloat(sides)
+                let x = cos(a), z = sin(a)
+                vertices.append(SCNVector3(x*r0, CGFloat(d0), z*r0))
+                vertices.append(SCNVector3(x*r1, CGFloat(d1), z*r1))
+                normals.append(SCNVector3(x,0,z)); normals.append(SCNVector3(x,0,z))
+                if k < sides {
+                    let j = Int32(k*2)
+                    indices += [j,j+1,j+2,j+1,j+3,j+2]
+                }
+            }
+            let element = SCNGeometryElement(indices: indices, primitiveType: .triangles)
+            let g = SCNGeometry(sources: [SCNGeometrySource(vertices: vertices),SCNGeometrySource(normals: normals)], elements: [element])
+            let material = Mat.beam()
+            g.materials = [material]
             let n = SCNNode(geometry: g)
             n.name = "seg\(i)"
-            n.position = SCNVector3(0, (d0 + d1) / 2, 0)
             n.castsShadow = false
             beam.addChildNode(n)
         }
@@ -638,10 +657,36 @@ private enum Build {
         let s = CGFloat(size)
         switch kind {
         case .stage:
-            let n = box(6 * s, 0.6, 4, Mat.stageTop, chamfer: 0.02); n.position = SCNVector3(0, 0.3, 0)
-            let root = SCNNode(); root.addChildNode(n)
-            let edge = box(6 * s, 0.02, 0.03, { let m = SCNMaterial(); m.lightingModel = .constant; m.diffuse.contents = NSColor(calibratedRed: 0.15, green: 0.32, blue: 0.9, alpha: 1); return m }())   // LED strip on the stage lip
-            edge.position = SCNVector3(0, 0.6, 2); root.addChildNode(edge)
+            let root = SCNNode()
+            let width = 6 * s
+            let skirt = Mat.make(NSColor(white: 0.025, alpha: 1), rough: 0.96)
+            let deck = Mat.make(NSColor(white: 0.07, alpha: 1), rough: 0.82)
+            let trim = Mat.make(NSColor(white: 0.13, alpha: 1), metal: true, rough: 0.68)
+            let base = box(width, 0.56, 4, skirt, chamfer: 0.012)
+            base.position = SCNVector3(0, 0.28, 0); root.addChildNode(base)
+            // Modular black touring deck panels, with small seams visible at normal zoom.
+            let cols = max(1, Int(ceil(width / 1.5)))
+            for i in 0..<cols { for j in 0..<2 {
+                let dx = width / CGFloat(cols)
+                let panel = box(dx - 0.008, 0.04, 1.992, deck, chamfer: 0.002)
+                panel.position = SCNVector3(-width/2 + dx*(CGFloat(i)+0.5), 0.58, -1 + CGFloat(j)*2)
+                root.addChildNode(panel)
+            } }
+            for z in [CGFloat(-1.995),1.995] {
+                let rim = box(width, 0.045, 0.015, trim)
+                rim.position = SCNVector3(0, 0.56, z); root.addChildNode(rim)
+            }
+            for x in [-width/2,width/2] {
+                let rim = box(0.015, 0.045, 4, trim)
+                rim.position = SCNVector3(x, 0.56, 0); root.addChildNode(rim)
+            }
+            // Black fabric skirt with restrained vertical folds.
+            let folds = max(2, Int(ceil(width / 0.17)))
+            for i in 0..<folds {
+                let n = box(0.028, 0.50, 0.014, skirt, chamfer: 0.005)
+                n.position = SCNVector3(-width/2 + width*(CGFloat(i)+0.5)/CGFloat(folds), 0.27, 2.002)
+                root.addChildNode(n)
+            }
             return root
         case .truss:
             return truss(length: s)
@@ -1692,9 +1737,9 @@ struct Stage3DView: NSViewRepresentable {
                             guard let m = beam.childNode(withName: "seg\(k)", recursively: false)?.geometry?.firstMaterial else { continue }
                             // Additive glow: brightness comes from the color itself, so dim the color.
                             // A followspot's narrow shaft is see-through in haze, not a solid bar.
-                            let k = level * fade * haze * (fx.colorWheel != nil ? 0.16 : 1)
+                            let k = level * fade * haze * (fx.colorWheel != nil ? 0.12 : 0.28)
                             m.diffuse.contents = NSColor(calibratedRed: st.color.r * k, green: st.color.g * k, blue: st.color.b * k, alpha: 1)
-                            m.transparency = 1
+                            m.transparency = 0.72
                         }
                     }
                     avg.r += st.color.r * level; avg.g += st.color.g * level; avg.b += st.color.b * level; avg.i += level
@@ -1711,9 +1756,9 @@ struct Stage3DView: NSViewRepresentable {
             let n = max(1, roomGlow.n)
             let tint = (r: roomGlow.r / n, g: roomGlow.g / n, b: roomGlow.b / n)
             // the haze picks up the lights' color, so the room glows with the show instead of sitting flat black
-            let base = 0.045 + 0.05 * haze
-            scene.fogColor = NSColor(calibratedRed: base + tint.r * 0.22 * haze, green: base + tint.g * 0.22 * haze,
-                                     blue: base + tint.b * 0.22 * haze, alpha: 1)
+            let base = 0.025 + 0.025 * haze
+            scene.fogColor = NSColor(calibratedRed: base + tint.r * 0.10 * haze, green: base + tint.g * 0.10 * haze,
+                                     blue: base + tint.b * 0.10 * haze, alpha: 1)
             // the LED wall / projection content takes on the show's colors (a banner is lit by the beams instead)
             let mx = max(tint.r, tint.g, tint.b, 0.0001), lvl = min(1, mx * 3)
             let wall = NSColor(calibratedRed: 0.18 + 0.82 * lvl * tint.r / mx, green: 0.18 + 0.82 * lvl * tint.g / mx,
