@@ -437,6 +437,21 @@ private enum Build {
     // Stylized articulated stage avatar; all geometry remains lit by the actual stage lights.
     static func performer(_ a: PerformerAppearance) -> SCNNode {
         let root = SCNNode()
+        // Imported self-contained USDZ assets retain their authored meshes and materials.
+        if let path = a.modelPath,
+           let scene = try? SCNScene(url: URL(fileURLWithPath: path), options: nil) {
+            let mesh = SCNNode()
+            for child in scene.rootNode.childNodes { mesh.addChildNode(child.clone()) }
+            let bounds = mesh.boundingBox
+            let h = bounds.max.y - bounds.min.y
+            if h.isFinite && h > 0.001 {
+                let scale = CGFloat(a.height) / h
+                mesh.scale = SCNVector3(scale, scale, scale)
+                mesh.position = SCNVector3(-(bounds.min.x+bounds.max.x)*scale/2, -bounds.min.y*scale, -(bounds.min.z+bounds.max.z)*scale/2)
+                root.addChildNode(mesh)
+                return root
+            }
+        }
         let skinColors: [NSColor] = [
             NSColor(calibratedRed:0.96,green:0.78,blue:0.66,alpha:1),
             NSColor(calibratedRed:0.83,green:0.62,blue:0.46,alpha:1),
