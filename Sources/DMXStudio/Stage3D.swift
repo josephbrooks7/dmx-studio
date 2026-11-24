@@ -955,6 +955,60 @@ private enum Build {
     }
 }
 
+/// Independent character studio: no DMX output, no stage geometry, orbit camera and neutral lighting.
+struct CharacterModelPreview: NSViewRepresentable {
+    var appearance: PerformerAppearance
+    var faceCloseup: Bool = false
+
+    final class Coordinator {
+        var appearance: PerformerAppearance?
+        var closeup: Bool?
+        var character: SCNNode?
+        var camera: SCNNode?
+    }
+    func makeCoordinator() -> Coordinator { Coordinator() }
+    func makeNSView(context: Context) -> SCNView {
+        let view = SCNView(frame: .zero)
+        let scene = SCNScene()
+        view.scene = scene
+        view.backgroundColor = NSColor(white: 0.12, alpha: 1)
+        view.allowsCameraControl = true
+        view.antialiasingMode = .multisampling2X
+        let camera = SCNNode(); camera.camera = SCNCamera()
+        camera.camera?.fieldOfView = 37
+        scene.rootNode.addChildNode(camera); view.pointOfView = camera
+        context.coordinator.camera = camera
+        let ambient = SCNNode(); ambient.light = SCNLight()
+        ambient.light?.type = .ambient; ambient.light?.intensity = 380
+        scene.rootNode.addChildNode(ambient)
+        for (x,y,z,intensity) in [(CGFloat(2),CGFloat(3),CGFloat(4),CGFloat(850)),(-3,2,2,500),(1,3,-3,650)] {
+            let light = SCNNode(); light.light = SCNLight(); light.light?.type = .omni
+            light.light?.intensity = intensity; light.position = SCNVector3(x,y,z)
+            scene.rootNode.addChildNode(light)
+        }
+        let floor = SCNFloor(); floor.reflectivity = 0.06; floor.materials = [Mat.darkGray]
+        scene.rootNode.addChildNode(SCNNode(geometry: floor))
+        updateNSView(view, context: context)
+        return view
+    }
+    func updateNSView(_ view: SCNView, context: Context) {
+        let c = context.coordinator
+        if c.appearance != appearance {
+            c.character?.removeFromParentNode()
+            let node = Build.performer(appearance)
+            view.scene?.rootNode.addChildNode(node); c.character = node
+            c.appearance = appearance
+        }
+        if c.closeup != faceCloseup {
+            let y = CGFloat(appearance.height) * (faceCloseup ? 0.88 : 0.50)
+            c.camera?.position = SCNVector3(0,y,faceCloseup ? 0.85 : 3.5)
+            c.camera?.look(at: SCNVector3(0,y,0))
+            view.defaultCameraController.target = SCNVector3(0,y,0)
+            c.closeup = faceCloseup
+        }
+    }
+}
+
 // MARK: - The SceneKit view (orbit camera + click/drag editing)
 
 final class StageSCNView: SCNView {
