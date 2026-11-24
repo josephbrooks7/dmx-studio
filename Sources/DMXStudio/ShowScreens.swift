@@ -1086,6 +1086,22 @@ struct LiveScreen: View {
                             .help("Follow tempo and beat from DJ software or a DAW sending MIDI Clock (rekordbox, Serato, Traktor, VirtualDJ, Ableton…)")
                     }
                     MIDIStatusBar()
+                    HStack(spacing: 10) {
+                        TextField("Pattern name", text: $model.patternName).frame(width: 180)
+                        Picker("Quantize", selection: $model.patternQuantize) {
+                            Text("Off").tag(0.0)
+                            Text("1/4").tag(1.0)
+                            Text("1/8").tag(0.5)
+                            Text("1/16").tag(0.25)
+                            Text("1/32").tag(0.125)
+                        }.frame(width: 150)
+                        Button(model.patternRecording ? "Stop & Save Pattern" : "Record Pattern") {
+                            if model.patternRecording { model.finishPadPattern() }
+                            else { hitRelease = HitRelease.hold.rawValue; model.beginPadPattern() }
+                        }.buttonStyle(PillButtonStyle())
+                        Text(model.patternStatus).font(.caption).foregroundColor(Theme.subtle)
+                        Spacer()
+                    }
                     if model.recordToShow {
                         HStack(spacing: 8) {
                             Image(systemName: "record.circle").foregroundColor(.red)
