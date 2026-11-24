@@ -228,6 +228,7 @@ final class AppModel: ObservableObject {
     @Published var haze: Double = 0.6            // beam visibility in the Stage simulation
     @Published var stage = StageLayout() { didSet { scheduleSave() } }
     @Published var selectedStageItem: UUID?
+    var stagePageVisible = false // navigation visibility, not show state
     @Published var stageEditing = false
     /// Full-quality 3D (glow, smoothing, 60 fps). Off by default on Intel Macs: their graphics chips can
     /// restart the whole Mac under heavy 3D load, so the Stage view runs light there.
