@@ -3555,14 +3555,17 @@ final class AppModel: ObservableObject {
             } }
         }
 
-        // Live hold buttons override everything
+        // Live hold buttons use the same white/dimmer output as Flash, independent of
+        // fixture shutter mappings. Use wall time so strobing also works while paused.
         if flashHeld || strobeHeld {
+            let hz = min(10.0, ShowRenderer.maxFlashHz)
+            let on = flashHeld || hz <= 0 || (wall * hz).truncatingRemainder(dividingBy: 1) < 0.5
             for i in rendered.indices {
                 for h in rendered[i].heads.indices {
-                    rendered[i].heads[h].intensity = 1
-                    if flashHeld { rendered[i].heads[h].color = .white }
+                    rendered[i].heads[h].intensity = on ? 1 : 0
+                    rendered[i].heads[h].color = .white
                 }
-                if strobeHeld { rendered[i].strobe = 1 }
+                rendered[i].strobe = 0
             }
         }
 
