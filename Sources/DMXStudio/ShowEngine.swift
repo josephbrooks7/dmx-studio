@@ -519,6 +519,18 @@ struct ShowRenderer {
             // Follow selected rolls with a traveling color/brightness accent. For fast rolls,
             // interpolate between neighboring pixels instead of flashing the entire rig.
             let followRoll = build && sec.level != .low && (big || (rollFirst / 3) % 2 == 0)
+            // Selected energetic rolls use white flashes locked to actual detected snare hits.
+            // Subdivide dense rolls by selecting spaced hits, not by running an unrelated strobe clock.
+            let whiteRoll = followRoll && big && rollFirst % 3 != 1
+            var lastRollFlash = -100.0
+            if whiteRoll && si >= 0 {
+                let minGap = 1 / min(3, Self.maxFlashHz)
+                for j in rollFirst...si where analysis.snares[j] - lastRollFlash >= minGap {
+                    lastRollFlash = analysis.snares[j]
+                }
+            }
+            let rollFlashAge = t - lastRollFlash
+            let rollFlash = whiteRoll && rollFlashAge >= 0 && rollFlashAge < 0.09
             let pixelCount = max(1, out.reduce(0) { $0 + $1.heads.count })
             var pixel = 0
             // Use one shared cadence for all full-rig flashes. Dense rolls become soft pixel glimmers.
@@ -534,7 +546,11 @@ struct ShowRenderer {
             for f in out.indices {
                 for h in out[f].heads.indices {
                     defer { pixel += 1 }
-                    if snareFlash {
+                    if rollFlash {
+                        let k = min(1, max(0, (0.09 - rollFlashAge) / 0.06))
+                        out[f].heads[h].color = out[f].heads[h].color.mix(.white, k)
+                        out[f].heads[h].intensity = max(out[f].heads[h].intensity, k)
+                    } else if snareFlash {
                         let k = min(1, max(0, (0.12 - ctx.sinceSnare) / 0.07))
                         out[f].heads[h].color = out[f].heads[h].color.mix(.white, k)
                         out[f].heads[h].intensity = max(out[f].heads[h].intensity, k)
