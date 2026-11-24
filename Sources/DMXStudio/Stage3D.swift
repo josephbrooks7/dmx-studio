@@ -596,10 +596,6 @@ private enum Build {
             neck.position = SCNVector3(0,0.39,0); guitar.addChildNode(neck)
             let peg = box(0.10,0.15,0.03,Mat.aluminum,chamfer:0.008); peg.position = SCNVector3(0,0.72,0); guitar.addChildNode(peg)
             guitar.eulerAngles.z = -.pi/2.8; place(guitar,-0.13,hip+0.13,0.22)
-        } else if a.role == .vocalist {
-            let mic = cyl(0.014,0.13,Mat.black); mic.eulerAngles.x = -.pi/3
-            place(mic,0,headY-0.08,0.18)
-            oval(0,headY-0.05,0.23,0.024,0.024,0.024,Mat.aluminum)
         } else if a.role == .keyboardist {
             let keys = box(0.88,0.08,0.30,Mat.black,chamfer:0.01); place(keys,0,hip+0.15,0.42)
             for i in 0..<24 { placeKey(root,i,hip+0.20) }
