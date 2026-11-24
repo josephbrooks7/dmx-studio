@@ -1072,7 +1072,7 @@ struct LiveScreen: View {
                         Button { model.tapTempo() } label: {
                             HStack {
                                 LiveReader(model.live) { Circle().fill(model.beatOn ? Theme.accent : Color.white.opacity(0.2)).frame(width: 10, height: 10) }
-                                Text("TAP  \(Int(model.displayBPM.rounded())) BPM").monospacedDigit()
+                                Text("TAP  \(Int(model.displayBPM.rounded())) BPM").monospacedDigit().fixedSize()
                             }
                         }
                         .buttonStyle(PillButtonStyle())
@@ -1099,7 +1099,7 @@ struct LiveScreen: View {
                             if model.patternRecording { model.finishPadPattern() }
                             else { hitRelease = HitRelease.hold.rawValue; model.beginPadPattern() }
                         }.buttonStyle(PillButtonStyle())
-                        Text(model.patternStatus).font(.caption).foregroundColor(Theme.subtle)
+                        Text(model.patternStatus).font(.caption).foregroundColor(Theme.subtle).lineLimit(1).truncationMode(.tail).frame(maxWidth: 240, alignment: .leading)
                         Spacer()
                     }
                     if model.recordToShow {
@@ -1121,6 +1121,7 @@ struct LiveScreen: View {
                             .help("When it hears a break (no music for about a second), the lights ease to the idle look and come back with the music")
                     }
                     ForEach(model.presetGroups, id: \.name) { group in
+                        VStack(alignment: .leading, spacing: 14) {
                         Text(group.name == "Essentials" ? "Looks" : group.name).font(.headline).foregroundColor(Theme.subtle)
                         LazyVGrid(columns: cols, spacing: 14) {
                             ForEach(group.presets) { p in
@@ -1147,6 +1148,8 @@ struct LiveScreen: View {
                                     }
                             }
                         }
+                        }
+                        .id(group.name)
                     }
                     HStack {
                         Text("Hits").font(.headline).foregroundColor(Theme.subtle)
@@ -1168,6 +1171,7 @@ struct LiveScreen: View {
                     }
                 }
                 .padding(.trailing, 4)
+                .frame(maxWidth: .infinity, alignment: .leading)
             }
         }
         .padding(16)
