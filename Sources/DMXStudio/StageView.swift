@@ -441,25 +441,21 @@ struct StageCanvas: View {
                 // away: shorter and wider the further it tilts. Only lights with pan swing sideways.
                 let hasPan = fx.channels.contains(.role(.pan, head: 0))
                 let side = hasPan ? (rf.pan - 0.5) * 120 : 0
-                // Seen from the audience (like a phone video of the bar): tilted toward you, the beams
-                // fan out from the middle and look longer and wider; tilted away, they stay nearly
-                // parallel and look shorter as they go into the room.
+                // A rigid beam bar has one tilt axis: all lenses remain parallel.
+                // Represent depth using a shared projected length, never per-lens fan angles.
                 let a = (rf.tilt - 0.5) * .pi
                 let toward = sin(a)                     // + toward the audience, − away
                 let up = cos(a)
-                let off = Double((head.x - origin.x) / max(1, barWidth / 2 + 1))   // −1 … 1 along the bar
-                let fanX = toward > 0 ? toward * off * 0.9 : toward * off * 0.25
+                let fanX = 0.0
                 let downY = toward > 0 ? toward * 0.45 : 0
                 let lenK = toward > 0 ? 1 + toward * 0.35 : max(0.22, 1 + toward * 0.75)
                 switch p.mount {
                 case .floor:
                     angle = atan2(-up + downY, fanX) * 180 / .pi + side
                     length = Double(h) * (compact ? 0.78 : 1.1) * lenK
-                    spread *= toward > 0 ? 1 + toward * 1.8 : 1
                 case .hanging:
                     angle = atan2(up - downY, fanX) * 180 / .pi + side
                     length = Double(h) * (compact ? 0.7 : 0.9) * lenK
-                    spread *= toward > 0 ? 1 + toward * 1.8 : 1
                 case .upright:
                     // tilt turns the head around the upright bar: from facing you (short), out to the
                     // left or right (full length) — the crossing sweeps on a truss leg
@@ -467,7 +463,6 @@ struct StageCanvas: View {
                     let sideways = max(0.14, abs(sin(a)))
                     angle = sin(a) >= 0 ? -8 : 188
                     length = Double(w) * (compact ? 0.62 : 0.5) * sideways
-                    spread *= 1 + (1 - sideways) * 1.6
                 case .frontOfHouse:
                     angle = atan2(Double(target.y - head.y), Double(target.x - head.x)) * 180 / .pi
                     length = Double(hypot(target.x - head.x, target.y - head.y)) * 1.05
