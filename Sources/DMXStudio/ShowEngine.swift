@@ -491,6 +491,32 @@ struct ShowRenderer {
         }
         applyLyricCues(&out, t: t)
         applyAccents(&out, t: t, beatLen: ctx.beatLen)
+        // Musical punctuation over the running look: a detected snare briefly turns the
+        // same beams white, without restarting the effect phase or moving the fixture.
+        if sec.empty != true && sec.transition == nil && sec.effect != .blackout &&
+            sec.effect != .strobe && sec.effect != .stutter && sec.effect != .blinderHits &&
+            sec.effect != .riseStrobe && sec.padPattern == nil && (sec.accents ?? 1) >= 0.6 &&
+            (sec.level == .high || sec.level == .drop || sec.level == .medium) &&
+            Self.maxFlashHz > 0 && ctx.sinceSnare >= 0 && ctx.sinceSnare < 0.12 {
+            let snareIndex = lastIndex(analysis.snares, atOrBefore: t)
+            if snareIndex >= 0 {
+                // Thin dense rolls to a conservative accent cadence using fixed time buckets.
+                let spacing = 1 / min(3, Self.maxFlashHz)
+                let bucket = floor(analysis.snares[snareIndex] / spacing)
+                let previous = snareIndex > 0 ? analysis.snares[snareIndex - 1] : -spacing * 2
+                let strong = sec.level == .high || sec.level == .drop
+                if floor(previous / spacing) != bucket && analysis.snares[snareIndex] - previous >= spacing &&
+                    (strong || snareIndex % 2 == 0) {
+                    let k = min(1, max(0, (0.12 - ctx.sinceSnare) / 0.07))
+                    for f in out.indices {
+                        for h in out[f].heads.indices {
+                            out[f].heads[h].color = out[f].heads[h].color.mix(.white, k)
+                            out[f].heads[h].intensity = max(out[f].heads[h].intensity, k)
+                        }
+                    }
+                }
+            }
+        }
         applyHits(&out, t: t, beatLen: ctx.beatLen)
         if let pattern = sec.padPattern {
             let beat = (t - sec.start) / max(ctx.beatLen, 0.05)
