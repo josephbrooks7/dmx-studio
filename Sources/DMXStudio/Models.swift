@@ -263,7 +263,20 @@ struct Fixture: Identifiable, Codable, Hashable {
     var channelCount: Int { channels.count }
     var headCount: Int { ChannelSpec.headCount(channels) }
     var lastAddress: Int { address + max(channelCount, 1) - 1 }
-    var isMover: Bool { channels.contains { if case .role(let r, _) = $0 { return r == .pan || r == .tilt }; return false } }
+    // Motor axes belong to the fixture, never to its individual LED pixels.
+    var supportsPan: Bool { !isShehdsBar && channels.contains { if case .role(let r, _) = $0 { return r == .pan }; return false } }
+    var supportsTilt: Bool { channels.contains { if case .role(let r, _) = $0 { return r == .tilt }; return false } }
+    var isMover: Bool { supportsPan || supportsTilt }
+    func supportedMovement(_ move: MoveEffect) -> MoveEffect {
+        guard isMover else { return .none }
+        // A circle needs two axes. On a tilt-only bar it becomes a whole-bar sweep.
+        if !supportsPan && move == .circle { return .sweep }
+        return move
+    }
+    func constrainMovement(_ state: inout RenderedFixture) {
+        state.pan = supportsPan ? max(0, min(1, state.pan)) : 0.5
+        state.tilt = supportsTilt ? max(0, min(1, state.tilt)) : 0.5
+    }
     var hasStrobeChannel: Bool {
         channels.contains {
             if case .role(.strobe, _) = $0 { return true }
