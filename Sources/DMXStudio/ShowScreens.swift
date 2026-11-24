@@ -1214,7 +1214,7 @@ struct LiveMomentPad: View {
                 let mode = HitRelease(rawValue: release) ?? .hold
                 if mode == .hold { model.releasePreset(presetID) }
                 else if let s = mode.seconds {
-                    DispatchQueue.main.asyncAfter(deadline: .now() + s) { model.releasePreset(presetID) }
+                    model.schedulePresetRelease(presetID, after: s)
                 }
             })
     }
@@ -1242,9 +1242,13 @@ struct HoldPresetGesture: ViewModifier {
                     let mode = HitRelease(rawValue: release) ?? .hold
                     if mode == .hold { model.releasePreset(presetID) }
                     else if let s = mode.seconds {
-                        DispatchQueue.main.asyncAfter(deadline: .now() + s) { model.releasePreset(presetID) }
+                        model.schedulePresetRelease(presetID, after: s)
                     }
                 })
+            .onDisappear {
+                if pressed && (HitRelease(rawValue: release) ?? .hold) == .hold { model.releasePreset(presetID) }
+                pressed = false
+            }
     }
 }
 
