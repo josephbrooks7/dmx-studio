@@ -3625,6 +3625,11 @@ final class AppModel: ObservableObject {
             }
         }
 
+        // Final hardware capability guard, including manual controls and linked movement.
+        for i in fixtures.indices where i < rendered.count {
+            fixtures[i].constrainMovement(&rendered[i])
+        }
+
         // Lights switched off: dark on screen. On the wire, lights sharing one address get the
         // same signal, so that address only goes dark when every light on it is off.
         func dark(_ r: RenderedFixture) -> RenderedFixture {
