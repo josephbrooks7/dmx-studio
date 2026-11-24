@@ -197,6 +197,19 @@ struct StageScreen: View {
 /// Fine-tune the selected item: position, height, rotation, size, mounting.
 struct StageInspector: View {
     @EnvironmentObject var model: AppModel
+    @AppStorage("stage.savedPerformers.v1") private var savedCharacterData: Data = Data()
+    @State private var characterNotice = ""
+    private var savedCharacters: [SavedPerformer] {
+        (try? JSONDecoder().decode([SavedPerformer].self, from: savedCharacterData)) ?? []
+    }
+    private func storeCharacters(_ entries: [SavedPerformer]) {
+        if let data = try? JSONEncoder().encode(entries) { savedCharacterData = data }
+    }
+    private func applyCharacter(_ character: SavedPerformer, to id: UUID) {
+        model.updateStageItem(id) { $0.performerAppearance = character.appearance; $0.performerName = character.name }
+        characterNotice = "Loaded " + character.name
+    }
+
 
     var body: some View {
         Panel {
@@ -227,6 +240,54 @@ struct StageInspector: View {
                             Divider()
                             Text("Character").font(.headline)
                             let appearance = item.performerAppearance ?? PerformerAppearance()
+                            Menu("Choose a character") {
+                                Section("Starter characters") {
+                                    ForEach(SavedPerformer.starters) { p in
+                                        Button(p.name) { applyCharacter(p, to: id) }
+                                    }
+                                }
+                                Section("My characters") {
+                                    if savedCharacters.isEmpty { Text("No saved characters yet") }
+                                    ForEach(savedCharacters) { p in
+                                        Button(p.name) { applyCharacter(p, to: id) }
+                                    }
+                                }
+                                Divider()
+                                Button("Create from scratch") {
+                                    model.updateStageItem(id) { $0.performerAppearance = PerformerAppearance(); $0.performerName = "New Character" }
+                                    characterNotice = ""
+                                }
+                            }
+                            TextField("Character name", text: Binding(get: { item.performerName ?? "" }, set: { v in model.updateStageItem(id) { $0.performerName = v } }))
+                            Button {
+                                let name = (item.performerName ?? "").trimmingCharacters(in: .whitespacesAndNewlines)
+                                guard !name.isEmpty else { characterNotice = "Enter a character name first."; return }
+                                var entries = savedCharacters
+                                if let index = entries.firstIndex(where: { $0.name.caseInsensitiveCompare(name) == .orderedSame }) {
+                                    entries[index].appearance = appearance
+                                } else {
+                                    entries.append(SavedPerformer(name: name, appearance: appearance))
+                                }
+                                storeCharacters(entries)
+                                characterNotice = "Saved " + name
+                            } label: { Label("Save Character", systemImage: "square.and.arrow.down") }
+                            .buttonStyle(PillButtonStyle())
+                            if !savedCharacters.isEmpty {
+                                Menu("Manage saved characters") {
+                                    ForEach(savedCharacters) { p in
+                                        Button("Duplicate " + p.name) {
+                                            var copy = p; copy.id = UUID()
+                                            let existing = Set(savedCharacters.map { $0.name.lowercased() })
+                                            var n = 1
+                                            repeat { copy.name = p.name + " Copy" + (n == 1 ? "" : " " + String(n)); n += 1 } while existing.contains(copy.name.lowercased())
+                                            storeCharacters(savedCharacters + [copy])
+                                            applyCharacter(copy, to: id)
+                                        }
+                                    }
+                                }
+                            }
+                            if !characterNotice.isEmpty { Text(characterNotice).font(.caption).foregroundColor(Theme.subtle) }
+
                             Picker("Role", selection: Binding(get: { appearance.role }, set: { v in model.updateStageItem(id) { var a = $0.performerAppearance ?? PerformerAppearance(); a.role = v; $0.performerAppearance = a } })) {
                                 ForEach(PerformerRole.allCases) { Text($0.rawValue).tag($0) }
                             }
