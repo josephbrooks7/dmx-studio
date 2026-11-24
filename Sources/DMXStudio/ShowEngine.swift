@@ -502,7 +502,25 @@ struct ShowRenderer {
             let hi = lastIndex(analysis.hats, atOrBefore: t)
             let spacing = 1 / min(3, Self.maxFlashHz)
             // Claps share the snare detector. A close series of snare-like hits is a build.
-            let build = si >= 2 && analysis.snares[si] - analysis.snares[si-2] < 1.2 * ctx.beatLen
+            // Look ahead in the analyzed song so the first hit of a roll can join the pattern.
+            // A roll is a contiguous cluster of at least three closely spaced snare-like hits.
+            var rollFirst = si, rollLast = si
+            if si >= 0 {
+                let gap = max(0.08, ctx.beatLen * 0.58)
+                while rollFirst > 0 && si - rollFirst < 48 &&
+                    analysis.snares[rollFirst] - analysis.snares[rollFirst - 1] <= gap { rollFirst -= 1 }
+                while rollLast + 1 < analysis.snares.count && rollLast - si < 48 &&
+                    analysis.snares[rollLast + 1] - analysis.snares[rollLast] <= gap { rollLast += 1 }
+            }
+            let build = si >= 0 && rollLast - rollFirst >= 2
+            let rollProgress = build ? Double(si - rollFirst) / Double(max(1, rollLast - rollFirst)) : 0
+            let rollGap = build && si < rollLast ? analysis.snares[si + 1] - analysis.snares[si] : ctx.beatLen * 0.25
+            let rollDuration = min(0.10, max(0.025, rollGap * 0.8))
+            // Follow selected rolls with a traveling color/brightness accent. For fast rolls,
+            // interpolate between neighboring pixels instead of flashing the entire rig.
+            let followRoll = build && sec.level != .low && (big || (rollFirst / 3) % 2 == 0)
+            let pixelCount = max(1, out.reduce(0) { $0 + $1.heads.count })
+            var pixel = 0
             // Use one shared cadence for all full-rig flashes. Dense rolls become soft pixel glimmers.
             let snareTime = si >= 0 ? analysis.snares[si] : -100.0
             let kickTime = ki >= 0 ? analysis.kicks[ki] : -100.0
@@ -515,6 +533,7 @@ struct ShowRenderer {
                 kickTime - snareTime >= spacing && ki % 2 == 0
             for f in out.indices {
                 for h in out[f].heads.indices {
+                    defer { pixel += 1 }
                     if snareFlash {
                         let k = min(1, max(0, (0.12 - ctx.sinceSnare) / 0.07))
                         out[f].heads[h].color = out[f].heads[h].color.mix(.white, k)
@@ -522,8 +541,13 @@ struct ShowRenderer {
                     } else if kickPulse {
                         let k = max(0, 1 - ctx.sinceKick / 0.09)
                         out[f].heads[h].intensity = min(1, out[f].heads[h].intensity * (1 + 0.6 * k))
-                    } else if build && ctx.sinceSnare < 0.10 && (h + f + max(0, si)) % 3 == 0 {
-                        let k = max(0, 1 - ctx.sinceSnare / 0.10) * 0.22
+                    } else if followRoll && ctx.sinceSnare < rollDuration {
+                        let step = max(0, si - rollFirst)
+                        let target = step % pixelCount
+                        let distance = min(abs(pixel - target), pixelCount - abs(pixel - target))
+                        let envelope = max(0, 1 - ctx.sinceSnare / rollDuration)
+                        let strength = (0.10 + 0.12 * rollProgress) * envelope
+                        let k = distance == 0 ? strength : (distance == 1 ? strength * 0.35 : 0)
                         out[f].heads[h].color = out[f].heads[h].color.mix(.white, k)
                         out[f].heads[h].intensity = min(1, out[f].heads[h].intensity + k)
                     } else if hi >= 0 && ctx.sinceHat < 0.07 && hi % 4 == 0 &&
