@@ -803,7 +803,24 @@ struct ShowRenderer {
                     if let (colors, _, _) = choreography {
                         let position = (Double(pixel) / Double(count) + progress * 0.5) * Double(colors.count)
                         let index = Int(position) % colors.count
-                        let col = RGB(hex: colors[index]).mix(RGB(hex: colors[(index + 1) % colors.count]), position - floor(position))
+                        var col = RGB(hex: colors[index]).mix(RGB(hex: colors[(index + 1) % colors.count]), position - floor(position))
+                        if c.label == "Birthday Cake" {
+                            // Half the pixels are frosting colors, half are warm candle flames.
+                            // Keep the split on each multi-pixel bar, not just across the rig.
+                            let localCount = out[f].heads.count
+                            let candle = localCount > 1 ? h >= (localCount + 1) / 2 : pixel % 2 == 1
+                            if candle {
+                                let flicker = 0.5 + 0.23 * sin(elapsed * 5.1 + Double(pixel) * 1.7)
+                                    + 0.15 * sin(elapsed * 8.3 + Double(pixel) * 0.9)
+                                col = RGB(hex: 0xFF8A20).mix(RGB(hex: 0xFFE0A0), flicker)
+                                out[f].heads[h].intensity *= 1 - strength * (0.18 + 0.12 * (1 - flicker))
+                            } else {
+                                let frosting: [UInt32] = [0xFF54B8,0xBCA0FF,0x65D9FF,0x89E5CF]
+                                let p = (Double(h + f) + progress * 1.5)
+                                let i = Int(p) % frosting.count
+                                col = RGB(hex: frosting[i]).mix(RGB(hex: frosting[(i + 1) % frosting.count]), p - floor(p))
+                            }
+                        }
                         out[f].heads[h].color = out[f].heads[h].color.mix(col, strength)
                     } else if let col = c.color { out[f].heads[h].color = out[f].heads[h].color.mix(col, min(1, c.amount * k)) }
                     var inten = out[f].heads[h].intensity * (1 + c.intensity * k)
