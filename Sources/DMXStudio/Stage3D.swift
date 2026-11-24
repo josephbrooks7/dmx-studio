@@ -842,19 +842,52 @@ private enum Build {
             lens.position = SCNVector3(0, -0.165, 0); root.addChildNode(lens)
             return root
         case .monitorWedge:
-            // a floor monitor: a wedge lying on its back, the speaker face sloped up toward +z
-            // (the starter venue turns it around to face the performer)
             let root = SCNNode()
-            let w: CGFloat = 0.6, d: CGFloat = 0.5
+            let w: CGFloat = 0.60, d: CGFloat = 0.50
+            let cabinet = Mat.make(NSColor(white:0.065,alpha:1),rough:0.86)
+            let edge = Mat.make(NSColor(white:0.12,alpha:1),metal:true,rough:0.55)
+            // Side profile: the grille faces upward and toward the performer (+z).
             let path = NSBezierPath()
-            path.move(to: NSPoint(x: 0, y: 0)); path.line(to: NSPoint(x: d, y: 0))
-            path.line(to: NSPoint(x: d * 0.35, y: 0.36)); path.line(to: NSPoint(x: 0, y: 0.3)); path.close()
-            let shape = SCNShape(path: path, extrusionDepth: w); shape.chamferRadius = 0.01; shape.materials = [Mat.black]
-            let n = SCNNode(geometry: shape)
-            n.eulerAngles.y = -.pi / 2          // the profile runs front-to-back, the extrusion is the width
-            n.position = SCNVector3(0, 0, -d / 2); root.addChildNode(n)
-            let grille = box(w - 0.06, 0.4, 0.01, Mat.darkGray)
-            grille.position = SCNVector3(0, 0.2, d * 0.18); grille.eulerAngles.x = -0.92; root.addChildNode(grille)
+            path.move(to:NSPoint(x:0,y:0)); path.line(to:NSPoint(x:d,y:0))
+            path.line(to:NSPoint(x:d,y:0.12)); path.line(to:NSPoint(x:0.08,y:0.34))
+            path.line(to:NSPoint(x:0,y:0.28)); path.close()
+            let shape = SCNShape(path:path,extrusionDepth:w); shape.chamferRadius = 0.008
+            shape.materials = [cabinet]
+            let body = SCNNode(geometry:shape); body.eulerAngles.y = -.pi/2
+            body.position = SCNVector3(0,0,-d/2); root.addChildNode(body)
+            // Perforated steel grille with a dark backing and fine staggered holes.
+            let img = NSImage(size:NSSize(width:256,height:256))
+            img.lockFocus()
+            NSColor(white:0.18,alpha:1).setFill(); NSRect(x:0,y:0,width:256,height:256).fill()
+            NSColor(white:0.025,alpha:1).setFill()
+            for row in 0..<48 { for col in 0..<48 {
+                NSBezierPath(ovalIn:NSRect(x:CGFloat(col)*5.4+CGFloat(row%2)*2.7,y:CGFloat(row)*5.4,width:3.3,height:3.3)).fill()
+            } }
+            img.unlockFocus()
+            let mesh = Mat.make(NSColor(white:0.18,alpha:1),metal:true,rough:0.62)
+            mesh.diffuse.contents = img
+            let face = SCNNode()
+            face.position = SCNVector3(0,0.236,0.042); face.eulerAngles.x = -.pi/2+atan2(CGFloat(0.22),CGFloat(0.42))
+            root.addChildNode(face)
+            let frame = box(w-0.035,0.44,0.018,edge,chamfer:0.005); face.addChildNode(frame)
+            let grille = SCNNode(geometry:SCNPlane(width:w-0.065,height:0.408))
+            grille.geometry?.materials = [mesh]; grille.position.z = 0.010; face.addChildNode(grille)
+            for x in [CGFloat(-0.265),0.265] { for y in [CGFloat(-0.20),0,0.20] {
+                let screw = cyl(0.004,0.003,Mat.aluminum); screw.eulerAngles.x = .pi/2
+                screw.position = SCNVector3(x,y,0.012); face.addChildNode(screw)
+            } }
+            // Recessed side-handle silhouettes and rubber feet.
+            for side in [CGFloat(-1),1] {
+                let handle = box(0.008,0.065,0.13,edge,chamfer:0.004)
+                handle.position = SCNVector3(side*(w/2+0.001),0.13,-0.03); root.addChildNode(handle)
+                let inset = box(0.009,0.040,0.10,Mat.black,chamfer:0.003)
+                inset.position = SCNVector3(side*(w/2+0.005),0.13,-0.03); root.addChildNode(inset)
+                for z in [CGFloat(-0.17),0.17] {
+                    let foot = cyl(0.025,0.012,Mat.darkGray)
+                    foot.position = SCNVector3(side*0.23,0.006,z); root.addChildNode(foot)
+                }
+            }
+            root.scale = SCNVector3(s,s,s)
             return root
         case .ledWall:
             // 1.5 m × 2.5 m video panel on a frame (shown dark so the light beams carry the color)
