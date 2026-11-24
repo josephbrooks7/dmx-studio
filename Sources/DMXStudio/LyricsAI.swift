@@ -83,7 +83,7 @@ enum LyricImagery: String, CaseIterable, Codable {
         case .ice: return ["ice", "frozen", "cold", "snow", "freeze"]
         case .dream: return ["dream", "dreaming", "fantasy", "fairy", "magic", "wonderland"]
         case .lightning: return ["lightning", "electric", "electricity", "spark", "sparks", "voltage"]
-        case .heart: return ["heartbreak", "heartbroken", "broken heart"]
+        case .heart: return ["heartbreak", "heartbroken", "heartache", "broken heart"]
         }
     }
     var wordsES: [String] {
@@ -331,6 +331,7 @@ enum LyricLighting {
     static func visualCues(_ ly: Lyrics) -> [LyricCue] {
         let images: [(String, Set<String>, UInt32)] = [
             ("Sunset", ["sunset","sundown","atardecer","dusk"], 0xFF7838),
+            ("Heartache", ["heartache","heartbreak","heartbroken","heartaches","desamor","broken heart"], 0x2639C8),
             ("Sunrise", ["sunrise","dawn","amanecer"], 0xFFD078),
             ("Fire", ["fire","flames","flame","fuego"], 0xFF4310),
             ("Ocean", ["ocean","sea","waves","océano"], 0x00A8E8),
@@ -348,12 +349,12 @@ enum LyricLighting {
                 let token = LyricsInterpreter.normalized(word.text)
                 let next = index + 1 < words.count ? LyricsInterpreter.normalized(words[index + 1].text) : ""
                 let cake = token == "birthday cake" || (token == "birthday" && next == "cake")
-                let match = images.first(where: { $0.1.contains(token) })
+                let match = images.first(where: { $0.1.contains(token) || $0.1.contains(token + " " + next) })
                 guard let image = cake ? ("Birthday Cake", Set<String>(), UInt32(0xFF8BCB)) : match else { continue }
                 guard !result.contains(where: { $0.label == image.0 && abs($0.start - word.start) < 1.5 }) else { continue }
                 result.append(LyricCue(start: word.start, end: max(word.end + 1.2, min(line.end, word.start + 4)),
                     kind: "Imagery", label: image.0, color: RGB(hex: image.2), amount: 1,
-                    intensity: 0.08, lyric: line.text, reason: "Timed visual palette: " + word.text,
+                    intensity: image.0 == "Heartache" ? -0.22 : 0.08, lyric: line.text, reason: "Timed visual palette: " + word.text,
                     confidence: max(0.4, word.confidence)))
             }
         }
@@ -363,7 +364,7 @@ enum LyricLighting {
     /// Cues for a song. One per sung line at most for emotion (no color change on every word), short accents
     /// only on clear imagery words, and nothing from low-confidence words.
     static func cues(_ ly: Lyrics, analysis a: SongAnalysis) -> [LyricCue] {
-        guard let ins = ly.insights, ins.count == ly.lines.count else { return [] }
+        guard let ins = ly.insights, ins.count == ly.lines.count else { return visualCues(ly) }
         var out: [LyricCue] = []
         var lastEmotion: String?
         for (i, line) in ly.lines.enumerated() {
