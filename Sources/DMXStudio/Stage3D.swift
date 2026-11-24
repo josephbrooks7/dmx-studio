@@ -477,8 +477,13 @@ private enum Build {
     static func performer(_ a: PerformerAppearance) -> SCNNode {
         let root = SCNNode()
         // Imported self-contained USDZ assets retain their authored meshes and materials.
-        if let path = a.modelPath,
-           let scene = try? SCNScene(url: URL(fileURLWithPath: path), options: nil) {
+        let feminine = a.bodyStyle == "Feminine"
+        let builtInName = feminine ? (a.skin >= 3 ? "priya_casual" : "emma_casual") :
+            (a.skin >= 3 || a.clothingStyle == "Formal" ? "marcus_formal" : "andre_casual")
+        let bundled = Bundle.main.url(forResource: builtInName, withExtension: "usdz", subdirectory: "Characters")
+        let candidates = [a.modelPath.map { URL(fileURLWithPath: $0) }, bundled].compactMap { $0 }
+        for url in candidates {
+            guard let scene = try? SCNScene(url: url, options: nil) else { continue }
             let mesh = SCNNode()
             for child in scene.rootNode.childNodes { mesh.addChildNode(child.clone()) }
             let bounds = mesh.boundingBox
