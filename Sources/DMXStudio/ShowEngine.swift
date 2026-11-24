@@ -1362,7 +1362,7 @@ enum DMXMapper {
             }
             let m = blackout ? 0 : master * gate
             // Master goes through the dimmer channel when there is one, otherwise into the colors.
-            let colorMaster: Double = hasDimmer ? 1 : m
+            let colorMaster: Double = m <= 0 ? 0 : (hasDimmer ? 1 : m)
 
             for (ci, spec) in specs.enumerated() {
                 let addr = fx.address - 1 + ci
@@ -1381,7 +1381,7 @@ enum DMXMapper {
                     out[addr] = ColorWheel.wheels[name]?.nearest(head.color).value ?? 0
                 case .role(let role, let h):
                     let head = rf.heads.indices.contains(h) ? rf.heads[h] : (rf.heads.first ?? .off)
-                    let scale = useDimmerForIntensity ? 1.0 : head.intensity
+                    let scale = head.intensity <= 0 ? 0 : (useDimmerForIntensity ? 1.0 : head.intensity)
                     let c = colorChannels(head.color, hasWhite: specs.contains(.role(.white, head: h)))
                     switch role {
                     case .dimmer:
