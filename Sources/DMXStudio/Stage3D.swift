@@ -1203,7 +1203,26 @@ struct Stage3DView: NSViewRepresentable {
             camera.camera?.wantsHDR = high
             camera.camera?.bloomIntensity = high ? 0.5 : 0
             lightPools = high
+            scene.lightingEnvironment.contents = high ? Self.studioEnvironment : nil
+            scene.lightingEnvironment.intensity = 0.65
+            camera.camera?.screenSpaceAmbientOcclusionIntensity = high ? 0.65 : 0
+            camera.camera?.screenSpaceAmbientOcclusionRadius = 0.35
         }
+
+        // Neutral studio reflection map: broad softboxes define metallic truss and hardware
+        // without adding extra real lights or changing the programmed DMX colors.
+        private static let studioEnvironment: NSImage = {
+            let image = NSImage(size: NSSize(width: 512, height: 256))
+            image.lockFocus()
+            NSColor(white: 0.10, alpha: 1).setFill()
+            NSRect(x: 0, y: 0, width: 512, height: 256).fill()
+            for (x, y, w, h, brightness) in [(24.0, 145.0, 92.0, 62.0, 0.85), (235.0, 160.0, 115.0, 42.0, 0.65), (420.0, 100.0, 65.0, 96.0, 0.42)] {
+                let rect = NSRect(x: x, y: y, width: w, height: h)
+                NSGradient(starting: NSColor(white: brightness, alpha: 1), ending: NSColor(white: 0.10, alpha: 1))?.draw(in: rect, relativeCenterPosition: .zero)
+            }
+            image.unlockFocus()
+            return image
+        }()
         private var lightPools = true
 
         /// What the camera orbits around (dragging turns around this point, like a turntable)
@@ -1274,6 +1293,19 @@ struct Stage3DView: NSViewRepresentable {
             let wall = SCNNode(geometry: { let g = SCNPlane(width: 40, height: 14); g.materials = [wallMat]; return g }())
             wall.position = SCNVector3(0, 7, -6)
             scene.rootNode.addChildNode(wall)
+            // Architectural depth behind the stage: acoustic panels with alternating recessed
+            // seams, rather than a featureless background plane.
+            let panel = Mat.make(NSColor(white: 0.075, alpha: 1), rough: 0.92)
+            let rib = Mat.make(NSColor(white: 0.14, alpha: 1), rough: 0.70)
+            for i in -9...9 {
+                let x = CGFloat(i) * 1.35
+                let n = Build.box(1.29, 5.8, 0.10, panel, chamfer: 0.015)
+                n.position = SCNVector3(x, 3.0, -5.91)
+                scene.rootNode.addChildNode(n)
+                let seam = Build.box(0.035, 5.8, 0.12, rib)
+                seam.position = SCNVector3(x + 0.67, 3.0, -5.87)
+                scene.rootNode.addChildNode(seam)
+            }
             for x in [-14.0, 14.0] {
                 let side = SCNNode(geometry: { let g = SCNPlane(width: 30, height: 14); g.materials = [wallMat]; return g }())
                 side.position = SCNVector3(x, 7, 6); side.eulerAngles.y = x < 0 ? .pi / 2 : -.pi / 2
@@ -1290,7 +1322,8 @@ struct Stage3DView: NSViewRepresentable {
             // front-of-house wash: two soft warm spots from out front onto the stage and performer
             for x in [-3.5, 3.5] {
                 let fw = SCNNode(); fw.light = SCNLight(); fw.light?.type = .spot
-                fw.light?.intensity = 260   // a soft front wash, not a spotlight on the band; fw.light?.spotInnerAngle = 25; fw.light?.spotOuterAngle = 55
+                fw.light?.intensity = 340
+                fw.light?.spotInnerAngle = 25; fw.light?.spotOuterAngle = 55
                 fw.light?.attenuationStartDistance = 6; fw.light?.attenuationEndDistance = 22
                 fw.light?.color = NSColor(calibratedRed: 1.0, green: 0.86, blue: 0.7, alpha: 1)
                 fw.position = SCNVector3(x, 6.5, 9)
