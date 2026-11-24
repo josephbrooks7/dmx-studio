@@ -255,22 +255,29 @@ struct MainShell: View {
             tab = .songs
             model.play(song.id, from: 0)
             let modes: [MainTab] = [.stage, .live, .show, .sets, .setup, .songs, .stage, .songs]
-            var previous = model.currentTime
-            for (i, mode) in modes.enumerated() {
-                DispatchQueue.main.asyncAfter(deadline: .now() + Double(i + 1) * 1.5) {
-                    guard model.isPlaying, model.playingSongID == song.id, model.currentTime > previous + 0.15 else {
-                        report("NAV FAIL playback at " + mode.rawValue); return
+            // Schedule each check relative to the preceding actual transition.
+            // A busy UI can delay a callback; pre-scheduled callbacks then bunch up
+            // and compare identical playback samples even though audio never stopped.
+            func visit(_ index: Int, previous: Double, started: TimeInterval) {
+                DispatchQueue.main.asyncAfter(deadline: .now() + 1.5) {
+                    let elapsed = ProcessInfo.processInfo.systemUptime - started
+                    let advanced = model.currentTime - previous
+                    let label = index == 0 ? "Songs" : modes[index - 1].rawValue
+                    report("NAV SAMPLE " + label + " wall=" + String(elapsed) + " audio=" + String(advanced))
+                    guard model.isPlaying, model.playingSongID == song.id,
+                          advanced > 0.15, advanced >= elapsed * 0.65 else {
+                        report("NAV FAIL playback in " + label); return
                     }
-                    previous = model.currentTime
-                    tab = mode
-                    report("NAV PASS " + mode.rawValue)
+                    if index == modes.count { report("NAV DONE"); return }
+                    let next = modes[index]
+                    let before = model.currentTime
+                    let wall = ProcessInfo.processInfo.systemUptime
+                    tab = next
+                    report("NAV PASS " + next.rawValue)
+                    visit(index + 1, previous: before, started: wall)
                 }
             }
-            DispatchQueue.main.asyncAfter(deadline: .now() + Double(modes.count + 1) * 1.5) {
-                if model.isPlaying && model.playingSongID == song.id && model.currentTime > previous + 0.15 {
-                    report("NAV DONE")
-                } else { report("NAV FAIL final playback") }
-            }
+            visit(0, previous: model.currentTime, started: ProcessInfo.processInfo.systemUptime)
         }
     }
 }
