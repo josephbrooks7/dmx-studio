@@ -1184,7 +1184,11 @@ struct Stage3DView: NSViewRepresentable {
         func start() {
             timer = Timer(timeInterval: 1.0 / 30, repeats: true) { [weak self] _ in self?.animate() }
             RunLoop.main.add(timer!, forMode: .common)
-            sync()
+            // Allow navigation to render before assembling the detailed venue.
+            DispatchQueue.main.async { [weak self] in
+                guard let self = self, self.timer != nil else { return }
+                self.sync()
+            }
         }
 
         func stop() { timer?.invalidate(); timer = nil; view?.isPlaying = false; view?.scene = nil; screenVideo?.pause() }
@@ -1403,15 +1407,19 @@ struct Stage3DView: NSViewRepresentable {
             for (id, n) in itemNodes where !ids.contains(id) {
                 n.removeFromParentNode(); itemNodes[id] = nil; itemSnapshot[id] = nil; fixtureParts[id] = nil
             }
+            var built = 0
             for item in items {
                 if let old = itemSnapshot[item.id], let node = itemNodes[item.id] {
-                    if old.prop == item.prop && old.size == item.size && old.fixtureID == item.fixtureID && old.onStand == item.onStand && old.backdropStyle == item.backdropStyle && old.panels == item.panels {
+                    if old.prop == item.prop && old.size == item.size && old.fixtureID == item.fixtureID && old.onStand == item.onStand && old.backdropStyle == item.backdropStyle && old.panels == item.panels && old.performerAppearance == item.performerAppearance {
                         if old != item { place(node, item) }
                         itemSnapshot[item.id] = item
                         continue
                     }
+                    if built >= 2 { continue }
                     node.removeFromParentNode()
                 }
+                if built >= 2 { continue }
+                built += 1
                 let node = makeNode(item)
                 place(node, item)
                 scene.rootNode.addChildNode(node)
@@ -1540,6 +1548,7 @@ struct Stage3DView: NSViewRepresentable {
                 if view?.isPlaying == true { view?.isPlaying = false }
                 return
             }
+            if itemSnapshot != Dictionary(uniqueKeysWithValues: model.stage.items.map { ($0.id, $0) }) { sync() }
             applyFrame(model.preview, now: Date().timeIntervalSinceReferenceDate, master: model.blackout ? 0 : model.master)
             // remember the camera for "Same as my Stage view" video exports
             if let v = view, let pov = v.pointOfView, let cam = pov.camera, v.bounds.height > 10 {
