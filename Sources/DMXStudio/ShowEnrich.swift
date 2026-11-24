@@ -16,46 +16,6 @@ extension ShowGenerator {
         }
         let calm: Set<LightEffect> = [.steady, .breathe, .gradient, .aurora, .water, .tide, .shimmer, .magic, .goldDust, .embers]
 
-        // 1. Repeated parts (Verse 2, Chorus 3…) get a different matching effect from the library; colors stay
-        //    Pieces of one part ("Chorus 1 ·2", a phrase or loudness change inside it) are the same part, not
-        //    a repeat: they keep the part's look so the big changes land on the arrangement changes. A chorus
-        //    is the hook, so later choruses may keep Chorus 1's look (same effect twice is fine); the last
-        //    chorus gets a fresh one to lift the ending.
-        var seen: [String: Int] = [:]
-        var partEffect: [String: (LightEffect, Double, MoveEffect)] = [:]   // "Chorus 1" -> its look
-        let lastChorus = s.lastIndex { base($0.name) == "Chorus" && !$0.name.contains("·") }
-        for k in s.indices {
-            let b = base(s[k].name)
-            guard !b.isEmpty, b != "Silence", s[k].effect != .blackout, s[k].empty != true, s[k].transition == nil else { continue }
-            let part = (s[k].name.components(separatedBy: "·").first ?? s[k].name).trimmingCharacters(in: .whitespaces)
-            if s[k].name.contains("·") {
-                // a piece of a part: same effect as the part's start (its color / energy shift stays)
-                if let pe = partEffect[part], s[k].level == s[max(0, k - 1)].level { s[k].effect = pe.0; s[k].rate = pe.1; s[k].movement = pe.2 }
-                continue
-            }
-            seen[b, default: 0] += 1
-            defer { partEffect[part] = (s[k].effect, s[k].rate, s[k].movement) }
-            guard seen[b]! >= 2, s[k].end - s[k].start >= 4 * beat else { continue }
-            if b == "Chorus", k != lastChorus, rng.next(2) == 0 { continue }   // the hook look comes back
-            let banks: [String]
-            switch s[k].level {
-            case .low: banks = ["Color FX"]
-            case .medium: banks = ["Color FX", "Move FX"]
-            case .high: banks = ["Beam FX", "Move FX", "Color FX"]
-            case .drop: banks = ["Beam FX", "Strobes & Blinders"]
-            }
-            let pool = presets.filter { p in
-                banks.contains(p.group ?? "") && p.effect != s[k].effect && p.effect != .blackout
-                    && (s[k].level == .low ? calm.contains(p.effect) : true)
-            }
-            guard !pool.isEmpty else { continue }
-            let p = pool[rng.next(pool.count)]
-            s[k].effect = p.effect
-            if p.rate != 1 && s[k].level != .drop { s[k].rate = p.rate }
-            // only take the preset's movement where the show already moves (fit trims it for the rig)
-            if s[k].movement != .none && p.movement != .none { s[k].movement = p.movement }
-        }
-
         // 2. Big sections: later choruses mirror or roll across the heads; drops get a beam pattern
         var choruses = 0
         for k in s.indices where s[k].empty != true {
@@ -77,6 +37,37 @@ extension ShowGenerator {
         //      saturated wash in a neighboring color; loud parts are darker with fast changes
         //    • the stage goes almost dark for the bars before the band's big entrance
         learnedRules(&s, a, variation: variation, lyrics: lyrics)
+
+        // Choose library looks after concert rules so they are not overwritten by genre defaults.
+        // Keep the song's palette and energy; rotate through distinct effects before repeating.
+        var used: [LightEffect: Int] = [:]
+        var previous: LightEffect?
+        let gentle: Set<LightEffect> = calm.union([.sparkle, .wave, .ripple, .fire])
+        let energetic: Set<LightEffect> = [.pulse, .kickFlash, .snareHit, .chase, .alternate, .centerOut, .bounce, .pixelPop, .scan, .fill, .glitch, .rainbow, .wave, .ripple, .split, .strobe, .stutter, .blinderHits, .riseStrobe, .colorBeat]
+        for k in s.indices {
+            guard s[k].empty != true, s[k].transition == nil, s[k].effect != .blackout,
+                  base(s[k].name) != "Silence", s[k].end - s[k].start >= 4 * beat else { continue }
+            let level = s[k].level
+            let pool = presets.filter { p in
+                guard p.effect != .blackout, p.effect != .soundLevel else { return false }
+                if level == .low { return gentle.contains(p.effect) && p.movement != .flip }
+                if level == .medium { return gentle.contains(p.effect) || (energetic.contains(p.effect) && !p.usesStrobe && p.rate <= 2) }
+                return energetic.contains(p.effect)
+            }
+            // Keep some arrangement anchors and existing strobe / flash moments.
+            if k == 0 || s[k].effect == .strobe || s[k].effect == .stutter || s[k].effect == .blinderHits {
+                used[s[k].effect, default: 0] += 1; previous = s[k].effect; continue
+            }
+            let candidates = pool.filter { $0.effect != previous }
+            guard let least = candidates.map({ used[$0.effect, default: 0] }).min() else { continue }
+            let fresh = candidates.filter { used[$0.effect, default: 0] == least }
+            let p = fresh[rng.next(fresh.count)]
+            s[k].effect = p.effect
+            s[k].rate = p.rate
+            if level != .low && p.movement != .none { s[k].movement = p.movement }
+            used[p.effect, default: 0] += 1
+            previous = p.effect
+        }
 
         // 3. A transition between every part of the arrangement (Verse 1 → transition → Pre-Chorus →
         //    transition → Chorus…), chosen by what the change is. Taken from the end of the block before.
