@@ -10,6 +10,8 @@ jobs:
     runs-on: macos-latest
     steps:
       - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
       - name: Toolchain
         run: swift --version && xcodebuild -version
       - name: Build universal app + DMG (Intel and Apple Silicon, macOS 12+)
@@ -255,8 +257,26 @@ jobs:
           GH_TOKEN: ${{ github.token }}
         run: |
           TAG="v1.0.${{ github.run_number }}"
-          gh release create "$TAG" build/*.dmg build/DMX-Studio-Update.zip --title "DMX Studio $TAG" \
-            --notes "Small download: DMX-Studio-Installer.dmg (a few MB). Open it, right-click Install DMX Studio → Open, and it downloads and installs the full app. Or download the full DMX-Studio-1.0.x.dmg (works offline) and drag DMX Studio into Applications. First launch: right-click the app → Open." --latest
+          # Compare with the newest earlier published app release that is an ancestor.
+          # This includes changes from failed/skipped builds, not merely the last commit.
+          PREV=""
+          while IFS= read -r candidate; do
+            if git merge-base --is-ancestor "$candidate" HEAD 2>/dev/null; then PREV="$candidate"; break; fi
+          done < <(git tag --list 'v1.0.*' --sort=-version:refname | grep -vFx "$TAG" || true)
+          RANGE=HEAD
+          if [ -n "$PREV" ]; then RANGE="$PREV..HEAD"; fi
+          {
+            echo "## What's new in $TAG"
+            echo
+            if [ -n "$PREV" ]; then echo "Changes since $PREV."; echo; fi
+            git log "$RANGE" --no-merges --format='- %s' | head -100
+            echo
+            if [ -n "$PREV" ]; then echo "[Full change history](https://github.com/$GITHUB_REPOSITORY/compare/$PREV...$TAG)"; fi
+            echo
+            echo "## Installation"
+            echo "Download DMX-Studio-Installer.dmg for the small online installer, or the full DMG for offline installation. In-app updates preserve your songs and shows."
+          } > /tmp/release-notes.md
+          gh release create "$TAG" build/*.dmg build/DMX-Studio-Update.zip --title "DMX Studio $TAG" --notes-file /tmp/release-notes.md --latest
       - name: Copy DMG to dist branch
         run: |
           mkdir -p /tmp/dist && cp build/DMX-Studio-1.*.dmg /tmp/dist/DMX-Studio.dmg
