@@ -3523,6 +3523,31 @@ final class AppModel: ObservableObject {
             }
         }
 
+        // In linked modes use a single movement target after blending and smoothing.
+        // Separate DMX addresses must receive synchronized positions too, not just copies.
+        if testMode == .off && rigMode != .independent {
+            let movers = fixtures.indices.filter {
+                $0 < rendered.count && fixtures[$0].isOn &&
+                fixtures[$0].isMover && fixtures[$0].effectiveBehavior == .sequence &&
+                copySource(of: $0) == nil
+            }
+            if let leader = movers.first {
+                let pan = rendered[leader].pan
+                let tilt = rendered[leader].tilt
+                for (index, i) in movers.enumerated() {
+                    let flip = rigMode == .mirror && index % 2 == 1
+                    rendered[i].pan = flip ? 1 - pan : pan
+                    rendered[i].tilt = flip ? 1 - tilt : tilt
+                }
+            }
+            for i in rendered.indices {
+                if let src = copySource(of: i), src < rendered.count {
+                    rendered[i].pan = rendered[src].pan
+                    rendered[i].tilt = rendered[src].tilt
+                }
+            }
+        }
+
         // Paused: hold the same colors, dimmed, no strobing (eases down; eases back up on play)
         let wall = Date().timeIntervalSinceReferenceDate
         var dimK = 1.0
