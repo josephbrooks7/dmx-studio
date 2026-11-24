@@ -504,8 +504,12 @@ private enum Build {
             let h = bounds.max.y - bounds.min.y
             if h.isFinite && h > 0.001 {
                 let scale = CGFloat(a.height) / h
-                mesh.scale = SCNVector3(scale, scale, scale)
-                mesh.position = SCNVector3(-(bounds.min.x+bounds.max.x)*scale/2, -bounds.min.y*scale, -(bounds.min.z+bounds.max.z)*scale/2)
+                // Preserve authored textures while allowing independent body width/depth.
+                let build = CGFloat(min(max(a.build, 0.7), 1.4))
+                let width = scale * build
+                let depth = scale * sqrt(build)
+                mesh.scale = SCNVector3(width, scale, depth)
+                mesh.position = SCNVector3(-(bounds.min.x+bounds.max.x)*width/2, -bounds.min.y*scale, -(bounds.min.z+bounds.max.z)*depth/2)
                 root.addChildNode(mesh)
                 return root
             }
