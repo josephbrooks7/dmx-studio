@@ -1234,7 +1234,7 @@ struct Stage3DView: NSViewRepresentable {
         v.scene = context.coordinator.scene
         v.backgroundColor = .black
         v.allowsCameraControl = true
-        context.coordinator.applyQuality(model.stageHighQuality, to: v)
+        context.coordinator.applyQuality(model.stageHighQuality && model.playingSongID == nil, to: v)
         v.pointOfView = context.coordinator.camera
         v.onSelect = { [weak model] id in model?.selectedStageItem = id }
         v.onDrag = { [weak model] id, x, z in
@@ -1253,7 +1253,8 @@ struct Stage3DView: NSViewRepresentable {
         // when playback ends, without changing the saved quality preference.
         context.coordinator.applyQuality(model.stageHighQuality && model.playingSongID == nil, to: v)
         v.isPlaying = true
-        context.coordinator.sync()
+        // Geometry edits are deferred during playback; the timer continues live lighting.
+        if model.playingSongID == nil { context.coordinator.sync() }
     }
 
     static func dismantleNSView(_ v: StageSCNView, coordinator: Coordinator) { coordinator.stop() }
