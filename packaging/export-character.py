@@ -43,11 +43,35 @@ for obj in sorted(list(bpy.data.objects), key=lambda o: o.name):
         seen[key] = obj.name
         print("Character mesh:", obj.name, len(mesh.vertices), "materials:", key[1])
 assert any(o.type == "MESH" for o in bpy.data.objects), "No character meshes"
+# Stage avatars are currently static. Bake evaluated bind-pose geometry before
+# USD export to avoid SceneKit interpreting imported skin weights/bind transforms
+# differently from Blender. Keep the original material slots and UV layers.
+bpy.context.view_layer.update()
+depsgraph = bpy.context.evaluated_depsgraph_get()
+baked = []
+for obj in list(bpy.context.scene.objects):
+    if obj.type != "MESH" or obj.hide_render:
+        continue
+    evaluated = obj.evaluated_get(depsgraph)
+    mesh = bpy.data.meshes.new_from_object(evaluated, preserve_all_data_layers=True, depsgraph=depsgraph)
+    if not mesh.vertices or not mesh.polygons:
+        bpy.data.meshes.remove(mesh)
+        continue
+    world = evaluated.matrix_world.copy()
+    static = bpy.data.objects.new("Stage_" + obj.name, mesh)
+    bpy.context.scene.collection.objects.link(static)
+    static.matrix_world = world
+    baked.append(static)
+    print("Baked stage mesh:", obj.name, len(mesh.vertices), "materials:", [m.name if m else None for m in mesh.materials])
+assert baked, "No evaluated stage meshes"
+for obj in list(bpy.context.scene.objects):
+    if obj not in baked:
+        bpy.data.objects.remove(obj, do_unlink=True)
 # Export native USDZ, including material textures.
 # Blender versions use different names for USD texture export options.
 properties = bpy.ops.wm.usd_export.get_rna_type().properties.keys()
 options = dict(filepath=dst, export_animation=False, export_materials=True)
-for name, value in (("export_textures", True), ("export_armatures", True),
+for name, value in (("export_textures", True), ("export_armatures", False),
                     ("export_textures_mode", "NEW")):
     if name in properties:
         prop = bpy.ops.wm.usd_export.get_rna_type().properties[name]
