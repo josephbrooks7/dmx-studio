@@ -17,9 +17,13 @@ struct LookPreset: Identifiable, Codable, Hashable {
     var group: String? = nil      // theme heading on the presets screen; nil = Essentials
     var mode: String? = nil       // "38CH" = needs separate beams, "9CH" = made for whole-bar mode, nil = any light
 
+    var padPattern: PadPattern? = nil
+
     func asSection(start: Double) -> ShowSection {
-        ShowSection(name: name, start: start, end: start + 1e9, level: .high, effect: effect, palette: palette,
+        var section = ShowSection(name: name, start: start, end: start + 1e9, level: .high, effect: effect, palette: palette,
                     intensity: intensity, rate: rate, movement: movement, accentStrobe: false)
+        section.padPattern = padPattern
+        return section
     }
 
     /// True if this is one of the looks that ship with the app, unchanged.
