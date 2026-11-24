@@ -968,6 +968,7 @@ enum PerformerHair: String, Codable, CaseIterable, Identifiable {
     var id: String { rawValue }
 }
 struct PerformerAppearance: Codable, Hashable {
+    var modelPath: String? = nil
     var bodyStyle: String? = nil
     var clothingStyle: String? = nil
     var accessory: String? = nil
