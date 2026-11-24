@@ -1,4 +1,5 @@
 import SwiftUI
+import AppKit
 
 // MARK: - Where each light sits on the simulated stage
 
@@ -257,6 +258,33 @@ struct StageInspector: View {
                             Divider()
                             Text("Character").font(.headline)
                             let appearance = item.performerAppearance ?? PerformerAppearance()
+                            Button("Import 3D Character…") {
+                                let panel = NSOpenPanel()
+                                panel.allowedFileTypes = ["usdz"]
+                                panel.allowsMultipleSelection = false
+                                panel.canChooseDirectories = false
+                                guard panel.runModal() == .OK, let url = panel.url else { return }
+                                do {
+                                    let fm = FileManager.default
+                                    let dir = try fm.url(for: .applicationSupportDirectory, in: .userDomainMask, appropriateFor: nil, create: true)
+                                        .appendingPathComponent("DMX Studio/Character Assets", isDirectory: true)
+                                    try fm.createDirectory(at: dir, withIntermediateDirectories: true)
+                                    let copy = dir.appendingPathComponent(UUID().uuidString + ".usdz")
+                                    try fm.copyItem(at: url, to: copy)
+                                    model.updateStageItem(id) {
+                                        var a = $0.performerAppearance ?? PerformerAppearance()
+                                        a.modelPath = copy.path; $0.performerAppearance = a
+                                        $0.performerName = url.deletingPathExtension().lastPathComponent
+                                    }
+                                    characterNotice = "Imported 3D model. Save Character to reuse it."
+                                } catch { characterNotice = error.localizedDescription }
+                            }.buttonStyle(PillButtonStyle())
+                            if appearance.modelPath != nil {
+                                Text("Imported mesh · appearance is authored in the asset.").font(.caption).foregroundColor(Theme.subtle)
+                                Button("Use built-in character instead") {
+                                    model.updateStageItem(id) { var a = $0.performerAppearance ?? PerformerAppearance(); a.modelPath = nil; $0.performerAppearance = a }
+                                }
+                            }
                             Menu("Choose a character") {
                                 Section("Starter characters") {
                                     ForEach(SavedPerformer.starters) { p in
