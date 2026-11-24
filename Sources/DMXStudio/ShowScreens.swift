@@ -205,6 +205,7 @@ enum MainTab: String, CaseIterable, Identifiable {
 struct MainShell: View {
     @EnvironmentObject var model: AppModel
     @State private var tab: MainTab = MainTab(rawValue: ProcessInfo.processInfo.environment["DMX_DEMO_TAB"] ?? "") ?? .show
+    @State private var stageMounted = false
 
     var body: some View {
         shell
@@ -218,10 +219,17 @@ struct MainShell: View {
         VStack(spacing: 0) {
             TopBar()
             Divider().opacity(0.4)
-            Group {
+            ZStack {
+                if stageMounted || tab == .stage {
+                    StageScreen()
+                        .opacity(tab == .stage ? 1 : 0)
+                        .allowsHitTesting(tab == .stage)
+                        .accessibilityHidden(tab != .stage)
+                }
+                Group {
                 switch tab {
                 case .show: ShowScreen()
-                case .stage: StageScreen()
+                case .stage: Color.clear.allowsHitTesting(false)
                 case .live: LiveScreen()
                 case .songs: SongsScreen()
                         .onAppear {
@@ -233,6 +241,15 @@ struct MainShell: View {
                 case .sets: SetListsScreen()
                 case .setup: SetupScreen()
                 }
+                }
+            }
+            .onChange(of: tab) { next in
+                model.stagePageVisible = next == .stage
+                if next == .stage { stageMounted = true }
+            }
+            .onAppear {
+                model.stagePageVisible = tab == .stage
+                if tab == .stage { stageMounted = true }
             }
             .frame(maxWidth: .infinity, maxHeight: .infinity)
             // what the lights are doing, docked on the right of every page but Stage (the page makes room)
