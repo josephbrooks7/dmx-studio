@@ -434,6 +434,99 @@ private enum Build {
         return beam
     }
 
+    // Stylized articulated stage avatar; all geometry remains lit by the actual stage lights.
+    static func performer(_ a: PerformerAppearance) -> SCNNode {
+        let root = SCNNode()
+        let skinColors: [NSColor] = [
+            NSColor(calibratedRed:0.96,green:0.78,blue:0.66,alpha:1),
+            NSColor(calibratedRed:0.83,green:0.62,blue:0.46,alpha:1),
+            NSColor(calibratedRed:0.66,green:0.42,blue:0.27,alpha:1),
+            NSColor(calibratedRed:0.49,green:0.29,blue:0.19,alpha:1),
+            NSColor(calibratedRed:0.32,green:0.18,blue:0.12,alpha:1),
+            NSColor(calibratedRed:0.20,green:0.11,blue:0.08,alpha:1)]
+        let outfits: [NSColor] = [.black,.systemRed,.systemBlue,.white,.systemPurple,.systemGreen]
+        let hairs: [NSColor] = [.black,.brown,NSColor(calibratedRed:0.74,green:0.55,blue:0.28,alpha:1),.systemRed,.systemBlue,.lightGray]
+        func pick(_ cs: [NSColor], _ i: Int) -> NSColor { cs[min(max(i,0),cs.count-1)] }
+        let skin = Mat.make(pick(skinColors,a.skin),rough:0.72)
+        let cloth = Mat.make(pick(outfits,a.outfit),rough:0.82)
+        let hair = Mat.make(pick(hairs,a.hairColor),rough:0.68)
+        let pants = Mat.make(NSColor(white:0.13,alpha:1),rough:0.9)
+        func place(_ n: SCNNode,_ x: CGFloat,_ y: CGFloat,_ z: CGFloat) {
+            n.position = SCNVector3(x,y,z); root.addChildNode(n)
+        }
+        func oval(_ x: CGFloat,_ y: CGFloat,_ z: CGFloat,_ rx: CGFloat,_ ry: CGFloat,_ rz: CGFloat,_ mat: SCNMaterial) {
+            let g = SCNSphere(radius:1); g.segmentCount = 24; g.materials = [mat]
+            let n = SCNNode(geometry:g); n.scale = SCNVector3(rx,ry,rz); place(n,x,y,z)
+        }
+        func limb(_ from: SCNVector3,_ to: SCNVector3,_ r: CGFloat,_ mat: SCNMaterial) {
+            let dx = to.x-from.x, dy = to.y-from.y, dz = to.z-from.z
+            let length = sqrt(dx*dx+dy*dy+dz*dz)
+            let g = SCNCapsule(capRadius:r,height:length+2*r); g.materials = [mat]
+            let n = SCNNode(geometry:g)
+            n.position = SCNVector3((from.x+to.x)/2,(from.y+to.y)/2,(from.z+to.z)/2)
+            n.look(at:to,up:SCNVector3(0,0,1),localFront:SCNVector3(0,1,0))
+            root.addChildNode(n)
+        }
+        let seated = a.role == .drummer
+        let hip: CGFloat = seated ? 0.59 : 0.91
+        let shoulder = hip+0.43
+        let headY = shoulder+0.23
+        oval(0,hip+0.21,0,0.21,0.27,0.115,cloth)
+        oval(0,hip,0,0.17,0.11,0.105,pants)
+        place(cyl(0.052,0.11,skin),0,shoulder+0.095,0)
+        oval(0,headY,0,0.102,0.135,0.103,skin)
+        for side in [CGFloat(-1),CGFloat(1)] {
+            oval(side*0.102,headY-0.005,0,0.018,0.035,0.025,skin)
+            oval(side*0.040,headY+0.016,0.094,0.014,0.009,0.008,Mat.darkGray)
+            let knee = SCNVector3(side*0.13,seated ? 0.48 : 0.49,seated ? 0.32 : 0.04)
+            let ankle = SCNVector3(side*0.15,0.10,seated ? 0.44 : 0.03)
+            limb(SCNVector3(side*0.10,hip,0),knee,0.073,pants)
+            limb(knee,ankle,0.052,pants)
+            oval(side*0.15,0.055,seated ? 0.49 : 0.08,0.068,0.055,0.13,Mat.black)
+            let playing = a.role == .guitarist || a.role == .bassist || a.role == .keyboardist || seated
+            let elbow = SCNVector3(side*0.27,shoulder-0.19,playing ? 0.12 : 0)
+            let hand = SCNVector3(side*(playing ? 0.20 : 0.27),shoulder-(playing ? 0.32 : 0.47),playing ? 0.28 : 0.02)
+            limb(SCNVector3(side*0.18,shoulder,0),elbow,0.058,cloth)
+            limb(elbow,hand,0.038,skin)
+            oval(hand.x,hand.y,hand.z,0.041,0.06,0.033,skin)
+        }
+        oval(0,headY-0.005,0.105,0.018,0.026,0.025,skin)
+        oval(0,headY-0.052,0.091,0.032,0.006,0.009,Mat.darkGray)
+        if a.hair != .shaved {
+            oval(0,headY+0.075,-0.017,0.111,0.082,0.108,hair)
+            if a.hair == .long { oval(0,headY-0.075,-0.085,0.12,0.21,0.06,hair) }
+            if a.hair == .swept { oval(0.04,headY+0.10,0.01,0.10,0.055,0.10,hair) }
+        }
+        if a.role == .guitarist || a.role == .bassist {
+            let guitar = SCNNode()
+            let g = SCNSphere(radius:1); g.materials = [cloth]
+            let body = SCNNode(geometry:g); body.scale = SCNVector3(0.16,0.22,0.043); guitar.addChildNode(body)
+            let neck = box(0.065,a.role == .bassist ? 0.66 : 0.51,0.028,Mat.darkGray)
+            neck.position = SCNVector3(0,0.39,0); guitar.addChildNode(neck)
+            let peg = box(0.10,0.15,0.03,Mat.aluminum,chamfer:0.008); peg.position = SCNVector3(0,0.72,0); guitar.addChildNode(peg)
+            guitar.eulerAngles.z = -.pi/2.8; place(guitar,-0.13,hip+0.13,0.22)
+        } else if a.role == .vocalist {
+            let mic = cyl(0.014,0.13,Mat.black); mic.eulerAngles.x = -.pi/3
+            place(mic,0,headY-0.08,0.18)
+            oval(0,headY-0.05,0.23,0.024,0.024,0.024,Mat.aluminum)
+        } else if a.role == .keyboardist {
+            let keys = box(0.88,0.08,0.30,Mat.black,chamfer:0.01); place(keys,0,hip+0.15,0.42)
+            for i in 0..<24 { placeKey(root,i,hip+0.20) }
+            for side in [CGFloat(-1),CGFloat(1)] { limb(SCNVector3(side*0.31,0.04,0.42),SCNVector3(-side*0.31,hip+0.10,0.42),0.018,Mat.black) }
+        } else if seated {
+            place(cyl(0.16,0.07,Mat.black),0,0.49,-0.10)
+            place(cyl(0.024,0.46,Mat.chrome),0,0.23,-0.10)
+        }
+        let height = CGFloat(min(max(a.height,1.4),2.1)/1.75)
+        let width = CGFloat(min(max(a.build,0.7),1.4))
+        root.scale = SCNVector3(width*height,height,height)
+        return root
+    }
+    private static func placeKey(_ root: SCNNode,_ i: Int,_ y: CGFloat) {
+        let n = box(0.029,0.012,0.17,Mat.make(.white))
+        n.position = SCNVector3(-0.35+CGFloat(i)*0.03,y,0.48); root.addChildNode(n)
+    }
+
     static func prop(_ kind: PropKind, size: Double) -> SCNNode {
         let s = CGFloat(size)
         switch kind {
@@ -766,12 +859,7 @@ private enum Build {
             pedal.eulerAngles.x = -0.12; add(pedal,root,0,0.035,-0.27)
             return root
         case .performer:
-            let root = SCNNode()
-            let body = SCNNode(geometry: { let g = SCNCapsule(capRadius: 0.2, height: 1.45); g.materials = [Mat.person]; return g }())
-            body.position = SCNVector3(0, 0.75, 0); root.addChildNode(body)
-            let head = SCNNode(geometry: { let g = SCNSphere(radius: 0.12); g.materials = [Mat.person]; return g }())
-            head.position = SCNVector3(0, 1.62, 0); root.addChildNode(head)
-            return root
+            return performer(PerformerAppearance())
         }
     }
 }
@@ -1166,7 +1254,7 @@ struct Stage3DView: NSViewRepresentable {
             root.name = "item:\(item.id.uuidString)"
             if let kind = item.prop {
                 root.addChildNode(kind == .backdrop ? Build.backdrop(item.backdropStyle ?? .ledWall, size: item.size, panels: item.panels)
-                                                    : Build.prop(kind, size: item.size))
+                                                    : (kind == .performer ? Build.performer(item.performerAppearance ?? PerformerAppearance()) : Build.prop(kind, size: item.size)))
                 return root
             }
             guard let fid = item.fixtureID, let fx = model.fixtures.first(where: { $0.id == fid }) else { return root }
