@@ -387,6 +387,7 @@ struct BottomBar: View {
                         .frame(width: 78, height: 44)
                         .foregroundColor(tab == t ? Theme.accent : Theme.subtle)
                         .background(RoundedRectangle(cornerRadius: 10).fill(tab == t ? Theme.accent.opacity(0.12) : .clear))
+                        .contentShape(Rectangle())
                     }
                     .buttonStyle(.plain)
                 }
