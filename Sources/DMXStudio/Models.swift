@@ -964,10 +964,14 @@ enum PerformerRole: String, Codable, CaseIterable, Identifiable {
     var id: String { rawValue }
 }
 enum PerformerHair: String, Codable, CaseIterable, Identifiable {
-    case short = "Short", long = "Long", shaved = "Shaved", swept = "Swept"
+    case short = "Short", long = "Long", shaved = "Shaved", swept = "Swept", spiked = "Spiked", ponytail = "Ponytail", curly = "Curly"
     var id: String { rawValue }
 }
 struct PerformerAppearance: Codable, Hashable {
+    var bodyStyle: String? = nil
+    var clothingStyle: String? = nil
+    var accessory: String? = nil
+    var pose: String? = nil
     var role: PerformerRole = .vocalist
     var skin: Int = 2
     var outfit: Int = 0
