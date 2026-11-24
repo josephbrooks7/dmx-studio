@@ -1404,6 +1404,7 @@ struct HoldButton: View {
 // MARK: - Problems
 
 struct ProblemsView: View {
+    @State private var showLightingEvidence = false
     @ObservedObject var errors = ErrorCenter.shared
     @State private var expanded: UUID?
 
@@ -1413,6 +1414,7 @@ struct ProblemsView: View {
                 HStack {
                     PageHeader(title: "Problems", subtitle: "Anything that didn't work. Report a problem and it goes straight to the DMX Studio GitHub so it can be fixed.")
                     Spacer()
+                    Button { showLightingEvidence = true } label: { Label("Camera / Media", systemImage: "camera") }
                     if !errors.problems.isEmpty {
                         Button("Clear All") { errors.problems.removeAll() }
                     }
@@ -1454,6 +1456,7 @@ struct ProblemsView: View {
             }
             .padding(24)
         }
+        .sheet(isPresented: $showLightingEvidence) { LightingEvidenceSheet() }
     }
 }
 
