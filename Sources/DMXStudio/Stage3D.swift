@@ -478,10 +478,42 @@ private enum Build {
             return root
         case .micStand:
             let root = SCNNode()
-            let base = cyl(0.14, 0.02, Mat.black); base.position = SCNVector3(0, 0.01, 0); root.addChildNode(base)
-            root.addChildNode(pipe(from: SCNVector3(0, 0, 0), to: SCNVector3(0, 1.45, 0), r: 0.01, Mat.black))
-            let mic = SCNNode(geometry: { let g = SCNSphere(radius: 0.03); g.materials = [Mat.darkGray]; return g }())
-            mic.position = SCNVector3(0, 1.5, 0.05); root.addChildNode(mic)
+            let castIron = Mat.make(NSColor(white: 0.075, alpha: 1), metal: true, rough: 0.82)
+            let shaft = Mat.make(NSColor(white: 0.045, alpha: 1), metal: true, rough: 0.32)
+            func place(_ n: SCNNode, _ y: CGFloat, _ z: CGFloat = 0) {
+                n.position = SCNVector3(0,y,z); root.addChildNode(n)
+            }
+            // Weighted cast-iron round base with a domed shoulder and concentric relief.
+            place(cyl(0.155,0.018,Mat.darkGray),0.009)
+            let base = SCNCone(topRadius:0.112,bottomRadius:0.155,height:0.045)
+            base.radialSegmentCount = 64; base.materials = [castIron]
+            place(SCNNode(geometry:base),0.038)
+            for radius in [CGFloat(0.044),0.068,0.092] {
+                let g = SCNTorus(ringRadius:radius,pipeRadius:0.002)
+                g.materials = [Mat.darkGray]; place(SCNNode(geometry:g),0.061)
+            }
+            place(cyl(0.027,0.017,shaft),0.069)
+            place(cyl(0.012,0.87,shaft),0.51)
+            place(cyl(0.009,0.52,shaft),1.19)
+            // Knurled telescopic height adjustment collar.
+            place(cyl(0.019,0.065,Mat.darkGray),0.96)
+            for i in 0..<16 {
+                let q = CGFloat(i)*2 * .pi/16
+                let rib = cyl(0.0017,0.050,shaft)
+                rib.position = SCNVector3(cos(q)*0.019,0.96,sin(q)*0.019)
+                root.addChildNode(rib)
+            }
+            place(cyl(0.012,0.018,shaft),1.45)
+            place(cyl(0.008,0.014,Mat.aluminum),1.465)
+            // Short angled vocal microphone clip and handheld dynamic mic.
+            let clip = SCNNode(); clip.position = SCNVector3(0,1.49,0)
+            clip.eulerAngles.x = -.pi/3
+            let holder = cyl(0.018,0.045,Mat.darkGray); clip.addChildNode(holder)
+            let handle = cyl(0.012,0.14,shaft); handle.position = SCNVector3(0,0.025,0); clip.addChildNode(handle)
+            let mesh = SCNSphere(radius:0.023); mesh.segmentCount = 24; mesh.materials = [Mat.aluminum]
+            let grille = SCNNode(geometry:mesh); grille.position = SCNVector3(0,0.102,0); clip.addChildNode(grille)
+            let band = cyl(0.023,0.005,Mat.darkGray); band.position = SCNVector3(0,0.102,0); clip.addChildNode(band)
+            root.addChildNode(clip)
             return root
         case .speaker:
             let root = SCNNode()
