@@ -323,6 +323,15 @@ struct UpdateSheet: View {
                     Label("DMX Studio is up to date.", systemImage: "checkmark.circle.fill").foregroundColor(.green)
                 case .available(let v):
                     Text("Version \(v) is available.").font(.headline)
+                    VStack(alignment: .leading, spacing: 6) {
+                        Text("What’s new").font(.headline)
+                        ScrollView {
+                            Text((try? AttributedString(markdown: up.notes, options: .init(interpretedSyntax: .inlineOnlyPreservingWhitespace))) ?? AttributedString(up.notes.isEmpty ? "No release notes were provided." : up.notes))
+                                .font(.system(size: 13)).frame(maxWidth: .infinity, alignment: .leading).textSelection(.enabled)
+                        }.frame(minHeight: 110, maxHeight: 260)
+                        Link("View all release notes", destination: URL(string: "https://github.com/josephbrooks7/dmx-studio/releases")!)
+                            .font(.caption)
+                    }
                     Text("Only the app is downloaded (a few MB): your lyric and stems models, songs and shows stay as they are. DMX Studio restarts when it's done.")
                         .font(.caption).foregroundColor(.secondary).fixedSize(horizontal: false, vertical: true)
                 case .downloading(let f, let label):
@@ -353,7 +362,7 @@ struct UpdateSheet: View {
             }
         }
         .padding(22)
-        .frame(width: 440, height: 230)
+        .frame(width: 560, height: up.availableVersion == nil ? 230 : 460)
     }
 }
 
