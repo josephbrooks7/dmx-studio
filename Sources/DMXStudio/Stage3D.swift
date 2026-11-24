@@ -474,6 +474,21 @@ private enum Build {
     }
 
     // Stylized articulated stage avatar; all geometry remains lit by the actual stage lights.
+    private static var avatarCache: [URL: SCNNode] = [:]
+    private static let avatarCacheLock = NSLock()
+
+    private static func avatarTemplate(_ url: URL) -> SCNNode? {
+        avatarCacheLock.lock()
+        defer { avatarCacheLock.unlock() }
+        if let cached = avatarCache[url] { return cached }
+        guard let scene = try? SCNScene(url: url, options: nil) else { return nil }
+        let node = SCNNode()
+        for child in scene.rootNode.childNodes { node.addChildNode(child.clone()) }
+        if avatarCache.count >= 12 { avatarCache.removeAll() }
+        avatarCache[url] = node
+        return node
+    }
+
     static func performer(_ a: PerformerAppearance) -> SCNNode {
         let root = SCNNode()
         // Imported self-contained USDZ assets retain their authored meshes and materials.
@@ -483,9 +498,8 @@ private enum Build {
         let bundled = Bundle.main.url(forResource: builtInName, withExtension: "usdz", subdirectory: "Characters")
         let candidates = [a.modelPath.map { URL(fileURLWithPath: $0) }, bundled].compactMap { $0 }
         for url in candidates {
-            guard let scene = try? SCNScene(url: url, options: nil) else { continue }
-            let mesh = SCNNode()
-            for child in scene.rootNode.childNodes { mesh.addChildNode(child.clone()) }
+            guard let template = avatarTemplate(url) else { continue }
+            let mesh = template.clone()
             let bounds = mesh.boundingBox
             let h = bounds.max.y - bounds.min.y
             if h.isFinite && h > 0.001 {
@@ -1197,7 +1211,9 @@ struct Stage3DView: NSViewRepresentable {
 
     func updateNSView(_ v: StageSCNView, context: Context) {
         v.editing = model.stageEditing
+        guard model.stagePageVisible else { v.isPlaying = false; return }
         context.coordinator.applyQuality(model.stageHighQuality, to: v)
+        v.isPlaying = true
         context.coordinator.sync()
     }
 
@@ -1627,10 +1643,11 @@ struct Stage3DView: NSViewRepresentable {
         /// 30 times a second: copy what every light is doing onto its 3D model.
         private func animate() {
             // Only draw while the Stage view is actually on screen (not minimized, hidden or covered)
-            guard let w = view?.window, w.isVisible, w.occlusionState.contains(.visible), !w.isMiniaturized else {
+            guard model.stagePageVisible, let w = view?.window, w.isVisible, w.occlusionState.contains(.visible), !w.isMiniaturized else {
                 if view?.isPlaying == true { view?.isPlaying = false }
                 return
             }
+            if view?.isPlaying == false { view?.isPlaying = true }
             if itemSnapshot != Dictionary(uniqueKeysWithValues: model.stage.items.map { ($0.id, $0) }) { sync() }
             applyFrame(model.preview, now: Date().timeIntervalSinceReferenceDate, master: model.blackout ? 0 : model.master)
             // remember the camera for "Same as my Stage view" video exports
