@@ -217,6 +217,8 @@ struct StageInspector: View {
     @EnvironmentObject var model: AppModel
     @AppStorage("stage.savedPerformers.v1") private var savedCharacterData: Data = Data()
     @State private var characterNotice = ""
+    @State private var characterPreviewOpen = false
+    @State private var characterFaceCloseup = false
     private var savedCharacters: [SavedPerformer] {
         (try? JSONDecoder().decode([SavedPerformer].self, from: savedCharacterData)) ?? []
     }
@@ -257,6 +259,42 @@ struct StageInspector: View {
                         if item.prop == .performer {
                             Divider()
                             Text("Character").font(.headline)
+                            Button {
+                                characterFaceCloseup = false
+                                characterPreviewOpen = true
+                            } label: { Label("Character Studio", systemImage: "person.crop.rectangle") }
+                            .buttonStyle(PillButtonStyle())
+                            .sheet(isPresented: $characterPreviewOpen) {
+                                if let current = model.stage.items.first(where: { $0.id == id }) {
+                                    VStack(alignment: .leading, spacing: 12) {
+                                        HStack {
+                                            Text(current.performerName ?? "Character Studio").font(.title2.bold())
+                                            Spacer()
+                                            Picker("View", selection: $characterFaceCloseup) {
+                                                Text("Full body").tag(false)
+                                                Text("Face").tag(true)
+                                            }.pickerStyle(.segmented).frame(width: 200)
+                                            Button("Done") { characterPreviewOpen = false }.keyboardShortcut(.defaultAction)
+                                        }
+                                        CharacterModelPreview(appearance: current.performerAppearance ?? PerformerAppearance(), faceCloseup: characterFaceCloseup)
+                                            .frame(minHeight: 420)
+                                        Text("Drag to rotate · scroll to zoom. Imported models keep their original textures and clothing.")
+                                            .font(.caption).foregroundColor(Theme.subtle)
+                                        HStack {
+                                            Menu("Choose starter") {
+                                                ForEach(SavedPerformer.starters) { p in Button(p.name) { applyCharacter(p, to: id) } }
+                                            }
+                                            Menu("My characters") {
+                                                ForEach(savedCharacters) { p in Button(p.name) { applyCharacter(p, to: id) } }
+                                            }
+                                            Spacer()
+                                            let a = current.performerAppearance ?? PerformerAppearance()
+                                            Text(a.role.rawValue).foregroundColor(Theme.subtle)
+                                        }
+                                    }.padding(20).frame(width: 700, height: 590)
+                                }
+                            }
+
                             let appearance = item.performerAppearance ?? PerformerAppearance()
                             Button("Import 3D Character…") {
                                 let panel = NSOpenPanel()
