@@ -230,6 +230,18 @@ struct StageInspector: View {
                             Picker("Role", selection: Binding(get: { appearance.role }, set: { v in model.updateStageItem(id) { var a = $0.performerAppearance ?? PerformerAppearance(); a.role = v; $0.performerAppearance = a } })) {
                                 ForEach(PerformerRole.allCases) { Text($0.rawValue).tag($0) }
                             }
+                            Picker("Body shape", selection: Binding(get: { appearance.bodyStyle ?? "Masculine" }, set: { v in model.updateStageItem(id) { var a = $0.performerAppearance ?? PerformerAppearance(); a.bodyStyle = v; $0.performerAppearance = a } })) {
+                                ForEach(["Masculine","Feminine","Androgynous"], id: \.self) { Text($0).tag($0) }
+                            }
+                            Picker("Clothing", selection: Binding(get: { appearance.clothingStyle ?? "Casual" }, set: { v in model.updateStageItem(id) { var a = $0.performerAppearance ?? PerformerAppearance(); a.clothingStyle = v; $0.performerAppearance = a } })) {
+                                ForEach(["Casual","Rock Jacket","Punk","Glam","Formal","Fantasy"], id: \.self) { Text($0).tag($0) }
+                            }
+                            Picker("Accessory", selection: Binding(get: { appearance.accessory ?? "None" }, set: { v in model.updateStageItem(id) { var a = $0.performerAppearance ?? PerformerAppearance(); a.accessory = v; $0.performerAppearance = a } })) {
+                                ForEach(["None","Top Hat","Glasses","Choker","Wings"], id: \.self) { Text($0).tag($0) }
+                            }
+                            Picker("Stance", selection: Binding(get: { appearance.pose ?? "Natural" }, set: { v in model.updateStageItem(id) { var a = $0.performerAppearance ?? PerformerAppearance(); a.pose = v; $0.performerAppearance = a } })) {
+                                ForEach(["Natural","Wide","Performance"], id: \.self) { Text($0).tag($0) }
+                            }
                             Picker("Hair", selection: Binding(get: { appearance.hair }, set: { v in model.updateStageItem(id) { var a = $0.performerAppearance ?? PerformerAppearance(); a.hair = v; $0.performerAppearance = a } })) {
                                 ForEach(PerformerHair.allCases) { Text($0.rawValue).tag($0) }
                             }
