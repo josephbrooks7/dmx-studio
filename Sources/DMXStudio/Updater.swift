@@ -1,5 +1,6 @@
 import SwiftUI
 import AppKit
+import Security
 
 /// Updates DMX Studio in place: downloads only the new app (a few MB, no AI models), keeps the
 /// lyric and stems models already installed, swaps the app and restarts. Falls back to the full
@@ -60,6 +61,93 @@ final class Updater: ObservableObject {
         }
     }
     @Published var remoteStatus = "No remote request pending"
+    @Published var statusReporting = UserDefaults.standard.bool(forKey: "updater.statusReporting") {
+        didSet {
+            UserDefaults.standard.set(statusReporting, forKey: "updater.statusReporting")
+            if statusReporting { startAutomaticChecks() }
+        }
+    }
+    @Published var statusReportMessage = "Not connected"
+    private var lastStatusReport = Date.distantPast
+    private var lastStatusBody = ""
+    private var statusRequestRunning = false
+    private let statusService = "com.redvelvetstudios.dmxstudio.remote-status"
+
+    // Credentials are local to this Mac, never embedded in the application or repository.
+    func saveStatusToken(_ token: String) {
+        let query: [String: Any] = [kSecClass as String: kSecClassGenericPassword,
+            kSecAttrService as String: statusService, kSecAttrAccount as String: "github"]
+        SecItemDelete(query as CFDictionary)
+        guard !token.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty else {
+            statusReporting = false; statusReportMessage = "Token removed"; return
+        }
+        var item = query
+        item[kSecValueData as String] = Data(token.trimmingCharacters(in: .whitespacesAndNewlines).utf8)
+        let result = SecItemAdd(item as CFDictionary, nil)
+        statusReportMessage = result == errSecSuccess ? "Token saved" : "Could not save token in Keychain"
+        if result == errSecSuccess {
+            lastStatusReport = .distantPast
+            statusReporting = true
+            Task { await reportMacStatus() }
+        }
+    }
+    private func statusToken() -> String? {
+        let query: [String: Any] = [kSecClass as String: kSecClassGenericPassword,
+            kSecAttrService as String: statusService, kSecAttrAccount as String: "github",
+            kSecReturnData as String: true, kSecMatchLimit as String: kSecMatchLimitOne]
+        var result: CFTypeRef?
+        guard SecItemCopyMatching(query as CFDictionary, &result) == errSecSuccess,
+              let data = result as? Data else { return nil }
+        return String(data: data, encoding: .utf8)
+    }
+    private func reportMacStatus() async {
+        guard statusReporting, !statusRequestRunning else { return }
+        let phase: String
+        switch state {
+        case .downloading(let f, _): phase = "Downloading " + String(Int(max(0,min(1,f))*100)) + "%"
+        case .installing(_, let f): phase = "Installing " + String(Int(max(0,min(1,f))*100)) + "%"
+        case .checking: phase = "Checking for updates"
+        case .available(let v): phase = "Update " + v + " available"
+        case .failed: phase = "Update failed"
+        default: phase = safeToUpdate ? "Idle" : "Busy"
+        }
+        let body = "DMX Studio status: installed " + current + " | " + phase
+        guard Date().timeIntervalSince(lastStatusReport) >= 300 ||
+            (body != lastStatusBody && Date().timeIntervalSince(lastStatusReport) >= 60) else { return }
+        guard let token = statusToken() else { statusReportMessage = "Enter a GitHub token first"; return }
+        statusRequestRunning = true
+        defer { statusRequestRunning = false }
+        lastStatusReport = Date()
+        // Status is published only to the explicitly configured private repository.
+        let destination = UserDefaults.standard.string(forKey: "updater.statusRepo") ?? ""
+        let parts = destination.split(separator: "/")
+        guard parts.count == 2, parts.allSatisfy({ $0.allSatisfy { $0.isASCII && ($0.isLetter || $0.isNumber || "-_.".contains($0)) } }) else {
+            statusReportMessage = "Set a private owner/repository"; return
+        }
+        do {
+            var req = URLRequest(url: URL(string: "https://api.github.com/repos/\(destination)")!)
+            req.setValue("Bearer " + token, forHTTPHeaderField: "Authorization")
+            req.setValue("application/vnd.github+json", forHTTPHeaderField: "Accept")
+            req.timeoutInterval = 15
+            let (info, response) = try await URLSession.shared.data(for: req)
+            guard (response as? HTTPURLResponse)?.statusCode == 200,
+                  let json = try JSONSerialization.jsonObject(with: info) as? [String: Any],
+                  json["private"] as? Bool == true else {
+                statusReportMessage = "Status repository must be private and accessible"; return
+            }
+            let issue = UserDefaults.standard.integer(forKey: "updater.statusIssue")
+            guard issue > 0 else { statusReportMessage = "Set a status issue number"; return }
+            req.url = URL(string: "https://api.github.com/repos/\(destination)/issues/\(issue)")
+            req.httpMethod = "PATCH"
+            req.setValue("application/json", forHTTPHeaderField: "Content-Type")
+            req.httpBody = try JSONSerialization.data(withJSONObject: ["body": body + "\nReported at: " + ISO8601DateFormatter().string(from: Date())])
+            let (_, result) = try await URLSession.shared.data(for: req)
+            guard (result as? HTTPURLResponse)?.statusCode == 200 else { statusReportMessage = "Status report rejected"; return }
+            lastStatusBody = body
+            statusReportMessage = "Status reported successfully"
+        } catch { statusReportMessage = "Status connection unavailable" }
+    }
+
     private var lastRemoteCheck = Date.distantPast
     private var remoteRequest: Int?
     private var remoteInstalling = false
@@ -111,7 +199,8 @@ final class Updater: ObservableObject {
     }
 
     private func automaticTick() async {
-        guard automaticUpdates || remoteUpdates else { idleSince = nil; return }
+        guard automaticUpdates || remoteUpdates || statusReporting else { idleSince = nil; return }
+        await reportMacStatus()
         await pollRemoteRequest()
         guard safeToUpdate else { idleSince = nil; return }
         guard automaticUpdates || (remoteUpdates && remoteRequest != nil) else { return }
@@ -140,7 +229,7 @@ final class Updater: ObservableObject {
 
     /// On launch: look once a day, say nothing unless there's an update
     func checkQuietly() {
-        if automaticUpdates || remoteUpdates { startAutomaticChecks(); return }
+        if automaticUpdates || remoteUpdates || statusReporting { startAutomaticChecks(); return }
         let key = "updater.lastCheck"
         let last = UserDefaults.standard.double(forKey: key)
         guard Date().timeIntervalSince1970 - last > 20 * 3600 else { return }
@@ -410,6 +499,9 @@ struct UpdateError: Error { let text: String; init(_ t: String) { text = t } }
 
 struct UpdateSheet: View {
     @ObservedObject var up = Updater.shared
+    @State private var statusToken = ""
+    @AppStorage("updater.statusRepo") private var statusRepo = ""
+    @AppStorage("updater.statusIssue") private var statusIssue = 0
 
     var body: some View {
         VStack(alignment: .leading, spacing: 14) {
@@ -460,6 +552,19 @@ struct UpdateSheet: View {
                 Link("Request an update from another device", destination: URL(string: "https://github.com/josephbrooks7/dmx-studio/issues/new?title=DMX%20Studio%3A%20Update%20this%20Mac")!)
                     .font(.caption)
             }
+            DisclosureGroup("Private remote version reporting") {
+                Text("Reports version and update progress to a private GitHub issue. Use a fine-grained token with Issues write access to that repository only.")
+                    .font(.caption).foregroundColor(.secondary)
+                TextField("Private repository (owner/name)", text: $statusRepo)
+                TextField("Dedicated status issue number", value: $statusIssue, formatter: NumberFormatter())
+                SecureField("Fine-grained GitHub token", text: $statusToken)
+                HStack {
+                    Button("Save token") { up.saveStatusToken(statusToken); statusToken = "" }
+                    Button("Remove token") { up.saveStatusToken("") }
+                    Toggle("Report status", isOn: $up.statusReporting)
+                }
+                Text(up.statusReportMessage).font(.caption).foregroundColor(.secondary)
+            }
             Spacer(minLength: 0)
             HStack {
                 Spacer()
@@ -478,7 +583,7 @@ struct UpdateSheet: View {
             }
         }
         .padding(22)
-        .frame(width: 560, height: up.availableVersion == nil ? 380 : 610)
+        .frame(width: 560, height: up.availableVersion == nil ? 560 : 760)
     }
 }
 
