@@ -492,6 +492,12 @@ struct ShowRenderer {
         applyLyricCues(&out, t: t)
         applyAccents(&out, t: t, beatLen: ctx.beatLen)
         applyHits(&out, t: t, beatLen: ctx.beatLen)
+        if let pattern = sec.padPattern {
+            let beat = (t - sec.start) / max(ctx.beatLen, 0.05)
+            if !pattern.isOn(at: beat) && Self.maxFlashHz > 0 {
+                for f in out.indices { for h in out[f].heads.indices { out[f].heads[h].intensity = 0 }; out[f].strobe = 0 }
+            }
+        }
         for f in out.indices where f < fixtures.count { fixtures[f].constrainMovement(&out[f]) }
         return out
     }
