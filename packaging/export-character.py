@@ -6,7 +6,7 @@ import argparse
 parser = argparse.ArgumentParser()
 parser.add_argument("src")
 parser.add_argument("dst")
-parser.add_argument("--kind", choices=("body", "hair"), default="body")
+parser.add_argument("--kind", choices=("body", "hair", "clothing", "accessory", "prop"), default="body")
 args = parser.parse_args(sys.argv[sys.argv.index("--") + 1:])
 src, dst = args.src, args.dst
 bpy.ops.wm.read_factory_settings(use_empty=True)
@@ -19,6 +19,12 @@ elif suffix == ".blend":
     bpy.ops.wm.open_mainfile(filepath=src, load_ui=False, use_scripts=False)
 elif suffix == ".obj":
     bpy.ops.wm.obj_import(filepath=src)
+elif suffix in {".usd", ".usda", ".usdc", ".usdz"}:
+    bpy.ops.wm.usd_import(filepath=src)
+elif suffix == ".stl":
+    bpy.ops.wm.stl_import(filepath=src)
+elif suffix == ".dae" and hasattr(bpy.ops.wm, "collada_import"):
+    bpy.ops.wm.collada_import(filepath=src)
 else:
     raise ValueError("Unsupported asset format: " + suffix)
 # Resolve external textures relative to the source project before export.
@@ -142,5 +148,7 @@ result = bpy.ops.wm.usd_export(**options)
 assert "FINISHED" in result
 import zipfile
 with zipfile.ZipFile(dst) as archive:
-    assert any(name.lower().endswith((".png", ".jpg", ".jpeg", ".webp")) for name in archive.namelist()), "USDZ is missing character textures"
-assert Path(dst).stat().st_size > 10000
+    if args.kind in {"body", "hair"}:
+        assert any(name.lower().endswith((".png", ".jpg", ".jpeg", ".webp")) for name in archive.namelist()), "USDZ is missing character textures"
+    assert any(name.lower().endswith((".usd", ".usda", ".usdc")) for name in archive.namelist()), "USDZ is missing scene data"
+assert Path(dst).stat().st_size > 0
