@@ -11,6 +11,7 @@ struct LocalVenue: Codable, Identifiable, Hashable {
     var filename: String
     var importedAt = Date()
     var metersPerUnit: Double = 1
+    var yawDegrees: Double? = nil
     var referenceUnits: Double? = nil
     var referenceMeters: Double? = nil
     static var directory: URL {
@@ -32,6 +33,9 @@ struct LocalVenue: Codable, Identifiable, Hashable {
 }
 
 struct VenueLibraryView: View {
+    var onUse: (LocalVenue) -> Void = { _ in }
+    @State private var yaw = 0.0
+    @State private var measured: Double?
     @Environment(\.dismiss) private var dismiss
     @State private var venues = LocalVenue.load()
     @State private var selected: UUID?
@@ -56,12 +60,24 @@ struct VenueLibraryView: View {
                 }.frame(width: 220)
                 VStack(alignment: .leading, spacing: 10) {
                     if let preview = preview {
-                        SceneView(scene: preview, options: [.allowsCameraControl, .autoenablesDefaultLighting])
+                        VenueMeasurePreview(scene: preview, onDistance: { measured = $0 })
                             .frame(minHeight: 300)
                     } else { Text("Import a self-contained USDZ venue to inspect its geometry.").frame(maxWidth: .infinity, minHeight: 300) }
                     if let v = venue, let d = dimensions {
                         Text(String(format: "Model bounds: %.2f × %.2f × %.2f m", Double(d.x)*v.metersPerUnit, Double(d.y)*v.metersPerUnit, Double(d.z)*v.metersPerUnit))
                         Text(v.referenceMeters == nil ? "Uncalibrated — assumed 1 meter per model unit" : "User-calibrated — not independently verified").font(.caption)
+                        Text("Double-click two surface points to measure their distance.").font(.caption)
+                        if let measured = measured {
+                            Text(String(format: "Selected points: %.3f m (model estimate)", measured * v.metersPerUnit))
+                            Button("Use selected distance for calibration") { referenceUnits = String(measured) }
+                        }
+                        HStack {
+                            Text("Orientation")
+                            Slider(value: $yaw, in: -180...180)
+                            Text(String(format: "%.0f°", yaw))
+                            Button("Save orientation") { saveOrientation() }
+                            Button("Use in Stage") { var chosen = v; chosen.yawDegrees = yaw; onUse(chosen); dismiss() }
+                        }
                         HStack {
                             TextField("Known distance in model units", text: $referenceUnits)
                             TextField("Physical distance (meters)", text: $referenceMeters)
@@ -75,8 +91,9 @@ struct VenueLibraryView: View {
         .onChange(of: selected) { _ in loadPreview() }
     }
     private func loadPreview() {
-        preview = nil; dimensions = nil
+        preview = nil; dimensions = nil; measured = nil
         guard let v = venue else { return }
+        yaw = v.yawDegrees ?? 0
         referenceUnits = v.referenceUnits.map { String($0) } ?? ""
         referenceMeters = v.referenceMeters.map { String($0) } ?? ""
         do {
@@ -85,6 +102,12 @@ struct VenueLibraryView: View {
             dimensions = SCNVector3(b.max.x-b.min.x, b.max.y-b.min.y, b.max.z-b.min.z)
             preview = scene
         } catch { status = error.localizedDescription }
+    }
+    private func saveOrientation() {
+        guard var v = venue else { return }
+        v.yawDegrees = yaw
+        do { try v.save(); venues = LocalVenue.load(); status = "Orientation saved." }
+        catch { status = error.localizedDescription }
     }
     private func calibrate() {
         guard var v = venue, let u = Double(referenceUnits), let m = Double(referenceMeters),
@@ -113,6 +136,40 @@ struct VenueLibraryView: View {
                 try? FileManager.default.removeItem(at: v.folder)
                 DispatchQueue.main.async { busy = false; status = error.localizedDescription }
             }
+        }
+    }
+}
+
+private struct VenueMeasurePreview: NSViewRepresentable {
+    let scene: SCNScene
+    let onDistance: (Double) -> Void
+    func makeCoordinator() -> Coordinator { Coordinator(onDistance) }
+    func makeNSView(context: Context) -> SCNView {
+        let view = SCNView()
+        view.scene = scene
+        view.allowsCameraControl = true
+        view.autoenablesDefaultLighting = true
+        let click = NSClickGestureRecognizer(target: context.coordinator, action: #selector(Coordinator.pick(_:)))
+        click.numberOfClicksRequired = 2
+        view.addGestureRecognizer(click)
+        return view
+    }
+    func updateNSView(_ view: SCNView, context: Context) {
+        if view.scene !== scene { view.scene = scene; context.coordinator.first = nil }
+        context.coordinator.onDistance = onDistance
+    }
+    final class Coordinator: NSObject {
+        var first: SCNVector3?
+        var onDistance: (Double) -> Void
+        init(_ callback: @escaping (Double) -> Void) { onDistance = callback }
+        @objc func pick(_ gesture: NSClickGestureRecognizer) {
+            guard let view = gesture.view as? SCNView,
+                  let hit = view.hitTest(gesture.location(in: view), options: nil).first else { return }
+            let p = hit.worldCoordinates
+            if let a = first {
+                let dx = Double(p.x-a.x), dy = Double(p.y-a.y), dz = Double(p.z-a.z)
+                onDistance(sqrt(dx*dx+dy*dy+dz*dz)); first = nil
+            } else { first = p }
         }
     }
 }
