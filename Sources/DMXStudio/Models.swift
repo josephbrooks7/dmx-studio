@@ -1006,12 +1006,26 @@ struct SavedPerformer: Identifiable, Codable, Hashable {
     }
 }
 
+enum WoodFinish: String, Codable, CaseIterable, Identifiable {
+    case walnut = "American walnut", ash = "Natural ash", oak = "Black oak", flooring = "Hardwood flooring"
+    var id: String { rawValue }
+    var folder: String {
+        switch self { case .walnut: return "walnut"; case .ash: return "ash"; case .oak: return "oak"; case .flooring: return "flooring" }
+    }
+}
+struct WoodSurface: Codable, Hashable {
+    var finish: WoodFinish = .walnut
+    var roughness: Double = 0.6
+    var repeatScale: Double = 1
+}
+
 struct StageItem: Identifiable, Codable, Hashable {
     var id = UUID()
     var prop: PropKind? = nil
     var fixtureID: UUID? = nil
     var performerAppearance: PerformerAppearance? = nil
     var performerName: String? = nil
+    var woodSurface: WoodSurface? = nil
     var x: Double = 0          // meters, left/right (audience view)
     var z: Double = 0          // meters, + toward the audience
     var y: Double = 0          // height off the floor
