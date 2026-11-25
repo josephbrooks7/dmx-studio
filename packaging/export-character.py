@@ -2,9 +2,36 @@ import bpy
 import sys
 from pathlib import Path
 
-src, dst = sys.argv[sys.argv.index("--") + 1:]
+import argparse
+parser = argparse.ArgumentParser()
+parser.add_argument("src")
+parser.add_argument("dst")
+parser.add_argument("--kind", choices=("body", "hair"), default="body")
+args = parser.parse_args(sys.argv[sys.argv.index("--") + 1:])
+src, dst = args.src, args.dst
 bpy.ops.wm.read_factory_settings(use_empty=True)
-bpy.ops.import_scene.gltf(filepath=src)
+suffix = Path(src).suffix.lower()
+if suffix in {".glb", ".gltf"}:
+    bpy.ops.import_scene.gltf(filepath=src)
+elif suffix == ".fbx":
+    bpy.ops.import_scene.fbx(filepath=src)
+elif suffix == ".blend":
+    bpy.ops.wm.open_mainfile(filepath=src, load_ui=False, use_scripts=False)
+elif suffix == ".obj":
+    bpy.ops.wm.obj_import(filepath=src)
+else:
+    raise ValueError("Unsupported asset format: " + suffix)
+# Resolve external textures relative to the source project before export.
+for img in bpy.data.images:
+    if img.source == "FILE" and not img.packed_file:
+        candidate = Path(bpy.path.abspath(img.filepath))
+        if not candidate.is_file():
+            candidate = Path(src).resolve().parent / Path(img.filepath.replace(chr(92), "/")).name
+        if candidate.is_file():
+            img.filepath = str(candidate)
+            img.pack()
+        else:
+            raise FileNotFoundError("Missing asset texture: " + img.filepath)
 # Preserve the authored mesh, textures and bind pose; bake no animation yet.
 for obj in bpy.data.objects:
     if obj.animation_data:
@@ -15,7 +42,7 @@ for obj in list(bpy.data.objects):
 # Rocketbox assets contain mutually exclusive outfit and exposed-skin variants.
 # Export a single matching set, not all variants stacked on the same skeleton.
 mesh_names = {o.name for o in bpy.data.objects if o.type == "MESH"}
-if {"Outfit_original", "Skin_original"}.issubset(mesh_names):
+if args.kind == "body" and {"Outfit_original", "Skin_original"}.issubset(mesh_names):
     formal = "formal" in Path(dst).stem.lower() and {"Outfit_formal", "Skin_formal"}.issubset(mesh_names)
     keep = {"Outfit_formal", "Skin_formal", "Shoes"} if formal else {"Outfit_original", "Skin_original"}
     variants = {"Outfit_original", "Outfit_formal", "Skin_original", "Skin_formal",
@@ -81,7 +108,7 @@ assert baked, "No evaluated stage meshes"
 # Require a nearly isotropic bounding box AND a nearly constant vertex radius;
 # this avoids removing ordinary clothing, heads or elongated body geometry.
 from mathutils import Vector
-for obj in list(baked):
+for obj in list(baked) if args.kind == "body" else []:
     points = [obj.matrix_world @ v.co for v in obj.data.vertices]
     lo = Vector(tuple(min(p[i] for p in points) for i in range(3)))
     hi = Vector(tuple(max(p[i] for p in points) for i in range(3)))
