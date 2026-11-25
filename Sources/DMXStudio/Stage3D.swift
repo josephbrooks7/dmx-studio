@@ -534,6 +534,46 @@ private enum Build {
                 mesh.scale = SCNVector3(width, scale, depth)
                 mesh.position = SCNVector3(-(bounds.min.x+bounds.max.x)*width/2, -bounds.min.y*scale, -(bounds.min.z+bounds.max.z)*depth/2)
                 root.addChildNode(mesh)
+                // Optional authored hair modules use a common head-relative scale.
+                // Only attach to assets with explicitly separated hair nodes.
+                if a.modelPath == nil {
+                    let style: String
+                    switch a.hair {
+                    case .long: style = "long"
+                    case .swept: style = "swept"
+                    case .ponytail: style = "ponytail"
+                    case .curly: style = "curly"
+                    case .spiked: style = "spiked"
+                    case .shaved: style = "shaved"
+                    default: style = "short"
+                    }
+                    var originalHair: [SCNNode] = []
+                    imported.enumerateChildNodes { node, _ in
+                        let name = (node.name ?? "").lowercased()
+                        if node.geometry != nil && (name == "hair" || name == "stage_hair" || name.hasPrefix("hair_") || name.hasPrefix("stage_hair_")) {
+                            originalHair.append(node)
+                        }
+                    }
+                    if !originalHair.isEmpty {
+                        if style == "shaved" {
+                            originalHair.forEach { $0.isHidden = true }
+                        } else if let hairURL = Bundle.main.url(forResource: style, withExtension: "usdz", subdirectory: "Characters/Hair"),
+                                  let hairTemplate = avatarTemplate(hairURL) {
+                            let module = hairTemplate.clone()
+                            let b = module.boundingBox
+                            let span = b.max.x - b.min.x
+                            if span.isFinite && span > 0.001 {
+                                let factor = CGFloat(a.height) * 0.135 / span
+                                module.scale = SCNVector3(factor, factor, factor)
+                                module.position = SCNVector3(-(b.min.x + b.max.x) * factor / 2,
+                                    CGFloat(a.height) + 0.025 - b.max.y * factor,
+                                    -(b.min.z + b.max.z) * factor / 2)
+                                originalHair.forEach { $0.isHidden = true }
+                                root.addChildNode(module)
+                            }
+                        }
+                    }
+                }
                 // Independent accessory geometry leaves imported skin/clothing textures untouched.
                 // A hat is placed using the normalized avatar bounds, not a guessed bone name.
                 if a.accessory == "Top Hat" && a.modelPath == nil {
