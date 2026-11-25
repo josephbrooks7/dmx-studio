@@ -46,6 +46,7 @@ extension AppModel {
 
 struct StageScreen: View {
     @EnvironmentObject var model: AppModel
+    @State private var charactersOpen = false
 
     var body: some View {
         VStack(spacing: 12) {
@@ -166,6 +167,38 @@ struct StageScreen: View {
                     Label(model.stageEditing ? "Done" : "Edit Venue", systemImage: model.stageEditing ? "checkmark" : "hammer")
                 }
                 .buttonStyle(PillButtonStyle(active: model.stageEditing))
+            }
+            HStack {
+                Button {
+                    if model.stage.items.first(where: { $0.id == model.selectedStageItem && $0.prop == .performer }) == nil {
+                        if let performer = model.stage.items.first(where: { $0.prop == .performer }) {
+                            model.selectedStageItem = performer.id
+                        } else {
+                            model.addProp(.performer)
+                            model.selectedStageItem = model.stage.items.last(where: { $0.prop == .performer })?.id
+                        }
+                    }
+                    charactersOpen = true
+                } label: { Label("Character Studio", systemImage: "person.crop.rectangle") }
+                .buttonStyle(PillButtonStyle(active: true))
+                Text("Choose, create and customize performers").font(.caption).foregroundColor(Theme.subtle)
+                Spacer()
+            }
+            .sheet(isPresented: $charactersOpen) {
+                VStack(alignment: .leading, spacing: 12) {
+                    HStack {
+                        Text("Character Studio").font(.title2.bold())
+                        Spacer()
+                        Button("Done") { charactersOpen = false }
+                    }
+                    Picker("Performer", selection: $model.selectedStageItem) {
+                        ForEach(model.stage.items.filter { $0.prop == .performer }) { item in
+                            Text(item.performerName ?? "Performer").tag(Optional(item.id))
+                        }
+                    }
+                    StageInspector()
+                }
+                .padding(20).frame(width: 480, height: 680)
             }
             HStack(spacing: 12) {
                 ZStack(alignment: .topTrailing) {
