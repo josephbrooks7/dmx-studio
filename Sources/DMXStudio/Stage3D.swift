@@ -1175,6 +1175,8 @@ struct CharacterModelPreview: NSViewRepresentable {
     final class Coordinator {
         var appearance: PerformerAppearance?
         var closeup: Bool?
+        var framedHeight: Double?
+        var framedAspect: CGFloat?
         var character: SCNNode?
         var camera: SCNNode?
     }
@@ -1230,9 +1232,15 @@ struct CharacterModelPreview: NSViewRepresentable {
             c.appearance = appearance
         }
         c.character?.eulerAngles.y = CGFloat(rotation * .pi / 180)
-        if c.closeup != faceCloseup {
-            let y = CGFloat(appearance.height) * (faceCloseup ? 0.88 : 0.50)
-            c.camera?.position = SCNVector3(0,y,faceCloseup ? 0.85 : 3.5)
+        let aspect = max(0.25, view.bounds.width / max(1, view.bounds.height))
+        if c.closeup != faceCloseup || c.framedHeight != appearance.height || c.framedAspect != aspect {
+            let height = CGFloat(appearance.height)
+            let y = height * (faceCloseup ? 0.91 : 0.50)
+            let halfAngle = CGFloat(37.0 * Double.pi / 360)
+            let distance = faceCloseup ? height * 0.48 : height * 0.62 / tan(halfAngle) / min(1, aspect)
+            c.camera?.position = SCNVector3(0,y,distance)
+            c.framedHeight = appearance.height
+            c.framedAspect = aspect
             c.camera?.look(at: SCNVector3(0,y,0))
             view.defaultCameraController.target = SCNVector3(0,y,0)
             c.closeup = faceCloseup
