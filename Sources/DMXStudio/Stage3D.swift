@@ -1109,6 +1109,7 @@ private enum Build {
 struct CharacterModelPreview: NSViewRepresentable {
     var appearance: PerformerAppearance
     var faceCloseup: Bool = false
+    var rotation: Double = 0
 
     final class Coordinator {
         var appearance: PerformerAppearance?
@@ -1129,14 +1130,16 @@ struct CharacterModelPreview: NSViewRepresentable {
         scene.rootNode.addChildNode(camera); view.pointOfView = camera
         context.coordinator.camera = camera
         let ambient = SCNNode(); ambient.light = SCNLight()
-        ambient.light?.type = .ambient; ambient.light?.intensity = 380
+        ambient.light?.type = .ambient; ambient.light?.intensity = 160
         scene.rootNode.addChildNode(ambient)
-        for (x,y,z,intensity) in [(CGFloat(2),CGFloat(3),CGFloat(4),CGFloat(850)),(-3,2,2,500),(1,3,-3,650)] {
+        for (x,y,z,intensity) in [(CGFloat(2),CGFloat(3),CGFloat(4),CGFloat(350)),(-3,2,2,180),(1,3,-3,220)] {
             let light = SCNNode(); light.light = SCNLight(); light.light?.type = .omni
             light.light?.intensity = intensity; light.position = SCNVector3(x,y,z)
             scene.rootNode.addChildNode(light)
         }
-        let floor = SCNFloor(); floor.reflectivity = 0.06; floor.materials = [Mat.darkGray]
+        let floor = SCNFloor(); floor.reflectivity = 0
+        let floorMaterial = SCNMaterial(); floorMaterial.diffuse.contents = NSColor(white: 0.16, alpha: 1); floorMaterial.lightingModel = .constant
+        floor.materials = [floorMaterial]
         scene.rootNode.addChildNode(SCNNode(geometry: floor))
         updateNSView(view, context: context)
         return view
@@ -1149,6 +1152,7 @@ struct CharacterModelPreview: NSViewRepresentable {
             view.scene?.rootNode.addChildNode(node); c.character = node
             c.appearance = appearance
         }
+        c.character?.eulerAngles.y = CGFloat(rotation * .pi / 180)
         if c.closeup != faceCloseup {
             let y = CGFloat(appearance.height) * (faceCloseup ? 0.88 : 0.50)
             c.camera?.position = SCNVector3(0,y,faceCloseup ? 0.85 : 3.5)
