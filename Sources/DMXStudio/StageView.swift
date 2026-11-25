@@ -47,6 +47,8 @@ extension AppModel {
 struct StageScreen: View {
     @EnvironmentObject var model: AppModel
     @State private var charactersOpen = false
+    @State private var studioAngle = 0.0
+    @State private var studioFace = false
 
     var body: some View {
         VStack(spacing: 12) {
@@ -200,12 +202,14 @@ struct StageScreen: View {
                         if let performer = model.stage.items.first(where: { $0.id == model.selectedStageItem && $0.prop == .performer }) {
                             VStack(alignment: .leading, spacing: 8) {
                                 Text(performer.performerName ?? "Performer").font(.headline)
-                                CharacterModelPreview(appearance: performer.performerAppearance ?? PerformerAppearance(), faceCloseup: false)
+                                CharacterModelPreview(appearance: performer.performerAppearance ?? PerformerAppearance(), faceCloseup: studioFace, rotation: studioAngle)
                                     .frame(minWidth: 340, minHeight: 420)
-                                Text("Preview updates as you change the character.").font(.caption).foregroundColor(Theme.subtle)
+                                Picker("View", selection: $studioFace) { Text("Full body").tag(false); Text("Face").tag(true) }.pickerStyle(.segmented)
+                                HStack { Text("Rotate preview"); Slider(value: $studioAngle, in: -180...180); Button("Reset") { studioAngle = 0 } }
+                                Text("Drag to orbit · scroll to zoom").font(.caption).foregroundColor(Theme.subtle)
                             }
                         }
-                        StageInspector().frame(width: 340)
+                        StageInspector(characterOnly: true).frame(width: 340)
                     }
                 }
                 .padding(20).frame(width: 780, height: 680)
@@ -257,6 +261,7 @@ struct StageScreen: View {
 
 /// Fine-tune the selected item: position, height, rotation, size, mounting.
 struct StageInspector: View {
+    var characterOnly = false
     @EnvironmentObject var model: AppModel
     @AppStorage("stage.savedPerformers.v1") private var savedCharacterData: Data = Data()
     @State private var characterNotice = ""
@@ -280,6 +285,7 @@ struct StageInspector: View {
                 VStack(alignment: .leading, spacing: 12) {
                     if let id = model.selectedStageItem, let item = model.stage.items.first(where: { $0.id == id }) {
                         let fx = item.fixtureID.flatMap { fid in model.fixtures.first { $0.id == fid } }
+                        if !characterOnly {
                         HStack {
                             Image(systemName: item.prop?.icon ?? "lightbulb.fill").foregroundColor(Theme.accent)
                             Text(fx?.name ?? item.prop?.rawValue ?? "Item").font(.headline).lineLimit(1)
@@ -299,9 +305,11 @@ struct StageInspector: View {
                                    k == .truss ? 1...12 : (k == .trussTower || k == .lightStand ? 1...6 : 0.5...3),
                                    k == .stage || k == .circleTruss ? "×" : "m") { v in model.updateStageItem(id) { $0.size = v } }
                         }
+                        }
                         if item.prop == .performer {
                             Divider()
                             Text("Character").font(.headline)
+                            if !characterOnly {
                             Button {
                                 characterFaceCloseup = false
                                 characterPreviewOpen = true
@@ -363,6 +371,7 @@ struct StageInspector: View {
                                 }
                             }
 
+                            }
                             let appearance = item.performerAppearance ?? PerformerAppearance()
                             Button("Import 3D Character…") {
                                 let panel = NSOpenPanel()
@@ -490,9 +499,11 @@ struct StageInspector: View {
                             }
                             .font(.caption)
                         }
+                        if !characterOnly {
                         Divider()
                         Button(role: .destructive) { model.deleteStageItem(id) } label: {
                             Label(item.fixtureID != nil ? "Remove light from session" : "Remove from venue", systemImage: "trash")
+                        }
                         }
                     } else {
                         Text("Nothing selected").font(.headline)
