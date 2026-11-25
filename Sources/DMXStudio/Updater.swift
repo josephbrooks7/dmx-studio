@@ -541,6 +541,19 @@ struct UpdateSheet: View {
                         .fixedSize(horizontal: false, vertical: true)
                 }
             }
+            DisclosureGroup("Installed components") {
+                VStack(alignment: .leading, spacing: 6) {
+                    ForEach(["Character Studio", "Venue Studio", "Lighting Engine", "Audio Engine", "Show Control", "Core Application"], id: \.self) { component in
+                        HStack {
+                            Text(component)
+                            Spacer()
+                            Text("Bundled • " + up.current).foregroundColor(.secondary)
+                        }.font(.caption)
+                    }
+                    Text("Components currently update together. Independent packages will appear here when supported.")
+                        .font(.caption).foregroundColor(.secondary)
+                }
+            }
             Toggle("Automatically install updates when idle", isOn: $up.automaticUpdates)
                 .disabled(up.canCancel || up.isInstalling)
             Text("Checks every five minutes. Updates only with physical output off and no active show or song analysis.")
