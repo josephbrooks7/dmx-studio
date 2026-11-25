@@ -820,7 +820,16 @@ final class AppModel: ObservableObject {
         case .truss: item.size = 3; item.y = 3
         case .trussTower: item.size = 3.5
         case .lightStand: item.size = 2.2
-        case .micStand, .performer: item.z = 0
+        case .micStand: item.z = 0
+        case .performer:
+            item.z = 0
+            // Spawn on the actual performance deck, not the venue origin.
+            if let deck = stage.items.first(where: { $0.prop == .stage }) {
+                item.x = deck.x
+                item.z = deck.z
+                item.y = deck.y + 0.60
+                item.rotation = deck.rotation
+            }
         default: break
         }
         stage.items.append(item)
