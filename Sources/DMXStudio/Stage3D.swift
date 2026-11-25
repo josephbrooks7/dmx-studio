@@ -605,8 +605,12 @@ private enum Build {
                 // slightly straighter silhouette while retaining authored textures.
                 let neutralWidth: CGFloat = avatarNeutral && a.modelPath == nil ? 1.08 : 1
                 let neutralDepth: CGFloat = avatarNeutral && a.modelPath == nil ? 0.94 : 1
-                let width = scale * build * neutralWidth
-                let depth = scale * sqrt(build) * neutralDepth
+                // Static scanned avatars have no anatomical morph targets. Keep the
+                // silhouette close to the authored proportions until rigged bodies
+                // are available; do not stretch the entire head and clothing by 40%.
+                let restrainedBuild = 1 + (build - 1) * 0.25
+                let width = scale * restrainedBuild * neutralWidth
+                let depth = scale * sqrt(restrainedBuild) * neutralDepth
                 mesh.scale = SCNVector3(width, scale, depth)
                 mesh.position = SCNVector3(-(bounds.min.x+bounds.max.x)*width/2, -bounds.min.y*scale, -(bounds.min.z+bounds.max.z)*depth/2)
                 root.addChildNode(mesh)
