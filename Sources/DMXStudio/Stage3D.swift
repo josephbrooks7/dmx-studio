@@ -1174,18 +1174,34 @@ struct CharacterModelPreview: NSViewRepresentable {
         view.antialiasingMode = .multisampling2X
         let camera = SCNNode(); camera.camera = SCNCamera()
         camera.camera?.fieldOfView = 37
+        camera.camera?.wantsHDR = true
+        camera.camera?.wantsExposureAdaptation = false
+        camera.camera?.screenSpaceAmbientOcclusionIntensity = 0.55
+        camera.camera?.screenSpaceAmbientOcclusionRadius = 0.12
+        scene.lightingEnvironment.contents = Stage3DView.Coordinator.studioEnvironment
+        scene.lightingEnvironment.intensity = 0.45
         scene.rootNode.addChildNode(camera); view.pointOfView = camera
         context.coordinator.camera = camera
         let ambient = SCNNode(); ambient.light = SCNLight()
-        ambient.light?.type = .ambient; ambient.light?.intensity = 160
+        ambient.light?.type = .ambient; ambient.light?.intensity = 100
         scene.rootNode.addChildNode(ambient)
         for (x,y,z,intensity) in [(CGFloat(2),CGFloat(3),CGFloat(4),CGFloat(350)),(-3,2,2,180),(1,3,-3,220)] {
             let light = SCNNode(); light.light = SCNLight(); light.light?.type = .omni
             light.light?.intensity = intensity; light.position = SCNVector3(x,y,z)
+            if x == 2 {
+                light.light?.type = .spot
+                light.light?.spotInnerAngle = 30
+                light.light?.spotOuterAngle = 65
+                light.light?.castsShadow = true
+                light.light?.shadowMapSize = CGSize(width: 1024, height: 1024)
+                light.light?.shadowRadius = 4
+                light.light?.shadowColor = NSColor(white: 0, alpha: 0.55)
+                light.look(at: SCNVector3(0, 0.9, 0))
+            }
             scene.rootNode.addChildNode(light)
         }
         let floor = SCNFloor(); floor.reflectivity = 0
-        let floorMaterial = SCNMaterial(); floorMaterial.diffuse.contents = NSColor(white: 0.16, alpha: 1); floorMaterial.lightingModel = .constant
+        let floorMaterial = SCNMaterial(); floorMaterial.diffuse.contents = NSColor(white: 0.16, alpha: 1); floorMaterial.lightingModel = .physicallyBased; floorMaterial.roughness.contents = 0.85; floorMaterial.metalness.contents = 0.0
         floor.materials = [floorMaterial]
         scene.rootNode.addChildNode(SCNNode(geometry: floor))
         updateNSView(view, context: context)
@@ -1368,7 +1384,7 @@ struct Stage3DView: NSViewRepresentable {
 
         // Neutral studio reflection map: broad softboxes define metallic truss and hardware
         // without adding extra real lights or changing the programmed DMX colors.
-        private static let studioEnvironment: NSImage = {
+        fileprivate static let studioEnvironment: NSImage = {
             let image = NSImage(size: NSSize(width: 512, height: 256))
             image.lockFocus()
             NSColor(white: 0.10, alpha: 1).setFill()
