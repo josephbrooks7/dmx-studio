@@ -492,7 +492,10 @@ private enum Build {
     static func performer(_ a: PerformerAppearance) -> SCNNode {
         let root = SCNNode()
         // Imported self-contained USDZ assets retain their authored meshes and materials.
-        let avatarFeminine = a.bodyStyle == "Feminine"
+        // Use a distinct textured starting point for the neutral presentation.
+        // This is an interim preset, not a topology-compatible facial morph.
+        let avatarNeutral = a.bodyStyle == "Androgynous"
+        let avatarFeminine = a.bodyStyle == "Feminine" || avatarNeutral
         let builtInName = avatarFeminine ? (a.skin >= 3 ? "priya_casual" : "emma_casual") :
             (a.skin >= 3 || a.clothingStyle == "Formal" ? "marcus_formal" : "andre_casual")
         let bundled = Bundle.main.url(forResource: builtInName, withExtension: "usdz", subdirectory: "Characters")
@@ -522,8 +525,12 @@ private enum Build {
                 let scale = CGFloat(a.height) / h
                 // Preserve authored textures while allowing independent body width/depth.
                 let build = CGFloat(min(max(a.build, 0.7), 1.4))
-                let width = scale * build
-                let depth = scale * sqrt(build)
+                // Keep custom imported assets unchanged; neutral presets use a
+                // slightly straighter silhouette while retaining authored textures.
+                let neutralWidth: CGFloat = avatarNeutral && a.modelPath == nil ? 1.08 : 1
+                let neutralDepth: CGFloat = avatarNeutral && a.modelPath == nil ? 0.94 : 1
+                let width = scale * build * neutralWidth
+                let depth = scale * sqrt(build) * neutralDepth
                 mesh.scale = SCNVector3(width, scale, depth)
                 mesh.position = SCNVector3(-(bounds.min.x+bounds.max.x)*width/2, -bounds.min.y*scale, -(bounds.min.z+bounds.max.z)*depth/2)
                 root.addChildNode(mesh)
