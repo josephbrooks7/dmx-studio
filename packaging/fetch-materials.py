@@ -24,3 +24,14 @@ with zipfile.ZipFile(io.BytesIO(get("https://ambientcg.com/get?file=WoodFloor051
             raise ValueError("Unexpected texture size")
         save(folder, name, archive.read(entry))
 (folder / "SOURCE.txt").write_text("CC0 - https://ambientcg.com/view?id=WoodFloor051\n")
+
+# Wood066 is the user's supplied AmbientCG material; use the same source at optimized resolution.
+folder = out / "wood066"
+folder.mkdir(parents=True, exist_ok=True)
+with zipfile.ZipFile(io.BytesIO(get("https://ambientcg.com/get?file=Wood066_1K-JPG.zip"))) as archive:
+    for name, suffix in [("color", "_Color.jpg"), ("normal", "_NormalGL.jpg"), ("roughness", "_Roughness.jpg"), ("displacement", "_Displacement.jpg")]:
+        entry = next(x for x in archive.namelist() if x.endswith(suffix))
+        if archive.getinfo(entry).file_size > 20 * 1024 * 1024:
+            raise ValueError("Unexpected texture size")
+        save(folder, name, archive.read(entry))
+(folder / "SOURCE.txt").write_text("CC0 - https://ambientcg.com/view?id=Wood066\\n")
