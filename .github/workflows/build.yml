@@ -255,7 +255,16 @@ jobs:
           python3 packaging/make_test_song.py /tmp/demo.wav >/dev/null
           shoot() {
             env "$@" "$BIN" >/dev/null 2>&1 &
-            P=$!; sleep 14; screencapture -x "/tmp/shots/$NAME.png" || true; kill $P; sleep 2
+            P=$!; sleep 14
+            if kill -0 "$P" 2>/dev/null && screencapture -x "/tmp/shots/$NAME.png" && test -s "/tmp/shots/$NAME.png"; then
+              sips -Z 1600 "/tmp/shots/$NAME.png" >/dev/null
+              echo "$NAME: captured" >> /tmp/shots/status.txt
+            else
+              rm -f "/tmp/shots/$NAME.png"
+              echo "$NAME: capture failed" >> /tmp/shots/status.txt
+              echo "::warning::Screenshot capture failed: $NAME"
+            fi
+            kill "$P" 2>/dev/null || true; sleep 2
           }
           NAME=1-sessions shoot DMX_DEMO_SONG=/tmp/demo.wav
           NAME=2-show shoot DMX_DEMO_OPEN=1 DMX_DEMO_PRESET=1
@@ -264,6 +273,11 @@ jobs:
           NAME=5-stage shoot DMX_DEMO_OPEN=1 DMX_DEMO_TAB=Stage DMX_DEMO_PRESET=1
           NAME=6-setlists shoot DMX_DEMO_OPEN=1 "DMX_DEMO_TAB=Set Lists" DMX_DEMO_SONG=/tmp/demo.wav DMX_DEMO_SET=1
           ls -la /tmp/shots
+      - uses: actions/upload-artifact@v4
+        with:
+          name: DMX-Studio-previews
+          path: /tmp/shots/
+          if-no-files-found: warn
       - uses: actions/upload-artifact@v4
         with:
           name: DMX-Studio-dmg
@@ -285,6 +299,23 @@ jobs:
             echo "## What's new in $TAG"
             echo
             if [ -n "$PREV" ]; then echo "Changes since $PREV."; echo; fi
+            echo "### New features"
+            echo "No new end-user controls in this update."
+            echo "### Improvements"
+            echo "Builds now collect compact application screenshots in a separate preview artifact and report missing captures."
+            echo "### Bug fixes"
+            echo "Screenshot capture failures are no longer silently ignored."
+            echo "### Known issues"
+            echo "Character mesh quality and dedicated Character Studio captures remain under development. Screenshot capture does not establish visual correctness."
+            echo "### Verification"
+            echo "Required build and automated regression checks passed; optional checks may be skipped."
+            if [ -f /tmp/shots/status.txt ]; then
+              while IFS= read -r line; do echo "- $line"; done < /tmp/shots/status.txt
+            else echo "- Screenshot capture status unavailable."; fi
+            echo
+            echo "[Build and preview artifacts](https://github.com/$GITHUB_REPOSITORY/actions/runs/${{ github.run_id }})"
+            echo
+            echo "### Change history"
             git log "$RANGE" --no-merges --format='- %s' | head -100
             echo
             if [ -n "$PREV" ]; then echo "[Full change history](https://github.com/$GITHUB_REPOSITORY/compare/$PREV...$TAG)"; fi
@@ -292,7 +323,9 @@ jobs:
             echo "## Installation"
             echo "Download DMX-Studio-Installer.dmg for the small online installer, or the full DMG for offline installation. In-app updates preserve your songs and shows."
           } > /tmp/release-notes.md
-          gh release create "$TAG" build/*.dmg build/DMX-Studio-Update.zip --title "DMX Studio $TAG" --notes-file /tmp/release-notes.md --latest
+          PREVIEWS=()
+          for png in /tmp/shots/*.png; do [ -f "$png" ] && PREVIEWS+=("$png"); done
+          gh release create "$TAG" build/*.dmg build/DMX-Studio-Update.zip "${PREVIEWS[@]}" --title "DMX Studio $TAG" --notes-file /tmp/release-notes.md --latest
       - name: Copy DMG to dist branch
         run: |
           mkdir -p /tmp/dist && cp build/DMX-Studio-1.*.dmg /tmp/dist/DMX-Studio.dmg
