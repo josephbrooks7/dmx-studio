@@ -24,6 +24,11 @@ jobs:
           key: ${{ runner.os }}-${{ runner.arch }}-swift-universal-${{ hashFiles('Package.swift', 'Package.resolved', 'Sources/**/*.swift') }}
           restore-keys: |
             ${{ runner.os }}-${{ runner.arch }}-swift-universal-
+      - name: Restore converted character asset cache
+        uses: actions/cache@v4
+        with:
+          path: .character-cache
+          key: ${{ runner.os }}-character-assets-v1-${{ hashFiles('packaging/export-character.py', 'packaging/build-dmg.sh', 'packaging/character-library/**') }}
       - name: Build universal app + DMG (Intel and Apple Silicon, macOS 12+)
         run: |
           set -o pipefail
