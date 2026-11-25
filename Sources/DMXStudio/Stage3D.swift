@@ -1292,7 +1292,7 @@ struct Stage3DView: NSViewRepresentable {
             RunLoop.main.add(timer!, forMode: .common)
             // Allow navigation to render before assembling the detailed venue.
             DispatchQueue.main.async { [weak self] in
-                guard let self = self, self.timer != nil else { return }
+                guard let self = self, self.timer != nil, self.model.playingSongID == nil else { return }
                 self.sync()
             }
         }
@@ -1682,6 +1682,8 @@ struct Stage3DView: NSViewRepresentable {
 
         /// 30 times a second: copy what every light is doing onto its 3D model.
         private func animate() {
+            // Keep preparing the retained scene while hidden, but never rebuild geometry during a song.
+            if model.playingSongID == nil && itemSnapshot != Dictionary(uniqueKeysWithValues: model.stage.items.map { ($0.id, $0) }) { sync() }
             // Only draw while the Stage view is actually on screen (not minimized, hidden or covered)
             guard model.stagePageVisible, let w = view?.window, w.isVisible, w.occlusionState.contains(.visible), !w.isMiniaturized else {
                 if view?.isPlaying == true { view?.isPlaying = false }
@@ -1691,7 +1693,7 @@ struct Stage3DView: NSViewRepresentable {
                 applyQuality(model.stageHighQuality && model.playingSongID == nil, to: v)
                 if !v.isPlaying { v.isPlaying = true }
             }
-            if itemSnapshot != Dictionary(uniqueKeysWithValues: model.stage.items.map { ($0.id, $0) }) { sync() }
+
             applyFrame(model.preview, now: Date().timeIntervalSinceReferenceDate, master: model.blackout ? 0 : model.master)
             // remember the camera for "Same as my Stage view" video exports
             if let v = view, let pov = v.pointOfView, let cam = pov.camera, v.bounds.height > 10 {
