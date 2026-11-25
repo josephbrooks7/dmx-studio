@@ -64,6 +64,27 @@ for obj in list(bpy.context.scene.objects):
     baked.append(static)
     print("Baked stage mesh:", obj.name, len(mesh.vertices), "materials:", [m.name if m else None for m in mesh.materials])
 assert baked, "No evaluated stage meshes"
+# Detect isolated, oversized spherical helper meshes in the bundled avatars.
+# Require a nearly isotropic bounding box AND a nearly constant vertex radius;
+# this avoids removing ordinary clothing, heads or elongated body geometry.
+from mathutils import Vector
+for obj in list(baked):
+    points = [obj.matrix_world @ v.co for v in obj.data.vertices]
+    lo = Vector(tuple(min(p[i] for p in points) for i in range(3)))
+    hi = Vector(tuple(max(p[i] for p in points) for i in range(3)))
+    extent = hi - lo
+    center = (lo + hi) * 0.5
+    radii = [(p - center).length for p in points]
+    mean = sum(radii) / len(radii)
+    spread = (sum((r - mean)**2 for r in radii) / len(radii))**0.5
+    others = [other.matrix_world @ v.co for other in baked if other != obj for v in other.data.vertices]
+    reference = max((max(p[i] for p in others) - min(p[i] for p in others) for i in range(3)), default=0) if others else 0
+    print("Stage mesh bounds:", obj.name, tuple(extent), "radial spread:", spread / max(mean, 1e-9))
+    if reference > 0 and min(extent) > reference * 0.45 and max(extent) < min(extent) * 1.18 and mean > 0 and spread / mean < 0.06:
+        print("Removing oversized spherical helper:", obj.name)
+        baked.remove(obj)
+        bpy.data.objects.remove(obj, do_unlink=True)
+assert baked, "No stage meshes after helper filtering"
 for obj in list(bpy.context.scene.objects):
     if obj not in baked:
         bpy.data.objects.remove(obj, do_unlink=True)
