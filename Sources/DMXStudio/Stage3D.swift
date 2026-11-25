@@ -545,14 +545,14 @@ private enum Build {
                       let material = original.copy() as? SCNMaterial else { return original }
                 changed = true
                 material.lightingModel = .physicallyBased
-                if material.metalness.contents == nil { material.metalness.contents = 0.0 }
-                if material.roughness.contents == nil { material.roughness.contents = name.contains("leather") ? 0.48 : 0.78 }
-                if material.normal.contents == nil && !name.contains("leather") {
+                if material.metalness.contents == nil || material.metalness.contents is NSNumber { material.metalness.contents = 0.0 }
+                if material.roughness.contents == nil || material.roughness.contents is NSNumber { material.roughness.contents = name.contains("leather") ? 0.48 : 0.78 }
+                if (material.normal.contents == nil || material.normal.contents is NSNumber || material.normal.contents is NSColor) && !name.contains("leather") {
                     material.normal.contents = garmentWeave
                     material.normal.wrapS = .repeat
                     material.normal.wrapT = .repeat
                     material.normal.contentsTransform = SCNMatrix4MakeScale(12, 12, 1)
-                    material.normal.intensity = 0.45
+                    material.normal.intensity = 0.28
                 }
                 return material
             }
@@ -1373,7 +1373,7 @@ struct CharacterModelPreview: NSViewRepresentable {
             let height = CGFloat(appearance.height)
             let y = height * (faceCloseup ? 0.91 : 0.50)
             let halfAngle = CGFloat(37.0 * Double.pi / 360)
-            let distance = faceCloseup ? height * 0.48 : height * 0.62 / tan(halfAngle) / min(1, aspect)
+            let distance = faceCloseup ? height * 0.48 / min(1, aspect) : height * 0.62 / tan(halfAngle) / min(1, aspect)
             c.camera?.position = SCNVector3(0,y,distance)
             c.framedHeight = appearance.height
             c.framedAspect = aspect
