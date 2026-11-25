@@ -284,6 +284,13 @@ jobs:
           NAME=4-songs shoot DMX_DEMO_OPEN=1 DMX_DEMO_TAB=Songs
           NAME=5-stage shoot DMX_DEMO_OPEN=1 DMX_DEMO_TAB=Stage DMX_DEMO_PRESET=1
           NAME=6-setlists shoot DMX_DEMO_OPEN=1 "DMX_DEMO_TAB=Set Lists" DMX_DEMO_SONG=/tmp/demo.wav DMX_DEMO_SET=1
+          for STYLE in Masculine Feminine; do
+            for SKIN in 2 3; do
+              NAME="character-$STYLE-$SKIN-front" shoot DMX_DEMO_OPEN=1 DMX_DEMO_TAB=Stage DMX_DEMO_CHARACTER="$STYLE" DMX_DEMO_SKIN="$SKIN"
+              NAME="character-$STYLE-$SKIN-face" shoot DMX_DEMO_OPEN=1 DMX_DEMO_TAB=Stage DMX_DEMO_CHARACTER="$STYLE" DMX_DEMO_SKIN="$SKIN" DMX_DEMO_FACE=1
+              NAME="character-$STYLE-$SKIN-side" shoot DMX_DEMO_OPEN=1 DMX_DEMO_TAB=Stage DMX_DEMO_CHARACTER="$STYLE" DMX_DEMO_SKIN="$SKIN" DMX_DEMO_ANGLE=90
+            done
+          done
           ls -la /tmp/shots
       - uses: actions/upload-artifact@v4
         with:
@@ -323,7 +330,7 @@ jobs:
             echo "### Bug fixes"
             echo "See the change history for fixes included in this version."
             echo "### Known issues"
-            echo "Character mesh quality and dedicated Character Studio captures remain under development. Screenshot capture does not establish visual correctness."
+            echo "Character mesh quality remains under development; dedicated Character Studio captures are attempted for each bundled preset. Screenshot capture does not establish visual correctness."
             echo "### Verification"
             echo "Required build and automated regression checks passed; optional checks may be skipped."
             if [ -f /tmp/shots/status.txt ]; then
