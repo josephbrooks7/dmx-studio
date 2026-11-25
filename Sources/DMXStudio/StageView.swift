@@ -299,7 +299,27 @@ struct StageScreen: View {
             }
         }
         .padding(16)
-        .onAppear { model.ensureStageItems() }
+        .onAppear {
+            model.ensureStageItems()
+            // CI-only character preview selection; never alter normal user sessions.
+            let env = ProcessInfo.processInfo.environment
+            if let style = env["DMX_DEMO_CHARACTER"], ["Masculine", "Feminine"].contains(style),
+               env["DMX_DEMO_OPEN"] == "1" {
+                if !model.stage.items.contains(where: { $0.prop == .performer }) { model.addProp(.performer) }
+                if let id = model.stage.items.first(where: { $0.prop == .performer })?.id {
+                    model.selectedStageItem = id
+                    model.updateStageItem(id) {
+                        var appearance = PerformerAppearance()
+                        appearance.bodyStyle = style
+                        appearance.skin = Int(env["DMX_DEMO_SKIN"] ?? "2") ?? 2
+                        $0.performerAppearance = appearance
+                    }
+                    studioFace = env["DMX_DEMO_FACE"] == "1"
+                    studioAngle = Double(env["DMX_DEMO_ANGLE"] ?? "0") ?? 0
+                    charactersOpen = true
+                }
+            }
+        }
         .onChange(of: model.fixtures) { _ in model.ensureStageItems() }
     }
 }
