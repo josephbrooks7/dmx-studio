@@ -1369,7 +1369,8 @@ struct CharacterModelPreview: NSViewRepresentable {
     }
     func updateNSView(_ view: SCNView, context: Context) {
         let c = context.coordinator
-        if c.appearance != appearance {
+        let modelChanged = c.appearance != appearance
+        if modelChanged {
             c.character?.removeFromParentNode()
             let node = Build.performer(appearance)
             view.scene?.rootNode.addChildNode(node); c.character = node
@@ -1377,16 +1378,42 @@ struct CharacterModelPreview: NSViewRepresentable {
         }
         c.character?.eulerAngles.y = CGFloat(rotation * .pi / 180)
         let aspect = max(0.25, view.bounds.width / max(1, view.bounds.height))
-        if c.closeup != faceCloseup || c.framedHeight != appearance.height || c.framedAspect != aspect {
+        if modelChanged || c.closeup != faceCloseup || c.framedHeight != appearance.height || c.framedAspect != aspect {
             let height = CGFloat(appearance.height)
-            let y = height * (faceCloseup ? 0.91 : 0.50)
+            var low = SCNVector3(0, 0, 0)
+            var high = SCNVector3(0, height, 0)
+            if let node = c.character {
+                let bounds = node.boundingBox
+                let corners = [bounds.min.x, bounds.max.x].flatMap { x in
+                    [bounds.min.y, bounds.max.y].flatMap { y in
+                        [bounds.min.z, bounds.max.z].map { z in
+                            node.convertPosition(SCNVector3(x, y, z), to: nil)
+                        }
+                    }
+                }
+                if let first = corners.first, corners.allSatisfy({ $0.x.isFinite && $0.y.isFinite && $0.z.isFinite }) {
+                    low = first; high = first
+                    for p in corners {
+                        low = SCNVector3(min(low.x,p.x), min(low.y,p.y), min(low.z,p.z))
+                        high = SCNVector3(max(high.x,p.x), max(high.y,p.y), max(high.z,p.z))
+                    }
+                }
+            }
+            let span = max(0.01, high.y - low.y)
+            let x = (low.x + high.x) / 2
+            let y = low.y + span * (faceCloseup ? 0.91 : 0.50)
+            let z = (low.z + high.z) / 2
             let halfAngle = CGFloat(37.0 * Double.pi / 360)
-            let distance = faceCloseup ? height * 0.48 / min(1, aspect) : height * 0.62 / tan(halfAngle) / min(1, aspect)
-            c.camera?.position = SCNVector3(0,y,distance)
+            let vertical = span * (faceCloseup ? 0.16 : 0.60)
+            let horizontal = faceCloseup ? span * 0.13 : (high.x - low.x) * 0.60
+            let distance = max(vertical / tan(halfAngle), horizontal / (tan(halfAngle) * aspect)) + (high.z - low.z) / 2
+            let target = SCNVector3(x,y,z)
+            c.camera?.position = SCNVector3(x,y,z + distance)
+            c.camera?.look(at: target)
+            view.pointOfView = c.camera
+            view.defaultCameraController.target = target
             c.framedHeight = appearance.height
             c.framedAspect = aspect
-            c.camera?.look(at: SCNVector3(0,y,0))
-            view.defaultCameraController.target = SCNVector3(0,y,0)
             c.closeup = faceCloseup
         }
     }
