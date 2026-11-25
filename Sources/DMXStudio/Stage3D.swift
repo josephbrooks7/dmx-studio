@@ -730,16 +730,23 @@ private enum Build {
                 if a.accessory == "Top Hat" && a.modelPath == nil {
                     let hat = SCNNode()
                     let felt = Mat.make(NSColor(white: 0.045, alpha: 1), rough: 0.85)
-                    let brim = SCNCylinder(radius: 0.145 * build, height: 0.018)
+                    // Use a hollow brim and crown so the scalp can sit inside the hat.
+                    // Scale with stature rather than torso build.
+                    let headScale = CGFloat(a.height) / 1.75
+                    let brim = SCNTube(innerRadius: 0.091 * headScale, outerRadius: 0.145 * headScale, height: 0.012 * headScale)
                     brim.materials = [felt]
-                    let brimNode = SCNNode(geometry: brim)
-                    hat.addChildNode(brimNode)
-                    let crown = SCNCylinder(radius: 0.095 * build, height: 0.13)
+                    hat.addChildNode(SCNNode(geometry: brim))
+                    let crown = SCNTube(innerRadius: 0.091 * headScale, outerRadius: 0.098 * headScale, height: 0.13 * headScale)
                     crown.materials = [felt]
                     let crownNode = SCNNode(geometry: crown)
-                    crownNode.position.y = 0.073
+                    crownNode.position.y = 0.065 * headScale
                     hat.addChildNode(crownNode)
-                    hat.position.y = CGFloat(a.height) - 0.025
+                    let cap = SCNCylinder(radius: 0.098 * headScale, height: 0.008 * headScale)
+                    cap.materials = [felt]
+                    let capNode = SCNNode(geometry: cap)
+                    capNode.position.y = 0.13 * headScale
+                    hat.addChildNode(capNode)
+                    hat.position.y = CGFloat(a.height) - 0.065 * headScale
                     root.addChildNode(hat)
                 }
                 return root
