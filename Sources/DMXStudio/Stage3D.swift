@@ -607,7 +607,8 @@ private enum Build {
                     let chest = region(0.72, 0.06)
                     let lateral = abs(q.x-cx)/h
                     let central = max(0, min(1, (0.24-lateral)/0.12))
-                    let weight = (protected ? 0 : 1) * (0.30*torso + 0.22*hips + 0.15*thighs + 0.12*chest) * central
+                    let regionalWeight: CGFloat = 0.30 * torso + 0.22 * hips + 0.15 * thighs + 0.12 * chest
+                    let weight: CGFloat = protected ? 0 : regionalWeight * central
                     q.x = cx + (q.x-cx)*(1+amount*weight)
                     q.z = cz + (q.z-cz)*(1+amount*weight*1.6)
                     // Preserve head size relative to adult height, blending through the neck.
@@ -622,7 +623,10 @@ private enum Build {
                 }
             }
             guard vertices.count == source.vectorCount else { return }
-            let sources = [SCNGeometrySource(vertices: vertices)] + g.sources(for: .normal) + g.sources(for: .texcoord) + g.sources(for: .color) + g.sources(for: .tangent)
+            var sources = [SCNGeometrySource(vertices: vertices)]
+            for semantic in [SCNGeometrySource.Semantic.normal, .texcoord, .color, .tangent] {
+                sources.append(contentsOf: g.sources(for: semantic))
+            }
             let copy = SCNGeometry(sources: sources, elements: g.elements)
             copy.materials = g.materials
             node.geometry = copy
