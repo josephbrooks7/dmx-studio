@@ -219,10 +219,11 @@ struct StageScreen: View {
                     HStack(alignment: .top, spacing: 16) {
                         if let performer = model.stage.items.first(where: { $0.id == model.selectedStageItem && $0.prop == .performer }) {
                             VStack(alignment: .leading, spacing: 8) {
-                                Text(performer.performerName ?? "Performer").font(.headline)
+                                TextField("Character name", text: Binding(get: { performer.performerName ?? "" }, set: { name in model.updateStageItem(performer.id) { $0.performerName = name } }))
+                                    .font(.title2.bold())
                                 if performer.performerAppearance?.modelPath == nil {
                                     HStack(spacing: 12) {
-                                        ForEach(["Masculine", "Feminine"], id: \.self) { style in
+                                        ForEach(["Masculine", "Feminine", "Androgynous"], id: \.self) { style in
                                             Button {
                                                 model.updateStageItem(performer.id) {
                                                     var a = $0.performerAppearance ?? PerformerAppearance()
@@ -230,7 +231,7 @@ struct StageScreen: View {
                                                     $0.performerAppearance = a
                                                 }
                                             } label: {
-                                                Label(style == "Masculine" ? "Male" : "Female", systemImage: "person.crop.rectangle")
+                                                Label(style == "Masculine" ? "Male" : (style == "Feminine" ? "Female" : "Androgynous"), systemImage: "person.crop.rectangle")
                                                     .frame(maxWidth: .infinity)
                                             }
                                             .buttonStyle(PillButtonStyle(active: (performer.performerAppearance?.bodyStyle ?? "Masculine") == style))
@@ -247,7 +248,7 @@ struct StageScreen: View {
                         StageInspector(characterOnly: true).frame(width: 340)
                     }
                 }
-                .padding(20).frame(width: 780, height: 680)
+                .padding(24).frame(minWidth: 900, idealWidth: 980, minHeight: 700, idealHeight: 760)
             }
             HStack(spacing: 12) {
                 ZStack(alignment: .topTrailing) {
@@ -483,12 +484,18 @@ struct StageInspector: View {
                             }
                             if !characterNotice.isEmpty { Text(characterNotice).font(.caption).foregroundColor(Theme.subtle) }
 
+                            Divider()
+                            Text("Performance").font(.headline)
                             Picker("Role", selection: Binding(get: { appearance.role }, set: { v in model.updateStageItem(id) { var a = $0.performerAppearance ?? PerformerAppearance(); a.role = v; $0.performerAppearance = a } })) {
                                 ForEach(PerformerRole.allCases) { Text($0.rawValue).tag($0) }
                             }
+                            Divider()
+                            Text("Body & proportions").font(.headline)
                             Picker("Body shape", selection: Binding(get: { appearance.bodyStyle ?? "Masculine" }, set: { v in model.updateStageItem(id) { var a = $0.performerAppearance ?? PerformerAppearance(); a.bodyStyle = v; $0.performerAppearance = a } })) {
                                 ForEach(["Masculine","Feminine","Androgynous"], id: \.self) { Text($0).tag($0) }
                             }
+                            Divider()
+                            Text("Wardrobe & accessories").font(.headline)
                             Picker("Clothing", selection: Binding(get: { appearance.clothingStyle ?? "Casual" }, set: { v in model.updateStageItem(id) { var a = $0.performerAppearance ?? PerformerAppearance(); a.clothingStyle = v; $0.performerAppearance = a } })) {
                                 ForEach(["Casual","Rock Jacket","Punk","Glam","Formal","Fantasy"], id: \.self) { Text($0).tag($0) }
                             }
@@ -498,6 +505,8 @@ struct StageInspector: View {
                             Picker("Stance", selection: Binding(get: { appearance.pose ?? "Natural" }, set: { v in model.updateStageItem(id) { var a = $0.performerAppearance ?? PerformerAppearance(); a.pose = v; $0.performerAppearance = a } })) {
                                 ForEach(["Natural","Wide","Performance"], id: \.self) { Text($0).tag($0) }
                             }
+                            Divider()
+                            Text("Hair & complexion").font(.headline)
                             Picker("Hair", selection: Binding(get: { appearance.hair }, set: { v in model.updateStageItem(id) { var a = $0.performerAppearance ?? PerformerAppearance(); a.hair = v; $0.performerAppearance = a } })) {
                                 ForEach(PerformerHair.allCases) { Text($0.rawValue).tag($0) }
                             }
@@ -510,7 +519,18 @@ struct StageInspector: View {
                             Picker("Hair color", selection: Binding(get: { appearance.hairColor }, set: { v in model.updateStageItem(id) { var a = $0.performerAppearance ?? PerformerAppearance(); a.hairColor = v; $0.performerAppearance = a } })) {
                                 ForEach(Array(["Black", "Brown", "Blonde", "Red", "Blue", "Silver"].enumerated()), id: \.offset) { i, name in Text(name).tag(i) }
                             }
-                            slider("Character height", appearance.height, 1.4...2.1, "m") { v in model.updateStageItem(id) { var a = $0.performerAppearance ?? PerformerAppearance(); a.height = v; $0.performerAppearance = a } }
+                            Divider()
+                            Text("Measurements").font(.headline)
+                            let inches = Int((appearance.height / 0.0254).rounded())
+                            Text("Height: " + String(inches / 12) + " ft " + String(inches % 12) + " in · " + String(Int((appearance.height * 100).rounded())) + " cm").font(.caption)
+                            Slider(value: Binding(get: { appearance.height }, set: { v in model.updateStageItem(id) { var a = $0.performerAppearance ?? PerformerAppearance(); a.height = v; $0.performerAppearance = a } }), in: 1.4...2.1, step: 0.01)
+                            let estimatedWeight = 73 * pow(appearance.height / 1.75, 2) * appearance.build
+                            Text("Estimated weight: " + String(Int(estimatedWeight * 2.20462)) + " lb · " + String(Int(estimatedWeight)) + " kg").font(.caption)
+                            Slider(value: Binding(get: { estimatedWeight }, set: { v in model.updateStageItem(id) { var a = $0.performerAppearance ?? PerformerAppearance(); a.build = min(1.4, max(0.7, v / (73 * pow(a.height / 1.75, 2)))); $0.performerAppearance = a } }), in: (73 * pow(appearance.height / 1.75, 2) * 0.7)...(73 * pow(appearance.height / 1.75, 2) * 1.4))
+                            Text("Weight is an approximate visual build control, not a physical simulation.").font(.caption2).foregroundColor(Theme.subtle)
+                            Divider()
+                            Text("Face").font(.headline)
+                            Text("Independent face meshes are not available for the current bundled models. Use Face view to inspect the authored face.").font(.caption).foregroundColor(Theme.subtle)
                             slider("Body build", appearance.build, 0.7...1.4, "×") { v in model.updateStageItem(id) { var a = $0.performerAppearance ?? PerformerAppearance(); a.build = v; $0.performerAppearance = a } }
                         }
                         if fx?.colorWheel != nil {
