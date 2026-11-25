@@ -17,6 +17,13 @@ jobs:
           fetch-depth: 0
       - name: Toolchain
         run: swift --version && xcodebuild -version
+      - name: Restore incremental Swift build cache
+        uses: actions/cache@v4
+        with:
+          path: .build
+          key: ${{ runner.os }}-${{ runner.arch }}-swift-universal-${{ hashFiles('Package.swift', 'Package.resolved', 'Sources/**/*.swift') }}
+          restore-keys: |
+            ${{ runner.os }}-${{ runner.arch }}-swift-universal-
       - name: Build universal app + DMG (Intel and Apple Silicon, macOS 12+)
         run: |
           set -o pipefail
