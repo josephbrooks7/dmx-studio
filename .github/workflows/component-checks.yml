@@ -1,0 +1,44 @@
+name: Component preflight
+on:
+  pull_request:
+  workflow_dispatch:
+  push:
+    branches-ignore: [main]
+concurrency:
+  group: component-preflight-${{ github.ref }}
+  cancel-in-progress: true
+permissions:
+  contents: read
+jobs:
+  checks:
+    strategy:
+      fail-fast: false
+      matrix:
+        component: [swift, assets, packaging]
+    runs-on: macos-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Swift compile
+        if: matrix.component == 'swift'
+        run: swift build -c debug
+      - name: Validate asset manifests
+        if: matrix.component == 'assets'
+        run: |
+          python3 - <<'PY'
+          import pathlib, json, hashlib, zipfile
+          for manifest in pathlib.Path('packaging').glob('*-library/manifest.json'):
+              for asset in json.loads(manifest.read_text())['assets']:
+                  name = asset['file']
+                  assert pathlib.Path(name).name == name
+                  path = manifest.parent / name
+                  assert asset.get('license') and asset.get('source')
+                  assert hashlib.sha256(path.read_bytes()).hexdigest() == asset['sha256']
+                  if path.suffix == '.usdz':
+                      with zipfile.ZipFile(path) as z:
+                          assert any(n.lower().endswith(('.usd','.usda','.usdc')) for n in z.namelist())
+          PY
+      - name: Validate packaging scripts
+        if: matrix.component == 'packaging'
+        run: |
+          bash -n packaging/build-dmg.sh
+          python3 -m compileall -q packaging
