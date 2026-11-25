@@ -54,7 +54,18 @@ shutil.copy2(source / "manifest.json", dest / "local-manifest.json")
 PYCHAR
 fi
 if [[ "${DMX_SKIP_CHARACTERS:-0}" != "1" ]]; then
-  if ! command -v blender >/dev/null && [[ ! -x /Applications/Blender.app/Contents/MacOS/Blender ]]; then
+  CACHE=".character-cache"
+  mkdir -p "$CACHE"
+  for NAME in andre_casual emma_casual marcus_formal priya_casual; do
+    if [[ ! -s "$CHAR/$NAME.usdz" && -s "$CACHE/$NAME.usdz" ]]; then
+      cp "$CACHE/$NAME.usdz" "$CHAR/$NAME.usdz"
+    fi
+  done
+  NEED_BLENDER=0
+  for NAME in andre_casual emma_casual marcus_formal priya_casual; do
+    if [[ ! -s "$CHAR/$NAME.usdz" ]]; then NEED_BLENDER=1; fi
+  done
+  if [[ "$NEED_BLENDER" == 1 ]] && ! command -v blender >/dev/null && [[ ! -x /Applications/Blender.app/Contents/MacOS/Blender ]]; then
     brew install --cask blender
   fi
   BLENDER="$(command -v blender || echo /Applications/Blender.app/Contents/MacOS/Blender)"
@@ -67,6 +78,7 @@ if [[ "${DMX_SKIP_CHARACTERS:-0}" != "1" ]]; then
     curl -fLsS --retry 2 "$SRC/models/$NAME.glb" -o "$TMPCHAR/$NAME.glb"
     "$BLENDER" --background --factory-startup --python packaging/export-character.py -- "$TMPCHAR/$NAME.glb" "$CHAR/$NAME.usdz"
     test -s "$CHAR/$NAME.usdz"
+    cp "$CHAR/$NAME.usdz" "$CACHE/$NAME.usdz"
   done
   rm -rf "$TMPCHAR"
 fi
