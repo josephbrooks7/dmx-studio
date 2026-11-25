@@ -1075,6 +1075,7 @@ enum BackdropStyle: String, Codable, CaseIterable, Identifiable {
 }
 
 struct StageLayout: Codable, Hashable {
+    var importedVenue: LocalVenue? = nil
     var items: [StageItem] = []
     var haze: Double = 0.6
     var screenContent: ScreenContent? = nil   // nil = artist name only
