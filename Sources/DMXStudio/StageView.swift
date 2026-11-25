@@ -342,6 +342,24 @@ struct StageInspector: View {
                                    k == .stage || k == .circleTruss ? "×" : "m") { v in model.updateStageItem(id) { $0.size = v } }
                         }
                         }
+                        if !characterOnly && (item.prop == .stage || item.prop == .cabaretTable) {
+                            Divider()
+                            Text("Materials Library").font(.headline)
+                            let surface = item.woodSurface ?? WoodSurface()
+                            Picker("Wood finish", selection: Binding<WoodFinish?>(get: { item.woodSurface?.finish ?? (item.prop == .cabaretTable ? .walnut : nil) }, set: { value in
+                                model.updateStageItem(id) { entry in
+                                    if let value { var settings = entry.woodSurface ?? WoodSurface(); settings.finish = value; entry.woodSurface = settings }
+                                    else { entry.woodSurface = nil }
+                                }
+                            })) {
+                                if item.prop == .stage { Text("Original deck").tag(nil as WoodFinish?) }
+                                ForEach(WoodFinish.allCases) { finish in Text(finish.rawValue).tag(Optional(finish)) }
+                            }
+                            if item.woodSurface != nil || item.prop == .cabaretTable {
+                                slider("Roughness", surface.roughness, 0.1...1, "") { v in model.updateStageItem(id) { var settings = $0.woodSurface ?? WoodSurface(); settings.roughness = v; $0.woodSurface = settings } }
+                                slider("Texture repeat", surface.repeatScale, 0.5...8, "×") { v in model.updateStageItem(id) { var settings = $0.woodSurface ?? WoodSurface(); settings.repeatScale = v; $0.woodSurface = settings } }
+                            }
+                        }
                         if item.prop == .performer {
                             Divider()
                             Text("Character").font(.headline)
