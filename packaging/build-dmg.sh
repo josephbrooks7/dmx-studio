@@ -22,6 +22,7 @@ fi
 
 mkdir -p "$APP/Contents/MacOS" "$APP/Contents/Resources"
 cp packaging/import-asset.py packaging/export-character.py "$APP/Contents/Resources/"
+python3 packaging/fetch-materials.py "$APP/Contents/Resources/Materials" || echo "WARNING: wood texture download incomplete; renderer uses fallback materials"
 cp "$BIN" "$APP/Contents/MacOS/DMXStudio"
 # Textured human meshes, converted to native SceneKit-readable USDZ offline.
 # Source: Microsoft Rocketbox (MIT), converted GLB assets from avatar-studio.
