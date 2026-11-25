@@ -503,6 +503,67 @@ private enum Build {
         return node
     }
 
+    // Original procedural micro-weave, periodic in UV space. Keep the authored
+    // garment albedo, seams and existing normal maps intact.
+    private static let garmentWeave: NSImage = {
+        let size = 128
+        let bitmap = NSBitmapImageRep(bitmapDataPlanes: nil, pixelsWide: size, pixelsHigh: size,
+            bitsPerSample: 8, samplesPerPixel: 3, hasAlpha: false, colorSpaceName: .deviceRGB,
+            bytesPerRow: size * 3, bitsPerPixel: 24)!
+        if let bytes = bitmap.bitmapData {
+            for y in 0..<size {
+                for x in 0..<size {
+                    let u = Double(x) * 2 * Double.pi / 8
+                    let v = Double(y) * 2 * Double.pi / 8
+                    let dx = 0.14 * cos(u + v) + 0.07 * cos(u)
+                    let dy = 0.14 * cos(u + v) + 0.07 * cos(v)
+                    let z = sqrt(max(0, 1 - dx*dx - dy*dy))
+                    let i = y * bitmap.bytesPerRow + x * 3
+                    bytes[i] = UInt8((dx * 0.5 + 0.5) * 255)
+                    bytes[i+1] = UInt8((dy * 0.5 + 0.5) * 255)
+                    bytes[i+2] = UInt8((z * 0.5 + 0.5) * 255)
+                }
+            }
+        }
+        let image = NSImage(size: NSSize(width: size, height: size))
+        image.addRepresentation(bitmap)
+        return image
+    }()
+
+    private static func refineGarments(_ root: SCNNode) {
+        root.enumerateChildNodes { node, _ in
+            guard let geometry = node.geometry, geometry.sources(for: .texcoord).count > 0 else { return }
+            let nodeName = (node.name ?? "").lowercased()
+            let materials = geometry.materials
+            var changed = false
+            let refined = materials.map { original -> SCNMaterial in
+                let name = nodeName + " " + (original.name ?? "").lowercased()
+                // Never modify skin, hair, eyes or mixed body surfaces.
+                let excluded = ["skin", "body", "face", "hair", "eye", "teeth", "mouth"]
+                guard !excluded.contains(where: { name.contains($0) }),
+                      ["denim", "jeans", "jacket", "trousers", "shirt", "outfit", "cloth", "pants", "top_"].contains(where: { name.contains($0) }),
+                      let material = original.copy() as? SCNMaterial else { return original }
+                changed = true
+                material.lightingModel = .physicallyBased
+                if material.metalness.contents == nil { material.metalness.contents = 0.0 }
+                if material.roughness.contents == nil { material.roughness.contents = name.contains("leather") ? 0.48 : 0.78 }
+                if material.normal.contents == nil && !name.contains("leather") {
+                    material.normal.contents = garmentWeave
+                    material.normal.wrapS = .repeat
+                    material.normal.wrapT = .repeat
+                    material.normal.contentsTransform = SCNMatrix4MakeScale(12, 12, 1)
+                    material.normal.intensity = 0.45
+                }
+                return material
+            }
+            // Cloned nodes share geometry; isolate edits from cached avatar templates.
+            if changed, let copy = geometry.copy() as? SCNGeometry {
+                copy.materials = refined
+                node.geometry = copy
+            }
+        }
+    }
+
     static func performer(_ a: PerformerAppearance) -> SCNNode {
         let root = SCNNode()
         // Imported self-contained USDZ assets retain their authored meshes and materials.
@@ -518,6 +579,7 @@ private enum Build {
             guard let template = avatarTemplate(url) else { continue }
             let mesh = SCNNode()
             let imported = template.clone()
+            if url == bundled { refineGarments(imported) }
             // Some exported avatars retain Blender's Z-up coordinates. Normalize
             // the dominant vertical axis before measuring height or grounding.
             let raw = imported.boundingBox
