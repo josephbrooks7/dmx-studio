@@ -48,7 +48,6 @@ struct StageScreen: View {
     @EnvironmentObject var model: AppModel
     @State private var charactersOpen = false
     @State private var assetsOpen = false
-    @State private var venuesOpen = false
     @State private var studioAngle = 0.0
     @State private var studioFace = false
 
@@ -99,9 +98,6 @@ struct StageScreen: View {
                 .help("Show your stage with the bars mounted another way: lying flat (beams go front to back) or upright (beams sweep side to side)")
                 Menu {
                     Section("Venue") {
-                        if model.stage.importedVenue != nil {
-                            Button("Remove imported venue") { model.stage.importedVenue = nil }
-                        }
                         Button { model.stage = StageLayout.concert(keeping: model.stage, fixtures: model.fixtures) } label: {
                             Label("Concert stage (truss, LED wall, line arrays)", systemImage: "music.mic")
                         }
@@ -190,13 +186,8 @@ struct StageScreen: View {
                 .buttonStyle(PillButtonStyle(active: true))
                 Button { assetsOpen = true } label: { Label("Asset Library", systemImage: "cube.box") }
                     .buttonStyle(PillButtonStyle())
-                Button { venuesOpen = true } label: { Label("Venue Library", systemImage: "building.2") }
-                    .buttonStyle(PillButtonStyle())
                 Text("Choose, create and customize performers").font(.caption).foregroundColor(Theme.subtle)
                 Spacer()
-            }
-            .sheet(isPresented: $venuesOpen) {
-                VenueLibraryView { venue in model.stage.importedVenue = venue }
             }
             .sheet(isPresented: $assetsOpen) {
                 AssetLibraryView { path in
