@@ -492,6 +492,17 @@ struct StageInspector: View {
                                     characterNotice = ""
                                 }
                             }
+                            Button("Move to Center Stage") {
+                                guard let deck = model.stage.items.first(where: { $0.prop == .stage }) else {
+                                    characterNotice = "No stage platform found."; return
+                                }
+                                model.updateStageItem(id) {
+                                    $0.x = deck.x; $0.z = deck.z
+                                    $0.y = deck.y + 0.60; $0.rotation = deck.rotation
+                                }
+                                characterNotice = "Character moved to center stage."
+                            }
+                            .buttonStyle(PillButtonStyle())
                             TextField("Character name", text: Binding(get: { item.performerName ?? "" }, set: { v in model.updateStageItem(id) { $0.performerName = v } }))
                             Button {
                                 let name = (item.performerName ?? "").trimmingCharacters(in: .whitespacesAndNewlines)
