@@ -508,7 +508,7 @@ private enum Build {
     private static let garmentWeave: NSImage = {
         let size = 128
         let bitmap = NSBitmapImageRep(bitmapDataPlanes: nil, pixelsWide: size, pixelsHigh: size,
-            bitsPerSample: 8, samplesPerPixel: 3, hasAlpha: false, colorSpaceName: .deviceRGB,
+            bitsPerSample: 8, samplesPerPixel: 3, hasAlpha: false, isPlanar: false, colorSpaceName: .deviceRGB,
             bytesPerRow: size * 3, bitsPerPixel: 24)!
         if let bytes = bitmap.bitmapData {
             for y in 0..<size {
