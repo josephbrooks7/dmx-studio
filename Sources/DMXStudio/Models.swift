@@ -1007,10 +1007,10 @@ struct SavedPerformer: Identifiable, Codable, Hashable {
 }
 
 enum WoodFinish: String, Codable, CaseIterable, Identifiable {
-    case walnut = "American walnut", ash = "Natural ash", oak = "Black oak", flooring = "Hardwood flooring"
+    case walnut = "American walnut", ash = "Natural ash", oak = "Black oak", flooring = "Hardwood flooring", wood066 = "Wood 066"
     var id: String { rawValue }
     var folder: String {
-        switch self { case .walnut: return "walnut"; case .ash: return "ash"; case .oak: return "oak"; case .flooring: return "flooring" }
+        switch self { case .walnut: return "walnut"; case .ash: return "ash"; case .oak: return "oak"; case .flooring: return "flooring"; case .wood066: return "wood066" }
     }
 }
 struct WoodSurface: Codable, Hashable {
