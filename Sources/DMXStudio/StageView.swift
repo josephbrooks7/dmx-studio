@@ -99,6 +99,9 @@ struct StageScreen: View {
                 .help("Show your stage with the bars mounted another way: lying flat (beams go front to back) or upright (beams sweep side to side)")
                 Menu {
                     Section("Venue") {
+                        if model.stage.importedVenue != nil {
+                            Button("Remove imported venue") { model.stage.importedVenue = nil }
+                        }
                         Button { model.stage = StageLayout.concert(keeping: model.stage, fixtures: model.fixtures) } label: {
                             Label("Concert stage (truss, LED wall, line arrays)", systemImage: "music.mic")
                         }
@@ -192,7 +195,9 @@ struct StageScreen: View {
                 Text("Choose, create and customize performers").font(.caption).foregroundColor(Theme.subtle)
                 Spacer()
             }
-            .sheet(isPresented: $venuesOpen) { VenueLibraryView() }
+            .sheet(isPresented: $venuesOpen) {
+                VenueLibraryView { venue in model.stage.importedVenue = venue }
+            }
             .sheet(isPresented: $assetsOpen) {
                 AssetLibraryView { path in
                     if model.stage.items.first(where: { $0.id == model.selectedStageItem && $0.prop == .performer }) == nil {
