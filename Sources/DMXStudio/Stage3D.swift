@@ -1824,14 +1824,9 @@ struct Stage3DView: NSViewRepresentable {
             let base = 0.025 + 0.025 * haze
             scene.fogColor = NSColor(calibratedRed: base + tint.r * 0.10 * haze, green: base + tint.g * 0.10 * haze,
                                      blue: base + tint.b * 0.10 * haze, alpha: 1)
-            // the LED wall / projection content takes on the show's colors (a banner is lit by the beams instead)
-            let mx = max(tint.r, tint.g, tint.b, 0.0001), lvl = min(1, mx * 3)
-            let wall = NSColor(calibratedRed: 0.18 + 0.82 * lvl * tint.r / mx, green: 0.18 + 0.82 * lvl * tint.g / mx,
-                               blue: 0.18 + 0.82 * lvl * tint.b / mx, alpha: 1)
-            let tinted = [.glow, .rays].contains(model.screenCue(song: backdropSongID ?? model.playingSongID, at: backdropTime ?? model.showTimeNow).content) && model.screenCue(song: backdropSongID ?? model.playingSongID, at: backdropTime ?? model.showTimeNow).content != .rays
-            for n in backdropNodes() where n.geometry?.firstMaterial?.lightingModel == .constant {
-                n.geometry?.firstMaterial?.multiply.contents = tinted ? wall : NSColor.white
-            }
+            // Screen content is driven only by its own programmed cue. Do not multiply
+            // emissive screen pixels by fixture intensity or strobe colors: ambient
+            // lighting already affects the room, frame and printed banners separately.
             scene.fogStartDistance = 2
             scene.fogEndDistance = CGFloat(55 - 35 * haze)
             scene.fogDensityExponent = 1.3
