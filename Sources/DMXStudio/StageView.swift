@@ -48,6 +48,7 @@ struct StageScreen: View {
     @EnvironmentObject var model: AppModel
     @State private var charactersOpen = false
     @State private var assetsOpen = false
+    @State private var venuesOpen = false
     @State private var studioAngle = 0.0
     @State private var studioFace = false
 
@@ -186,9 +187,12 @@ struct StageScreen: View {
                 .buttonStyle(PillButtonStyle(active: true))
                 Button { assetsOpen = true } label: { Label("Asset Library", systemImage: "cube.box") }
                     .buttonStyle(PillButtonStyle())
+                Button { venuesOpen = true } label: { Label("Venue Library", systemImage: "building.2") }
+                    .buttonStyle(PillButtonStyle())
                 Text("Choose, create and customize performers").font(.caption).foregroundColor(Theme.subtle)
                 Spacer()
             }
+            .sheet(isPresented: $venuesOpen) { VenueLibraryView() }
             .sheet(isPresented: $assetsOpen) {
                 AssetLibraryView { path in
                     if model.stage.items.first(where: { $0.id == model.selectedStageItem && $0.prop == .performer }) == nil {
