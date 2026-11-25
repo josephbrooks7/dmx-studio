@@ -1807,17 +1807,19 @@ struct Stage3DView: NSViewRepresentable {
                 n.removeFromParentNode(); itemNodes[id] = nil; itemSnapshot[id] = nil; fixtureParts[id] = nil
             }
             var built = 0
-            for item in items {
+            // Synchronize performers first so character edits are never deferred behind props.
+            let orderedItems = items.filter { $0.prop == .performer } + items.filter { $0.prop != .performer }
+            for item in orderedItems {
                 if let old = itemSnapshot[item.id], let node = itemNodes[item.id] {
                     if old.prop == item.prop && old.size == item.size && old.fixtureID == item.fixtureID && old.onStand == item.onStand && old.backdropStyle == item.backdropStyle && old.panels == item.panels && old.performerAppearance == item.performerAppearance && old.woodSurface == item.woodSurface {
                         if old != item { place(node, item) }
                         itemSnapshot[item.id] = item
                         continue
                     }
-                    if built >= 2 { continue }
+                    if built >= 2 && item.prop != .performer { continue }
                     node.removeFromParentNode()
                 }
-                if built >= 2 { continue }
+                if built >= 2 && item.prop != .performer { continue }
                 built += 1
                 let node = makeNode(item)
                 place(node, item)
