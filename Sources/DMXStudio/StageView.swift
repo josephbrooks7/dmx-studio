@@ -202,6 +202,23 @@ struct StageScreen: View {
                         if let performer = model.stage.items.first(where: { $0.id == model.selectedStageItem && $0.prop == .performer }) {
                             VStack(alignment: .leading, spacing: 8) {
                                 Text(performer.performerName ?? "Performer").font(.headline)
+                                if performer.performerAppearance?.modelPath == nil {
+                                    HStack(spacing: 12) {
+                                        ForEach(["Masculine", "Feminine"], id: \.self) { style in
+                                            Button {
+                                                model.updateStageItem(performer.id) {
+                                                    var a = $0.performerAppearance ?? PerformerAppearance()
+                                                    a.bodyStyle = style
+                                                    $0.performerAppearance = a
+                                                }
+                                            } label: {
+                                                Label(style == "Masculine" ? "Male" : "Female", systemImage: "person.crop.rectangle")
+                                                    .frame(maxWidth: .infinity)
+                                            }
+                                            .buttonStyle(PillButtonStyle(active: (performer.performerAppearance?.bodyStyle ?? "Masculine") == style))
+                                        }
+                                    }
+                                }
                                 CharacterModelPreview(appearance: performer.performerAppearance ?? PerformerAppearance(), faceCloseup: studioFace, rotation: studioAngle)
                                     .frame(minWidth: 340, minHeight: 420)
                                 Picker("View", selection: $studioFace) { Text("Full body").tag(false); Text("Face").tag(true) }.pickerStyle(.segmented)
