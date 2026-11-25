@@ -28,6 +28,31 @@ cp "$BIN" "$APP/Contents/MacOS/DMXStudio"
 # Source: Microsoft Rocketbox (MIT), converted GLB assets from avatar-studio.
 CHAR="$APP/Contents/Resources/Characters"
 mkdir -p "$CHAR"
+# Prefer DMX Studio-owned, preconverted release assets. This directory is
+# populated during development, never fetched by the installed application.
+LOCAL_CHAR="packaging/character-library"
+if [[ -d "$LOCAL_CHAR" ]]; then
+  python3 - "$LOCAL_CHAR" "$CHAR" <<'PYCHAR'
+import hashlib, json, pathlib, shutil, sys, zipfile
+source, dest = map(pathlib.Path, sys.argv[1:])
+manifest = json.loads((source / "manifest.json").read_text())
+for asset in manifest["assets"]:
+    name = asset["file"]
+    if pathlib.Path(name).name != name or not name.endswith(".usdz"):
+        raise ValueError("Invalid character asset filename: " + name)
+    model = source / name
+    if hashlib.sha256(model.read_bytes()).hexdigest() != asset["sha256"]:
+        raise ValueError("Character asset checksum mismatch: " + name)
+    if not asset.get("license") or not asset.get("source"):
+        raise ValueError("Missing character asset provenance: " + name)
+    with zipfile.ZipFile(model) as archive:
+        if not any(n.lower().endswith((".usd", ".usda", ".usdc")) for n in archive.namelist()):
+            raise ValueError("Invalid USDZ: " + name)
+    shutil.copy2(model, dest / name)
+    print("Bundled local character asset:", name)
+shutil.copy2(source / "manifest.json", dest / "local-manifest.json")
+PYCHAR
+fi
 if [[ "${DMX_SKIP_CHARACTERS:-0}" != "1" ]]; then
   if ! command -v blender >/dev/null && [[ ! -x /Applications/Blender.app/Contents/MacOS/Blender ]]; then
     brew install --cask blender
@@ -38,6 +63,7 @@ if [[ "${DMX_SKIP_CHARACTERS:-0}" != "1" ]]; then
   curl -fLsS --retry 2 "https://raw.githubusercontent.com/microsoft/Microsoft-Rocketbox/master/LICENSE.md" -o "$CHAR/ROCKETBOX-LICENSE.txt"
   curl -fLsS --retry 2 "$SRC/LICENSE" -o "$CHAR/AVATAR-STUDIO-LICENSE.txt"
   for NAME in andre_casual emma_casual marcus_formal priya_casual; do
+    if [[ -s "$CHAR/$NAME.usdz" ]]; then continue; fi
     curl -fLsS --retry 2 "$SRC/models/$NAME.glb" -o "$TMPCHAR/$NAME.glb"
     "$BLENDER" --background --factory-startup --python packaging/export-character.py -- "$TMPCHAR/$NAME.glb" "$CHAR/$NAME.usdz"
     test -s "$CHAR/$NAME.usdz"
