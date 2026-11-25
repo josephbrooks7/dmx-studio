@@ -15,7 +15,16 @@ jobs:
       - name: Toolchain
         run: swift --version && xcodebuild -version
       - name: Build universal app + DMG (Intel and Apple Silicon, macOS 12+)
-        run: VERSION="1.0.${{ github.run_number }}" packaging/build-dmg.sh --universal
+        run: |
+          set -o pipefail
+          VERSION="1.0.${{ github.run_number }}" packaging/build-dmg.sh --universal 2>&1 | tee /tmp/dmx-build.log
+      - name: Preserve compilation diagnostics
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: DMX-Studio-build-diagnostics
+          path: /tmp/dmx-build.log
+          if-no-files-found: warn
       - name: Check architectures, minimum macOS and linked libraries
         run: |
           ls -d /Applications/Xcode*.app || true
@@ -300,11 +309,11 @@ jobs:
             echo
             if [ -n "$PREV" ]; then echo "Changes since $PREV."; echo; fi
             echo "### New features"
-            echo "No new end-user controls in this update."
+            echo "See the version-specific change history below for implemented features."
             echo "### Improvements"
-            echo "Builds now collect compact application screenshots in a separate preview artifact and report missing captures."
+            echo "Compilation diagnostics and available application previews are retained as build artifacts."
             echo "### Bug fixes"
-            echo "Screenshot capture failures are no longer silently ignored."
+            echo "See the change history for fixes included in this version."
             echo "### Known issues"
             echo "Character mesh quality and dedicated Character Studio captures remain under development. Screenshot capture does not establish visual correctness."
             echo "### Verification"
