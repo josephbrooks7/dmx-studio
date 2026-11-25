@@ -12,6 +12,19 @@ for obj in bpy.data.objects:
 for obj in list(bpy.data.objects):
     if obj.type in {"CAMERA", "LIGHT"}:
         bpy.data.objects.remove(obj, do_unlink=True)
+# Rocketbox assets contain mutually exclusive outfit and exposed-skin variants.
+# Export a single matching set, not all variants stacked on the same skeleton.
+mesh_names = {o.name for o in bpy.data.objects if o.type == "MESH"}
+if {"Outfit_original", "Skin_original"}.issubset(mesh_names):
+    formal = "formal" in Path(dst).stem.lower() and {"Outfit_formal", "Skin_formal"}.issubset(mesh_names)
+    keep = {"Outfit_formal", "Skin_formal", "Shoes"} if formal else {"Outfit_original", "Skin_original"}
+    variants = {"Outfit_original", "Outfit_formal", "Skin_original", "Skin_formal",
+                "Skin_shirt", "Skin_tee", "Top_shirt", "Top_tee", "Trousers", "Shoes"}
+    print("Selected character outfit:", sorted(keep))
+    for obj in list(bpy.data.objects):
+        if obj.type == "MESH" and obj.name in variants - keep:
+            print("Removing inactive outfit/skin variant:", obj.name)
+            bpy.data.objects.remove(obj, do_unlink=True)
 # Remove only exact duplicate mesh instances (same world-space vertices,
 # topology and material slots). Never guess which distinct clothing layer
 # should be removed: report those for asset-specific inspection instead.
