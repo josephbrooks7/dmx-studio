@@ -196,9 +196,19 @@ struct StageScreen: View {
                             Text(item.performerName ?? "Performer").tag(Optional(item.id))
                         }
                     }
-                    StageInspector()
+                    HStack(alignment: .top, spacing: 16) {
+                        if let performer = model.stage.items.first(where: { $0.id == model.selectedStageItem && $0.prop == .performer }) {
+                            VStack(alignment: .leading, spacing: 8) {
+                                Text(performer.performerName ?? "Performer").font(.headline)
+                                CharacterModelPreview(appearance: performer.performerAppearance ?? PerformerAppearance(), faceCloseup: false)
+                                    .frame(minWidth: 340, minHeight: 420)
+                                Text("Preview updates as you change the character.").font(.caption).foregroundColor(Theme.subtle)
+                            }
+                        }
+                        StageInspector().frame(width: 340)
+                    }
                 }
-                .padding(20).frame(width: 480, height: 680)
+                .padding(20).frame(width: 780, height: 680)
             }
             HStack(spacing: 12) {
                 ZStack(alignment: .topTrailing) {
