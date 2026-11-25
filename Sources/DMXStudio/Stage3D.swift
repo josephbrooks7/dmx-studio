@@ -1489,9 +1489,6 @@ struct Stage3DView: NSViewRepresentable {
         let scene = SCNScene()
         let camera = SCNNode()
         weak var view: StageSCNView?
-        private var defaultRoomNodes: [SCNNode] = []
-        private var importedRoom: SCNNode?
-        private var venueSnapshot: LocalVenue?
         private var itemNodes: [UUID: SCNNode] = [:]
         private var itemSnapshot: [UUID: StageItem] = [:]
         private var fixtureParts: [UUID: (head: SCNNode, lenses: [SCNNode], light: SCNNode?)] = [:]
@@ -1503,7 +1500,6 @@ struct Stage3DView: NSViewRepresentable {
         init(model: AppModel) {
             self.model = model
             buildRoom()
-            defaultRoomNodes = scene.rootNode.childNodes.filter { $0.light == nil }
             camera.camera = SCNCamera()
             camera.camera?.zFar = 200
             camera.camera?.fieldOfView = 38   // a normal lens: 50 on a wide window shrank the stage to the middle
@@ -1764,41 +1760,8 @@ struct Stage3DView: NSViewRepresentable {
             // (no light aimed at the back wall: up close it made a hard hotspot)
         }
 
-        private func syncVenue() {
-            guard model.playingSongID == nil else { return }
-            let venue = model.stage.importedVenue
-            guard venue != venueSnapshot else { return }
-            venueSnapshot = venue
-            importedRoom?.removeFromParentNode(); importedRoom = nil
-            defaultRoomNodes.forEach { $0.isHidden = false }
-            guard let venue = venue, venue.metersPerUnit.isFinite, venue.metersPerUnit > 0,
-                  let loaded = try? SCNScene(url: venue.url, options: nil) else { return }
-            let room = SCNNode()
-            let mesh = loaded.rootNode.clone()
-            mesh.enumerateChildNodes { node, _ in
-                node.light = nil; node.camera = nil
-                if let geometry = node.geometry, let copy = geometry.copy() as? SCNGeometry {
-                    copy.materials = geometry.materials.map { original in
-                        guard let material = original.copy() as? SCNMaterial else { return original }
-                        material.lightingModel = .physicallyBased
-                        return material
-                    }
-                    node.geometry = copy
-                }
-            }
-            let b = mesh.boundingBox
-            let scale = CGFloat(venue.metersPerUnit)
-            mesh.scale = SCNVector3(scale, scale, scale)
-            mesh.position = SCNVector3(-(b.min.x+b.max.x)*scale/2, -b.min.y*scale, -(b.min.z+b.max.z)*scale/2)
-            room.addChildNode(mesh)
-            room.eulerAngles.y = CGFloat(venue.yawDegrees ?? 0) * .pi / 180
-            scene.rootNode.addChildNode(room); importedRoom = room
-            defaultRoomNodes.forEach { $0.isHidden = true }
-        }
-
         /// Rebuild items that were added, removed or changed.
         func sync() {
-            syncVenue()
             if let req = model.stageCameraRequest, req.id != lastCameraRequest {
                 lastCameraRequest = req.id
                 setCamera(req.name)
@@ -1948,7 +1911,7 @@ struct Stage3DView: NSViewRepresentable {
         /// 30 times a second: copy what every light is doing onto its 3D model.
         private func animate() {
             // Keep preparing the retained scene while hidden, but never rebuild geometry during a song.
-            if model.playingSongID == nil && (venueSnapshot != model.stage.importedVenue || itemSnapshot != Dictionary(uniqueKeysWithValues: model.stage.items.map { ($0.id, $0) })) { sync() }
+            if model.playingSongID == nil && (itemSnapshot != Dictionary(uniqueKeysWithValues: model.stage.items.map { ($0.id, $0) })) { sync() }
             // Only draw while the Stage view is actually on screen (not minimized, hidden or covered)
             guard model.stagePageVisible, let w = view?.window, w.isVisible, w.occlusionState.contains(.visible), !w.isMiniaturized else {
                 if view?.isPlaying == true { view?.isPlaying = false }
