@@ -560,7 +560,10 @@ struct StageInspector: View {
                             Divider()
                             Text("Measurements").font(.headline)
                             let inches = Int((appearance.height / 0.0254).rounded())
-                            Text("Height: " + String(inches / 12) + " ft " + String(inches % 12) + " in · " + String(Int((appearance.height * 100).rounded())) + " cm").font(.caption)
+                            let heightFeet = inches / 12
+                            let heightInches = inches % 12
+                            let heightCentimeters = Int((appearance.height * 100).rounded())
+                            Text("Height: \(heightFeet) ft \(heightInches) in · \(heightCentimeters) cm").font(.caption)
                             Slider(value: Binding(get: { appearance.height }, set: { v in model.updateStageItem(id) { var a = $0.performerAppearance ?? PerformerAppearance(); a.height = v; $0.performerAppearance = a } }), in: 1.4...2.1, step: 0.01)
                             let estimatedWeight = 73 * pow(appearance.height / 1.75, 2) * appearance.build
                             Text("Estimated weight: " + String(Int(estimatedWeight * 2.20462)) + " lb · " + String(Int(estimatedWeight)) + " kg").font(.caption)
