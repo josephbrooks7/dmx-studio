@@ -7,6 +7,20 @@ import AppKit
 // MARK: - Materials
 
 private enum Mat {
+    static func wood(_ settings: WoodSurface) -> SCNMaterial {
+        let m = make(NSColor(calibratedRed: 0.28, green: 0.17, blue: 0.09, alpha: 1), rough: CGFloat(settings.roughness))
+        let dir = Bundle.main.resourceURL?.appendingPathComponent("Materials/" + settings.finish.folder)
+        for (name, property) in [("color", m.diffuse), ("normal", m.normal), ("roughness", m.roughness)] {
+            if let url = dir?.appendingPathComponent(name + ".jpg"), let image = NSImage(contentsOf: url) {
+                property.contents = image
+                property.wrapS = .repeat; property.wrapT = .repeat
+                property.contentsTransform = SCNMatrix4MakeScale(CGFloat(settings.repeatScale), CGFloat(settings.repeatScale), 1)
+            }
+        }
+        m.roughness.intensity = CGFloat(settings.roughness)
+        return m
+    }
+
     static func make(_ color: NSColor, metal: Bool = false, rough: CGFloat = 0.6) -> SCNMaterial {
         let m = SCNMaterial()
         m.lightingModel = .physicallyBased
@@ -756,14 +770,14 @@ private enum Build {
         n.position = SCNVector3(-0.35+CGFloat(i)*0.03,y,0.48); root.addChildNode(n)
     }
 
-    static func prop(_ kind: PropKind, size: Double) -> SCNNode {
+    static func prop(_ kind: PropKind, size: Double, woodSurface: WoodSurface? = nil) -> SCNNode {
         let s = CGFloat(size)
         switch kind {
         case .stage:
             let root = SCNNode()
             let width = 6 * s
             let skirt = Mat.make(NSColor(white: 0.025, alpha: 1), rough: 0.96)
-            let deck = Mat.make(NSColor(white: 0.07, alpha: 1), rough: 0.82)
+            let deck = woodSurface.map { Mat.wood($0) } ?? Mat.make(NSColor(white: 0.07, alpha: 1), rough: 0.82)
             let trim = Mat.make(NSColor(white: 0.13, alpha: 1), metal: true, rough: 0.68)
             let base = box(width, 0.56, 4, skirt, chamfer: 0.012)
             base.position = SCNVector3(0, 0.28, 0); root.addChildNode(base)
@@ -974,7 +988,7 @@ private enum Build {
         case .cabaretTable:
             // a small round cocktail table with a candle and three bentwood chairs
             let root = SCNNode()
-            let wood = Mat.make(NSColor(calibratedRed: 0.08, green: 0.05, blue: 0.04, alpha: 1), rough: 0.5)
+            let wood = Mat.wood(woodSurface ?? WoodSurface())
             let top = cyl(0.32, 0.03, wood); top.position = SCNVector3(0, 0.74, 0); root.addChildNode(top)
             root.addChildNode(pipe(from: SCNVector3(0, 0, 0), to: SCNVector3(0, 0.74, 0), r: 0.025, Mat.black))
             let base = cyl(0.2, 0.02, Mat.black); base.position = SCNVector3(0, 0.01, 0); root.addChildNode(base)
@@ -1616,7 +1630,7 @@ struct Stage3DView: NSViewRepresentable {
             var built = 0
             for item in items {
                 if let old = itemSnapshot[item.id], let node = itemNodes[item.id] {
-                    if old.prop == item.prop && old.size == item.size && old.fixtureID == item.fixtureID && old.onStand == item.onStand && old.backdropStyle == item.backdropStyle && old.panels == item.panels && old.performerAppearance == item.performerAppearance {
+                    if old.prop == item.prop && old.size == item.size && old.fixtureID == item.fixtureID && old.onStand == item.onStand && old.backdropStyle == item.backdropStyle && old.panels == item.panels && old.performerAppearance == item.performerAppearance && old.woodSurface == item.woodSurface {
                         if old != item { place(node, item) }
                         itemSnapshot[item.id] = item
                         continue
@@ -1662,7 +1676,7 @@ struct Stage3DView: NSViewRepresentable {
             root.name = "item:\(item.id.uuidString)"
             if let kind = item.prop {
                 root.addChildNode(kind == .backdrop ? Build.backdrop(item.backdropStyle ?? .ledWall, size: item.size, panels: item.panels)
-                                                    : (kind == .performer ? Build.performer(item.performerAppearance ?? PerformerAppearance()) : Build.prop(kind, size: item.size)))
+                                                    : (kind == .performer ? Build.performer(item.performerAppearance ?? PerformerAppearance()) : Build.prop(kind, size: item.size, woodSurface: item.woodSurface)))
                 return root
             }
             guard let fid = item.fixtureID, let fx = model.fixtures.first(where: { $0.id == fid }) else { return root }
