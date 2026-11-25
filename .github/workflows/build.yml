@@ -3,6 +3,9 @@ on:
   push:
     branches: [main]
   workflow_dispatch:
+concurrency:
+  group: dmx-studio-release-main
+  cancel-in-progress: true
 permissions:
   contents: write
 jobs:
@@ -295,6 +298,11 @@ jobs:
         env:
           GH_TOKEN: ${{ github.token }}
         run: |
+          git fetch origin main
+          if [ "$(git rev-parse HEAD)" != "$(git rev-parse origin/main)" ]; then
+            echo "Superseded source revision; skipping release."
+            exit 0
+          fi
           TAG="v1.0.${{ github.run_number }}"
           # Compare with the newest earlier published app release that is an ancestor.
           # This includes changes from failed/skipped builds, not merely the last commit.
@@ -337,6 +345,11 @@ jobs:
           gh release create "$TAG" build/*.dmg build/DMX-Studio-Update.zip "${PREVIEWS[@]}" --title "DMX Studio $TAG" --notes-file /tmp/release-notes.md --latest
       - name: Copy DMG to dist branch
         run: |
+          git fetch origin main
+          if [ "$(git rev-parse HEAD)" != "$(git rev-parse origin/main)" ]; then
+            echo "Superseded source revision; leaving updater unchanged."
+            exit 0
+          fi
           mkdir -p /tmp/dist && cp build/DMX-Studio-1.*.dmg /tmp/dist/DMX-Studio.dmg
           git config user.name "dmx-studio-ci"; git config user.email "ci@users.noreply.github.com"
           git checkout --orphan dist
