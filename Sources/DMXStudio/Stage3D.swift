@@ -564,6 +564,55 @@ private enum Build {
         }
     }
 
+    // Approximate regional soft-tissue changes for static avatars. Deform the
+    // clothing and body in the same normalized coordinate space to reduce clipping.
+    // Rigged or morphed geometry is deliberately excluded.
+    private static func regionalBuild(_ root: SCNNode, bounds: (min: SCNVector3, max: SCNVector3), amount: CGFloat) {
+        let h = bounds.max.y - bounds.min.y
+        guard h > 0.001, abs(amount) > 0.001 else { return }
+        let cx = (bounds.min.x + bounds.max.x) / 2
+        let cz = (bounds.min.z + bounds.max.z) / 2
+        root.enumerateChildNodes { node, _ in
+            guard node.skinner == nil, node.morpher == nil, let g = node.geometry,
+                  let source = g.sources(for: .vertex).first,
+                  source.usesFloatComponents, source.bytesPerComponent == 4,
+                  source.componentsPerVector == 3 else { return }
+            let name = (node.name ?? "").lowercased()
+            guard !["hair", "eye", "teeth", "shoe", "hand", "face"].contains(where: { name.contains($0) }) else { return }
+            var vertices: [SCNVector3] = []
+            source.data.withUnsafeBytes { (raw: UnsafeRawBufferPointer) in
+                for i in 0..<source.vectorCount {
+                    let offset = source.dataOffset + i * source.dataStride
+                    guard offset + 12 <= raw.count else { break }
+                    let p = SCNVector3(CGFloat(raw.loadUnaligned(fromByteOffset: offset, as: Float.self)),
+                                       CGFloat(raw.loadUnaligned(fromByteOffset: offset+4, as: Float.self)),
+                                       CGFloat(raw.loadUnaligned(fromByteOffset: offset+8, as: Float.self)))
+                    var q = node.convertPosition(p, to: root)
+                    let y = (q.y - bounds.min.y) / h
+                    func region(_ center: CGFloat, _ spread: CGFloat) -> CGFloat {
+                        let d = (y-center)/spread
+                        return exp(-d*d)
+                    }
+                    let torso = region(0.58, 0.09)
+                    let hips = region(0.47, 0.065)
+                    let thighs = region(0.35, 0.09)
+                    let chest = region(0.72, 0.06)
+                    let lateral = abs(q.x-cx)/h
+                    let central = max(0, min(1, (0.24-lateral)/0.12))
+                    let weight = (0.30*torso + 0.22*hips + 0.15*thighs + 0.12*chest) * central
+                    q.x = cx + (q.x-cx)*(1+amount*weight)
+                    q.z = cz + (q.z-cz)*(1+amount*weight*1.6)
+                    vertices.append(node.convertPosition(q, from: root))
+                }
+            }
+            guard vertices.count == source.vectorCount else { return }
+            let sources = [SCNGeometrySource(vertices: vertices)] + g.sources.filter { $0.semantic != .vertex }
+            let copy = SCNGeometry(sources: sources, elements: g.elements)
+            copy.materials = g.materials
+            node.geometry = copy
+        }
+    }
+
     static func performer(_ a: PerformerAppearance) -> SCNNode {
         let root = SCNNode()
         // Imported self-contained USDZ assets retain their authored meshes and materials.
@@ -608,7 +657,8 @@ private enum Build {
                 // Static scanned avatars have no anatomical morph targets. Keep the
                 // silhouette close to the authored proportions until rigged bodies
                 // are available; do not stretch the entire head and clothing by 40%.
-                let restrainedBuild = 1 + (build - 1) * 0.25
+                let restrainedBuild: CGFloat = 1
+                if url == bundled && !zUp { regionalBuild(imported, bounds: bounds, amount: build - 1) }
                 let width = scale * restrainedBuild * neutralWidth
                 let depth = scale * sqrt(restrainedBuild) * neutralDepth
                 mesh.scale = SCNVector3(width, scale, depth)
