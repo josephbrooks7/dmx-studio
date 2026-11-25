@@ -627,7 +627,7 @@ private enum Build {
             for semantic in [SCNGeometrySource.Semantic.normal, .texcoord, .color, .tangent] {
                 sources.append(contentsOf: g.sources(for: semantic))
             }
-            let elements = (0..<g.geometryElementCount).map { g.element(at: $0) }
+            let elements = (0..<g.elementCount).map { g.element(at: $0) }
             let copy = SCNGeometry(sources: sources, elements: elements)
             copy.materials = g.materials
             node.geometry = copy

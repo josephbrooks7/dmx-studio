@@ -565,9 +565,23 @@ struct StageInspector: View {
                             let heightCentimeters = Int((appearance.height * 100).rounded())
                             Text("Height: \(heightFeet) ft \(heightInches) in · \(heightCentimeters) cm").font(.caption)
                             Slider(value: Binding(get: { appearance.height }, set: { v in model.updateStageItem(id) { var a = $0.performerAppearance ?? PerformerAppearance(); a.height = v; $0.performerAppearance = a } }), in: 1.4...2.1, step: 0.01)
-                            let estimatedWeight = 73 * pow(appearance.height / 1.75, 2) * appearance.build
-                            Text("Estimated weight: " + String(Int(estimatedWeight * 2.20462)) + " lb · " + String(Int(estimatedWeight)) + " kg").font(.caption)
-                            Slider(value: Binding(get: { estimatedWeight }, set: { v in model.updateStageItem(id) { var a = $0.performerAppearance ?? PerformerAppearance(); a.build = min(1.4, max(0.7, v / (73 * pow(a.height / 1.75, 2)))); $0.performerAppearance = a } }), in: (73 * pow(appearance.height / 1.75, 2) * 0.7)...(73 * pow(appearance.height / 1.75, 2) * 1.4))
+                            let heightRatio: Double = appearance.height / 1.75
+                            let baseWeight: Double = 73.0 * heightRatio * heightRatio
+                            let estimatedWeight: Double = baseWeight * appearance.build
+                            let pounds = Int(estimatedWeight * 2.20462)
+                            let kilograms = Int(estimatedWeight)
+                            let weightRange: ClosedRange<Double> = (baseWeight * 0.7)...(baseWeight * 1.4)
+                            let weightBinding = Binding<Double>(get: { estimatedWeight }, set: { value in
+                                model.updateStageItem(id) { item in
+                                    var a = item.performerAppearance ?? PerformerAppearance()
+                                    let ratio: Double = a.height / 1.75
+                                    let baseline: Double = 73.0 * ratio * ratio
+                                    a.build = min(1.4, max(0.7, value / baseline))
+                                    item.performerAppearance = a
+                                }
+                            })
+                            Text("Estimated weight: \(pounds) lb · \(kilograms) kg").font(.caption)
+                            Slider(value: weightBinding, in: weightRange)
                             Text("Weight is an approximate visual build control, not a physical simulation.").font(.caption2).foregroundColor(Theme.subtle)
                             Divider()
                             Text("Face").font(.headline)
