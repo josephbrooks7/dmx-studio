@@ -1674,6 +1674,9 @@ struct Stage3DView: NSViewRepresentable {
             light.light?.spotInnerAngle = fx.colorWheel != nil ? 10 : 4
             light.light?.intensity = 0
             light.light?.attenuationEndDistance = 20
+            light.light?.attenuationStartDistance = 0.5
+            light.light?.shadowMapSize = CGSize(width: 512, height: 512)
+            light.light?.shadowRadius = 3
             if fx.profileName.hasPrefix("SHEHDS") || fx.headCount == 8 {
                 let (bar, head, lenses) = Build.shehdsBar()
                 root.addChildNode(bar)
@@ -1882,8 +1885,9 @@ struct Stage3DView: NSViewRepresentable {
                     let n = Double(max(1, parts.lenses.count))
                     let mx = max(avg.r, avg.g, avg.b, 0.0001)
                     l.color = NSColor(calibratedRed: avg.r / mx, green: avg.g / mx, blue: avg.b / mx, alpha: 1)
-                    // Light mode skips the floor pools: fewer real lights for the graphics chip
-                    l.intensity = lightPools ? CGFloat(avg.i / n * (fx.colorWheel != nil ? 3500 : 4000)) : 0
+                    // Keep direct surface illumination active during playback and low quality. Only expensive shadows are optional.
+                    l.intensity = CGFloat(avg.i / n * (fx.colorWheel != nil ? 3500 : 4000)) * (lightPools ? 1 : 0.65)
+                    l.castsShadow = lightPools && fx.colorWheel != nil
                 }
             }
             // Haze in the room: the air takes on a little of the lights' color and swallows distance
