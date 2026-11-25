@@ -47,6 +47,7 @@ extension AppModel {
 struct StageScreen: View {
     @EnvironmentObject var model: AppModel
     @State private var charactersOpen = false
+    @State private var assetsOpen = false
     @State private var studioAngle = 0.0
     @State private var studioFace = false
 
@@ -183,8 +184,25 @@ struct StageScreen: View {
                     charactersOpen = true
                 } label: { Label("Character Studio", systemImage: "person.crop.rectangle") }
                 .buttonStyle(PillButtonStyle(active: true))
+                Button { assetsOpen = true } label: { Label("Asset Library", systemImage: "cube.box") }
+                    .buttonStyle(PillButtonStyle())
                 Text("Choose, create and customize performers").font(.caption).foregroundColor(Theme.subtle)
                 Spacer()
+            }
+            .sheet(isPresented: $assetsOpen) {
+                AssetLibraryView { path in
+                    if model.stage.items.first(where: { $0.id == model.selectedStageItem && $0.prop == .performer }) == nil {
+                        model.addProp(.performer)
+                        model.selectedStageItem = model.stage.items.last(where: { $0.prop == .performer })?.id
+                    }
+                    if let id = model.selectedStageItem {
+                        model.updateStageItem(id) {
+                            var a = $0.performerAppearance ?? PerformerAppearance()
+                            a.modelPath = path
+                            $0.performerAppearance = a
+                        }
+                    }
+                }
             }
             .sheet(isPresented: $charactersOpen) {
                 VStack(alignment: .leading, spacing: 12) {
