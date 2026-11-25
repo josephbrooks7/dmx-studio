@@ -567,9 +567,11 @@ private enum Build {
     // Approximate regional soft-tissue changes for static avatars. Deform the
     // clothing and body in the same normalized coordinate space to reduce clipping.
     // Rigged or morphed geometry is deliberately excluded.
-    private static func regionalBuild(_ root: SCNNode, bounds: (min: SCNVector3, max: SCNVector3), amount: CGFloat) {
+    private static func regionalBuild(_ root: SCNNode, bounds: (min: SCNVector3, max: SCNVector3), amount: CGFloat, height: CGFloat, zUp: Bool) {
         let h = bounds.max.y - bounds.min.y
-        guard h > 0.001, abs(amount) > 0.001 else { return }
+        guard h > 0.001, height > 0 else { return }
+        let headScale = min(1.15, max(0.85, 1.75 / height))
+        guard abs(amount) > 0.001 || abs(headScale - 1) > 0.001 else { return }
         let cx = (bounds.min.x + bounds.max.x) / 2
         let cz = (bounds.min.z + bounds.max.z) / 2
         root.enumerateChildNodes { node, _ in
@@ -578,16 +580,22 @@ private enum Build {
                   source.usesFloatComponents, source.bytesPerComponent == 4,
                   source.componentsPerVector == 3 else { return }
             let name = (node.name ?? "").lowercased()
-            guard !["hair", "eye", "teeth", "shoe", "hand", "face"].contains(where: { name.contains($0) }) else { return }
+            let protected = ["hair", "eye", "teeth", "shoe", "hand", "face"].contains(where: { name.contains($0) })
             var vertices: [SCNVector3] = []
             source.data.withUnsafeBytes { (raw: UnsafeRawBufferPointer) in
                 for i in 0..<source.vectorCount {
                     let offset = source.dataOffset + i * source.dataStride
                     guard offset + 12 <= raw.count else { break }
-                    let p = SCNVector3(CGFloat(raw.loadUnaligned(fromByteOffset: offset, as: Float.self)),
-                                       CGFloat(raw.loadUnaligned(fromByteOffset: offset+4, as: Float.self)),
-                                       CGFloat(raw.loadUnaligned(fromByteOffset: offset+8, as: Float.self)))
-                    var q = node.convertPosition(p, to: root)
+                    func component(_ offset: Int) -> CGFloat {
+                        var value: Float = 0
+                        withUnsafeMutableBytes(of: &value) { dest in
+                            dest.copyBytes(from: UnsafeRawBufferPointer(rebasing: raw[offset..<(offset+4)]))
+                        }
+                        return CGFloat(value)
+                    }
+                    let p = SCNVector3(component(offset), component(offset+4), component(offset+8))
+                    let local = node.convertPosition(p, to: root)
+                    var q = zUp ? SCNVector3(local.x, local.z, -local.y) : local
                     let y = (q.y - bounds.min.y) / h
                     func region(_ center: CGFloat, _ spread: CGFloat) -> CGFloat {
                         let d = (y-center)/spread
@@ -599,14 +607,22 @@ private enum Build {
                     let chest = region(0.72, 0.06)
                     let lateral = abs(q.x-cx)/h
                     let central = max(0, min(1, (0.24-lateral)/0.12))
-                    let weight = (0.30*torso + 0.22*hips + 0.15*thighs + 0.12*chest) * central
+                    let weight = (protected ? 0 : 1) * (0.30*torso + 0.22*hips + 0.15*thighs + 0.12*chest) * central
                     q.x = cx + (q.x-cx)*(1+amount*weight)
                     q.z = cz + (q.z-cz)*(1+amount*weight*1.6)
-                    vertices.append(node.convertPosition(q, from: root))
+                    // Preserve head size relative to adult height, blending through the neck.
+                    let t = max(0, min(1, (y-0.80)/0.08))
+                    let blend = t*t*(3-2*t)
+                    let headFactor = 1 + (headScale-1)*blend
+                    q.x = cx + (q.x-cx)*headFactor
+                    q.z = cz + (q.z-cz)*headFactor
+                    q.y = bounds.max.y + (q.y-bounds.max.y)*headFactor
+                    let restored = zUp ? SCNVector3(q.x, -q.z, q.y) : q
+                    vertices.append(node.convertPosition(restored, from: root))
                 }
             }
             guard vertices.count == source.vectorCount else { return }
-            let sources = [SCNGeometrySource(vertices: vertices)] + g.sources.filter { $0.semantic != .vertex }
+            let sources = [SCNGeometrySource(vertices: vertices)] + g.sources(for: .normal) + g.sources(for: .texcoord) + g.sources(for: .color) + g.sources(for: .tangent)
             let copy = SCNGeometry(sources: sources, elements: g.elements)
             copy.materials = g.materials
             node.geometry = copy
@@ -658,7 +674,7 @@ private enum Build {
                 // silhouette close to the authored proportions until rigged bodies
                 // are available; do not stretch the entire head and clothing by 40%.
                 let restrainedBuild: CGFloat = 1
-                if url == bundled && !zUp { regionalBuild(imported, bounds: bounds, amount: build - 1) }
+                if url == bundled { regionalBuild(imported, bounds: bounds, amount: build - 1, height: CGFloat(a.height), zUp: zUp) }
                 let width = scale * restrainedBuild * neutralWidth
                 let depth = scale * sqrt(restrainedBuild) * neutralDepth
                 mesh.scale = SCNVector3(width, scale, depth)
