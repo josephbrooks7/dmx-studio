@@ -656,8 +656,13 @@ private enum Build {
             let rawY = raw.max.y - raw.min.y
             let rawZ = raw.max.z - raw.min.z
             let orientation = SCNNode()
-            let zUp = rawZ > rawY * 1.25
+            let rawX = raw.max.x - raw.min.x
+            // Prefer the authored Y-up axis for ambiguous silhouettes. A clearly
+            // dominant horizontal height axis indicates an imported side-lying body.
+            let zUp = rawZ > rawY * 1.25 && rawZ >= rawX
+            let xUp = rawX > rawY * 1.35 && rawX > rawZ * 1.25
             if zUp { orientation.eulerAngles.x = -.pi / 2 }
+            else if xUp { orientation.eulerAngles.z = .pi / 2 }
             orientation.addChildNode(imported)
             mesh.addChildNode(orientation)
             // Transform the original bounds explicitly; do not depend on SceneKit
@@ -665,7 +670,8 @@ private enum Build {
             let bounds = zUp
                 ? (min: SCNVector3(raw.min.x, raw.min.z, -raw.max.y),
                    max: SCNVector3(raw.max.x, raw.max.z, -raw.min.y))
-                : raw
+                : (xUp ? (min: SCNVector3(-raw.max.y, raw.min.x, raw.min.z),
+                          max: SCNVector3(-raw.min.y, raw.max.x, raw.max.z)) : raw)
             let h = bounds.max.y - bounds.min.y
             if h.isFinite && h > 0.001 {
                 let scale = CGFloat(a.height) / h
@@ -679,7 +685,7 @@ private enum Build {
                 // silhouette close to the authored proportions until rigged bodies
                 // are available; do not stretch the entire head and clothing by 40%.
                 let restrainedBuild: CGFloat = 1
-                if url == bundled { regionalBuild(imported, bounds: bounds, amount: build - 1, height: CGFloat(a.height), zUp: zUp) }
+                if url == bundled && !xUp { regionalBuild(imported, bounds: bounds, amount: build - 1, height: CGFloat(a.height), zUp: zUp) }
                 let width = scale * restrainedBuild * neutralWidth
                 let depth = scale * sqrt(restrainedBuild) * neutralDepth
                 mesh.scale = SCNVector3(width, scale, depth)
