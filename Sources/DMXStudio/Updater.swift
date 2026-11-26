@@ -265,15 +265,43 @@ final class Updater: ObservableObject {
         Task { await check(); if case .failed = state { state = .idle } }
     }
 
+    // The public latest-release redirect does not consume REST API quota.
+    private func checkPublicRelease() async throws {
+        var request = URLRequest(url: URL(string: "https://github.com/\(repo)/releases/latest")!)
+        request.httpMethod = "HEAD"
+        request.timeoutInterval = 20
+        request.cachePolicy = .reloadIgnoringLocalCacheData
+        let (_, response) = try await URLSession.shared.data(for: request)
+        guard let http = response as? HTTPURLResponse, http.statusCode == 200,
+              let url = http.url, url.scheme == "https", url.host == "github.com",
+              url.path.hasPrefix("/\(repo)/releases/tag/") else {
+            throw UpdateError("Public release check unavailable.")
+        }
+        let tag = url.lastPathComponent
+        let v = tag.hasPrefix("v") ? String(tag.dropFirst()) : tag
+        let parts = v.split(separator: ".", omittingEmptySubsequences: false)
+        guard parts.count == 3, parts.allSatisfy({ Int($0) != nil && !$0.isEmpty && $0.allSatisfy { $0.isASCII && $0.isNumber } }) else {
+            throw UpdateError("Invalid public release version.")
+        }
+        let base = URL(string: "https://github.com/\(repo)/releases/download/")!.appendingPathComponent(tag)
+        updateZip = base.appendingPathComponent("DMX-Studio-Update.zip")
+        fullDMG = base.appendingPathComponent("DMX-Studio-\(v).dmg")
+        fullSize = 0
+        notes = "Release notes: https://github.com/\(repo)/releases/tag/\(tag)"
+        latest = v
+        state = Self.newer(v, than: current) ? .available(v) : .upToDate
+    }
+
     func check() async {
         if case .checking = state { return }
         if case .downloading = state { return }
         guard !isInstalling, !canCancel else { return }
+        state = .checking
         if Date() < releaseRetryAfter {
-            state = .failed("GitHub API rate limit reached. The updater will retry after the reset.")
+            do { try await checkPublicRelease() }
+            catch { state = .failed("GitHub API rate limited; public release check also unavailable.") }
             return
         }
-        state = .checking
         do {
             var req = URLRequest(url: URL(string: "https://api.github.com/repos/\(repo)/releases/latest")!)
             req.setValue("application/vnd.github+json", forHTTPHeaderField: "Accept")
@@ -283,7 +311,11 @@ final class Updater: ObservableObject {
             guard let http = resp as? HTTPURLResponse else { throw UpdateError("Invalid update server response.") }
             guard http.statusCode == 200 else {
                 let limited = Self.isRateLimited(http)
-                if limited { releaseRetryAfter = Self.rateLimitDeadline(http) }
+                if limited {
+                    releaseRetryAfter = Self.rateLimitDeadline(http)
+                    try await checkPublicRelease()
+                    return
+                }
                 throw UpdateError(limited ? "GitHub update checks are rate limited. Please retry later." : "Update server returned HTTP \(http.statusCode).")
             }
             guard let json = try JSONSerialization.jsonObject(with: data) as? [String: Any],
