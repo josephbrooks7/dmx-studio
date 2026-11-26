@@ -7,6 +7,7 @@ including actual transformed bounds. Does NOT write files to the repository.
 This is a geometry experiment, not a rigging or character-assembly solution.
 """
 import io
+import sys
 import json
 from pathlib import Path
 import subprocess
@@ -23,7 +24,10 @@ BLENDER_SCRIPT = r'''
 import bpy, json, math, sys
 from mathutils import Vector
 from pathlib import Path
-body_file,head_file,head_type,sex=sys.argv[sys.argv.index("--")+1:]
+cli_args=sys.argv[sys.argv.index("--")+1:]
+if len(cli_args) not in (4,5):
+ raise ValueError("Expected body_file head_file head_type sex [render_dir]; got "+str(len(cli_args)))
+body_file,head_file,head_type,sex=cli_args[:4]
 bpy.ops.object.select_all(action="SELECT")
 bpy.ops.object.delete(use_global=False)
 bpy.ops.import_scene.gltf(filepath=body_file)
@@ -82,9 +86,9 @@ print("DMX_FIT_REPORT="+json.dumps({
 
 # Optional diagnostic render (never exports or saves models).
 # Remove overlapping old body-head polygons only in the temporary Blender scene.
-if len(sys.argv[sys.argv.index("--")+1:]) > 4:
+if len(cli_args) == 5:
  import bmesh
- render_dir=Path(sys.argv[sys.argv.index("--")+5])
+ render_dir=Path(cli_args[4])
  render_dir.mkdir(parents=True,exist_ok=True)
  bm=bmesh.new()
  bm.from_mesh(body.data)
@@ -183,7 +187,13 @@ def main():
             print("=== "+sex.upper()+" HEAD FIT DIAGNOSTIC ===",flush=True)
             for line in (run.stdout+"\n"+run.stderr).splitlines():
                 if line.startswith(("DMX_FIT_REPORT=","DMX_RENDER=","DMX_RENDER_NOTE=","Traceback","Error:")): print(line,flush=True)
-            if run.returncode: raise RuntimeError("Blender diagnostic failed: "+sex)
+            if run.returncode:
+                # Show the complete traceback (including the exception itself)
+                # instead of only printing "Traceback" and "Error:" headers.
+                print("=== COMPLETE BLENDER ERROR: "+sex+" ===",file=sys.stderr,flush=True)
+                print(run.stdout[-12000:],file=sys.stderr,flush=True)
+                print(run.stderr[-12000:],file=sys.stderr,flush=True)
+                raise RuntimeError("Blender diagnostic failed: "+sex)
     print("Diagnostic complete. No models exported or published.")
     if opts.render: print("Visual diagnostic files:", opts.output.expanduser().resolve())
 
