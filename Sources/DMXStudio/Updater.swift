@@ -150,13 +150,32 @@ final class Updater: ObservableObject {
 
     private var lastRemoteCheck = Date.distantPast
     private var remoteCheckRunning = false
+    // Avoid hammering the shared unauthenticated GitHub API quota on failure.
+    private var remoteRetryAfter = Date.distantPast
+    private var releaseRetryAfter = Date.distantPast
+
+    private static func rateLimitDeadline(_ response: HTTPURLResponse) -> Date {
+        if let retry = response.value(forHTTPHeaderField: "Retry-After"),
+           let seconds = TimeInterval(retry), seconds > 0 {
+            return Date().addingTimeInterval(min(seconds, 86400))
+        }
+        if let reset = response.value(forHTTPHeaderField: "X-RateLimit-Reset"),
+           let timestamp = TimeInterval(reset), timestamp > Date().timeIntervalSince1970 {
+            return Date(timeIntervalSince1970: timestamp).addingTimeInterval(5)
+        }
+        return Date().addingTimeInterval(900)
+    }
+    private static func isRateLimited(_ response: HTTPURLResponse) -> Bool {
+        response.statusCode == 429 ||
+            (response.statusCode == 403 && response.value(forHTTPHeaderField: "X-RateLimit-Remaining") == "0")
+    }
     private var remoteRequest: Int?
     private var remoteInstalling = false
 
     // Only exact, recent requests authored by the repository owner's authenticated
     // GitHub identity are accepted. No arbitrary URLs, commands, or versions.
     private func pollRemoteRequest() async {
-        guard remoteUpdates, !remoteCheckRunning, Date().timeIntervalSince(lastRemoteCheck) >= 60 else { return }
+        guard remoteUpdates, !remoteCheckRunning, Date() >= remoteRetryAfter, Date().timeIntervalSince(lastRemoteCheck) >= 900 else { return }
         remoteCheckRunning = true
         defer { remoteCheckRunning = false }
         lastRemoteCheck = Date()
@@ -167,7 +186,8 @@ final class Updater: ObservableObject {
             let (data, response) = try await URLSession.shared.data(for: req)
             guard let http = response as? HTTPURLResponse else { remoteStatus = "Remote check: invalid response"; return }
             guard http.statusCode == 200 else {
-                remoteStatus = "Remote check unavailable (HTTP \(http.statusCode)) — will retry"
+                if Self.isRateLimited(http) { remoteRetryAfter = Self.rateLimitDeadline(http) }
+                remoteStatus = Self.isRateLimited(http) ? "GitHub rate limit reached — remote check will retry later" : "Remote check unavailable (HTTP \(http.statusCode)) — will retry"
                 return
             }
             guard let issues = try JSONSerialization.jsonObject(with: data) as? [[String: Any]] else { remoteStatus = "Remote check: invalid issue data"; return }
@@ -249,15 +269,21 @@ final class Updater: ObservableObject {
         if case .checking = state { return }
         if case .downloading = state { return }
         guard !isInstalling, !canCancel else { return }
+        if Date() < releaseRetryAfter {
+            state = .failed("GitHub API rate limit reached. The updater will retry after the reset.")
+            return
+        }
         state = .checking
         do {
             var req = URLRequest(url: URL(string: "https://api.github.com/repos/\(repo)/releases/latest")!)
             req.setValue("application/vnd.github+json", forHTTPHeaderField: "Accept")
             req.timeoutInterval = 20
+            req.cachePolicy = .reloadIgnoringLocalCacheData
             let (data, resp) = try await URLSession.shared.data(for: req)
             guard let http = resp as? HTTPURLResponse else { throw UpdateError("Invalid update server response.") }
             guard http.statusCode == 200 else {
-                let limited = http.statusCode == 429 || (http.statusCode == 403 && http.value(forHTTPHeaderField: "X-RateLimit-Remaining") == "0")
+                let limited = Self.isRateLimited(http)
+                if limited { releaseRetryAfter = Self.rateLimitDeadline(http) }
                 throw UpdateError(limited ? "GitHub update checks are rate limited. Please retry later." : "Update server returned HTTP \(http.statusCode).")
             }
             guard let json = try JSONSerialization.jsonObject(with: data) as? [String: Any],
