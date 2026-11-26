@@ -79,6 +79,76 @@ print("DMX_FIT_REPORT="+json.dumps({
  "assumptions":["rough 13.5% head/body height","head at 87% height","rough axis based on largest dimension",
  "neck seam not fixed","materials not verified","not distributable"]
 },sort_keys=True))
+
+# Optional diagnostic render (never exports or saves models).
+# Remove overlapping old body-head polygons only in the temporary Blender scene.
+if len(sys.argv[sys.argv.index("--")+1:]) > 4:
+ import bmesh
+ render_dir=Path(sys.argv[sys.argv.index("--")+5])
+ render_dir.mkdir(parents=True,exist_ok=True)
+ bm=bmesh.new()
+ bm.from_mesh(body.data)
+ bm.faces.ensure_lookup_table()
+ cutoff=bmin.z+body_height*0.865
+ cx=(bmin.x+bmax.x)/2
+ cy=(bmin.y+bmax.y)/2
+ obsolete=[]
+ for face in bm.faces:
+  p=body.matrix_world @ face.calc_center_median()
+  if p.z>cutoff and abs(p.x-cx)<body_height*0.20 and abs(p.y-cy)<body_height*0.18:
+   obsolete.append(face)
+ if obsolete:
+  bmesh.ops.delete(bm,geom=obsolete,context="FACES")
+  bm.to_mesh(body.data)
+ bm.free()
+ body.data.update()
+ for obj in (body,head):
+  for polygon in obj.data.polygons:
+   polygon.use_smooth=True
+ # No automatic material replacements: preserve any imported texture maps.
+ bpy.context.scene.render.engine="BLENDER_EEVEE"
+ bpy.context.scene.eevee.taa_render_samples=32
+ bpy.context.scene.render.resolution_x=680
+ bpy.context.scene.render.resolution_y=900
+ bpy.context.scene.render.resolution_percentage=100
+ bpy.context.scene.render.image_settings.file_format="PNG"
+ bpy.context.scene.view_settings.view_transform="Standard"
+ bpy.context.scene.view_settings.look="Medium High Contrast"
+ bpy.context.scene.view_settings.exposure=-0.6
+ world=bpy.data.worlds.new("Diagnostic Neutral Studio")
+ bpy.context.scene.world=world
+ world.use_nodes=True
+ bg=world.node_tree.nodes.get("Background")
+ bg.inputs["Color"].default_value=(0.25,0.25,0.25,1)
+ bg.inputs["Strength"].default_value=0.7
+ # Lighting does not modify skin textures or material files.
+ def area(name,position,energy,size):
+  bpy.ops.object.light_add(type="AREA",location=position)
+  light=bpy.context.object
+  light.name=name
+  light.data.energy=energy
+  light.data.shape="DISK"
+  light.data.size=size
+  return light
+ area("Key softbox",(cx-body_height*0.7,cy-body_height*0.8,bmin.z+body_height*1.2),450,body_height*0.85)
+ area("Fill softbox",(cx+body_height*0.7,cy-body_height*0.45,bmin.z+body_height*0.95),220,body_height*1.1)
+ area("Rim softbox",(cx,cy+body_height*0.8,bmin.z+body_height*1.2),350,body_height*0.7)
+ bpy.ops.object.camera_add()
+ camera=bpy.context.object
+ camera.name="DMX Diagnostic Camera"
+ camera.data.type="ORTHO"
+ bpy.context.scene.camera=camera
+ def shot(label,target,dist,ortho):
+  camera.location=target+Vector((0,-dist,dist*0.09))
+  direction=target-camera.location
+  camera.rotation_euler=direction.to_track_quat("-Z","Y").to_euler()
+  camera.data.ortho_scale=ortho
+  bpy.context.scene.render.filepath=str(render_dir/(sex+"-"+label+".png"))
+  bpy.ops.render.render(write_still=True)
+  print("DMX_RENDER="+bpy.context.scene.render.filepath)
+ shot("full",Vector((cx,cy,bmin.z+body_height*0.52)),body_height*2.2,body_height*1.22)
+ shot("face",Vector(((hmin.x+hmax.x)/2,(hmin.y+hmax.y)/2,(hmin.z+hmax.z)/2)),body_height*0.65,body_height*0.48)
+ print("DMX_RENDER_NOTE=Approximate axis and neck fitting; evaluate face orientation, duplicate geometry, clipping, and lighting before any release.")
 '''
 def read_entry(z, name):
     info=z.getinfo(name)
@@ -88,6 +158,11 @@ def read_entry(z, name):
     return data
 
 def main():
+    import argparse
+    parser = argparse.ArgumentParser()
+    parser.add_argument("--render", action="store_true", help="Also create visual diagnostic PNGs; no model exports")
+    parser.add_argument("--output", type=Path, default=Path.home() / "DMX-Character-Preview-Renders")
+    opts = parser.parse_args()
     with tempfile.TemporaryDirectory(prefix="dmx-fitting-") as dirname:
         tmp=Path(dirname)
         with zipfile.ZipFile(DOWNLOADS/"male-head-textured.zip") as outer:
@@ -101,13 +176,16 @@ def main():
         script.write_text(BLENDER_SCRIPT)
         for sex,model,kind in (("male","textured male head.obj","obj"),("female","female-head.fbx","fbx")):
             command=[BLENDER,"--background","--factory-startup","--disable-autoexec","--python-exit-code","1","--python",str(script),"--",str(BODY[sex]),str(tmp/model),kind,sex]
+            if opts.render:
+                command.append(str(opts.output.expanduser().resolve()))
             if not BODY[sex].is_file(): raise FileNotFoundError(BODY[sex])
-            run=subprocess.run(command,capture_output=True,text=True,timeout=240)
+            run=subprocess.run(command,capture_output=True,text=True,timeout=900)
             print("=== "+sex.upper()+" HEAD FIT DIAGNOSTIC ===",flush=True)
             for line in (run.stdout+"\n"+run.stderr).splitlines():
-                if line.startswith(("DMX_FIT_REPORT=","Traceback","Error:")): print(line,flush=True)
+                if line.startswith(("DMX_FIT_REPORT=","DMX_RENDER=","DMX_RENDER_NOTE=","Traceback","Error:")): print(line,flush=True)
             if run.returncode: raise RuntimeError("Blender diagnostic failed: "+sex)
     print("Diagnostic complete. No models exported or published.")
+    if opts.render: print("Visual diagnostic files:", opts.output.expanduser().resolve())
 
 if __name__=="__main__":
     main()
