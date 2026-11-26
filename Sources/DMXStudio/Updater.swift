@@ -149,21 +149,49 @@ final class Updater: ObservableObject {
     }
 
     private var lastRemoteCheck = Date.distantPast
+    private var remoteCheckRunning = false
+    // Avoid hammering the shared unauthenticated GitHub API quota on failure.
+    private var remoteRetryAfter = Date.distantPast
+    private var releaseRetryAfter = Date.distantPast
+
+    private static func rateLimitDeadline(_ response: HTTPURLResponse) -> Date {
+        if let retry = response.value(forHTTPHeaderField: "Retry-After"),
+           let seconds = TimeInterval(retry), seconds > 0 {
+            return Date().addingTimeInterval(min(seconds, 86400))
+        }
+        if let reset = response.value(forHTTPHeaderField: "X-RateLimit-Reset"),
+           let timestamp = TimeInterval(reset), timestamp > Date().timeIntervalSince1970 {
+            return Date(timeIntervalSince1970: timestamp).addingTimeInterval(5)
+        }
+        return Date().addingTimeInterval(900)
+    }
+    private static func isRateLimited(_ response: HTTPURLResponse) -> Bool {
+        response.statusCode == 429 ||
+            (response.statusCode == 403 && response.value(forHTTPHeaderField: "X-RateLimit-Remaining") == "0")
+    }
     private var remoteRequest: Int?
     private var remoteInstalling = false
 
     // Only exact, recent requests authored by the repository owner's authenticated
     // GitHub identity are accepted. No arbitrary URLs, commands, or versions.
     private func pollRemoteRequest() async {
-        guard remoteUpdates, Date().timeIntervalSince(lastRemoteCheck) >= 60 else { return }
+        guard remoteUpdates, !remoteCheckRunning, Date() >= remoteRetryAfter, Date().timeIntervalSince(lastRemoteCheck) >= 900 else { return }
+        remoteCheckRunning = true
+        defer { remoteCheckRunning = false }
         lastRemoteCheck = Date()
         do {
             var req = URLRequest(url: URL(string: "https://api.github.com/repos/\(repo)/issues?state=open&sort=created&direction=desc&per_page=30")!)
             req.setValue("application/vnd.github+json", forHTTPHeaderField: "Accept")
             req.timeoutInterval = 15
             let (data, response) = try await URLSession.shared.data(for: req)
-            guard (response as? HTTPURLResponse)?.statusCode == 200,
-                let issues = try JSONSerialization.jsonObject(with: data) as? [[String: Any]] else { return }
+            guard let http = response as? HTTPURLResponse else { remoteStatus = "Remote check: invalid response"; return }
+            guard http.statusCode == 200 else {
+                if Self.isRateLimited(http) { remoteRetryAfter = Self.rateLimitDeadline(http) }
+                remoteStatus = Self.isRateLimited(http) ? "GitHub rate limit reached — remote check will retry later" : "Remote check unavailable (HTTP \(http.statusCode)) — will retry"
+                return
+            }
+            guard let issues = try JSONSerialization.jsonObject(with: data) as? [[String: Any]] else { remoteStatus = "Remote check: invalid issue data"; return }
+            if remoteRequest == nil { remoteStatus = "No remote request pending" }
             let consumed = UserDefaults.standard.integer(forKey: "updater.remoteConsumed")
             let fmt = ISO8601DateFormatter()
             for issue in issues {
@@ -237,17 +265,62 @@ final class Updater: ObservableObject {
         Task { await check(); if case .failed = state { state = .idle } }
     }
 
+    // The public latest-release redirect does not consume REST API quota.
+    private func checkPublicRelease() async throws {
+        var request = URLRequest(url: URL(string: "https://github.com/\(repo)/releases/latest")!)
+        request.httpMethod = "HEAD"
+        request.timeoutInterval = 20
+        request.cachePolicy = .reloadIgnoringLocalCacheData
+        let (_, response) = try await URLSession.shared.data(for: request)
+        guard let http = response as? HTTPURLResponse, http.statusCode == 200,
+              let url = http.url, url.scheme == "https", url.host == "github.com",
+              url.path.hasPrefix("/\(repo)/releases/tag/") else {
+            throw UpdateError("Public release check unavailable.")
+        }
+        let tag = url.lastPathComponent
+        let v = tag.hasPrefix("v") ? String(tag.dropFirst()) : tag
+        let parts = v.split(separator: ".", omittingEmptySubsequences: false)
+        guard parts.count == 3, parts.allSatisfy({ Int($0) != nil && !$0.isEmpty && $0.allSatisfy { $0.isASCII && $0.isNumber } }) else {
+            throw UpdateError("Invalid public release version.")
+        }
+        let base = URL(string: "https://github.com/\(repo)/releases/download/")!.appendingPathComponent(tag)
+        updateZip = base.appendingPathComponent("DMX-Studio-Update.zip")
+        fullDMG = base.appendingPathComponent("DMX-Studio-\(v).dmg")
+        fullSize = 0
+        notes = "Release notes: https://github.com/\(repo)/releases/tag/\(tag)"
+        latest = v
+        state = Self.newer(v, than: current) ? .available(v) : .upToDate
+    }
+
     func check() async {
+        if case .checking = state { return }
+        if case .downloading = state { return }
+        guard !isInstalling, !canCancel else { return }
         state = .checking
+        if Date() < releaseRetryAfter {
+            do { try await checkPublicRelease() }
+            catch { state = .failed("GitHub API rate limited; public release check also unavailable.") }
+            return
+        }
         do {
             var req = URLRequest(url: URL(string: "https://api.github.com/repos/\(repo)/releases/latest")!)
             req.setValue("application/vnd.github+json", forHTTPHeaderField: "Accept")
             req.timeoutInterval = 20
+            req.cachePolicy = .reloadIgnoringLocalCacheData
             let (data, resp) = try await URLSession.shared.data(for: req)
-            guard (resp as? HTTPURLResponse)?.statusCode == 200,
-                  let json = try JSONSerialization.jsonObject(with: data) as? [String: Any],
-                  let assets = json["assets"] as? [[String: Any]] else { throw UpdateError("Couldn't reach the update page.") }
-            let tag = (json["tag_name"] as? String) ?? ""
+            guard let http = resp as? HTTPURLResponse else { throw UpdateError("Invalid update server response.") }
+            guard http.statusCode == 200 else {
+                let limited = Self.isRateLimited(http)
+                if limited {
+                    releaseRetryAfter = Self.rateLimitDeadline(http)
+                    try await checkPublicRelease()
+                    return
+                }
+                throw UpdateError(limited ? "GitHub update checks are rate limited. Please retry later." : "Update server returned HTTP \(http.statusCode).")
+            }
+            guard let json = try JSONSerialization.jsonObject(with: data) as? [String: Any],
+                  let assets = json["assets"] as? [[String: Any]] else { throw UpdateError("Invalid release metadata.") }
+            guard let tag = json["tag_name"] as? String, !tag.isEmpty else { throw UpdateError("Release version is missing.") }
             let v = tag.hasPrefix("v") ? String(tag.dropFirst()) : tag
             func asset(_ match: (String) -> Bool) -> [String: Any]? { assets.first { match(($0["name"] as? String) ?? "") } }
             updateZip = (asset { $0 == "DMX-Studio-Update.zip" }?["browser_download_url"] as? String).flatMap(URL.init(string:))
@@ -539,6 +612,19 @@ struct UpdateSheet: View {
                 case .failed(let msg):
                     Label(msg, systemImage: "exclamationmark.triangle.fill").foregroundColor(.orange)
                         .fixedSize(horizontal: false, vertical: true)
+                }
+            }
+            DisclosureGroup("Installed components") {
+                VStack(alignment: .leading, spacing: 6) {
+                    ForEach(["Character Studio", "Venue Studio", "Lighting Engine", "Audio Engine", "Show Control", "Core Application"], id: \.self) { component in
+                        HStack {
+                            Text(component)
+                            Spacer()
+                            Text("Bundled • " + up.current).foregroundColor(.secondary)
+                        }.font(.caption)
+                    }
+                    Text("Components currently update together. Independent packages will appear here when supported.")
+                        .font(.caption).foregroundColor(.secondary)
                 }
             }
             Toggle("Automatically install updates when idle", isOn: $up.automaticUpdates)

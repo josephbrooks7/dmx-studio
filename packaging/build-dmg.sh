@@ -36,16 +36,27 @@ if [[ -d "$LOCAL_CHAR" ]]; then
 import hashlib, json, pathlib, shutil, sys, zipfile
 source, dest = map(pathlib.Path, sys.argv[1:])
 manifest = json.loads((source / "manifest.json").read_text())
-for asset in manifest["assets"]:
+assets = manifest["assets"]
+if not isinstance(assets, list) or not assets:
+    raise ValueError("Character manifest must contain actual assets")
+seen = set()
+for asset in assets:
     name = asset["file"]
     if pathlib.Path(name).name != name or not name.endswith(".usdz"):
         raise ValueError("Invalid character asset filename: " + name)
+    if name.casefold() in seen:
+        raise ValueError("Duplicate character asset: " + name)
+    seen.add(name.casefold())
     model = source / name
+    if not model.is_file() or model.is_symlink():
+        raise ValueError("Missing or linked character asset: " + name)
     if hashlib.sha256(model.read_bytes()).hexdigest() != asset["sha256"]:
         raise ValueError("Character asset checksum mismatch: " + name)
     if not asset.get("license") or not asset.get("source"):
         raise ValueError("Missing character asset provenance: " + name)
     with zipfile.ZipFile(model) as archive:
+        if archive.testzip() is not None:
+            raise ValueError("Corrupt USDZ: " + name)
         if not any(n.lower().endswith((".usd", ".usda", ".usdc")) for n in archive.namelist()):
             raise ValueError("Invalid USDZ: " + name)
     shutil.copy2(model, dest / name)

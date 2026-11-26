@@ -1,0 +1,3 @@
+# Unified release policy
+
+Ship one DMX Studio.app, one installer and one existing software update channel. Character Studio, venue design, lighting, timeline, visualization and asset libraries are integrated features, not standalone apps. Temporary developer previews are not distributable products. Bundle approved assets inside the app; no runtime Blender or external asset downloads. Coordinate component branches into one tested release, preserve existing shows and settings, and retain Intel/macOS 12 compatibility. Prioritize character fixes before deferred venue work. Do not publish separate component applications or require separate installers.

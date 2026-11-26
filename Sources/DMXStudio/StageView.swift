@@ -241,7 +241,14 @@ struct StageScreen: View {
                                 CharacterModelPreview(appearance: performer.performerAppearance ?? PerformerAppearance(), faceCloseup: studioFace, rotation: studioAngle)
                                     .frame(minWidth: 340, minHeight: 420)
                                 Picker("View", selection: $studioFace) { Text("Full body").tag(false); Text("Face").tag(true) }.pickerStyle(.segmented)
+                                HStack {
+                                    Button("Front") { studioAngle = 0 }
+                                    Button("Left") { studioAngle = -90 }
+                                    Button("Right") { studioAngle = 90 }
+                                    Button("Back") { studioAngle = 180 }
+                                }.buttonStyle(PillButtonStyle())
                                 HStack { Text("Rotate preview"); Slider(value: $studioAngle, in: -180...180); Button("Reset") { studioAngle = 0 } }
+                                .onChange(of: studioFace) { isFace in if isFace { studioAngle = 0 } }
                                 Text("Drag to orbit · scroll to zoom").font(.caption).foregroundColor(Theme.subtle)
                             }
                         }
@@ -323,6 +330,7 @@ struct StageInspector: View {
     @State private var characterNotice = ""
     @State private var characterPreviewOpen = false
     @State private var characterFaceCloseup = false
+    @State private var characterPreviewAngle: Double = 0
     private var savedCharacters: [SavedPerformer] {
         (try? JSONDecoder().decode([SavedPerformer].self, from: savedCharacterData)) ?? []
     }
@@ -402,8 +410,18 @@ struct StageInspector: View {
                                             Button("Done") { characterPreviewOpen = false }.keyboardShortcut(.defaultAction)
                                         }
                                         HStack(alignment: .top, spacing: 20) {
-                                            CharacterModelPreview(appearance: current.performerAppearance ?? PerformerAppearance(), faceCloseup: characterFaceCloseup)
-                                                .frame(minWidth: 420, minHeight: 420)
+                                            VStack {
+                                                CharacterModelPreview(appearance: current.performerAppearance ?? PerformerAppearance(), faceCloseup: characterFaceCloseup, rotation: characterPreviewAngle)
+                                                    .frame(minWidth: 420, minHeight: 420)
+                                                HStack {
+                                                    Button("Front") { characterPreviewAngle = 0 }
+                                                    Button("Left") { characterPreviewAngle = -90 }
+                                                    Button("Right") { characterPreviewAngle = 90 }
+                                                    Button("Back") { characterPreviewAngle = 180 }
+                                                }.buttonStyle(PillButtonStyle())
+                                                Slider(value: $characterPreviewAngle, in: -180...180)
+                                            }
+                                            .onChange(of: characterFaceCloseup) { isFace in if isFace { characterPreviewAngle = 0 } }
                                             ScrollView {
                                                 VStack(alignment: .leading, spacing: 14) {
                                                     let a = current.performerAppearance ?? PerformerAppearance()
@@ -492,6 +510,17 @@ struct StageInspector: View {
                                     characterNotice = ""
                                 }
                             }
+                            Button("Move to Center Stage") {
+                                guard let deck = model.stage.items.first(where: { $0.prop == .stage }) else {
+                                    characterNotice = "No stage platform found."; return
+                                }
+                                model.updateStageItem(id) {
+                                    $0.x = deck.x; $0.z = deck.z
+                                    $0.y = deck.y + 0.60; $0.rotation = deck.rotation
+                                }
+                                characterNotice = "Character moved to center stage."
+                            }
+                            .buttonStyle(PillButtonStyle())
                             TextField("Character name", text: Binding(get: { item.performerName ?? "" }, set: { v in model.updateStageItem(id) { $0.performerName = v } }))
                             Button {
                                 let name = (item.performerName ?? "").trimmingCharacters(in: .whitespacesAndNewlines)

@@ -7,6 +7,8 @@ parser = argparse.ArgumentParser()
 parser.add_argument("src")
 parser.add_argument("dst")
 parser.add_argument("--kind", choices=("body", "hair", "clothing", "accessory", "prop"), default="body")
+parser.add_argument("--height-m", type=float, default=None, help="Optional target body height in meters; center feet at origin")
+parser.add_argument("--smooth", action="store_true", help="Smooth body surface normals")
 args = parser.parse_args(sys.argv[sys.argv.index("--") + 1:])
 src, dst = args.src, args.dst
 bpy.ops.wm.read_factory_settings(use_empty=True)
@@ -134,6 +136,52 @@ assert baked, "No stage meshes after helper filtering"
 for obj in list(bpy.context.scene.objects):
     if obj not in baked:
         bpy.data.objects.remove(obj, do_unlink=True)
+# Optional normalization for newly authored character assets only.
+if args.height_m is not None:
+    if args.kind != "body" or not 0.5 <= args.height_m <= 2.5:
+        raise ValueError("Expected body height between 0.5 and 2.5 meters")
+    from mathutils import Matrix
+    points = [obj.matrix_world @ v.co for obj in baked for v in obj.data.vertices]
+    lo = Vector(tuple(min(p[i] for p in points) for i in range(3)))
+    hi = Vector(tuple(max(p[i] for p in points) for i in range(3)))
+    height = hi.z - lo.z
+    if height <= 1e-6:
+        raise ValueError("Body has no vertical extent")
+    origin = Vector(((lo.x + hi.x)/2, (lo.y + hi.y)/2, lo.z))
+    transform = Matrix.Scale(args.height_m / height, 4) @ Matrix.Translation(-origin)
+    for obj in baked:
+        obj.matrix_world = transform @ obj.matrix_world
+    print("Normalized body height:", args.height_m)
+if args.smooth:
+    for obj in baked:
+        for polygon in obj.data.polygons:
+            polygon.use_smooth = True
+# USD consumers do not consistently support BMP. Convert imported BMP images
+# to lossless PNG before USD export, retaining node links and color spaces.
+# Work only in a temporary directory; never rewrite the original source files.
+import tempfile
+texture_workspace = tempfile.TemporaryDirectory(prefix="dmx-usd-textures-")
+for index, img in enumerate(list(bpy.data.images)):
+    if img.file_format != "BMP" and not img.filepath.lower().endswith(".bmp"):
+        continue
+    if not img.has_data:
+        raise RuntimeError("Cannot decode BMP texture: " + img.name)
+    original_space = img.colorspace_settings.name
+    original_alpha = img.alpha_mode
+    name = Path(img.filepath.replace(chr(92), "/")).stem or img.name
+    name = "".join(c if c.isalnum() or c in "-_" else "_" for c in name)
+    png = Path(texture_workspace.name) / (str(index) + "_" + name + ".png")
+    img.file_format = "PNG"
+    img.filepath_raw = str(png)
+    img.save()
+    if not png.is_file() or png.stat().st_size == 0:
+        raise RuntimeError("PNG conversion failed: " + img.name)
+    replacement = bpy.data.images.load(str(png), check_existing=False)
+    replacement.colorspace_settings.name = original_space
+    replacement.alpha_mode = original_alpha
+    replacement.pack()
+    img.user_remap(replacement)
+    print("Converted BMP texture to PNG:", name)
 # Export native USDZ, including material textures.
 # Blender versions use different names for USD texture export options.
 properties = bpy.ops.wm.usd_export.get_rna_type().properties.keys()
@@ -148,7 +196,10 @@ result = bpy.ops.wm.usd_export(**options)
 assert "FINISHED" in result
 import zipfile
 with zipfile.ZipFile(dst) as archive:
-    if args.kind in {"body", "hair"}:
+    if args.kind in {"body", "hair"} and (args.kind == "hair" or any(node.type == "TEX_IMAGE" and node.image is not None for obj in baked for mat in obj.data.materials if mat and mat.use_nodes and mat.node_tree for node in mat.node_tree.nodes)):
         assert any(name.lower().endswith((".png", ".jpg", ".jpeg", ".webp")) for name in archive.namelist()), "USDZ is missing character textures"
+    if args.kind == "body" and not any(name.lower().endswith((".png", ".jpg", ".jpeg", ".webp")) for name in archive.namelist()):
+        print("Material-only body: no image textures packaged; visual review required")
     assert any(name.lower().endswith((".usd", ".usda", ".usdc")) for name in archive.namelist()), "USDZ is missing scene data"
 assert Path(dst).stat().st_size > 0
+texture_workspace.cleanup()
