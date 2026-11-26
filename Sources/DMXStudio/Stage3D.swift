@@ -634,6 +634,45 @@ private enum Build {
         }
     }
 
+    // Apply only to identifiable material slots; never tint a mixed baked atlas.
+    // Copy geometry and materials so changes cannot leak into another performer.
+    private static func applyImportedColors(_ root: SCNNode, _ a: PerformerAppearance) {
+        let skin: [NSColor] = [
+            NSColor(calibratedRed: 1, green: 0.95, blue: 0.90, alpha: 1),
+            NSColor(calibratedRed: 0.92, green: 0.83, blue: 0.73, alpha: 1),
+            NSColor(calibratedRed: 0.80, green: 0.65, blue: 0.51, alpha: 1),
+            NSColor(calibratedRed: 0.65, green: 0.48, blue: 0.36, alpha: 1),
+            NSColor(calibratedRed: 0.48, green: 0.32, blue: 0.23, alpha: 1),
+            NSColor(calibratedRed: 0.34, green: 0.22, blue: 0.16, alpha: 1)]
+        let outfits: [NSColor] = [.darkGray, .systemRed, .systemBlue, .white, .systemPurple, .systemGreen]
+        let hairs: [NSColor] = [.darkGray, .brown, .systemYellow, .systemRed, .systemBlue, .lightGray]
+        func pick(_ colors: [NSColor], _ index: Int) -> NSColor {
+            colors[min(max(index, 0), colors.count - 1)]
+        }
+        root.enumerateChildNodes { node, _ in
+            guard let geometry = node.geometry else { return }
+            var changed = false
+            let materials = geometry.materials.map { original -> SCNMaterial in
+                let name = ((original.name ?? "") + " " + (node.name ?? "")).lowercased()
+                let tint: NSColor
+                if ["eye", "teeth", "mouth", "lash", "brow"].contains(where: { name.contains($0) }) { return original }
+                if name.contains("hair") { tint = pick(hairs, a.hairColor) }
+                else if ["shirt", "jacket", "jeans", "denim", "pants", "trousers", "dress", "garment"].contains(where: { name.contains($0) }) {
+                    tint = pick(outfits, a.outfit)
+                } else if name.contains("skin") || name.contains("face_skin") { tint = pick(skin, a.skin) }
+                else { return original }
+                guard let material = original.copy() as? SCNMaterial else { return original }
+                material.multiply.contents = tint
+                changed = true
+                return material
+            }
+            if changed, let copy = geometry.copy() as? SCNGeometry {
+                copy.materials = materials
+                node.geometry = copy
+            }
+        }
+    }
+
     static func performer(_ a: PerformerAppearance) -> SCNNode {
         let root = SCNNode()
         // Imported self-contained USDZ assets retain their authored meshes and materials.
@@ -756,6 +795,7 @@ private enum Build {
                     hat.position.y = CGFloat(a.height) - 0.065 * headScale
                     root.addChildNode(hat)
                 }
+                if url == bundled { applyImportedColors(root, a) }
                 return root
             }
         }
