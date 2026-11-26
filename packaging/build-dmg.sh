@@ -117,6 +117,20 @@ if src.exists():
         records.append({"id":path.stem,"slot":path.parent.name,"file":str(target.relative_to(dest)),"sha256":expected})
     shutil.copy2(src / "CREDITS.md",dest / "Candidates" / "CREDITS.md")
     (dest / "Candidates" / "catalog.json").write_text(json.dumps(records,indent=2))
+    morph = src / "face-morphs"
+    data = json.loads((morph / "nose-presets.json").read_text())
+    base = morph / "base.obj"
+    if hashlib.sha256(base.read_bytes()).hexdigest() != data["baseSHA256"]:
+        raise ValueError("Face morph base checksum mismatch")
+    if sum(line.startswith("v ") for line in base.read_text().splitlines()) != data["vertexCount"]:
+        raise ValueError("Face morph vertex count mismatch")
+    if len(data["presets"]) != 15 or not data["exclusive"]:
+        raise ValueError("Unexpected nose preset catalog")
+    target = dest / "Candidates" / "face-morphs"
+    target.mkdir(parents=True, exist_ok=True)
+    for name in ("base.obj", "nose-presets.json", "LICENSE.ASSETS.md"):
+        shutil.copy2(morph / name, target / name)
+    print("Bundled topology-specific face morph source and 15 nose presets")
     print(f"Bundled {len(records)} approved character candidates")
 PYCANDIDATES
 
