@@ -17,7 +17,7 @@ jobs:
         component: [swift, assets, packaging]
     runs-on: macos-latest
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v5
       - name: Swift compile
         if: matrix.component == 'swift'
         run: swift build -c debug
