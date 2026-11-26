@@ -690,6 +690,7 @@ private enum Build {
                 let depth = scale * sqrt(restrainedBuild) * neutralDepth
                 mesh.scale = SCNVector3(width, scale, depth)
                 mesh.position = SCNVector3(-(bounds.min.x+bounds.max.x)*width/2, -bounds.min.y*scale, -(bounds.min.z+bounds.max.z)*depth/2)
+                mesh.name = "character_body_for_framing"
                 root.addChildNode(mesh)
                 // Optional authored hair modules use a common head-relative scale.
                 // Only attach to assets with explicitly separated hair nodes.
@@ -1388,7 +1389,7 @@ struct CharacterModelPreview: NSViewRepresentable {
             let height = CGFloat(appearance.height)
             var low = SCNVector3(0, 0, 0)
             var high = SCNVector3(0, height, 0)
-            if let node = c.character {
+            func worldBounds(_ node: SCNNode) -> (SCNVector3, SCNVector3)? {
                 let bounds = node.boundingBox
                 let corners = [bounds.min.x, bounds.max.x].flatMap { x in
                     [bounds.min.y, bounds.max.y].flatMap { y in
@@ -1397,21 +1398,49 @@ struct CharacterModelPreview: NSViewRepresentable {
                         }
                     }
                 }
-                if let first = corners.first, corners.allSatisfy({ $0.x.isFinite && $0.y.isFinite && $0.z.isFinite }) {
-                    low = first; high = first
-                    for p in corners {
-                        low = SCNVector3(min(low.x,p.x), min(low.y,p.y), min(low.z,p.z))
-                        high = SCNVector3(max(high.x,p.x), max(high.y,p.y), max(high.z,p.z))
+                guard let first = corners.first,
+                      corners.allSatisfy({ $0.x.isFinite && $0.y.isFinite && $0.z.isFinite }) else { return nil }
+                var lo = first, hi = first
+                for p in corners {
+                    lo = SCNVector3(min(lo.x,p.x), min(lo.y,p.y), min(lo.z,p.z))
+                    hi = SCNVector3(max(hi.x,p.x), max(hi.y,p.y), max(hi.z,p.z))
+                }
+                guard hi.y - lo.y > 0.001 else { return nil }
+                return (lo, hi)
+            }
+            var exactHead = false
+            if let node = c.character {
+                let body = node.childNode(withName: "character_body_for_framing", recursively: false) ?? node
+                if let bounds = worldBounds(body) { (low, high) = bounds }
+                if faceCloseup {
+                    let bodySpan = high.y - low.y
+                    var heads: [(SCNVector3, SCNVector3)] = []
+                    body.enumerateChildNodes { part, _ in
+                        let name = (part.name ?? "").lowercased()
+                        guard part.geometry != nil, !part.isHidden,
+                              name == "head" || name == "face" || name.hasPrefix("head_") || name.hasPrefix("face_"),
+                              let bounds = worldBounds(part),
+                              bounds.0.y > low.y + bodySpan * 0.65,
+                              bounds.1.y - bounds.0.y < bodySpan * 0.40 else { return }
+                        heads.append(bounds)
+                    }
+                    if let first = heads.first {
+                        low = first.0; high = first.1
+                        for (lo, hi) in heads {
+                            low = SCNVector3(min(low.x,lo.x), min(low.y,lo.y), min(low.z,lo.z))
+                            high = SCNVector3(max(high.x,hi.x), max(high.y,hi.y), max(high.z,hi.z))
+                        }
+                        exactHead = true
                     }
                 }
             }
             let span = max(0.01, high.y - low.y)
             let x = (low.x + high.x) / 2
-            let y = low.y + span * (faceCloseup ? 0.91 : 0.50)
+            let y = low.y + span * (faceCloseup && !exactHead ? 0.91 : 0.50)
             let z = (low.z + high.z) / 2
             let halfAngle = CGFloat(37.0 * Double.pi / 360)
-            let vertical = span * (faceCloseup ? 0.16 : 0.60)
-            let horizontal = faceCloseup ? span * 0.13 : (high.x - low.x) * 0.60
+            let vertical = span * (faceCloseup && !exactHead ? 0.16 : 0.65)
+            let horizontal = faceCloseup && !exactHead ? span * 0.13 : (high.x - low.x) * 0.65
             let distance = max(vertical / tan(halfAngle), horizontal / (tan(halfAngle) * aspect)) + (high.z - low.z) / 2
             let target = SCNVector3(x,y,z)
             c.camera?.position = SCNVector3(x,y,z + distance)
