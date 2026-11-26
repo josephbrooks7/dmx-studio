@@ -11,3 +11,5 @@ The user reports new nose, skin, clothing and hair assets arriving in ~/Download
 
 ## Exclusive customization slots
 Nose presets replace the prior nose morph: reset the nose channel to its neutral baseline before applying the selected compatible target, never add a second nose mesh or accumulate preset deltas. Preserve unrelated morph channels and materials. Face, hairstyle, skin, eye appearance, eyebrows, shirt, pants, shoes and hat each use a single active selection per slot; replace the previous selection atomically. Allow compatible accessories and intentional clothing layers in separate slots. Persist stable selection IDs and test repeated A/B/A switching for no accumulation or duplicate geometry. Existing saved shows must remain compatible.
+
+Anatomical feature slots also include ears (paired by default), lips, jaw, chin and cheeks. Prefer topology-compatible morphs; when using replacement geometry, remove the corresponding original geometry and validate seam continuity, alignment and material compatibility. Never overlay duplicate anatomy. Preserve independent selections and test switching back to neutral.
