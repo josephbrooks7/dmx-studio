@@ -1339,13 +1339,13 @@ struct CharacterModelPreview: NSViewRepresentable {
         camera.camera?.screenSpaceAmbientOcclusionIntensity = 0.55
         camera.camera?.screenSpaceAmbientOcclusionRadius = 0.12
         scene.lightingEnvironment.contents = Stage3DView.Coordinator.studioEnvironment
-        scene.lightingEnvironment.intensity = 0.45
+        scene.lightingEnvironment.intensity = 0.25
         scene.rootNode.addChildNode(camera); view.pointOfView = camera
         context.coordinator.camera = camera
         let ambient = SCNNode(); ambient.light = SCNLight()
-        ambient.light?.type = .ambient; ambient.light?.intensity = 100
+        ambient.light?.type = .ambient; ambient.light?.intensity = 55
         scene.rootNode.addChildNode(ambient)
-        for (x,y,z,intensity) in [(CGFloat(2),CGFloat(3),CGFloat(4),CGFloat(350)),(-3,2,2,180),(1,3,-3,220)] {
+        for (x,y,z,intensity) in [(CGFloat(2),CGFloat(3),CGFloat(4),CGFloat(220)),(-3,2,2,90),(1,3,-3,120)] {
             let light = SCNNode(); light.light = SCNLight(); light.light?.type = .omni
             light.light?.intensity = intensity; light.position = SCNVector3(x,y,z)
             if x == 2 {
@@ -1841,6 +1841,11 @@ struct Stage3DView: NSViewRepresentable {
 
         private func place(_ node: SCNNode, _ item: StageItem) {
             node.position = SCNVector3(item.x, item.y, item.z)
+            // Performers must never inherit fixture mounting rotations or offsets.
+            if item.prop == .performer {
+                node.eulerAngles = SCNVector3(0, -item.rotation * .pi / 180, 0)
+                return
+            }
             if item.upright == true {
                 // bar stands on its end: its length goes up, lenses face the audience, and the 180° tilt
                 // (around the bar) sweeps the beams side to side. SceneKit applies z first, then y.
