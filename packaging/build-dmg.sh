@@ -95,6 +95,31 @@ if [[ "${DMX_SKIP_CHARACTERS:-0}" != "1" ]]; then
 fi
 
 
+# Bundle approved candidate payloads, never LFS pointer text or unlicensed bodies.
+python3 - "$CHAR" <<'PYCANDIDATES'
+import pathlib, shutil, zipfile, hashlib, json, subprocess
+src = pathlib.Path("packaging/character-candidates")
+dest = pathlib.Path(__import__("sys").argv[1])
+paths = [src / "bodies/male.usdz"] + [src / "hair" / f"{sex}-{i:02}.usdz" for sex, count in [("male",21),("female",12)] for i in range(1,count+1)]
+if src.exists():
+    records = []
+    for path in paths:
+        pointer = subprocess.check_output(["git","show",f"HEAD:{path}"]).decode()
+        expected = next(line.split("sha256:")[1] for line in pointer.splitlines() if line.startswith("oid sha256:"))
+        if hashlib.sha256(path.read_bytes()).hexdigest() != expected:
+            raise ValueError(f"Missing or corrupt LFS payload: {path}")
+        with zipfile.ZipFile(path) as z:
+            if z.testzip() or not any(n.lower().endswith((".usd",".usda",".usdc")) for n in z.namelist()):
+                raise ValueError(f"Invalid USDZ: {path}")
+        target = dest / "Candidates" / path.parent.name / path.name
+        target.parent.mkdir(parents=True, exist_ok=True)
+        shutil.copy2(path,target)
+        records.append({"id":path.stem,"slot":path.parent.name,"file":str(target.relative_to(dest)),"sha256":expected})
+    shutil.copy2(src / "CREDITS.md",dest / "Candidates" / "CREDITS.md")
+    (dest / "Candidates" / "catalog.json").write_text(json.dumps(records,indent=2))
+    print(f"Bundled {len(records)} approved character candidates")
+PYCANDIDATES
+
 # App icon
 ICONSET="$OUT/AppIcon.iconset"; mkdir -p "$ICONSET"
 for s in 16 32 128 256 512; do
