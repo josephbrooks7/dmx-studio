@@ -162,8 +162,13 @@ final class Updater: ObservableObject {
             req.setValue("application/vnd.github+json", forHTTPHeaderField: "Accept")
             req.timeoutInterval = 15
             let (data, response) = try await URLSession.shared.data(for: req)
-            guard (response as? HTTPURLResponse)?.statusCode == 200,
-                let issues = try JSONSerialization.jsonObject(with: data) as? [[String: Any]] else { return }
+            guard let http = response as? HTTPURLResponse else { remoteStatus = "Remote check: invalid response"; return }
+            guard http.statusCode == 200 else {
+                remoteStatus = "Remote check unavailable (HTTP \(http.statusCode)) — will retry"
+                return
+            }
+            guard let issues = try JSONSerialization.jsonObject(with: data) as? [[String: Any]] else { remoteStatus = "Remote check: invalid issue data"; return }
+            if remoteRequest == nil { remoteStatus = "No remote request pending" }
             let consumed = UserDefaults.standard.integer(forKey: "updater.remoteConsumed")
             let fmt = ISO8601DateFormatter()
             for issue in issues {
@@ -244,10 +249,14 @@ final class Updater: ObservableObject {
             req.setValue("application/vnd.github+json", forHTTPHeaderField: "Accept")
             req.timeoutInterval = 20
             let (data, resp) = try await URLSession.shared.data(for: req)
-            guard (resp as? HTTPURLResponse)?.statusCode == 200,
-                  let json = try JSONSerialization.jsonObject(with: data) as? [String: Any],
-                  let assets = json["assets"] as? [[String: Any]] else { throw UpdateError("Couldn't reach the update page.") }
-            let tag = (json["tag_name"] as? String) ?? ""
+            guard let http = resp as? HTTPURLResponse else { throw UpdateError("Invalid update server response.") }
+            guard http.statusCode == 200 else {
+                let limited = http.statusCode == 429 || (http.statusCode == 403 && http.value(forHTTPHeaderField: "X-RateLimit-Remaining") == "0")
+                throw UpdateError(limited ? "GitHub update checks are rate limited. Please retry later." : "Update server returned HTTP \(http.statusCode).")
+            }
+            guard let json = try JSONSerialization.jsonObject(with: data) as? [String: Any],
+                  let assets = json["assets"] as? [[String: Any]] else { throw UpdateError("Invalid release metadata.") }
+            guard let tag = json["tag_name"] as? String, !tag.isEmpty else { throw UpdateError("Release version is missing.") }
             let v = tag.hasPrefix("v") ? String(tag.dropFirst()) : tag
             func asset(_ match: (String) -> Bool) -> [String: Any]? { assets.first { match(($0["name"] as? String) ?? "") } }
             updateZip = (asset { $0 == "DMX-Studio-Update.zip" }?["browser_download_url"] as? String).flatMap(URL.init(string:))
