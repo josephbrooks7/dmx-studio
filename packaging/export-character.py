@@ -7,6 +7,8 @@ parser = argparse.ArgumentParser()
 parser.add_argument("src")
 parser.add_argument("dst")
 parser.add_argument("--kind", choices=("body", "hair", "clothing", "accessory", "prop"), default="body")
+parser.add_argument("--height-m", type=float, default=None, help="Optional target body height in meters; center feet at origin")
+parser.add_argument("--smooth", action="store_true", help="Smooth body surface normals")
 args = parser.parse_args(sys.argv[sys.argv.index("--") + 1:])
 src, dst = args.src, args.dst
 bpy.ops.wm.read_factory_settings(use_empty=True)
@@ -134,6 +136,26 @@ assert baked, "No stage meshes after helper filtering"
 for obj in list(bpy.context.scene.objects):
     if obj not in baked:
         bpy.data.objects.remove(obj, do_unlink=True)
+# Optional normalization for newly authored character assets only.
+if args.height_m is not None:
+    if args.kind != "body" or not 0.5 <= args.height_m <= 2.5:
+        raise ValueError("Expected body height between 0.5 and 2.5 meters")
+    from mathutils import Matrix
+    points = [obj.matrix_world @ v.co for obj in baked for v in obj.data.vertices]
+    lo = Vector(tuple(min(p[i] for p in points) for i in range(3)))
+    hi = Vector(tuple(max(p[i] for p in points) for i in range(3)))
+    height = hi.z - lo.z
+    if height <= 1e-6:
+        raise ValueError("Body has no vertical extent")
+    origin = Vector(((lo.x + hi.x)/2, (lo.y + hi.y)/2, lo.z))
+    transform = Matrix.Scale(args.height_m / height, 4) @ Matrix.Translation(-origin)
+    for obj in baked:
+        obj.matrix_world = transform @ obj.matrix_world
+    print("Normalized body height:", args.height_m)
+if args.smooth:
+    for obj in baked:
+        for polygon in obj.data.polygons:
+            polygon.use_smooth = True
 # Export native USDZ, including material textures.
 # Blender versions use different names for USD texture export options.
 properties = bpy.ops.wm.usd_export.get_rna_type().properties.keys()
