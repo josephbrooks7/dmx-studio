@@ -149,13 +149,16 @@ final class Updater: ObservableObject {
     }
 
     private var lastRemoteCheck = Date.distantPast
+    private var remoteCheckRunning = false
     private var remoteRequest: Int?
     private var remoteInstalling = false
 
     // Only exact, recent requests authored by the repository owner's authenticated
     // GitHub identity are accepted. No arbitrary URLs, commands, or versions.
     private func pollRemoteRequest() async {
-        guard remoteUpdates, Date().timeIntervalSince(lastRemoteCheck) >= 60 else { return }
+        guard remoteUpdates, !remoteCheckRunning, Date().timeIntervalSince(lastRemoteCheck) >= 60 else { return }
+        remoteCheckRunning = true
+        defer { remoteCheckRunning = false }
         lastRemoteCheck = Date()
         do {
             var req = URLRequest(url: URL(string: "https://api.github.com/repos/\(repo)/issues?state=open&sort=created&direction=desc&per_page=30")!)
@@ -243,6 +246,9 @@ final class Updater: ObservableObject {
     }
 
     func check() async {
+        if case .checking = state { return }
+        if case .downloading = state { return }
+        guard !isInstalling, !canCancel else { return }
         state = .checking
         do {
             var req = URLRequest(url: URL(string: "https://api.github.com/repos/\(repo)/releases/latest")!)
