@@ -148,7 +148,9 @@ result = bpy.ops.wm.usd_export(**options)
 assert "FINISHED" in result
 import zipfile
 with zipfile.ZipFile(dst) as archive:
-    if args.kind in {"body", "hair"}:
+    if args.kind in {"body", "hair"} and (args.kind == "hair" or any(node.type == "TEX_IMAGE" and node.image is not None for obj in baked for mat in obj.data.materials if mat and mat.use_nodes and mat.node_tree for node in mat.node_tree.nodes)):
         assert any(name.lower().endswith((".png", ".jpg", ".jpeg", ".webp")) for name in archive.namelist()), "USDZ is missing character textures"
+    if args.kind == "body" and not any(name.lower().endswith((".png", ".jpg", ".jpeg", ".webp")) for name in archive.namelist()):
+        print("Material-only body: no image textures packaged; visual review required")
     assert any(name.lower().endswith((".usd", ".usda", ".usdc")) for name in archive.namelist()), "USDZ is missing scene data"
 assert Path(dst).stat().st_size > 0
