@@ -5,7 +5,8 @@ on:
   workflow_dispatch:
 concurrency:
   group: dmx-studio-release-main
-  cancel-in-progress: true
+  # Finish the running build; queue the latest revision instead of interrupting compilation.
+  cancel-in-progress: false
 permissions:
   contents: write
 jobs:
