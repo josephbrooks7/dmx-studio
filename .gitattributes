@@ -1,0 +1,10 @@
+# DMX Studio source and build-time character assets.
+# Store large binary assets in Git LFS; keep code and JSON manifests in regular Git.
+# Only add assets with confirmed distribution rights to this PUBLIC repository.
+packaging/character-library/**/*.usdz filter=lfs diff=lfs merge=lfs -text
+packaging/character-library/**/*.glb filter=lfs diff=lfs merge=lfs -text
+packaging/character-library/**/*.blend filter=lfs diff=lfs merge=lfs -text
+packaging/character-library/**/*.fbx filter=lfs diff=lfs merge=lfs -text
+packaging/character-library/**/*.png filter=lfs diff=lfs merge=lfs -text
+packaging/character-library/**/*.jpg filter=lfs diff=lfs merge=lfs -text
+packaging/character-library/**/*.zip filter=lfs diff=lfs merge=lfs -text
