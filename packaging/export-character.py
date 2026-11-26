@@ -156,6 +156,32 @@ if args.smooth:
     for obj in baked:
         for polygon in obj.data.polygons:
             polygon.use_smooth = True
+# USD consumers do not consistently support BMP. Convert imported BMP images
+# to lossless PNG before USD export, retaining node links and color spaces.
+# Work only in a temporary directory; never rewrite the original source files.
+import tempfile
+texture_workspace = tempfile.TemporaryDirectory(prefix="dmx-usd-textures-")
+for index, img in enumerate(list(bpy.data.images)):
+    if img.file_format != "BMP" and not img.filepath.lower().endswith(".bmp"):
+        continue
+    if not img.has_data:
+        raise RuntimeError("Cannot decode BMP texture: " + img.name)
+    original_space = img.colorspace_settings.name
+    original_alpha = img.alpha_mode
+    name = Path(img.filepath.replace(chr(92), "/")).stem or img.name
+    name = "".join(c if c.isalnum() or c in "-_" else "_" for c in name)
+    png = Path(texture_workspace.name) / (str(index) + "_" + name + ".png")
+    img.file_format = "PNG"
+    img.filepath_raw = str(png)
+    img.save()
+    if not png.is_file() or png.stat().st_size == 0:
+        raise RuntimeError("PNG conversion failed: " + img.name)
+    replacement = bpy.data.images.load(str(png), check_existing=False)
+    replacement.colorspace_settings.name = original_space
+    replacement.alpha_mode = original_alpha
+    replacement.pack()
+    img.user_remap(replacement)
+    print("Converted BMP texture to PNG:", name)
 # Export native USDZ, including material textures.
 # Blender versions use different names for USD texture export options.
 properties = bpy.ops.wm.usd_export.get_rna_type().properties.keys()
@@ -176,3 +202,4 @@ with zipfile.ZipFile(dst) as archive:
         print("Material-only body: no image textures packaged; visual review required")
     assert any(name.lower().endswith((".usd", ".usda", ".usdc")) for name in archive.namelist()), "USDZ is missing scene data"
 assert Path(dst).stat().st_size > 0
+texture_workspace.cleanup()
