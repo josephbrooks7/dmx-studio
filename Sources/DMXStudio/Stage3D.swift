@@ -641,8 +641,8 @@ private enum Build {
         // This is an interim preset, not a topology-compatible facial morph.
         let avatarNeutral = a.bodyStyle == "Androgynous"
         let avatarFeminine = a.bodyStyle == "Feminine" || avatarNeutral
-        let builtInName = avatarFeminine ? (a.skin >= 3 ? "priya_casual" : "emma_casual") :
-            (a.skin >= 3 || a.clothingStyle == "Formal" ? "marcus_formal" : "andre_casual")
+        // Keep body identity stable when skin or wardrobe controls change.
+        let builtInName = avatarFeminine ? "emma_casual" : "andre_casual"
         let bundled = Bundle.main.url(forResource: builtInName, withExtension: "usdz", subdirectory: "Characters")
         let candidates = [a.modelPath.map { URL(fileURLWithPath: $0) }, bundled].compactMap { $0 }
         for url in candidates {
