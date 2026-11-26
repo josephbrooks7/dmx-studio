@@ -685,7 +685,8 @@ private enum Build {
                 // silhouette close to the authored proportions until rigged bodies
                 // are available; do not stretch the entire head and clothing by 40%.
                 let restrainedBuild: CGFloat = 1
-                if url == bundled && !xUp { regionalBuild(imported, bounds: bounds, amount: build - 1, height: CGFloat(a.height), zUp: zUp) }
+                // Preserve authored geometry until regional deformation can respect each mesh transform.
+                _ = build
                 let width = scale * restrainedBuild * neutralWidth
                 let depth = scale * sqrt(restrainedBuild) * neutralDepth
                 mesh.scale = SCNVector3(width, scale, depth)
@@ -1342,7 +1343,7 @@ struct CharacterModelPreview: NSViewRepresentable {
         camera.camera?.fieldOfView = 37
         camera.camera?.wantsHDR = true
         camera.camera?.wantsExposureAdaptation = false
-        camera.camera?.screenSpaceAmbientOcclusionIntensity = 0.55
+        camera.camera?.screenSpaceAmbientOcclusionIntensity = 0
         camera.camera?.screenSpaceAmbientOcclusionRadius = 0.12
         scene.lightingEnvironment.contents = Stage3DView.Coordinator.studioEnvironment
         scene.lightingEnvironment.intensity = 0.25
@@ -1850,6 +1851,17 @@ struct Stage3DView: NSViewRepresentable {
             // Performers must never inherit fixture mounting rotations or offsets.
             if item.prop == .performer {
                 node.eulerAngles = SCNVector3(0, -item.rotation * .pi / 180, 0)
+                // Lift performers embedded in a deck without changing saved coordinates.
+                for deck in model.stage.items where deck.prop == .stage {
+                    let angle = deck.rotation * .pi / 180
+                    let dx = item.x - deck.x, dz = item.z - deck.z
+                    let localX = dx * cos(angle) + dz * sin(angle)
+                    let localZ = -dx * sin(angle) + dz * cos(angle)
+                    let top = deck.y + 0.60
+                    if abs(localX) <= 3 * deck.size && abs(localZ) <= 2 && item.y >= deck.y - 0.05 && item.y < top {
+                        node.position.y = max(node.position.y, top)
+                    }
+                }
                 return
             }
             if item.upright == true {
