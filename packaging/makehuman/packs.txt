@@ -1,0 +1,45 @@
+# MakeHuman Community asset packs mirrored to the "makehuman-assets-1" GitHub Release.
+# Source page: https://static.makehumancommunity.org/assets/assetpacks.html
+# Format: <path under files.makehumancommunity.org> <license> <what it is>
+asset_packs/makehuman_system_assets/makehuman_system_assets_cc0.zip CC0 base body, proxies, eyes, teeth, tongue, default hair/eyebrows/eyelashes
+asset_packs/system_clothes_materials01/system_clothes_materials01_cc0.zip CC0 extra materials for system clothes
+asset_packs/system_hair_materials01/system_hair_materials01_cc0.zip CC0 extra materials for system hair
+asset_packs/skins01/skins01_cc0.zip CC0 natural female skins
+asset_packs/skins02/skins02_cc0.zip CC0 natural male skins
+asset_packs/skins03/skins03_cc0.zip CC0 non-natural skins
+asset_packs/nose01/nose01_cc0.zip CC0 realistic nose deformations
+asset_packs/ears01/ears01_cc0.zip CC0 realistic ear deformations
+asset_packs/cheek01/cheek01_cc0.zip CC0 realistic cheek deformations
+asset_packs/arms01/arms01_cc0.zip CC0 realistic arm deformations
+asset_packs/hands01/hands01_cc0.zip CC0 realistic hand deformations
+asset_packs/eyebrows01/eyebrows01_cc0.zip CC0 high-res eyebrows (Mindfront)
+asset_packs/eyelashes01/eyelashes01_cc0.zip CC0 high-res eyelashes (Mindfront)
+asset_packs/bodyparts05/bodyparts05_cc0.zip CC0 beards and moustaches
+asset_packs/bodyparts06/bodyparts06_cc-by.zip CC-BY beards and moustaches
+asset_packs/bodyparts03/bodyparts03_cc-by.zip CC-BY tails and wings (Fantasy accessory)
+asset_packs/hair01/hair01_cc0.zip CC0 low-poly and stylized hair
+asset_packs/hair02/hair02_ccby.zip CC-BY high-poly hair (Elvaerwyn)
+asset_packs/hair03/hair03_ccby.zip CC-BY alpha 7 hair adaptations
+asset_packs/shirts01/shirts01_cc0.zip CC0 t-shirts, sweaters, tops
+asset_packs/shirts02/shirts02_ccby.zip CC-BY long-sleeved cardigans, sweaters, shirts
+asset_packs/shirts03/shirts03_ccby.zip CC-BY short-sleeved shirts, tunics, tops
+asset_packs/pants01/pants01_cc0.zip CC0 pants
+asset_packs/pants02/pants02_ccby.zip CC-BY long pants
+asset_packs/pants03/pants03_ccby.zip CC-BY short pants
+asset_packs/skirts01/skirts01_cc0.zip CC0 skirts
+asset_packs/skirts02/skirts02_cc-by.zip CC-BY skirts
+asset_packs/dress01/dress01_cc0.zip CC0 gowns and dresses
+asset_packs/dress02/dress02_cc-by.zip CC-BY gowns and dresses (Elvaerwyn)
+asset_packs/dress03/dress03_cc-by.zip CC-BY gowns and dresses
+asset_packs/suits01/suits01_cc0.zip CC0 formal suits (Margaret Toigo)
+asset_packs/suits02/suits02_cc0.zip CC0 sci-fi and fantasy suits
+asset_packs/suits03/suits03_cc-by.zip CC-BY thematic suits
+asset_packs/shoes01/shoes01_cc0.zip CC0 shoes and boots
+asset_packs/shoes02/shoes02_ccby.zip CC-BY low shoes, sneakers, sandals
+asset_packs/shoes03/shoes03_ccby.zip CC-BY boots
+asset_packs/underwear04/underwear04_cc0.zip CC0 socks
+asset_packs/hats01/hats01_cc0.zip CC0 hats and caps
+asset_packs/hats03/hats03_cc-by.zip CC-BY hats and caps
+asset_packs/glasses01/glasses01_cc0.zip CC0 glasses
+asset_packs/glasses02/glasses02_ccby.zip CC-BY glasses
+asset_packs/gloves01/gloves01_cc0.zip CC0 gloves
