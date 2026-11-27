@@ -103,6 +103,18 @@ slider and the clothing area it pushes on.
 | Thigh | Quadriceps (front), hamstrings (back), adductors (inner) | Thigh thickness | Separate front/back/inner shaping |
 | Lower leg | Gastrocnemius + soleus (calf) | Calf size |  |
 
+## 4. Shoulders
+
+- Three bones (shoulder blade, collarbone, upper arm) and the most mobile joint in the body:
+  the ball is about 4x the socket's surface, in a loose capsule, allowing forward raise, side
+  raise, across, rotation in/out and full circles (arm circles are valid within the limits).
+- The ball stays centered in the socket (rotator cuff pulls it in): the `Arm` bone only rotates
+  about a fixed pivot, never translates. Whole-shoulder shifts (shrug, reach, the shoulder
+  blade's third of an arm raise) come from the `Shoulder` bone (collarbone + shoulder blade).
+- Shoulder slider = deltoid cap (the largest shoulder muscle) and sets shirt shoulder width.
+- Raised arms: the deltoid bunches and the armpit opens; corrective shapes keep the shoulder
+  and sleeve round instead of pinching (arms-up, victory V, fist up).
+
 ## 4a. Hips and glutes
 
 - Hip = femur head in the deep pelvic socket (ball and socket), see section 2 for ranges.
@@ -446,6 +458,8 @@ other rather than snapping.
   BMC Musculoskeletal Disorders movement criteria.
 - Muscles: Teach Me Anatomy upper limb, lower limb and abdominal wall pages; OpenStax Anatomy
   & Physiology 11.6; Wikipedia "Abdominal muscles"; Osmosis anterolateral abdominal wall.
+- Shoulders: Wikipedia "Shoulder joint"; StatPearls "Glenohumeral Joint"; Arthritis
+  Foundation "Shoulder Anatomy"; University of Utah shoulder anatomy.
 - Hips and glutes: Goodwin Living, "Anatomy Lesson: The Hips and Glutes".
 - Hands: LibreTexts / InformedHealth hand bones; Eaton Hand resting cascade; clinical resting
   posture (position of function); tenodesis effect (hand rehab notes); Cornell ergonomics
