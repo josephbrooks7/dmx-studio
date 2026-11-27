@@ -56,7 +56,7 @@ private enum Mat {
 
 // MARK: - Models
 
-private enum Build {
+enum Build {
     static func cyl(_ r: CGFloat, _ h: CGFloat, _ m: SCNMaterial) -> SCNNode {
         let g = SCNCylinder(radius: r, height: h); g.materials = [m]; return SCNNode(geometry: g)
     }
