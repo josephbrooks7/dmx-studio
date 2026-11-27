@@ -215,6 +215,21 @@ for every garment on every body, and flags a garment that is too tight for a bod
   - **Rigid** (denim, blazers): keeps its own shape and stands off the body; minimum ease kept.
   - **Flowy woven** (blouses, open shirts): hangs from shoulders and moves with secondary motion.
 
+## 5c. Prints and logos on clothing
+
+Performers can wear printed graphics (Red Velvet merch, artist logos, tour art). Print zones sit
+at garment landmarks and are sized in real inches (width x height), so a design covers the same
+real area on any body:
+- Adult front: standard 11 x 11, max 11.25 x 14, jumbo 12.5 x 17
+- Youth front: toddler 5.5 x 5.5, small 8.5 x 8.5, med/large 10.5 x 10.5
+- Left chest: standard 4.5 x 4.5, max 5 x 5, pocket 3.5 x 3.5
+- Sleeve: 2 x 11.25 (max 2.5 x 14); pant leg 2.5 x 14 (large 5 x 24)
+- Cap front 4 x 2.25; visor 4 x 1.25
+Designs scale proportionally to the zone width. Default placement (common screen-print practice,
+not from the size source): front print starts about 3 in below the collar, back print about
+4 in below. Prints are painted into the garment texture so they stretch over the chest or bust
+and fold with poses; users can upload PNG art and choose zone and size tier.
+
 ## 5. Body proportions
 
 Segment lengths scale roughly with height (Drillis & Contini proportions, widely used). These
@@ -403,7 +418,7 @@ other rather than snapping.
   Anatomy of the Hand" (thumb, finger spread, arches).
 - Sizing: MFG Merch "Pants Size Chart" (men's and women's charts, how to measure, rise and fit);
   Creative Muse "Sizing & Fit" (garment vs body ease, flat-lay, grading, fabric behavior);
-  National Breast Cancer Foundation "Bra Fit Guide"; Saucony men's size chart; Men's Wearhouse "Complete Guide to Men's Suit Sizing and Fit"; Selvane "Sleeve Length Guide"; MasterClass "How to Properly Measure Sleeve Length"; Lane Bryant / Cacique "Bra Fit Guide".
+  National Breast Cancer Foundation "Bra Fit Guide"; Saucony men's size chart; Men's Wearhouse "Complete Guide to Men's Suit Sizing and Fit"; Selvane "Sleeve Length Guide"; MasterClass "How to Properly Measure Sleeve Length"; Transfer Express "Design Sizes" (print zones); Lane Bryant / Cacique "Bra Fit Guide".
 - Proportions: Penn State OpenLab "Proportionality Constants" (Drillis & Contini 1966).
 - Skinning: Kavan et al. (dual quaternion skinning); Walt Disney Animation Studios, "Enhanced
   Dual Quaternion Skinning for Production Use"; Disney Research, "Skinning with Optimized
