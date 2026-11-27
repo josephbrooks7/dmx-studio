@@ -22,6 +22,7 @@ from mathutils.bvhtree import BVHTree
 
 BODY_PROXY = "Outfit_original"     # the full, close-fitting body surface each character carries
 MIN_EASE = 0.004                   # fabric never sits closer than 4 mm to the body
+LINER_EASE = 0.0025               # the liner hugs the body inside every garment's minimum ease
 CLEARANCE = 0.005                  # a point found inside the body is pushed out to 5 mm
 FREE_START, FREE_END = 0.035, 0.09 # fabric hanging this far off the body (hems, cuffs) keeps its retargeted shape
 
@@ -167,6 +168,37 @@ def main():
     fitted.matrix_parent_inverse = dst_rig.matrix_world.inverted()
     mod = fitted.modifiers.new("Target rig", "ARMATURE"); mod.object = dst_rig
 
+    # Liner: the target's own garment in this slot, pulled in to hug its body and given the new
+    # garment's fabric. Each body's skin mesh has holes where its own clothes sit; the liner closes
+    # them wherever the new garment is cut differently (neckline, hem, sleeve length).
+    liner = None
+    own = [o for o in dst_objs if o.type == "MESH" and o.name.split(".")[0] == garment_name]
+    if own and garment_name != "Shoes":
+        own = own[0]
+        liner_mesh = own.data.copy()
+        liner = bpy.data.objects.new("Liner_" + garment_name, liner_mesh)
+        bpy.context.scene.collection.objects.link(liner)
+        liner.matrix_world = Matrix.Identity(4)
+        for v in liner_mesh.vertices:
+            p = own.matrix_world @ v.co
+            near, normal, _ = signed_offset(dst_tree, p)
+            v.co = near + normal * LINER_EASE
+        liner_mesh.materials.clear()
+        for m in mesh.materials:
+            liner_mesh.materials.append(m)
+        for poly in liner_mesh.polygons:
+            poly.material_index = 0
+        liner_mesh.update()
+        own_groups = {g.index: g.name for g in own.vertex_groups}
+        for g in own.vertex_groups:
+            liner.vertex_groups.new(name=g.name)
+        for v in own.data.vertices:
+            for g in v.groups:
+                liner.vertex_groups[own_groups[g.group]].add([v.index], g.weight, "REPLACE")
+        liner.parent = dst_rig
+        liner.matrix_parent_inverse = dst_rig.matrix_world.inverted()
+        lm = liner.modifiers.new("Target rig", "ARMATURE"); lm.object = dst_rig
+
     assert len(out_mesh.vertices) == len(mesh.vertices) and len(out_mesh.polygons) == len(mesh.polygons)
     assert list(out_mesh.materials) == list(mesh.materials)
     moved = [(a - b).length for a, b in zip(final, retarget)]
@@ -176,6 +208,7 @@ def main():
         "vertices_without_matching_bones": unmatched,
         "vertices_pushed_out_of_body": pushed, "deepest_penetration_before_fix_m": round(-worst_inside, 4),
         "max_body_fit_correction_m": round(max(moved), 4),
+        "liner": liner.name if liner else None,
         "degenerate_faces": sum(1 for p in out_mesh.polygons if p.area < 1e-10),
         "method": "skeleton retarget + body-surface ease transfer + smoothed correction + clearance",
     }
@@ -183,6 +216,8 @@ def main():
     (out / "fit-report.json").write_text(json.dumps(report, indent=2) + "\n")
     bpy.ops.object.select_all(action="DESELECT")
     fitted.select_set(True); dst_rig.select_set(True)
+    if liner:
+        liner.select_set(True)
     bpy.context.view_layer.objects.active = fitted
     bpy.ops.export_scene.gltf(filepath=str((out / f"{garment_name}.glb").resolve()), export_format="GLB",
                               use_selection=True, export_animations=False, export_skins=True)

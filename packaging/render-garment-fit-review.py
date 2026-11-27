@@ -38,7 +38,22 @@ def main():
         if o.type == "MESH":
             o.hide_render = o.name.split(".")[0] not in visible
     own = named(objects, garment)
-    fitted = named(load(fitted_path), "Fitted_" + garment)
+    fitted_objs = load(fitted_path)
+    fitted = named(fitted_objs, "Fitted_" + garment)
+    liner = [o for o in fitted_objs if o.type == "MESH" and o.name.startswith("Liner_")]
+    # Bind the fitted garment (and liner) to the character's own posed skeleton, exactly as the app
+    # does, instead of the rest-pose copy of the rig that came in with the garment file.
+    rig = [m.object for m in own.modifiers if m.type == "ARMATURE" and m.object][0]
+    for o in [fitted] + liner:
+        mw = o.matrix_world.copy()
+        for m in o.modifiers:
+            if m.type == "ARMATURE":
+                m.object = rig
+        o.parent = rig
+        o.matrix_world = mw
+    for o in fitted_objs:
+        if o.type == "ARMATURE":
+            o.hide_render = True
     bpy.context.view_layer.update()
     pts = [o.matrix_world @ v.co for o in objects if o.type == "MESH" and not o.hide_render for v in o.data.vertices]
     lo = Vector(tuple(min(p[i] for p in pts) for i in range(3)))
@@ -69,6 +84,8 @@ def main():
     for state in ("original", "fitted"):
         own.hide_render = state != "original"
         fitted.hide_render = state != "fitted"
+        for l in liner:
+            l.hide_render = state != "fitted"
         for angle, offset in [("front", (0, -3, 0)), ("profile", (3, 0, 0)), ("back", (0, 3, 0))]:
             cam.location = center + Vector(offset) * height; aim(cam, center)
             scene.render.filepath = str((out / f"{state}-{angle}.png").resolve())
