@@ -55,6 +55,16 @@ jobs:
             --title "DMX Studio Character Library (MakeHuman CC0 / CC-BY)" \
             --notes "Built by .github/workflows/makehuman-library.yml from MakeHuman CC0 data and the makehuman-assets-1 packs. Licenses and credits in catalog.json."
           gh release upload "$TAG" -R "$GITHUB_REPOSITORY" character-library.zip lib/catalog.json --clobber
+      - name: Build and publish the app character pack
+        run: |
+          set -euo pipefail
+          python3 packaging/makehuman/build_app_pack.py lib apppack
+          (cd apppack && zip -qr ../character-app-pack.zip .)
+          ls -la character-app-pack.zip
+          gh release upload character-library-1 -R "$GITHUB_REPOSITORY" character-app-pack.zip --clobber
+          mkdir -p packaging/makehuman/review
+          cp apppack/contents.json packaging/makehuman/review/app-pack-contents.json
+          cp apppack/CREDITS.md packaging/makehuman/review/app-pack-credits.md
       - name: Restore official Blender archive cache
         uses: actions/cache@v4
         with:
