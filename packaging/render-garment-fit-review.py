@@ -156,8 +156,9 @@ def main():
     base_pose = {pb.name: (pb.location.copy(), pb.rotation_quaternion.copy(), pb.scale.copy()) for pb in rig.pose.bones}
     for pb in rig.pose.bones:
         pb.rotation_mode = "QUATERNION"
-    if rig.animation_data:
-        rig.animation_data.action = None
+    for o in bpy.data.objects:   # drop the action and any stacked NLA tracks on every rig
+        if o.animation_data:
+            o.animation_data_clear()
     for name, (loc, rot, scl) in base_pose.items():
         pb = rig.pose.bones[name]; pb.location, pb.rotation_quaternion, pb.scale = loc, rot, scl
     bpy.context.view_layer.update()
@@ -174,6 +175,11 @@ def main():
             have = m.to_3x3().col[1].normalized()   # a bone points along its local Y
             rot = have.rotation_difference(want).to_matrix()
             pb.matrix = Matrix.Translation(m.translation) @ (rot @ m.to_3x3()).to_4x4()
+            bpy.context.view_layer.update()
+            # where the bone really points now, in world space, as measured from its head and tail
+            got = (rig.matrix_world @ pb.tail - rig.matrix_world @ pb.head).normalized()
+            print("POSE_AIM", name, "want", tuple(round(c, 2) for c in Vector(spec[1]).normalized()),
+                  "got", tuple(round(c, 2) for c in got), "match", round(got.dot(Vector(spec[1]).normalized()), 2))
         elif spec[0] == "tilt":
             rot = Quaternion(to_arm @ Vector(spec[1]), radians(spec[2])).to_matrix()
             pb.matrix = Matrix.Translation(m.translation) @ (rot @ m.to_3x3()).to_4x4()
@@ -188,7 +194,12 @@ def main():
     def rank(name):
         base = name.split(":")[-1].replace("Left", "").replace("Right", "")
         return order.index(base) if base in order else len(order)
+    print("RIG", rig.name, "parent", rig.parent.name if rig.parent else None,
+          "world", [tuple(round(c, 3) for c in row) for row in rig.matrix_world])
+    if garment == "Shoes":
+        poses = {}
     for pose_name, bones in poses.items():
+        print("POSE", pose_name)
         for name in sorted(bones, key=rank):
             apply(name, bones[name])
         for angle, offset in [("front", (0.8, -3, 0))]:

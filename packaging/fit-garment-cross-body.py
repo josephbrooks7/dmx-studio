@@ -157,6 +157,8 @@ def main():
     feet = [foot_share(v) for v in mesh.vertices]
     if garment_name != "Shoes":
         free = [max(f, min(1.0, ft * 2)) for f, ft in zip(free, feet)]
+    else:
+        free = [1.0] * len(free)   # shoes follow the skeleton only: the body surface at the feet is the target's own shoe
 
     # fit correction toward the target body, keeping the original ease
     delta = []
@@ -179,7 +181,7 @@ def main():
     pushed, worst_inside = 0, 0.0
     for i, p in enumerate(final):
         near, normal, off = signed_offset(dst_tree, p)
-        if garment_name != "Shoes" and feet[i] > 0.3:
+        if garment_name == "Shoes" or feet[i] > 0.3:
             continue
         if off < CLEARANCE * 0.8:
             worst_inside = min(worst_inside, off)
@@ -190,7 +192,7 @@ def main():
         relaxed = [p.lerp(sum((final[j] for j in nb), Vector((0, 0, 0))) / len(nb), 0.25) if nb else p
                    for p, nb in zip(final, neighbours)]
         for i, p in enumerate(relaxed):
-            if garment_name != "Shoes" and feet[i] > 0.3:
+            if garment_name == "Shoes" or feet[i] > 0.3:
                 final[i] = p
                 continue
             near, normal, off = signed_offset(dst_tree, p)
