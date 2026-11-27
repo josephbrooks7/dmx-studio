@@ -105,6 +105,14 @@ slider and the clothing area it pushes on.
   closing over them, wrist near neutral. Not a fingertip hold.
 - **Precision (pinch) grip:** thumb pad against finger pads for a guitar pick, drumstick tip,
   setlist or water bottle cap.
+- **Thumb:** rests rotated about 80° relative to the other metacarpals so it faces the fingers.
+  Its base joint is the most mobile in the hand: ~40-50° flexion/extension, ~80° spread,
+  70-110° twist, which is what lets it close over a mic or meet the fingertips.
+- **Finger spread:** knuckles fan only about 25-30° in total for each finger; the little finger
+  spreads most (it spans objects). Open hands and horns never splay past this.
+- **Knuckle row curves** (distal transverse arch), it is not a straight line.
+- **Fists and grips converge:** curling fingers angle slightly toward the base of the thumb
+  rather than folding straight down, so a fist or mic grip looks compact, not claw-like.
 - Gesture hands (peace sign, rock horns, fist, point) start from these shapes and stay within
   the finger ranges in section 2; fingers never bend backward or sideways past their limits.
 
@@ -289,7 +297,8 @@ other rather than snapping.
   & Physiology 11.6; Wikipedia "Abdominal muscles"; Osmosis anterolateral abdominal wall.
 - Hands: LibreTexts / InformedHealth hand bones; Eaton Hand resting cascade; clinical resting
   posture (position of function); tenodesis effect (hand rehab notes); Cornell ergonomics
-  "Grasping Hands" (power vs pinch grip); Wikipedia "Hand" (arches).
+  "Grasping Hands" (power vs pinch grip); Wikipedia "Hand" (arches); Physiopedia "Functional
+  Anatomy of the Hand" (thumb, finger spread, arches).
 - Proportions: Penn State OpenLab "Proportionality Constants" (Drillis & Contini 1966).
 - Skinning: Kavan et al. (dual quaternion skinning); Walt Disney Animation Studios, "Enhanced
   Dual Quaternion Skinning for Production Use"; Disney Research, "Skinning with Optimized
