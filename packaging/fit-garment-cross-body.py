@@ -75,6 +75,30 @@ def signed_offset(body, p):
     return near, normal, (p - near).dot(normal)
 
 
+def plain_fabric(source):
+    color = [0.8, 0.8, 0.8, 1.0]
+    if source and source.use_nodes:
+        for node in source.node_tree.nodes:
+            if node.type == "BSDF_PRINCIPLED":
+                base = node.inputs["Base Color"]
+                image = next((l.from_node.image for l in base.links if getattr(l.from_node, "image", None)), None)
+                if image and image.size[0] > 0:
+                    px = list(image.pixels[:])
+                    n = len(px) // 4
+                    step = max(1, n // 20000)
+                    samples = [px[i * 4:i * 4 + 3] for i in range(0, n, step) if px[i * 4 + 3] > 0.5]
+                    if samples:
+                        color = [sum(c[k] for c in samples) / len(samples) for k in range(3)] + [1.0]
+                else:
+                    color = list(base.default_value)
+    m = bpy.data.materials.new("Liner_fabric")
+    m.use_nodes = True
+    bsdf = m.node_tree.nodes["Principled BSDF"]
+    bsdf.inputs["Base Color"].default_value = color
+    bsdf.inputs["Roughness"].default_value = 0.85
+    return m
+
+
 def main():
     src_path, dst_path, garment_name, out = sys.argv[sys.argv.index("--") + 1:]
     src_path, dst_path, out = Path(src_path), Path(dst_path), Path(out)
@@ -191,9 +215,10 @@ def main():
             p = own.matrix_world @ v.co
             near, normal, _ = signed_offset(dst_tree, p)
             v.co = near + normal * LINER_EASE
+        # The liner's UV layout belongs to a different garment, so the new garment's texture would land
+        # on the wrong regions. Give it a plain fabric color: the average of the garment's base color.
         liner_mesh.materials.clear()
-        for m in mesh.materials:
-            liner_mesh.materials.append(m)
+        liner_mesh.materials.append(plain_fabric(mesh.materials[0] if mesh.materials else None))
         for poly in liner_mesh.polygons:
             poly.material_index = 0
         liner_mesh.update()

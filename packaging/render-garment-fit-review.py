@@ -98,12 +98,57 @@ def main():
     own.hide_render = True; fitted.hide_render = False
     for l in liner:
         l.hide_render = False
+    # Performance gestures (shared with the stage performer's gesture set). Rotations are
+    # (axis, degrees) in each pose bone's local space; fingers curl about local X.
+    def curl(side, fingers, deg=80):
+        return {f"mixamorig:{side}Hand{f}{k}": ((1, 0, 0), deg) for f in fingers for k in (1, 2, 3)}
     poses = {
-        "pose-arms-raised": {"mixamorig:LeftArm": ((1, 0, 0), -70), "mixamorig:RightArm": ((1, 0, 0), -70),
-                             "mixamorig:LeftForeArm": ((1, 0, 0), -30), "mixamorig:RightForeArm": ((1, 0, 0), -30)},
+        "pose-arms-up": {"mixamorig:LeftArm": ((0, 0, 1), -75), "mixamorig:RightArm": ((0, 0, 1), 75)},
+        "pose-arms-out": {"mixamorig:LeftArm": ((0, 0, 1), -40), "mixamorig:RightArm": ((0, 0, 1), 40)},
+        "pose-mic-hold": {"mixamorig:RightArm": ((1, 0, 0), -45), "mixamorig:RightForeArm": ((0, 0, 1), 115),
+                          **curl("Right", ("Index", "Middle", "Ring", "Pinky"), 85)},
+        "pose-arms-crossed": {"mixamorig:LeftArm": ((1, 0, 0), -35), "mixamorig:RightArm": ((1, 0, 0), -35),
+                              "mixamorig:LeftForeArm": ((0, 0, 1), -105), "mixamorig:RightForeArm": ((0, 0, 1), 105)},
+        "pose-peace-sign": {"mixamorig:RightArm": ((0, 0, 1), 60), "mixamorig:RightForeArm": ((0, 0, 1), 70),
+                            **curl("Right", ("Ring", "Pinky"), 90), "mixamorig:RightHandThumb2": ((1, 0, 0), 45)},
+        "pose-rock-horns": {"mixamorig:RightArm": ((0, 0, 1), 80), "mixamorig:RightForeArm": ((0, 0, 1), 20),
+                            **curl("Right", ("Middle", "Ring"), 90), "mixamorig:RightHandThumb2": ((1, 0, 0), 45)},
+        # from real stage photos
+        "pose-mic-stand-sing": {"mixamorig:RightArm": ((1, 0, 0), -50), "mixamorig:RightForeArm": ((0, 0, 1), 125),
+                                **curl("Right", ("Index", "Middle", "Ring", "Pinky"), 85),
+                                "mixamorig:Spine1": ((1, 0, 0), 8), "mixamorig:Head": ((1, 0, 0), -10)},
+        "pose-wide-stance-bass": {"mixamorig:LeftUpLeg": ((0, 0, 1), 18), "mixamorig:RightUpLeg": ((0, 0, 1), -18),
+                                  "mixamorig:LeftLeg": ((1, 0, 0), 15), "mixamorig:RightLeg": ((1, 0, 0), 15),
+                                  "mixamorig:LeftArm": ((1, 0, 0), -40), "mixamorig:LeftForeArm": ((0, 0, 1), -60),
+                                  "mixamorig:RightArm": ((1, 0, 0), -25), "mixamorig:RightForeArm": ((0, 0, 1), 45),
+                                  "mixamorig:Head": ((1, 0, 0), 20)},
+        "pose-victory-v": {"mixamorig:LeftArm": ((0, 0, 1), -95), "mixamorig:RightArm": ((0, 0, 1), 95),
+                           **curl("Right", ("Index", "Middle", "Ring", "Pinky"), 85)},
+        "pose-crouch-peace": {"mixamorig:LeftUpLeg": ((1, 0, 0), -80), "mixamorig:RightUpLeg": ((1, 0, 0), -80),
+                              "mixamorig:LeftLeg": ((1, 0, 0), 120), "mixamorig:RightLeg": ((1, 0, 0), 120),
+                              "mixamorig:Hips": ((0, 0, 1), 0),
+                              "mixamorig:RightArm": ((1, 0, 0), -50), "mixamorig:RightForeArm": ((0, 0, 1), 120),
+                              "mixamorig:LeftArm": ((0, 0, 1), -70), "mixamorig:LeftForeArm": ((0, 0, 1), -60),
+                              **curl("Left", ("Ring", "Pinky"), 90)},
+        "pose-fist-up-wide": {"mixamorig:LeftArm": ((0, 0, 1), -100), **curl("Left", ("Index", "Middle", "Ring", "Pinky"), 90),
+                              "mixamorig:LeftUpLeg": ((0, 0, 1), 25), "mixamorig:RightUpLeg": ((0, 0, 1), -25),
+                              "mixamorig:RightArm": ((0, 0, 1), 20), "mixamorig:Head": ((1, 0, 0), -20)},
         "pose-step": {"mixamorig:LeftUpLeg": ((1, 0, 0), -35), "mixamorig:LeftLeg": ((1, 0, 0), 45),
-                      "mixamorig:RightArm": ((0, 0, 1), 25), "mixamorig:Spine1": ((0, 1, 0), 12)},
+                      "mixamorig:Spine1": ((0, 1, 0), 12)},
     }
+    # full-body framing with headroom for raised arms
+    cam_data.ortho_scale = height * 1.45
+    center = Vector(((lo.x + hi.x) / 2, (lo.y + hi.y) / 2, lo.z + height * 0.6))
+    # The character file carries an animation that would reset the bones every frame. Freeze its
+    # current pose, drop the animation, then layer each gesture on top of that pose.
+    base_pose = {pb.name: (pb.location.copy(), pb.rotation_quaternion.copy(), pb.scale.copy()) for pb in rig.pose.bones}
+    for pb in rig.pose.bones:
+        pb.rotation_mode = "QUATERNION"
+    if rig.animation_data:
+        rig.animation_data.action = None
+    for name, (loc, rot, scl) in base_pose.items():
+        pb = rig.pose.bones[name]; pb.location, pb.rotation_quaternion, pb.scale = loc, rot, scl
+    bpy.context.view_layer.update()
     for pose_name, bones in poses.items():
         saved = {}
         for bone, (axis, deg) in bones.items():
@@ -114,7 +159,7 @@ def main():
             saved[bone] = pb.rotation_quaternion.copy()
             pb.rotation_quaternion = pb.rotation_quaternion @ Quaternion(axis, radians(deg))
         bpy.context.view_layer.update()
-        for angle, offset in [("front", (0, -3, 0)), ("profile", (3, 0, 0))]:
+        for angle, offset in [("front", (0.8, -3, 0))]:
             cam.location = center + Vector(offset) * height; aim(cam, center)
             scene.render.filepath = str((out / f"{pose_name}-{angle}.png").resolve())
             bpy.ops.render.render(write_still=True)
