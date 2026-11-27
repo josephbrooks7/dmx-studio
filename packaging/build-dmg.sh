@@ -26,6 +26,9 @@ python3 packaging/fetch-materials.py "$APP/Contents/Resources/Materials" || echo
 cp "$BIN" "$APP/Contents/MacOS/DMXStudio"
 # Textured human meshes, converted to native SceneKit-readable USDZ offline.
 # Source: Microsoft Rocketbox (MIT), converted GLB assets from avatar-studio.
+# Body reference data for the character engine (summary statistics only)
+mkdir -p "$APP/Contents/Resources/CharacterReference"
+cp packaging/character-reference/*.json "$APP/Contents/Resources/CharacterReference/"
 CHAR="$APP/Contents/Resources/Characters"
 mkdir -p "$CHAR"
 # Prefer DMX Studio-owned, preconverted release assets. This directory is

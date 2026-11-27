@@ -980,6 +980,9 @@ struct PerformerAppearance: Codable, Hashable {
     var hair: PerformerHair = .short
     var height: Double = 1.75
     var build: Double = 1
+    /// Parametric body (height, weight, correlated measurements, overrides, composition, anatomy).
+    /// nil in shows saved before it existed; see CharacterBody.swift.
+    var body: CharacterBody? = nil
 }
 
 struct SavedPerformer: Identifiable, Codable, Hashable {

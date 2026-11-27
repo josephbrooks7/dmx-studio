@@ -21,6 +21,9 @@ jobs:
       - name: Swift compile
         if: matrix.component == 'swift'
         run: swift build -c debug
+      - name: Character body engine self-test
+        if: matrix.component == 'swift'
+        run: .build/debug/DMXStudio --character-selftest packaging/character-reference/ansur2-model.json
       - name: Validate asset manifests
         if: matrix.component == 'assets'
         run: |
