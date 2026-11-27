@@ -271,6 +271,16 @@ for every garment on every body, and flags a garment that is too tight for a bod
   - **Rigid** (denim, blazers): keeps its own shape and stands off the body; minimum ease kept.
   - **Flowy woven** (blouses, open shirts): hangs from shoulders and moves with secondary motion.
 
+## 5d. Feet and shoes
+
+- Foot length defaults from height (about 15% of stature, a general anthropometric proportion)
+  and can be adjusted; width defaults to medium (D).
+- Each character gets a real shoe size from foot length. Reference, U.S. men by height
+  (estimated, no official data): 5'5" and under 7-9, 5'6"-5'9" 9.5-10.5, 5'10"-6'2" 11-12.5,
+  6'3"+ 13-20+; average about 10.5.
+- Shoes moved to another body scale to that foot's real length and width (not the source
+  character's), keep the sole flat on the stage, and never let the foot poke through.
+
 ## 5c. Prints and logos on clothing
 
 Performers can wear printed graphics (Red Velvet merch, artist logos, tour art). Print zones sit
@@ -469,7 +479,8 @@ other rather than snapping.
   & Physiology 11.6; Wikipedia "Abdominal muscles"; Osmosis anterolateral abdominal wall.
 - Shoulders: Wikipedia "Shoulder joint"; StatPearls "Glenohumeral Joint"; Arthritis
   Foundation "Shoulder Anatomy"; University of Utah shoulder anatomy; Body Type Calculator "Average Shoulder Width"
-  (ANSUR II, NHANES III).
+  (ANSUR II, NHANES III); Healthline "Average Shoulder Width".
+- Feet: Healthline "Average Shoe Size for Men".
 - Hips and glutes: Goodwin Living, "Anatomy Lesson: The Hips and Glutes".
 - Hands: LibreTexts / InformedHealth hand bones; Eaton Hand resting cascade; clinical resting
   posture (position of function); tenodesis effect (hand rehab notes); Cornell ergonomics
