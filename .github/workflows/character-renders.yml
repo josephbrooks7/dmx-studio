@@ -1,0 +1,58 @@
+name: Character renders (macOS)
+# Renders MakeHuman characters with the app's own Swift/SceneKit code on a Mac and commits the
+# images, so the in-app result can be checked without a release.
+on:
+  push:
+    branches-ignore: [main]
+    paths:
+      - 'Sources/DMXStudio/MakeHumanCharacter.swift'
+      - 'Sources/DMXStudio/Stage3D.swift'
+      - '.github/workflows/character-renders.yml'
+  workflow_dispatch:
+permissions:
+  contents: write
+concurrency:
+  group: character-renders-${{ github.ref }}
+  cancel-in-progress: true
+jobs:
+  render:
+    runs-on: macos-latest
+    timeout-minutes: 40
+    env:
+      GH_TOKEN: ${{ github.token }}
+    steps:
+      - uses: actions/checkout@v4
+      - name: Character pack
+        run: |
+          gh release download character-library-1 -R "$GITHUB_REPOSITORY" -p character-app-pack.zip -D /tmp
+          mkdir -p /tmp/mhpack && unzip -q /tmp/character-app-pack.zip -d /tmp/mhpack && du -sh /tmp/mhpack
+      - name: Build
+        run: swift build -c debug 2>&1 | grep -E "error|warning: unused|Compiling|Build" | tail -30
+      - name: Render
+        run: |
+          set -o pipefail
+          mkdir -p packaging/makehuman/app-review
+          BIN=.build/debug/DMXStudio
+          export DMX_CHARACTER_LIBRARY=/tmp/mhpack
+          r() { NAME=$1; shift; $BIN --character-render "packaging/makehuman/app-review/$NAME.png" "$@" 2>&1 | grep MH_RENDER | tee -a packaging/makehuman/app-review/log.txt; }
+          : > packaging/makehuman/app-review/log.txt
+          r 1-man-casual Body=Masculine Skin=1 Hair=Short Clothing=Casual Outfit=3 HairColor=1
+          r 2-woman-casual Body=Feminine Skin=0 Hair=Long Clothing=Casual Outfit=2 HairColor=0 Height=1.65
+          r 3-man-formal Body=Masculine Skin=4 Hair=Curly Clothing=Formal HairColor=0 Height=1.85 Build=1.2
+          r 4-woman-glam Body=Feminine Skin=3 Hair=Ponytail Clothing=Glam Outfit=4 HairColor=3
+          r 5-andro-rock Body=Androgynous Skin=2 Hair=Swept "Clothing=Rock Jacket" Outfit=0 HairColor=2 Pose=Wide "Accessory=Top Hat"
+          r 6-woman-punk Body=Feminine Skin=5 Hair=Curly Clothing=Punk Build=1.3 Pose=Performance HairColor=4
+          for SEX in Masculine Feminine; do
+            for SLOT in outfit top bottom hair shoes; do
+              $BIN --character-sheet "packaging/makehuman/app-review/sheet-$SEX-$SLOT.jpg" Body=$SEX Slot=$SLOT Hair=Short || echo "sheet $SEX $SLOT failed"
+            done
+          done
+          ls -la packaging/makehuman/app-review
+      - name: Commit renders
+        if: always()
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898283+github-actions[bot]@users.noreply.github.com"
+          git add packaging/makehuman/app-review || true
+          git commit -m "Character renders (run ${{ github.run_id }})" || echo "nothing to commit"
+          git pull --rebase origin ${{ github.ref_name }} && git push origin HEAD:${{ github.ref_name }}
