@@ -26,7 +26,7 @@
   "vertices_covering_head": 0,
   "liner": "Liner_Trousers",
   "shoe_scale_xyz_per_foot": {},
-  "liner_faces_removed_as_covered": 284,
+  "liner_faces_removed_as_covered": 0,
   "degenerate_faces": 0,
   "method": "skeleton retarget + body-surface ease transfer + smoothed correction + clearance"
 }
