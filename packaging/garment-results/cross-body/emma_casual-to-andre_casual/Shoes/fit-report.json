@@ -7,7 +7,7 @@
   "vertices_without_matching_bones": 0,
   "vertices_pushed_out_of_body": 0,
   "deepest_penetration_before_fix_m": -0.0,
-  "max_body_fit_correction_m": 0.0501,
+  "max_body_fit_correction_m": 0.0538,
   "bone_length_ratios": {
     "mixamorig:Spine": 1.203,
     "mixamorig:LeftUpLeg": 0.937,
@@ -26,16 +26,8 @@
   "vertices_covering_head": 0,
   "liner": null,
   "shoe_scale_xyz_per_foot": {
-    "Left": [
-      1.47,
-      1.219,
-      1.027
-    ],
-    "Right": [
-      1.528,
-      1.214,
-      1.833
-    ]
+    "Left": 1.35,
+    "Right": 1.35
   },
   "liner_faces_removed_as_covered": 0,
   "degenerate_faces": 0,
