@@ -154,7 +154,23 @@ Characters are measured like a tailor would, by slicing the body mesh at standar
 - **Bust:** loosely around the fullest point. Cup = bust minus band, one cup per inch
   (<1" AA, 1" A, 2" B, 3" C, 4" D, 5" DD/E, 6" DDD/F ... up to about 11" K).
 - **Chest (male):** around the fullest point of the chest; pectoral development is separate.
-- (Shoulder width and sleeve length for tops: to be added.)
+- **Shoulder point:** the natural end of each shoulder (shoulder width between them).
+- **Sleeve length:** center back of neck, over the shoulder, to the wrist bone (hand on hip).
+
+Fit checkpoints the fitter verifies on every garment and body (tailoring rules):
+- **Shoulder seam** ends at the natural shoulder point; down the arm = too big, pulling or
+  dimpling = too small. Shoulders are fitted first when moving a top to a new body.
+- **Long sleeves** end at the wrist bone; a jacket shows 1/4-1/2 in of shirt cuff. Never
+  covering the hand.
+- **Jacket length** covers the seat; hem near the thumb knuckle with arms relaxed.
+- **Collar:** about 1/2 in of shirt collar shows above a jacket collar; lapels lie flat.
+- **Layering:** inner layers show at collar and cuffs and never poke through outer layers.
+- **Trouser break** is chosen, not accidental: no break (hem just touches the shoe top),
+  half break (one small fold, the default), full break (deeper fold).
+- **Chest:** room for a flat hand under a jacket; fabric pulling into an "X" = too small.
+- Fit types: slim (hugs the body, more taper), modern (some room, tapered), classic (more room
+  through chest and middle). Suit length letters by height: S 5'5"-5'8", R 5'9"-6'0",
+  L 6'1"-6'3", XL 6'4"+.
 
 Bust controls are three independent sliders: ribcage (band, from build/weight), bust size
 (cup, in real inches over the band, AA to K), and shape (shallow / average / full projection).
@@ -377,7 +393,7 @@ other rather than snapping.
   Anatomy of the Hand" (thumb, finger spread, arches).
 - Sizing: MFG Merch "Pants Size Chart" (men's and women's charts, how to measure, rise and fit);
   Creative Muse "Sizing & Fit" (garment vs body ease, flat-lay, grading, fabric behavior);
-  National Breast Cancer Foundation "Bra Fit Guide"; Saucony men's size chart; Lane Bryant / Cacique "Bra Fit Guide".
+  National Breast Cancer Foundation "Bra Fit Guide"; Saucony men's size chart; Men's Wearhouse "Complete Guide to Men's Suit Sizing and Fit"; Lane Bryant / Cacique "Bra Fit Guide".
 - Proportions: Penn State OpenLab "Proportionality Constants" (Drillis & Contini 1966).
 - Skinning: Kavan et al. (dual quaternion skinning); Walt Disney Animation Studios, "Enhanced
   Dual Quaternion Skinning for Production Use"; Disney Research, "Skinning with Optimized
