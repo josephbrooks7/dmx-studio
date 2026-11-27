@@ -218,7 +218,7 @@ def main():
     chin_z = None
     if "mixamorig:Head" in bones_d:
         chin_z = (dst_rig.matrix_world @ bones_d["mixamorig:Head"].head_local).z + 0.06
-    covering["hand"] = max(0, past_wrist(dst_rig, final) - sleeve_baseline - 10)
+    covering["hand"] = max(0, past_wrist(dst_rig, final) - int(sleeve_baseline * 1.25) - 10)
     if chin_z is not None:
         covering["head"] = sum(1 for p in final if p.z > chin_z)
 

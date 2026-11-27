@@ -172,12 +172,17 @@ def main():
         m = pb.matrix.copy()
         if spec[0] == "aim":
             want = (to_arm @ Vector(spec[1])).normalized()
-            have = m.to_3x3().col[1].normalized()   # a bone points along its local Y
+            # Imported bones' own axes don't run along the limb, so aim the real segment: from this
+            # joint to the next one down the chain (shoulder->elbow, elbow->wrist, hip->knee...).
+            nxt = next((c for c in pb.children if c.name.split(":")[-1].replace("Left", "").replace("Right", "")
+                        in ("ForeArm", "Hand", "Leg", "Foot", "Spine1", "Spine2", "Neck", "Head")), None)
+            have = ((nxt.head if nxt else pb.tail) - pb.head).normalized()
             rot = have.rotation_difference(want).to_matrix()
             pb.matrix = Matrix.Translation(m.translation) @ (rot @ m.to_3x3()).to_4x4()
             bpy.context.view_layer.update()
             # where the bone really points now, in world space, as measured from its head and tail
-            got = (rig.matrix_world @ pb.tail - rig.matrix_world @ pb.head).normalized()
+            end = nxt.head if nxt else pb.tail
+            got = (rig.matrix_world @ end - rig.matrix_world @ pb.head).normalized()
             print("POSE_AIM", name, "want", tuple(round(c, 2) for c in Vector(spec[1]).normalized()),
                   "got", tuple(round(c, 2) for c in got), "match", round(got.dot(Vector(spec[1]).normalized()), 2))
         elif spec[0] == "tilt":
