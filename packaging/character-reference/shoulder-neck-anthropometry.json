@@ -1,0 +1,249 @@
+{
+  "schemaVersion": 1,
+  "units": "cm",
+  "population": "adult",
+  "percentiles": [
+    5,
+    50,
+    95
+  ],
+  "source": "Compiled shoulder/neck reference supplied by the user (Character Creator Physics Model), primarily ANSUR II plus published cervical biomechanics research; female 95th neck circumference corrected to 36.3 cm as noted in the source. Initial morph ranges and validation targets only, not individual-level data.",
+  "male": {
+    "skeletalShoulderWidth": [
+      38.4,
+      41.5,
+      44.7
+    ],
+    "outerShoulderWidth": [
+      45.9,
+      50.9,
+      56.7
+    ],
+    "halfSkeletalShoulderWidth": [
+      19.2,
+      20.8,
+      22.4
+    ],
+    "shoulderToArmpit": [
+      9.2,
+      11.1,
+      13.2
+    ],
+    "shoulderToWaist": [
+      33.9,
+      38.3,
+      43.3
+    ],
+    "neckLength": [
+      8.7,
+      10.8,
+      12.9
+    ],
+    "neckCircumference": [
+      36.0,
+      39.5,
+      44.3
+    ],
+    "neckBaseCircumference": [
+      39.5,
+      43.3,
+      47.9
+    ],
+    "headWidth": [
+      14.6,
+      15.4,
+      16.3
+    ],
+    "headDepth": [
+      18.8,
+      20.0,
+      21.1
+    ],
+    "upperBackWidth": [
+      40.0,
+      45.0,
+      50.1
+    ]
+  },
+  "female": {
+    "skeletalShoulderWidth": [
+      33.5,
+      36.5,
+      39.6
+    ],
+    "outerShoulderWidth": [
+      40.6,
+      45.0,
+      49.9
+    ],
+    "halfSkeletalShoulderWidth": [
+      16.8,
+      18.2,
+      19.8
+    ],
+    "shoulderToArmpit": [
+      7.8,
+      9.5,
+      11.5
+    ],
+    "shoulderToWaist": [
+      31.6,
+      35.4,
+      39.7
+    ],
+    "neckLength": [
+      8.7,
+      10.6,
+      12.7
+    ],
+    "neckCircumference": [
+      30.2,
+      32.8,
+      36.3
+    ],
+    "neckBaseCircumference": [
+      34.0,
+      37.0,
+      40.5
+    ],
+    "headWidth": [
+      14.0,
+      14.7,
+      15.6
+    ],
+    "headDepth": [
+      17.8,
+      19.0,
+      20.2
+    ],
+    "upperBackWidth": [
+      35.4,
+      39.6,
+      43.8
+    ]
+  },
+  "medians": {
+    "headCircumference": {
+      "male": 57.4,
+      "female": 56.0
+    },
+    "backWidthAtArmpits": {
+      "male": 43.0,
+      "female": 37.3
+    },
+    "neckBaseToWaist": {
+      "male": 47.7,
+      "female": 42.4
+    }
+  },
+  "neckLengthPercentiles": {
+    "percentile": [
+      1,
+      5,
+      10,
+      20,
+      30,
+      40,
+      50,
+      60,
+      70,
+      80,
+      90,
+      95,
+      99
+    ],
+    "male": [
+      8.0,
+      8.7,
+      9.2,
+      9.7,
+      10.1,
+      10.4,
+      10.8,
+      11.1,
+      11.4,
+      11.8,
+      12.4,
+      12.9,
+      13.8
+    ],
+    "female": [
+      7.9,
+      8.7,
+      9.1,
+      9.6,
+      10.0,
+      10.3,
+      10.6,
+      10.9,
+      11.3,
+      11.6,
+      12.2,
+      12.7,
+      13.6
+    ],
+    "definition": "vertical distance C7 to tragion, not exposed neck length below the chin"
+  },
+  "supplementarySmallStudy": {
+    "note": "15 men / 15 women; lower statistical weight than ANSUR II",
+    "neckWidthFront": {
+      "male": 11.85,
+      "female": 9.67
+    },
+    "neckDepthSide": {
+      "male": 12.03,
+      "female": 9.72
+    },
+    "adamsAppleProtrusionMm": {
+      "male": 6.81,
+      "female": 3.02
+    },
+    "frontalNeckLength": {
+      "male": 13.03,
+      "female": 11.73
+    },
+    "lateralNeckLength": {
+      "male": 12.66,
+      "female": 11.36
+    }
+  },
+  "heightReference": {
+    "note": "from the Healthline 'Average Heights of Males Around the World' page in the user's screen recording",
+    "usMaleAdultMeanInches": 69.0,
+    "globalMaleMeanInches": 67.45,
+    "nationalMaleMeanRangeInches": [
+      63.0,
+      72.4
+    ]
+  },
+  "independentMorphs": [
+    "clavicleLength",
+    "shoulderWidth",
+    "shoulderSlope",
+    "shoulderHeight",
+    "deltoidVolume",
+    "trapeziusVolume",
+    "neckLength",
+    "neckWidth",
+    "neckDepth",
+    "neckBaseWidth",
+    "neckMuscularity",
+    "neckFat",
+    "laryngealProminence",
+    "cervicalCurvature",
+    "headScale",
+    "scapulaPosition"
+  ],
+  "constraints": {
+    "preserveAnatomicalAttachments": true,
+    "separateBoneAndSoftTissue": true,
+    "allowPopulationOverlap": true,
+    "preserveHeadProportions": true,
+    "updateJointPositions": true,
+    "updateCollisionVolumes": true,
+    "updateClothingFit": true,
+    "updateSkinWeights": true,
+    "doNotLockAllMeasurementsToOnePercentile": true,
+    "doNotScaleMaleMeshToMakeFemale": true
+  }
+}

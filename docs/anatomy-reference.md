@@ -137,6 +137,38 @@ slider and the clothing area it pushes on.
 - Raised arms: the deltoid bunches and the armpit opens; corrective shapes keep the shoulder
   and sleeve round instead of pinching (arms-up, victory V, fist up).
 
+## 4n. Neck and shoulder anthropometry (data file)
+
+Reference distributions live in `packaging/character-reference/shoulder-neck-anthropometry.json`
+(5th/50th/95th percentiles in cm, male and female, mostly ANSUR II): skeletal and outer shoulder
+width, shoulder-to-armpit, shoulder-to-waist, neck length (fine percentile table, C7 to tragion),
+neck and neck-base circumference, head width/depth, upper back width.
+
+Key rules:
+- Men's medians: ~14% wider skeletal shoulders, ~13% wider outer shoulders, ~20% thicker necks,
+  but only ~2% longer necks; male and female ranges overlap heavily. Presets start from these
+  medians; individual characters may sit anywhere in either range.
+- Never lock every measurement to the same percentile, and never make a female body by scaling
+  a male mesh down.
+- Perceived neck length comes from neck thickness, trapezius size and shoulder slope as much as
+  from skeletal neck length (a big trapezius makes the neck look shorter without changing bones).
+- Bone and soft tissue are separate: wider skeletal shoulders move the clavicles, shoulder blades
+  and arm joints; bigger deltoids add volume without moving bones; a longer neck moves the
+  cervical chain and head; a thicker neck changes soft tissue only; body fat changes surface
+  volume without enlarging skeletal landmarks.
+- Shrugs raise the shoulder girdle while the neck still articulates; head rotation spreads
+  through the neck bones and deforms the neck muscles (sternocleidomastoid).
+- Every change updates joint positions, skin weights, collision volumes and clothing fit
+  (collars, shoulder seams, sleeves, neck openings), plus hair and accessory attachment points.
+- Independent morphs: clavicle length, shoulder width, slope, height, deltoid, trapezius,
+  neck length / width / depth / base width / muscularity / fat, Adam's apple, cervical curve,
+  head scale, shoulder-blade position.
+- Next step for realism: learn correlations (height vs shoulder width vs neck vs chest vs
+  muscularity) from ANSUR II's individual-level records instead of treating measurements as
+  independent; the tables only set ranges and validation targets.
+- Height anchors (Healthline, from the user's recording): U.S. men average 69 in (5'9"),
+  world ~67.5 in, national averages ~63-72.4 in.
+
 ## 4a. Hips and glutes
 
 - Hip = femur head in the deep pelvic socket (ball and socket), see section 2 for ranges.
@@ -496,7 +528,10 @@ other rather than snapping.
 - Shoulders: Wikipedia "Shoulder joint"; StatPearls "Glenohumeral Joint"; Arthritis
   Foundation "Shoulder Anatomy"; University of Utah shoulder anatomy; Body Type Calculator "Average Shoulder Width"
   (ANSUR II, NHANES III); Healthline "Average Shoulder Width".
-- Feet: Healthline "Average Shoe Size for Men".
+- Feet: Healthline "Average Shoe Size for Men"; heights: Healthline "Average Heights of Males Around
+  the World" (user's screen recording).
+- Neck/shoulder anthropometry: user-supplied compiled reference (ANSUR II, PMC6986765, PubMed
+  17706225, PMC12846139); data in packaging/character-reference/shoulder-neck-anthropometry.json.
 - Hips and glutes: Goodwin Living, "Anatomy Lesson: The Hips and Glutes".
 - Hands: LibreTexts / InformedHealth hand bones; Eaton Hand resting cascade; clinical resting
   posture (position of function); tenodesis effect (hand rehab notes); Cornell ergonomics

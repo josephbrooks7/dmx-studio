@@ -22,6 +22,7 @@ from mathutils.bvhtree import BVHTree
 
 BODY_PROXY = "Outfit_original"     # the full, close-fitting body surface each character carries
 MIN_EASE = 0.006                   # fabric never sits closer than 6 mm to the body
+TRIM_COVERED_LINER = False         # trimming the liner under fabric opened holes at shoulders/armpits (run 8)
 LINER_EASE = 0.0015               # the liner hugs the body, well inside every garment
 CLEARANCE = 0.007                  # garment surface stays at least 7 mm off the body (liner at 1.5 mm)
 FREE_START, FREE_END = 0.035, 0.09 # fabric hanging this far off the body (hems, cuffs) keeps its retargeted shape
@@ -313,7 +314,7 @@ def main():
         garment_tree = _BVH.FromPolygons([v.co.copy() for v in out_mesh.vertices],
                                          [tuple(t.vertices) for t in out_mesh.loop_triangles], all_triangles=True)
         covered = set()
-        for poly in liner_mesh.polygons:
+        for poly in (liner_mesh.polygons if TRIM_COVERED_LINER else []):
             ctr = poly.center
             _, nrm, _ = signed_offset(dst_tree, ctr)
             hit = garment_tree.ray_cast(ctr + nrm * 0.0005, nrm, 0.06)
