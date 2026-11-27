@@ -25,6 +25,8 @@
   "vertices_covering_hands": 0,
   "vertices_covering_head": 0,
   "liner": "Liner_Top_tee",
+  "shoe_scale_xyz_per_foot": {},
+  "liner_faces_removed_as_covered": 654,
   "degenerate_faces": 0,
   "method": "skeleton retarget + body-surface ease transfer + smoothed correction + clearance"
 }
