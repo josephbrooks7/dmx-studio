@@ -1628,10 +1628,7 @@ struct SetupScreen: View {
     @ObservedObject private var errors = ErrorCenter.shared
     @State private var page: SetupPage? = .wireless
 
-    var body: some View {
-        HStack(spacing: 0) {
-            List(selection: $page) {
-                ForEach(SetupPage.allCases) { p in
+    private func setupRow(_ p: SetupPage) -> some View {
                     HStack {
                         Label(p.rawValue, systemImage: p.icon)
                         Spacer()
@@ -1641,6 +1638,13 @@ struct SetupScreen: View {
                         }
                     }
                     .tag(Optional(p))
+    }
+
+    var body: some View {
+        HStack(spacing: 0) {
+            List(selection: $page) {
+                ForEach(SetupPage.allCases) { p in
+                    setupRow(p)
                 }
             }
             .listStyle(.sidebar)
