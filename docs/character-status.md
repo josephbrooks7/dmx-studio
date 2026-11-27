@@ -19,6 +19,30 @@ Legend: **IT** implemented and tested · **INV** implemented, not visually verif
 - **Adults only** (spec §1): the library and engine only use adult ages ("young" and "old"
   MakeHuman targets); baby and child targets are never used.
 
+## In the app (branch `feat/makehuman-characters`, Nov 27, 2026)
+
+`Sources/DMXStudio/MakeHumanCharacter.swift` builds every stage performer and Character Studio
+preview from the bundled pack (`Resources/Characters/MakeHuman`, release asset
+`character-app-pack.zip`, all CC0):
+
+- Body from 60 adult shape targets (sex, muscle, weight, height; never child or baby), scaled to
+  the exact height; build/weight from the existing sliders or `CharacterBody`.
+- 163-bone skeleton from the body's own joints; body, clothes, hair, eyes all skinned to it.
+- Clothes/shoes/hair fitted by MakeHuman binding; skin under garments removed (no poke-through).
+- Natural stance (arms down, palms toward thighs, relaxed fingers), Wide and Performance stances,
+  breathing and head-drift idle.
+- Outfit and shoes per clothing style chosen from contact sheets; 8 hairstyles mapped; hair color
+  re-tints a desaturated strand texture; six skin tones over three ancestry skins.
+- Cached fitting: color, skin tone and pose changes rebuild in under 50 ms (debug build).
+- Verified by `.github/workflows/character-renders.yml`: the app's Swift/SceneKit code renders on a
+  Mac runner (front/side/back, unlit texture check, the app's own Character Studio capture),
+  images committed to `packaging/makehuman/app-review/`.
+
+Known limits: outfit color tints single tops only (full outfits keep their own colors); no
+jackets except one outfit; Fantasy style has no fantasy clothes yet; Glasses/Choker/Wings
+accessories aren't drawn yet (Top Hat is); the old characters remain only as a fallback if the
+pack is missing.
+
 ## Status by section
 
 | § | Area | Status | Evidence / what's missing |

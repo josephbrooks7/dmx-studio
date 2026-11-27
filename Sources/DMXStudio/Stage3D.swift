@@ -760,8 +760,53 @@ enum Build {
         return (CGFloat(top), CGFloat((minX + maxX) / 2), CGFloat((minZ + maxZ) / 2), CGFloat(maxX - minX), CGFloat(maxZ - minZ))
     }
 
+    /// Independent hat geometry placed from the measured head (and hair) of any body.
+    static func addTopHat(root: SCNNode, body mesh: SCNNode, _ a: PerformerAppearance) {
+        guard a.accessory == "Top Hat" else { return }
+        let hat = SCNNode()
+        let felt = Mat.make(NSColor(white: 0.045, alpha: 1), rough: 0.85)
+        // Use a hollow brim and crown so the scalp can sit inside the hat.
+        // Scale with stature rather than torso build.
+        let headScale = CGFloat(a.height) / 1.75
+        let brim = SCNTube(innerRadius: 0.091 * headScale, outerRadius: 0.145 * headScale, height: 0.012 * headScale)
+        brim.materials = [felt]
+        hat.addChildNode(SCNNode(geometry: brim))
+        let crown = SCNTube(innerRadius: 0.091 * headScale, outerRadius: 0.098 * headScale, height: 0.13 * headScale)
+        crown.materials = [felt]
+        let crownNode = SCNNode(geometry: crown)
+        crownNode.position.y = 0.065 * headScale
+        hat.addChildNode(crownNode)
+        let cap = SCNCylinder(radius: 0.098 * headScale, height: 0.008 * headScale)
+        cap.materials = [felt]
+        let capNode = SCNNode(geometry: cap)
+        capNode.position.y = 0.13 * headScale
+        hat.addChildNode(capNode)
+        if let head = headFrame(mesh, in: root, band: 0.085 * CGFloat(a.height)) {
+            let nominalDiameter = 0.182 * headScale
+            hat.scale.x = min(max(head.width * 1.08 / nominalDiameter, 0.8), 1.6)
+            hat.scale.z = min(max(head.depth * 1.08 / nominalDiameter, 0.8), 1.6)
+            hat.position = SCNVector3(head.x, head.top - 0.035 * headScale, head.z)
+            if let hair = root.childNode(withName: "hair_module", recursively: false),
+               let crown = headFrame(hair, in: root, band: 0.055 * CGFloat(a.height)) {
+                hat.position.y = max(hat.position.y, crown.top - 0.055 * headScale)
+            }
+        } else {
+            hat.position.y = CGFloat(a.height) - 0.065 * headScale
+        }
+        root.addChildNode(hat)
+    }
+
     static func performer(_ a: PerformerAppearance) -> SCNNode {
         let root = SCNNode()
+        // MakeHuman characters (bundled character pack); the older scanned bodies remain only as a
+        // fallback when the pack is missing. Custom imported models keep their own path.
+        if a.modelPath == nil, let character = MHCharacter.build(a) {
+            // Seat the hat on the scalp (the body mesh), not on top of the hair.
+            if let body = character.childNode(withName: "mh_body", recursively: true) {
+                addTopHat(root: character, body: body, a)
+            }
+            return character
+        }
         // Imported self-contained USDZ assets retain their authored meshes and materials.
         // Use a distinct textured starting point for the neutral presentation.
         // This is an interim preset, not a topology-compatible facial morph.
@@ -911,39 +956,7 @@ enum Build {
                 }
                 // Independent accessory geometry leaves imported skin/clothing textures untouched.
                 // A hat is placed using the normalized avatar bounds, not a guessed bone name.
-                if a.accessory == "Top Hat" && a.modelPath == nil {
-                    let hat = SCNNode()
-                    let felt = Mat.make(NSColor(white: 0.045, alpha: 1), rough: 0.85)
-                    // Use a hollow brim and crown so the scalp can sit inside the hat.
-                    // Scale with stature rather than torso build.
-                    let headScale = CGFloat(a.height) / 1.75
-                    let brim = SCNTube(innerRadius: 0.091 * headScale, outerRadius: 0.145 * headScale, height: 0.012 * headScale)
-                    brim.materials = [felt]
-                    hat.addChildNode(SCNNode(geometry: brim))
-                    let crown = SCNTube(innerRadius: 0.091 * headScale, outerRadius: 0.098 * headScale, height: 0.13 * headScale)
-                    crown.materials = [felt]
-                    let crownNode = SCNNode(geometry: crown)
-                    crownNode.position.y = 0.065 * headScale
-                    hat.addChildNode(crownNode)
-                    let cap = SCNCylinder(radius: 0.098 * headScale, height: 0.008 * headScale)
-                    cap.materials = [felt]
-                    let capNode = SCNNode(geometry: cap)
-                    capNode.position.y = 0.13 * headScale
-                    hat.addChildNode(capNode)
-                    if let head = headFrame(mesh, in: root, band: 0.085 * CGFloat(a.height)) {
-                        let nominalDiameter = 0.182 * headScale
-                        hat.scale.x = min(max(head.width * 1.08 / nominalDiameter, 0.8), 1.6)
-                        hat.scale.z = min(max(head.depth * 1.08 / nominalDiameter, 0.8), 1.6)
-                        hat.position = SCNVector3(head.x, head.top - 0.035 * headScale, head.z)
-                        if let hair = root.childNode(withName: "hair_module", recursively: false),
-                           let crown = headFrame(hair, in: root, band: 0.055 * CGFloat(a.height)) {
-                            hat.position.y = max(hat.position.y, crown.top - 0.055 * headScale)
-                        }
-                    } else {
-                        hat.position.y = CGFloat(a.height) - 0.065 * headScale
-                    }
-                    root.addChildNode(hat)
-                }
+                if a.modelPath == nil { addTopHat(root: root, body: mesh, a) }
                 if url == bundled { applyImportedColors(root, a) }
                 return root
             }

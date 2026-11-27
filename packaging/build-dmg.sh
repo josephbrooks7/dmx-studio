@@ -67,6 +67,18 @@ for asset in assets:
 shutil.copy2(source / "manifest.json", dest / "local-manifest.json")
 PYCHAR
 fi
+# MakeHuman characters (CC0): body, shape targets, skeleton, skins, wardrobe. Assembled at runtime by
+# MakeHumanCharacter.swift. Built and published by .github/workflows/makehuman-library.yml.
+if [[ -f packaging/character-app-pack.zip ]]; then
+  mkdir -p "$CHAR/MakeHuman"
+  unzip -q -o packaging/character-app-pack.zip -d "$CHAR/MakeHuman"
+  test -s "$CHAR/MakeHuman/catalog.json" && test -s "$CHAR/MakeHuman/base.bin"
+  echo "Bundled MakeHuman character pack ($(du -sh "$CHAR/MakeHuman" | cut -f1))"
+elif [[ -n "${CI:-}" ]]; then
+  echo "Missing packaging/character-app-pack.zip"; exit 1
+else
+  echo "WARNING: MakeHuman character pack not bundled; characters fall back to the older bodies"
+fi
 # Hairstyle modules for Character Studio (CC BY 4.0, see packaging/character-candidates/CREDITS.md).
 # Normalized offline: Y-up, front +Z, crown top at the origin. One per style and body: hair-<style>-<m|f>.usdz
 mkdir -p "$CHAR/Hair"

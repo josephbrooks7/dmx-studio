@@ -21,6 +21,19 @@ struct DMXStudioApp: App {
         if let i = args.firstIndex(of: "--character-selftest"), i + 1 < args.count {
             exit(AnthropometryModel.runSelfTest(modelPath: args[i + 1]) ? 0 : 1)
         }
+        // Test hook: `DMXStudio --character-render out.png Body=Feminine Hair=Long …` renders a MakeHuman character.
+        if let i = args.firstIndex(of: "--character-render"), i + 1 < args.count {
+            exit(MHRenderCLI.run(out: args[i + 1], args: Array(args[(i + 2)...])) ? 0 : 1)
+        }
+        // The app's own Character Studio capture (its lighting and framing).
+        if let i = args.firstIndex(of: "--character-capture"), i + 1 < args.count {
+            let a = MHRenderCLI.appearance(Array(args[(i + 2)...]))
+            let ok = (try? CharacterDiagnosticCapture.png(appearance: a, enabled: true)).map { (try? $0.write(to: URL(fileURLWithPath: args[i + 1]))) != nil } ?? false
+            exit(ok ? 0 : 1)
+        }
+        if let i = args.firstIndex(of: "--character-sheet"), i + 1 < args.count {
+            exit(MHSheetCLI.run(out: args[i + 1], args: Array(args[(i + 2)...])) ? 0 : 1)
+        }
         // Helper modes: risky work runs in a separate process so a failure can't crash the app
         // Test hook: export a session with one song to a .dmxsession file, import it back, check it matches.
         if let i = args.firstIndex(of: "--test-package"), i + 1 < args.count {
