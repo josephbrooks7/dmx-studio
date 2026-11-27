@@ -1435,25 +1435,7 @@ struct SongsScreen: View {
         return "Remove \(ids.count) songs?"
     }
 
-    var body: some View {
-        HStack(spacing: 0) {
-            VStack(alignment: .leading, spacing: 10) {
-                HStack {
-                    Text("Song Library").font(.system(size: 17, weight: .bold))
-                    Spacer()
-                    Menu {
-                        Button("Rebuild Light Shows for the Lights That Are On") { model.rebuildShowsForCurrentLights() }
-                    } label: { Image(systemName: "wand.and.rays") }
-                        .menuStyle(.borderlessButton).fixedSize()
-                        .help("Remake every song's learned shows for the lights switched on now (hand edits to a show's sections are replaced)")
-                    Button { importing = true } label: { Image(systemName: "plus") }.buttonStyle(PillButtonStyle())
-                }
-                TextField("Search songs or artists", text: $search).textFieldStyle(.roundedBorder)
-                GeometryReader { listGeo in
-                ScrollView {
-                    VStack(alignment: .leading, spacing: 0) {
-                    LazyVStack(alignment: .leading, spacing: 2) {
-                        ForEach(filteredSongs) { s in
+    private func libraryRow(_ s: Song) -> some View {
                             SongRow(song: s)
                                 .padding(.vertical, 5).padding(.horizontal, 8)
                                 .background(RoundedRectangle(cornerRadius: 7, style: .continuous)
@@ -1490,6 +1472,28 @@ struct SongsScreen: View {
                                         Button("Remove Song…", role: .destructive) { model.requestRemove([s.id]) }
                                     }
                                 }
+    }
+
+    var body: some View {
+        HStack(spacing: 0) {
+            VStack(alignment: .leading, spacing: 10) {
+                HStack {
+                    Text("Song Library").font(.system(size: 17, weight: .bold))
+                    Spacer()
+                    Menu {
+                        Button("Rebuild Light Shows for the Lights That Are On") { model.rebuildShowsForCurrentLights() }
+                    } label: { Image(systemName: "wand.and.rays") }
+                        .menuStyle(.borderlessButton).fixedSize()
+                        .help("Remake every song's learned shows for the lights switched on now (hand edits to a show's sections are replaced)")
+                    Button { importing = true } label: { Image(systemName: "plus") }.buttonStyle(PillButtonStyle())
+                }
+                TextField("Search songs or artists", text: $search).textFieldStyle(.roundedBorder)
+                GeometryReader { listGeo in
+                ScrollView {
+                    VStack(alignment: .leading, spacing: 0) {
+                    LazyVStack(alignment: .leading, spacing: 2) {
+                        ForEach(filteredSongs) { s in
+                            libraryRow(s)
                         }
                     }
                     .padding(4)
