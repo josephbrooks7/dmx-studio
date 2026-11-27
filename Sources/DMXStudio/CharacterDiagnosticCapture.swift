@@ -1,6 +1,7 @@
 import AppKit
 import SceneKit
 import Metal
+import CryptoKit
 
 /// Isolated diagnostic render; never attaches to the live stage.
 enum CharacterDiagnosticCapture {
@@ -53,8 +54,10 @@ enum CharacterDiagnosticCapture {
 
     /// Publish a request-specific image only after a successful render.
     @MainActor
-    static func export(appearance: PerformerAppearance, requestID: UUID, enabled: Bool) throws -> URL {
+    static func export(appearance: PerformerAppearance, requestID: UUID, character: String, enabled: Bool) throws -> URL {
         guard enabled else { throw CaptureError.disabled }
+        guard ["male", "female"].contains(character),
+              let build = Bundle.main.object(forInfoDictionaryKey: "CFBundleVersion") as? String else { throw CaptureError.encodingFailed }
         let data = try png(appearance: appearance, enabled: enabled)
         let root = try FileManager.default.url(for: .applicationSupportDirectory,
             in: .userDomainMask, appropriateFor: nil, create: true)
@@ -69,6 +72,12 @@ enum CharacterDiagnosticCapture {
         let destination = root.appendingPathComponent(requestID.uuidString.lowercased() + ".png")
         try data.write(to: destination, options: [.atomic])
         try FileManager.default.setAttributes([.posixPermissions: 0o600], ofItemAtPath: destination.path)
+        let metadata: [String: String] = ["id": requestID.uuidString.lowercased(), "character": character,
+            "build": build, "captured_at": ISO8601DateFormatter().string(from: Date()),
+            "sha256": SHA256.hash(data: data).map { String(format: "%02x", $0) }.joined()]
+        let manifest = destination.deletingPathExtension().appendingPathExtension("json")
+        try JSONSerialization.data(withJSONObject: metadata).write(to: manifest, options: [.atomic])
+        try FileManager.default.setAttributes([.posixPermissions: 0o600], ofItemAtPath: manifest.path)
         return destination
     }
 }
