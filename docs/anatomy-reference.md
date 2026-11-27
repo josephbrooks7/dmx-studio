@@ -190,6 +190,13 @@ Fit checkpoints the fitter verifies on every garment and body (tailoring rules):
 - **Layering:** inner layers show at collar and cuffs and never poke through outer layers.
 - **Trouser break** is chosen, not accidental: no break (hem just touches the shoe top),
   half break (one small fold, the default), full break (deeper fold).
+- **Oversized and boxy fits** (tops): oversized carries about 30% extra chest ease (e.g. a
+  130 cm garment chest on a 100 cm body), wider sleeves, more room at chest and waist, a body
+  about 10 cm longer (hem at hip or mid-thigh depending on torso length) and dropped shoulders
+  (seam intentionally below the natural shoulder point, exempt from the shoulder-seam check).
+  Oversized drapes and moves (loose fabric, secondary motion); boxy is equally roomy but keeps
+  a structured, squared shape. Wearing a garment one or two sizes up is a deliberate style
+  option that intensifies the look.
 - **Trouser leg shape** (independent of fabric: "joggers are a cut, sweatpants a fabric"):
   tapered (closes in from knee to ankle, about 2 in narrower at the ankle than the knee),
   straight / slightly open (looser fall), slim, bootcut, wide. **Hem type:** ribbed or elastic
@@ -446,7 +453,7 @@ other rather than snapping.
   Anatomy of the Hand" (thumb, finger spread, arches).
 - Sizing: MFG Merch "Pants Size Chart" (men's and women's charts, how to measure, rise and fit);
   Creative Muse "Sizing & Fit" (garment vs body ease, flat-lay, grading, fabric behavior);
-  National Breast Cancer Foundation "Bra Fit Guide"; Saucony men's size chart; Men's Wearhouse "Complete Guide to Men's Suit Sizing and Fit"; Selvane "Sleeve Length Guide"; MasterClass "How to Properly Measure Sleeve Length"; Transfer Express "Design Sizes" (print zones); Holy Clothing women's sleeve length guide; Pillar Athletics "Joggers vs Sweatpants"; No Fugazi "How to Measure Joggers for Manufacturing"; Steady Clothing "Vintage Sizing Guide"; Lane Bryant / Cacique "Bra Fit Guide".
+  National Breast Cancer Foundation "Bra Fit Guide"; Saucony men's size chart; Men's Wearhouse "Complete Guide to Men's Suit Sizing and Fit"; Selvane "Sleeve Length Guide"; MasterClass "How to Properly Measure Sleeve Length"; Transfer Express "Design Sizes" (print zones); Holy Clothing women's sleeve length guide; Pillar Athletics "Joggers vs Sweatpants"; No Fugazi "How to Measure Joggers for Manufacturing"; Steady Clothing "Vintage Sizing Guide"; Naiz Fit "Oversized Fit Guide"; Lane Bryant / Cacique "Bra Fit Guide".
 - Proportions: Penn State OpenLab "Proportionality Constants" (Drillis & Contini 1966).
 - Skinning: Kavan et al. (dual quaternion skinning); Walt Disney Animation Studios, "Enhanced
   Dual Quaternion Skinning for Production Use"; Disney Research, "Skinning with Optimized
