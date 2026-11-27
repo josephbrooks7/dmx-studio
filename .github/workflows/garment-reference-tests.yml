@@ -30,7 +30,7 @@ jobs:
         run: python3 -m unittest -v test_body_fit test_garment_regions test_garment_skin test_garment_clearance test_garment_pipeline test_anatomical_fit test_lower_body_fit test_accessory_fit
   blender-smoke:
     runs-on: ubuntu-24.04
-    timeout-minutes: 15
+    timeout-minutes: 30
     steps:
       - uses: actions/checkout@v4
       - name: Restore official Blender archive cache
@@ -114,4 +114,17 @@ jobs:
         with:
           name: cross-body-tee-trials
           path: cross-fit/
+          if-no-files-found: warn
+      - name: Render original and cross-fitted character review images
+        run: |
+          set -euo pipefail
+          for pair in "andre_casual emma_casual" "emma_casual andre_casual"; do
+            read -r source target <<< "$pair"
+            blender --background --factory-startup --disable-autoexec --python-exit-code 1 --python packaging/render-cross-fit-review.py -- "runtime-source/$target.glb" "cross-fit/$source-to-$target/cross-fit-tee.glb" "character-review/$source-to-$target"
+          done
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: dressed-character-review
+          path: character-review/
           if-no-files-found: warn
