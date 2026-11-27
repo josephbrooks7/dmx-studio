@@ -195,6 +195,13 @@ A performer standing perfectly still reads as unnatural. Idles are layered:
 7. **Role and personality:** singer, bassist, guitarist, drummer and keys each get their own
    idle set; later a style per character (energetic, chill, brooding) picks among them.
 
+8. **Reacting to the light show:** squint or raise a hand when the followspot snaps on, turn
+   toward a sweeping beam, wave through fog when the fog machine fires, more energy as the lights
+   build. The performer and the DMX show read as one show.
+
+Restraint: idles stay subtle because shows loop performers through whole sets; big gestures
+are saved for real song moments so they don't turn repetitive or irritating.
+
 All layers obey the joint table, balance and ground-contact rules, and blend smoothly into each
 other rather than snapping.
 
@@ -235,5 +242,6 @@ other rather than snapping.
   Control"; Wikipedia "Balance (ability)"; contrapposto (Wikipedia, Art in Context, Robert
   Oosti); Müller et al., "Position Based Dynamics" (2006); Wikipedia "Soft-body dynamics";
   Real World Physics Problems, "Physics of Gymnastics"; Glenn Fiedler, "Fix Your Timestep!"; Godot physics interpolation docs.
-- Idles: TV Tropes, "Idle Animation".
+- Idles: TV Tropes, "Idle Animation"; Antidote, "How Idle Animations Secretly Give Video Game
+  Characters Life".
 - Reference only, not used for assets: Innerbody Anatomy Explorer; Anatomy 3D Atlas.
