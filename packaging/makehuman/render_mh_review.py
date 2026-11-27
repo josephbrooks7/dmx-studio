@@ -17,8 +17,9 @@ lib = mhbody.Library(lib_dir)
 items = lib.catalog["items"]
 
 
-def pick(slot, sex, prefer=()):
-    cands = [i for i in items if i["slot"] == slot and i["gender"] in (sex, "any")]
+def pick(slot, sex, prefer=(), avoid=()):
+    cands = [i for i in items if i["slot"] == slot and i["gender"] in (sex, "any")
+             and not any(a in i["name"].lower() for a in avoid)]
     for word in prefer:
         for i in cands:
             if word in i["name"].lower():
@@ -70,10 +71,11 @@ for k, sex in enumerate(("male", "female")):
     pos, uv, tris = lib.skin_mesh(allpos)
     used = {}
     hidden = set()
-    for slot, prefer in (("top", ("tshirt", "shirt", "tee")), ("bottom", ("jean", "pant")), ("shoes", ("shoe", "sneaker")),
-                         ("hair", ("short", "bob") if sex == "male" else ("long", "ponytail")),
-                         ("eyebrows", ()), ("eyelashes", ())):
-        it = pick(slot, sex, prefer)
+    for slot, prefer, avoid in (("top", ("tshirt", "shirt", "tee"), ("tucked",)), ("bottom", ("jean", "pant", "trouser"), ("short",)),
+                                ("shoes", ("sneaker", "shoe"), ()),
+                                ("hair", ("short", "bob") if sex == "male" else ("long", "ponytail"), ()),
+                                ("eyebrows", (), ()), ("eyelashes", (), ())):
+        it = pick(slot, sex, prefer, avoid)
         if not it:
             continue
         meta, ipos, iuv, itri, dele = lib.fit_item(it["id"], allpos)
@@ -85,7 +87,12 @@ for k, sex in enumerate(("male", "female")):
     # hide body skin covered by the items (MakeHuman delete_verts), anatomy itself unchanged
     base_idx = lib.base["baseIndex"]
     keep = np.array([not (set(base_idx[t].tolist()) & hidden) for t in tris]) if hidden else np.ones(len(tris), bool)
-    skin = next((s for s in skins if sex in s["name"].lower() or sex in s["id"]), skins[0] if skins else None)
+    import re as _re
+    def is_sex(sk):
+        words = _re.findall(r"[a-z]+", (sk["name"] + " " + sk["id"]).lower())
+        return sex in words
+    skin = next((sk for sk in skins if is_sex(sk) and "young" in sk["name"].lower()),
+                next((sk for sk in skins if is_sex(sk) and "old" not in sk["name"].lower()), skins[0] if skins else None))
     add_mesh(f"{sex}_body", pos, uv, tris[keep],
              material(f"{sex}_skin", lib_dir / skin["texture"] if skin else None, (0.8, 0.62, 0.52)), x)
     used["skin"] = skin["name"] if skin else "none"
@@ -99,7 +106,10 @@ scene.render.resolution_x = 1200; scene.render.resolution_y = 900
 scene.world = bpy.data.worlds.new("w"); scene.world.use_nodes = True
 scene.world.node_tree.nodes["Background"].inputs[0].default_value = (.18, .18, .18, 1)
 from mathutils import Vector
-center = Vector((0, 0, 8.5))
+zs = [v.co.z for o in scene.objects if o.type == "MESH" for v in o.data.vertices]
+xs = [v.co.x for o in scene.objects if o.type == "MESH" for v in o.data.vertices]
+zlo, zhi = min(zs), max(zs)
+center = Vector(((min(xs) + max(xs)) / 2, 0, (zlo + zhi) / 2))
 
 
 def aim(o, p):
@@ -110,7 +120,7 @@ for name, off, power in [("Key", (10, -25, 20), 9000), ("Fill", (-15, -15, 8), 4
     L = bpy.data.lights.new(name, "AREA"); L.energy = power; L.size = 10
     o = bpy.data.objects.new(name, L); scene.collection.objects.link(o)
     o.location = center + Vector(off); aim(o, center)
-cam = bpy.data.objects.new("cam", bpy.data.cameras.new("cam")); cam.data.type = "ORTHO"; cam.data.ortho_scale = 22
+cam = bpy.data.objects.new("cam", bpy.data.cameras.new("cam")); cam.data.type = "ORTHO"; cam.data.ortho_scale = max((zhi - zlo) * 1.12 * 1200 / 900, (max(xs) - min(xs)) * 1.08)
 scene.collection.objects.link(cam); scene.camera = cam
 for angle, off in (("front", (0, -40, 0)), ("side", (40, 0, 0)), ("back", (0, 40, 0))):
     cam.location = center + Vector(off); aim(cam, center)
