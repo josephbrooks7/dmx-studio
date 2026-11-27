@@ -151,6 +151,17 @@ Fit styles map to the fitter's ease: slim (minimal ease), regular, relaxed (gene
 rise low (2-3 in below the natural waist), mid (at the waist), high (above it). A garment's
 waist opening runs about 1 in larger than its labeled size.
 
+Garment vs. body: garment measurements are larger than body measurements by the ease (room,
+stretch, movement). The fitter reports ease in real units at chest/bust, waist, hip and thigh
+for every garment on every body, and flags a garment that is too tight for a body.
+- Flat-lay garment measurements x 2 = circumference (20 in flat bust = ~40 in around).
+- Grading: a size run steps each garment measurement about 1/2-1 in per size, so one garment
+  can be generated XS-4XL instead of modeled per size.
+- Fabric type per garment changes fit with the same measurements:
+  - **Knit** (tees, leggings): stretches and follows body shape closely; low ease.
+  - **Rigid** (denim, blazers): keeps its own shape and stands off the body; minimum ease kept.
+  - **Flowy woven** (blouses, open shirts): hangs from shoulders and moves with secondary motion.
+
 ## 5. Body proportions
 
 Segment lengths scale roughly with height (Drillis & Contini proportions, widely used). These
@@ -336,7 +347,8 @@ other rather than snapping.
   posture (position of function); tenodesis effect (hand rehab notes); Cornell ergonomics
   "Grasping Hands" (power vs pinch grip); Wikipedia "Hand" (arches); Physiopedia "Functional
   Anatomy of the Hand" (thumb, finger spread, arches).
-- Sizing: MFG Merch "Pants Size Chart" (men's and women's charts, how to measure, rise and fit).
+- Sizing: MFG Merch "Pants Size Chart" (men's and women's charts, how to measure, rise and fit);
+  Creative Muse "Sizing & Fit" (garment vs body ease, flat-lay, grading, fabric behavior).
 - Proportions: Penn State OpenLab "Proportionality Constants" (Drillis & Contini 1966).
 - Skinning: Kavan et al. (dual quaternion skinning); Walt Disney Animation Studios, "Enhanced
   Dual Quaternion Skinning for Production Use"; Disney Research, "Skinning with Optimized
