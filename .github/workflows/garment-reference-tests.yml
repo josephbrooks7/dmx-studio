@@ -30,11 +30,22 @@ jobs:
     timeout-minutes: 15
     steps:
       - uses: actions/checkout@v4
-      - name: Install Blender from Ubuntu repository
+      - name: Install official Blender 4.5.16 LTS with USD support
+        shell: bash
         run: |
-          sudo apt-get update
-          sudo apt-get install -y --no-install-recommends blender
+          set -euo pipefail
+          cd "$RUNNER_TEMP"
+          base=https://download.blender.org/release/Blender4.5
+          archive=blender-4.5.16-linux-x64.tar.xz
+          curl --fail --location --retry 3 --output "$archive" "$base/$archive"
+          curl --fail --location --retry 3 --output blender.sha256 "$base/blender-4.5.16.sha256"
+          grep -F "$archive" blender.sha256 | sha256sum --check --strict
+          tar -xJf "$archive"
+          echo "$RUNNER_TEMP/blender-4.5.16-linux-x64" >> "$GITHUB_PATH"
+      - name: Require working USD import operator
+        run: |
           blender --version
+          blender --background --factory-startup --disable-autoexec --python-exit-code 1 --python-expr 'import bpy; assert bpy.app.build_options.usd, "Blender built without USD"; bpy.ops.wm.usd_import.get_rna_type()'
       - name: Verify fitted geometry, materials and target skeleton
         run: blender --background --factory-startup --disable-autoexec --python-exit-code 1 --python packaging/blender-garment-smoke.py
       - name: Retrieve existing body candidates from Git LFS
