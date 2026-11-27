@@ -65,3 +65,18 @@ jobs:
           name: female-body-static-fit-trial
           path: body-fit-trial/fit-trial.json
           if-no-files-found: error
+      - name: Retrieve original runtime character sources
+        run: |
+          set -euo pipefail
+          mkdir -p runtime-source
+          base=https://raw.githubusercontent.com/memoriesrohit/avatar-studio/2fd9ec82fbe1613d40ae38aadcca3f410725f740
+          for name in andre_casual emma_casual; do
+            curl -fLsS --retry 2 "$base/models/$name.glb" -o "runtime-source/$name.glb"
+          done
+      - name: Inspect original runtime body and clothing meshes before baking
+        run: blender --background --factory-startup --disable-autoexec --python-exit-code 1 --python packaging/inspect-body-candidates.py -- runtime-source/andre_casual.glb runtime-source/emma_casual.glb runtime-source-inventory.json
+      - uses: actions/upload-artifact@v4
+        with:
+          name: runtime-source-inventory
+          path: runtime-source-inventory.json
+          if-no-files-found: error
