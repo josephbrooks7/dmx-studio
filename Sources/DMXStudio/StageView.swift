@@ -1,5 +1,6 @@
 import SwiftUI
 import AppKit
+import Combine
 
 // MARK: - Where each light sits on the simulated stage
 
@@ -50,6 +51,8 @@ struct StageScreen: View {
     @State private var assetsOpen = false
     @State private var studioAngle = 0.0
     @State private var studioFace = false
+    @AppStorage("diagnosticCharacterCaptureEnabled") private var diagnosticCaptureEnabled = false
+    private let diagnosticCaptureTimer = Timer.publish(every: 10, on: .main, in: .common).autoconnect()
 
     var body: some View {
         VStack(spacing: 12) {
@@ -86,6 +89,9 @@ struct StageScreen: View {
                     Slider(value: $model.haze, in: 0.1...1).frame(width: 90)
                 }
                 .help("Haze: how visible the beams are")
+                Toggle("Diagnostic captures", isOn: $diagnosticCaptureEnabled)
+                    .toggleStyle(.switch).controlSize(.small)
+                    .help("Allow private character-only diagnostic renders while the stage is idle.")
                 Toggle("HQ", isOn: $model.stageHighQuality)
                     .toggleStyle(.switch).controlSize(.small)
                     .help("High-quality 3D: glow, smoothing, light pools on the floor, 60 fps. Leave off on older Intel MacBooks, where heavy 3D can restart the Mac.")
@@ -317,6 +323,10 @@ struct StageScreen: View {
                     charactersOpen = true
                 }
             }
+        }
+        .onReceive(diagnosticCaptureTimer) { _ in
+            guard diagnosticCaptureEnabled, model.playingSongID == nil else { return }
+            _ = try? CharacterCaptureRequests.processOne(enabled: diagnosticCaptureEnabled, playing: model.playingSongID != nil)
         }
         .onChange(of: model.fixtures) { _ in model.ensureStageItems() }
     }
