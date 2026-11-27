@@ -1,0 +1,155 @@
+{
+  "schemaVersion": 1,
+  "source": "User-supplied limb proportion spec. Segment-length percentages of standing height and segment masses follow de Leva's body-segment model; hand/foot length coefficients are provisional. Tables in the spec were linear estimates derived from these; production values come from the ANSUR II model (ansur2-model.json).",
+  "segmentLengthPercentOfHeight": {
+    "male": {
+      "upperArm": 16.2,
+      "forearm": 15.4,
+      "hand": 10.8,
+      "thigh": 24.3,
+      "lowerLeg": 24.9,
+      "foot": 15.12
+    },
+    "female": {
+      "upperArm": 15.9,
+      "forearm": 15.2,
+      "hand": 10.6,
+      "thigh": 21.2,
+      "lowerLeg": 24.9,
+      "foot": 14.8
+    },
+    "provisional": [
+      "hand",
+      "foot"
+    ]
+  },
+  "segmentMassPercentOfBodyMass_deLeva": {
+    "male": {
+      "upperArm": 2.71,
+      "forearm": 1.62,
+      "hand": 0.61,
+      "thigh": 14.16,
+      "lowerLeg": 4.33,
+      "foot": 1.37
+    },
+    "female": {
+      "upperArm": 2.55,
+      "forearm": 1.38,
+      "hand": 0.56,
+      "thigh": 14.78,
+      "lowerLeg": 4.81,
+      "foot": 1.29
+    },
+    "note": "per single segment; recompute each segment's center of mass and moment of inertia when proportions change"
+  },
+  "dependencyStrength": {
+    "note": "proposed software weights, not measured correlations",
+    "columns": [
+      "height",
+      "weight",
+      "muscularity",
+      "bodyFat"
+    ],
+    "upperArmLength": [
+      "strong",
+      "minimal",
+      "minimal",
+      "minimal"
+    ],
+    "forearmLength": [
+      "strong",
+      "minimal",
+      "minimal",
+      "minimal"
+    ],
+    "thighLength": [
+      "strong",
+      "minimal",
+      "minimal",
+      "minimal"
+    ],
+    "lowerLegLength": [
+      "strong",
+      "minimal",
+      "minimal",
+      "minimal"
+    ],
+    "bicepCircumference": [
+      "moderate",
+      "strong",
+      "strong",
+      "moderate"
+    ],
+    "wristCircumference": [
+      "moderate",
+      "low",
+      "low",
+      "low"
+    ],
+    "thighCircumference": [
+      "moderate",
+      "strong",
+      "strong",
+      "strong"
+    ],
+    "calfCircumference": [
+      "moderate",
+      "moderate",
+      "strong",
+      "moderate"
+    ],
+    "ankleCircumference": [
+      "moderate",
+      "moderate",
+      "low",
+      "moderate"
+    ],
+    "kneeWidth": [
+      "moderate",
+      "low",
+      "low",
+      "low"
+    ],
+    "elbowWidth": [
+      "moderate",
+      "low",
+      "low",
+      "low"
+    ]
+  },
+  "independentParameters": [
+    "totalArmLength",
+    "upperArmLength",
+    "forearmLength",
+    "handSize",
+    "fingerLength",
+    "wristThickness",
+    "bicepSize",
+    "tricepSize",
+    "forearmThickness",
+    "elbowWidth",
+    "totalLegLength",
+    "thighLength",
+    "lowerLegLength",
+    "kneeWidth",
+    "thighThickness",
+    "calfThickness",
+    "ankleThickness",
+    "footLength",
+    "footWidth",
+    "armSpan",
+    "torsoToLegRatio"
+  ],
+  "rules": {
+    "heightDrivesBoneLengthsNonlinearly": true,
+    "weightChangesVolumeNotBoneLength": true,
+    "preserveManualOffsetsWhenHeightOrWeightChange": true,
+    "standingHeightLockCompensatesOtherVerticalSegments": true,
+    "locks": [
+      "perMeasurement",
+      "proportional"
+    ],
+    "statisticsGuideButNeverRestrict": true,
+    "trainOnRawRecordsNotSummaryTables": true
+  }
+}

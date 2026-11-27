@@ -169,6 +169,32 @@ Key rules:
 - Height anchors (Healthline, from the user's recording): U.S. men average 69 in (5'9"),
   world ~67.5 in, national averages ~63-72.4 in.
 
+## 4l. Limbs: segment lengths, mass and how height and weight drive them
+
+Data: `packaging/character-reference/limb-proportions.json` (starting coefficients) and
+`packaging/character-reference/ansur2-model.json` (learned from ANSUR II individual records by
+`packaging/ansur2_model.py` in CI; raw records are downloaded at build time and never committed).
+
+- Limbs are separate segments, each stored and adjustable on its own: upper arm, forearm, hand,
+  fingers, thigh, lower leg, foot, plus inseam, arm span and torso length. No single arm or leg
+  multiplier.
+- Starting lengths as % of standing height (de Leva): upper arm 16.2 / 15.9 (male / female),
+  forearm 15.4 / 15.2, thigh 24.3 / 21.2, lower leg 24.9 / 24.9; hand 10.8 / 10.6 and foot
+  15.1 / 14.8 are provisional. Production uses ANSUR II fits (slope, intercept, residual SD vs
+  stature); proportions change with height, so the scaling is not a fixed percentage.
+- Height drives bone lengths strongly; weight, muscularity and body fat change circumference and
+  volume, not bone length (bicep and thigh circumference: strong; wrist, knee and elbow width:
+  low).
+- Manual offsets survive height and weight changes (long arms stay long at any height). With
+  standing height locked, lengthening the legs is compensated by other vertical segments; height
+  never changes by accident. Per-measurement and proportional locks; statistics guide, never
+  restrict.
+- Segment masses (% of body mass, per segment, de Leva): upper arm 2.71 / 2.55, forearm
+  1.62 / 1.38, hand 0.61 / 0.56, thigh 14.16 / 14.78, lower leg 4.33 / 4.81, foot 1.37 / 1.29.
+  Each segment's center of mass and moment of inertia are recomputed when proportions change,
+  for balance, jumps, spins and walking.
+- Clothing (sleeves, trousers, skirts, dresses, shoes) re-fits to every limb change.
+
 ## 4a. Hips and glutes
 
 - Hip = femur head in the deep pelvic socket (ball and socket), see section 2 for ranges.
@@ -530,6 +556,8 @@ other rather than snapping.
   (ANSUR II, NHANES III); Healthline "Average Shoulder Width".
 - Feet: Healthline "Average Shoe Size for Men"; heights: Healthline "Average Heights of Males Around
   the World" (user's screen recording).
+- Limbs: user-supplied limb proportion spec (de Leva segment model; PubMed 33906546, 19346667;
+  KIT Whole-Body Human Motion Database); ANSUR II public data via Penn State OpenLab.
 - Neck/shoulder anthropometry: user-supplied compiled reference (ANSUR II, PMC6986765, PubMed
   17706225, PMC12846139); data in packaging/character-reference/shoulder-neck-anthropometry.json.
 - Hips and glutes: Goodwin Living, "Anatomy Lesson: The Hips and Glutes".
