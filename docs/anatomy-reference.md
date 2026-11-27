@@ -155,7 +155,11 @@ Characters are measured like a tailor would, by slicing the body mesh at standar
   (<1" AA, 1" A, 2" B, 3" C, 4" D, 5" DD/E, 6" DDD/F ... up to about 11" K).
 - **Chest (male):** around the fullest point of the chest; pectoral development is separate.
 - **Shoulder point:** the natural end of each shoulder (shoulder width between them).
-- **Sleeve length:** center back of neck, over the shoulder, to the wrist bone (hand on hip).
+- **Sleeve length:** nape of the neck to the shoulder point, plus shoulder point to the wrist
+  bone (= half the shoulder width + arm length from the skeleton), arm relaxed and slightly bent.
+  Sleeves include a small movement allowance because raising or bending the arm pulls fabric up
+  the arm; sleeve length is verified in the pose tests too (in arms-up and mic-hold a full sleeve
+  rides up only modestly, never baring half the forearm).
 
 Fit checkpoints the fitter verifies on every garment and body (tailoring rules):
 - **Shoulder seam** ends at the natural shoulder point; down the arm = too big, pulling or
@@ -399,7 +403,7 @@ other rather than snapping.
   Anatomy of the Hand" (thumb, finger spread, arches).
 - Sizing: MFG Merch "Pants Size Chart" (men's and women's charts, how to measure, rise and fit);
   Creative Muse "Sizing & Fit" (garment vs body ease, flat-lay, grading, fabric behavior);
-  National Breast Cancer Foundation "Bra Fit Guide"; Saucony men's size chart; Men's Wearhouse "Complete Guide to Men's Suit Sizing and Fit"; Selvane "Sleeve Length Guide"; Lane Bryant / Cacique "Bra Fit Guide".
+  National Breast Cancer Foundation "Bra Fit Guide"; Saucony men's size chart; Men's Wearhouse "Complete Guide to Men's Suit Sizing and Fit"; Selvane "Sleeve Length Guide"; MasterClass "How to Properly Measure Sleeve Length"; Lane Bryant / Cacique "Bra Fit Guide".
 - Proportions: Penn State OpenLab "Proportionality Constants" (Drillis & Contini 1966).
 - Skinning: Kavan et al. (dual quaternion skinning); Walt Disney Animation Studios, "Enhanced
   Dual Quaternion Skinning for Production Use"; Disney Research, "Skinning with Optimized
