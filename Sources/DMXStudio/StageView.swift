@@ -54,8 +54,7 @@ struct StageScreen: View {
     @AppStorage("diagnosticCharacterCaptureEnabled") private var diagnosticCaptureEnabled = false
     private let diagnosticCaptureTimer = Timer.publish(every: 10, on: .main, in: .common).autoconnect()
 
-    var body: some View {
-        VStack(spacing: 12) {
+    private var stageToolbar: some View {
             HStack(spacing: 10) {
                 VStack(alignment: .leading, spacing: 2) {
                     Text("Stage").font(.system(size: 22, weight: .heavy))
@@ -64,6 +63,7 @@ struct StageScreen: View {
                         .font(.caption).foregroundColor(Theme.subtle).lineLimit(1)
                 }
                 Spacer()
+                Group {
                 ForEach(["Overview", "Audience", "Top", "Side", "Close-up"], id: \.self) { v in
                     Button(v) { model.stageCameraRequest = (v, UUID()) }.buttonStyle(PillButtonStyle())
                         .help(v == "Close-up" ? "Zoom in on your lights to see them tilt and move" : "")
@@ -102,6 +102,8 @@ struct StageScreen: View {
                 } label: { Label("Mounting", systemImage: "rectangle.portrait.on.rectangle.portrait") }
                 .menuStyle(.borderlessButton).fixedSize()
                 .help("Show your stage with the bars mounted another way: lying flat (beams go front to back) or upright (beams sweep side to side)")
+                }
+                Group {
                 Menu {
                     Section("Venue") {
                         Button { model.stage = StageLayout.concert(keeping: model.stage, fixtures: model.fixtures) } label: {
@@ -176,7 +178,13 @@ struct StageScreen: View {
                     Label(model.stageEditing ? "Done" : "Edit Venue", systemImage: model.stageEditing ? "checkmark" : "hammer")
                 }
                 .buttonStyle(PillButtonStyle(active: model.stageEditing))
+                }
             }
+    }
+
+    var body: some View {
+        VStack(spacing: 12) {
+            stageToolbar
             HStack {
                 Button {
                     if model.stage.items.first(where: { $0.id == model.selectedStageItem && $0.prop == .performer }) == nil {
