@@ -53,6 +53,18 @@ palms forward), which is not the same as the T/A rest pose our meshes are stored
 |  | Twist | 10-15 (very little) |
 |  | Side bend | 20 |
 
+**Which ranges apply.** The values above are active ranges (what a person reaches under their
+own power); passive ranges, pushed by an outside force, are larger. Performers use active
+ranges, and gestures stay comfortably inside them (about 80% of the limit), because people
+rarely perform at their end range and end-range poses look strained.
+
+**Individual flexibility.** Default characters allow only 0-5° of elbow and knee overextension
+and modest finger back-bend. Clinical hypermobility (Beighton score, 5+ of 9 in adults) starts
+at more than 10° of elbow or knee overextension, little-finger knuckle bending back beyond 90°,
+thumb to forearm, and palms flat on the floor with straight knees. A later per-character
+flexibility setting (stiff / average / flexible) scales the limits, e.g. dancers vs. stiff
+rockers, never past the hypermobile thresholds by default.
+
 ## 3. Joints move together (coordination rules)
 
 - **Shoulder rhythm.** Raising the arm is shared between the shoulder joint and the shoulder
@@ -289,6 +301,8 @@ other rather than snapping.
   Range of Motion Study; Eaton Hand "Typical Range of Motion"; Physiotutors wrist/hand AROM;
   PMC finger flexion review (PMC4372184); ACE trunk flexibility assessment form; Radiopaedia
   "Movements of the spine"; Enlyte normal ROM summary.
+- Range types and flexibility: Hinge Health "Range of Motion"; Minser Chiropractic "Range of
+  Motion in Exercise"; Ehlers-Danlos Society "Assessing Joint Hypermobility" (Beighton score).
 - Shoulder rhythm: Physiopedia "Scapulohumeral Rhythm"; OUHSC kinesiology notes; Braman et al.
   (PMC2841046).
 - Lumbopelvic rhythm: Takahashi & Yamaji (PMC7064356); Vazirian et al. reviews (CDC stacks);
