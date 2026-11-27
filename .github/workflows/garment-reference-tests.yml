@@ -1,0 +1,130 @@
+name: Garment fitting reference tests
+on:
+  push:
+    branches: ['assets/female-body-kit-reference']
+    paths:
+      - 'packaging/body_fit.py'
+      - 'packaging/garment_*.py'
+      - 'packaging/blender_garment_fit.py'
+      - 'packaging/blender-garment-smoke.py'
+      - 'packaging/inspect-body-reference.py'
+      - 'packaging/inspect-body-candidates.py'
+      - 'packaging/extract-runtime-garments.py'
+      - 'packaging/cross-fit-runtime-tee.py'
+      - 'packaging/blender-body-fit-trial.py'
+      - 'packaging/test_*.py'
+      - '.github/workflows/garment-reference-tests.yml'
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  reference-tests:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@v4
+      - name: Compile fitting modules
+        run: python3 -m py_compile packaging/body_fit.py packaging/garment_regions.py packaging/garment_skin.py packaging/garment_clearance.py packaging/garment_pipeline.py packaging/blender_garment_fit.py packaging/inspect-body-reference.py
+      - name: Run offline fitting regression suite
+        working-directory: packaging
+        run: python3 -m unittest -v test_body_fit test_garment_regions test_garment_skin test_garment_clearance test_garment_pipeline test_anatomical_fit test_lower_body_fit test_accessory_fit
+  blender-smoke:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v4
+      - name: Restore official Blender archive cache
+        uses: actions/cache@v4
+        with:
+          path: ${{ runner.temp }}/dmx-blender-cache
+          key: blender-4.5.16-linux-x64-verified-v1
+      - name: Install official Blender 4.5.16 LTS with USD support
+        shell: bash
+        run: |
+          set -euo pipefail
+          mkdir -p "$RUNNER_TEMP/dmx-blender-cache"
+          cd "$RUNNER_TEMP/dmx-blender-cache"
+          base=https://download.blender.org/release/Blender4.5
+          archive=blender-4.5.16-linux-x64.tar.xz
+          if ! test -s blender.sha256; then
+            curl --fail --location --retry 4 --retry-all-errors --retry-delay 5 --output blender.sha256.tmp "$base/blender-4.5.16.sha256"
+            mv blender.sha256.tmp blender.sha256
+          fi
+          if ! (test -s "$archive" && grep -F "$archive" blender.sha256 | sha256sum --check --strict); then
+            rm -f "$archive"
+            curl --fail --location --retry 4 --retry-all-errors --retry-delay 5 --output "$archive.tmp" "$base/$archive"
+            mv "$archive.tmp" "$archive"
+          fi
+          grep -F "$archive" blender.sha256 | sha256sum --check --strict
+          tar -xJf "$archive" -C "$RUNNER_TEMP"
+          echo "$RUNNER_TEMP/blender-4.5.16-linux-x64" >> "$GITHUB_PATH"
+      - name: Require working USD import operator
+        run: |
+          blender --version
+          blender --background --factory-startup --disable-autoexec --python-exit-code 1 --python-expr 'import bpy; assert bpy.app.build_options.usd, "Blender built without USD"; bpy.ops.wm.usd_import.get_rna_type()'
+      - name: Verify fitted geometry, materials and target skeleton
+        run: blender --background --factory-startup --disable-autoexec --python-exit-code 1 --python packaging/blender-garment-smoke.py
+      - name: Retrieve existing body candidates from Git LFS
+        run: git lfs pull --include="packaging/character-candidates/bodies/*.usdz" --exclude=""
+      - name: Inspect actual male and female body candidate meshes
+        run: blender --background --factory-startup --disable-autoexec --python-exit-code 1 --python packaging/inspect-body-candidates.py -- packaging/character-candidates/bodies/male.usdz packaging/character-candidates/bodies/female.usdz body-candidate-report.json
+      - uses: actions/upload-artifact@v4
+        with:
+          name: body-candidate-inventory
+          path: body-candidate-report.json
+          if-no-files-found: error
+      - name: Fit reference fabric on actual female body
+        run: blender --background --factory-startup --disable-autoexec --python-exit-code 1 --python packaging/blender-body-fit-trial.py -- packaging/character-candidates/bodies/female.usdz body-fit-trial
+      - uses: actions/upload-artifact@v4
+        with:
+          name: female-body-static-fit-trial
+          path: body-fit-trial/fit-trial.json
+          if-no-files-found: error
+      - name: Retrieve original runtime character sources
+        run: |
+          set -euo pipefail
+          mkdir -p runtime-source
+          base=https://raw.githubusercontent.com/memoriesrohit/avatar-studio/2fd9ec82fbe1613d40ae38aadcca3f410725f740
+          for name in andre_casual emma_casual; do
+            curl -fLsS --retry 2 "$base/models/$name.glb" -o "runtime-source/$name.glb"
+          done
+      - name: Inspect original runtime body and clothing meshes before baking
+        run: blender --background --factory-startup --disable-autoexec --python-exit-code 1 --python packaging/inspect-body-candidates.py -- runtime-source/andre_casual.glb runtime-source/emma_casual.glb runtime-source-inventory.json
+      - uses: actions/upload-artifact@v4
+        with:
+          name: runtime-source-inventory
+          path: runtime-source-inventory.json
+          if-no-files-found: error
+      - name: Extract independent rigged garment modules
+        run: blender --background --factory-startup --disable-autoexec --python-exit-code 1 --python packaging/extract-runtime-garments.py -- runtime-source/andre_casual.glb runtime-source/emma_casual.glb garment-modules
+      - uses: actions/upload-artifact@v4
+        with:
+          name: runtime-garment-modules
+          path: garment-modules/
+          if-no-files-found: error
+      - name: Fit existing tees in both directions across runtime characters
+        run: |
+          set -euo pipefail
+          for pair in "andre_casual emma_casual" "emma_casual andre_casual"; do
+            read -r source target <<< "$pair"
+            blender --background --factory-startup --disable-autoexec --python-exit-code 1 --python packaging/cross-fit-runtime-tee.py -- "garment-modules/$source-Top_tee.glb" "garment-modules/$target-Top_tee.glb" "cross-fit/$source-to-$target"
+          done
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: cross-body-tee-trials
+          path: cross-fit/
+          if-no-files-found: warn
+      - name: Render original and cross-fitted character review images
+        run: |
+          set -euo pipefail
+          for pair in "andre_casual emma_casual" "emma_casual andre_casual"; do
+            read -r source target <<< "$pair"
+            blender --background --factory-startup --disable-autoexec --python-exit-code 1 --python packaging/render-cross-fit-review.py -- "runtime-source/$target.glb" "cross-fit/$source-to-$target/cross-fit-tee.glb" "character-review/$source-to-$target"
+          done
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: dressed-character-review
+          path: character-review/
+          if-no-files-found: warn
