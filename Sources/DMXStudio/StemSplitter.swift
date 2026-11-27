@@ -108,8 +108,11 @@ enum StemSplitter {
                     for k in 1..<bins {
                         let mr = lre[k] + rre[k], mi = lim[k] + rim[k]
                         M[base + k] = (mr * mr + mi * mi).squareRoot() / 8
-                        let en = lre[k] * lre[k] + lim[k] * lim[k] + rre[k] * rre[k] + rim[k] * rim[k] + 1e-12
-                        let cr = max(0, lre[k] * rre[k] + lim[k] * rim[k])   // in-phase part of L·R*
+                        let leftEnergy: Float = lre[k] * lre[k] + lim[k] * lim[k]
+                        let rightEnergy: Float = rre[k] * rre[k] + rim[k] * rim[k]
+                        let en: Float = leftEnergy + rightEnergy + 1e-12
+                        let correlation: Float = lre[k] * rre[k] + lim[k] * rim[k]
+                        let cr: Float = max(Float(0), correlation)   // in-phase part of L·R*
                         var c = 2 * cr / en
                         c = c * c; c = c * c
                         centre[base + k] = c
