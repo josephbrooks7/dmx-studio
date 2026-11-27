@@ -5,7 +5,7 @@ seam welding, skinning or collision guarantees are implied.
 """
 from dataclasses import dataclass
 from math import isfinite, sqrt
-from body_fit import fit_vertices
+from body_fit import AnatomySection, fit_vertices, fit_anatomical_torso
 
 def dot(a,b): return sum(x*y for x,y in zip(a,b))
 def sub(a,b): return tuple(x-y for x,y in zip(a,b))
@@ -66,7 +66,11 @@ def fit_regions(vertices, assignments, regions):
             if not w: continue
             r=regions[name]
             q=r.source_frame.local(p)
-            q=fit_vertices([q],r.source_sections,r.target_sections,r.clearance)[0]
+            anatomical = [isinstance(s, AnatomySection) for s in (*r.source_sections, *r.target_sections)]
+            if any(anatomical) and not all(anatomical):
+                raise ValueError("Mixed anatomical and symmetric sections")
+            fitter=fit_anatomical_torso if all(anatomical) and anatomical else fit_vertices
+            q=fitter([q],r.source_sections,r.target_sections,r.clearance)[0]
             q=r.target_frame.world(q)
             for i in range(3): result[i]+=q[i]*(w/total)
         output.append(tuple(result))
