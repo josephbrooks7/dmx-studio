@@ -27,7 +27,9 @@ jobs:
           gh release download character-library-1 -R "$GITHUB_REPOSITORY" -p character-app-pack.zip -D /tmp
           mkdir -p /tmp/mhpack && unzip -q /tmp/character-app-pack.zip -d /tmp/mhpack && du -sh /tmp/mhpack
       - name: Build
-        run: swift build -c debug 2>&1 | grep -E "error|warning: unused|Compiling|Build" | tail -30
+        run: |
+          set -o pipefail
+          swift build -c debug 2>&1 | grep -E "error|MakeHuman|Build" | tail -40
       - name: Render
         run: |
           set -o pipefail
