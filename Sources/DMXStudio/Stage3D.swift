@@ -1507,6 +1507,12 @@ struct CharacterModelPreview: NSViewRepresentable {
         view.scene = scene
         view.backgroundColor = NSColor(white: 0.12, alpha: 1)
         view.allowsCameraControl = true
+        // Turntable orbit: dragging circles the character and tilts up/down a little, never rolls or flips.
+        view.defaultCameraController.interactionMode = .orbitTurntable
+        view.defaultCameraController.inertiaEnabled = true
+        view.defaultCameraController.maximumVerticalAngle = 70
+        view.defaultCameraController.minimumVerticalAngle = -35
+        view.defaultCameraController.worldUp = SCNVector3(0, 1, 0)
         view.antialiasingMode = .multisampling2X
         let camera = SCNNode(); camera.camera = SCNCamera()
         camera.camera?.fieldOfView = 37
