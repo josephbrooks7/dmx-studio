@@ -432,11 +432,18 @@ enum MHCharacter {
         return SCNGeometry(sources: [source(flat, .vertex, 3), source(nflat, .normal, 3), source(uv, .texcoord, 2)], elements: [element])
     }
 
-    /// Skinned node bound to the shared skeleton; only the bones this mesh uses are passed.
-    static func skinned(_ m: Mesh, name: String, material: SCNMaterial, boneNodes: [SCNNode],
-                        inverseBind: [NSValue], skeleton: SCNNode) -> SCNNode {
+    /// Geometry and skin binding of one mesh, independent of materials and bone nodes (cached).
+    struct Part {
+        let name: String
+        let item: MHItem?
+        let geometry: SCNGeometry
+        let bones: [Int]
+        let indices: SCNGeometrySource
+        let weights: SCNGeometrySource
+    }
+
+    static func part(_ m: Mesh, name: String, item: MHItem?) -> Part {
         let geo = geometry(m)
-        geo.materials = [material]
         var used: [UInt32: UInt16] = [:]
         var order: [Int] = []
         var idx: [UInt16] = []; idx.reserveCapacity(m.influences.count * 4)
@@ -462,14 +469,42 @@ enum MHCharacter {
         let iSource = SCNGeometrySource(data: idx.withUnsafeBufferPointer { Data(buffer: $0) }, semantic: .boneIndices,
                                         vectorCount: count, usesFloatComponents: false, componentsPerVector: 4,
                                         bytesPerComponent: 2, dataOffset: 0, dataStride: 8)
+        return Part(name: name, item: item, geometry: geo, bones: order, indices: iSource, weights: wSource)
+    }
+
+    /// Skinned node bound to the shared skeleton; only the bones this mesh uses are passed.
+    static func skinned(_ p: Part, material: SCNMaterial, boneNodes: [SCNNode], inverseBind: [NSValue], skeleton: SCNNode) -> SCNNode {
+        // Shallow copy: shares vertex data with the cache, owns its materials.
+        let geo = (p.geometry.copy() as? SCNGeometry) ?? p.geometry
+        geo.materials = [material]
         let node = SCNNode(geometry: geo)
-        node.name = name
-        let skinner = SCNSkinner(baseGeometry: geo, bones: order.map { boneNodes[$0] },
-                                 boneInverseBindTransforms: order.map { inverseBind[$0] },
-                                 boneWeights: wSource, boneIndices: iSource)
+        node.name = p.name
+        let skinner = SCNSkinner(baseGeometry: geo, bones: p.bones.map { boneNodes[$0] },
+                                 boneInverseBindTransforms: p.bones.map { inverseBind[$0] },
+                                 boneWeights: p.weights, boneIndices: p.indices)
         skinner.skeleton = skeleton
         node.skinner = skinner
         return node
+    }
+
+    /// Everything that depends on body shape, clothing and hair; colors and pose are applied per node.
+    final class Prepared {
+        let parts: [Part]
+        let heads: [SIMD3<Float>]
+        let tails: [SIMD3<Float>]
+        let female: Float
+        init(parts: [Part], heads: [SIMD3<Float>], tails: [SIMD3<Float>], female: Float) {
+            self.parts = parts; self.heads = heads; self.tails = tails; self.female = female
+        }
+    }
+    private static var cache: [String: Prepared] = [:]
+    private static var cacheOrder: [String] = []
+    private static let cacheLock = NSLock()
+
+    static func cacheKey(_ a: PerformerAppearance) -> String {
+        let body = a.body.map { "\($0.heightCm)/\($0.weightKg ?? 0)" } ?? "-"
+        return [a.bodyStyle ?? "", String(format: "%.3f", a.height), String(format: "%.3f", a.build), body,
+                a.clothingStyle ?? "", a.hair.rawValue, overrideItems.joined(separator: ",")].joined(separator: "|")
     }
 
     // MARK: materials
@@ -547,6 +582,26 @@ enum MHCharacter {
 
     static func build(_ a: PerformerAppearance) -> SCNNode? {
         guard let lib = MHLibrary.shared else { return nil }
+        let key = cacheKey(a)
+        cacheLock.lock()
+        var prepared = cache[key]
+        cacheLock.unlock()
+        if prepared == nil {
+            prepared = prepare(a, lib: lib)
+            if let made = prepared {
+                cacheLock.lock()
+                cache[key] = made
+                cacheOrder.removeAll { $0 == key }
+                cacheOrder.append(key)
+                while cacheOrder.count > 16 { cache.removeValue(forKey: cacheOrder.removeFirst()) }
+                cacheLock.unlock()
+            }
+        }
+        guard let p = prepared else { return nil }
+        return assemble(p, a, lib: lib)
+    }
+
+    static func prepare(_ a: PerformerAppearance, lib: MHLibrary) -> Prepared? {
         let shape = shape(for: a)
         let body = lib.body(targets(shape, lib: lib))
 
@@ -593,20 +648,25 @@ enum MHCharacter {
             mesh.positions.reserveCapacity(n); mesh.influences.reserveCapacity(n)
             for v in 0..<n {
                 var p = SIMD3<Float>(repeating: 0)
-                var gather: [UInt32: Float] = [:]
+                var gBones = [UInt32](repeating: 0, count: 12), gW = [Float](repeating: 0, count: 12), gN = 0
                 for j in 0..<3 {
                     let vi = Int(bi[v * 3 + j]); let w = bw[v * 3 + j]
                     guard vi < body.count, w != 0 else { continue }
                     p += w * body[vi]
                     let inf = influence(vi)
-                    for q in 0..<4 where inf.weights[q] > 0 { gather[inf.bones[q], default: 0] += inf.weights[q] * abs(w) }
+                    for q in 0..<4 where inf.weights[q] > 0 {
+                        let bone = inf.bones[q], add = inf.weights[q] * abs(w)
+                        var found = false
+                        for g in 0..<gN where gBones[g] == bone { gW[g] += add; found = true; break }
+                        if !found { gBones[gN] = bone; gW[gN] = add; gN += 1 }
+                    }
                 }
                 p += SIMD3(off[v * 3], off[v * 3 + 1], off[v * 3 + 2]) * scale
                 mesh.positions.append(p * k)
-                let top = gather.sorted { $0.value > $1.value }.prefix(4)
-                let total = top.reduce(Float(0)) { $0 + $1.value }
+                let top = (0..<gN).sorted { gW[$0] > gW[$1] }.prefix(4)
+                let total = top.reduce(Float(0)) { $0 + gW[$1] }
                 var bones = SIMD4<UInt32>(0, 0, 0, 0), weights = SIMD4<Float>(0, 0, 0, 0)
-                for (q, e) in top.enumerated() { bones[q] = e.key; weights[q] = total > 0 ? e.value / total : 0 }
+                for (q, g) in top.enumerated() { bones[q] = gBones[g]; weights[q] = total > 0 ? gW[g] / total : 0 }
                 if total == 0 { weights[0] = 1 }
                 mesh.influences.append((bones, weights))
             }
@@ -639,6 +699,13 @@ enum MHCharacter {
         let boneHeads = heads.map { $0 + shift }
         let boneTails = tails.map { $0 + shift }
 
+        var parts = [part(bodyMesh, name: "mh_body", item: nil)]
+        for (item, mesh) in fitted { parts.append(part(mesh, name: "mh_" + item.slot, item: item)) }
+        return Prepared(parts: parts, heads: boneHeads, tails: boneTails, female: shape.female)
+    }
+
+    static func assemble(_ p: Prepared, _ a: PerformerAppearance, lib: MHLibrary) -> SCNNode {
+        let boneHeads = p.heads, boneTails = p.tails
         // Skeleton: identity orientations, each bone at its head, so a rotation turns a limb about its joint.
         let rigRoot = SCNNode()
         rigRoot.name = "character_body_for_framing"
@@ -652,20 +719,15 @@ enum MHCharacter {
             node.name = bone.name
             let parentHead = bone.parent.map { boneHeads[$0] } ?? .zero
             node.simdPosition = boneHeads[i] - parentHead
-            if let p = bone.parent { boneNodes[p].addChildNode(node) } else { armature.addChildNode(node) }
+            if let par = bone.parent { boneNodes[par].addChildNode(node) } else { armature.addChildNode(node) }
             boneNodes.append(node)
             let h = boneHeads[i]
             inverseBind.append(NSValue(scnMatrix4: SCNMatrix4MakeTranslation(CGFloat(-h.x), CGFloat(-h.y), CGFloat(-h.z))))
         }
-
-        let skinNode = skinned(bodyMesh, name: "mh_body", material: skinMaterial(a, female: shape.female, lib: lib),
-                               boneNodes: boneNodes, inverseBind: inverseBind, skeleton: armature)
-        rigRoot.addChildNode(skinNode)
-        if unlit { skinNode.geometry?.materials.forEach { $0.lightingModel = .constant } }
-        for (item, mesh) in fitted {
-            let node = skinned(mesh, name: "mh_" + item.slot, material: itemMaterial(item, a, lib: lib),
-                               boneNodes: boneNodes, inverseBind: inverseBind, skeleton: armature)
-            if item.slot == "hair" || item.slot == "eyebrows" || item.slot == "eyelashes" { node.renderingOrder = 10 }
+        for part in p.parts {
+            let material = part.item.map { itemMaterial($0, a, lib: lib) } ?? skinMaterial(a, female: p.female, lib: lib)
+            let node = skinned(part, material: material, boneNodes: boneNodes, inverseBind: inverseBind, skeleton: armature)
+            if let slot = part.item?.slot, slot == "hair" || slot == "eyebrows" || slot == "eyelashes" { node.renderingOrder = 10 }
             if unlit { node.geometry?.materials.forEach { $0.lightingModel = .constant } }
             rigRoot.addChildNode(node)
         }
@@ -853,6 +915,10 @@ enum MHRenderCLI {
         let started = Date()
         guard let character = MHCharacter.build(a) else { print("MH_RENDER build failed"); return false }
         print("MH_TIME build seconds", String(format: "%.3f", Date().timeIntervalSince(started)))
+        var recolor = a; recolor.skin = (a.skin + 1) % 6; recolor.outfit = (a.outfit + 1) % 6
+        let again = Date()
+        _ = MHCharacter.build(recolor)
+        print("MH_TIME rebuild after color change seconds", String(format: "%.3f", Date().timeIntervalSince(again)))
         MHCharacter.overrideItems = []
         Build.addTopHat(root: character, body: character.childNode(withName: "mh_body", recursively: true) ?? character, a)
         let size = CGSize(width: 600, height: 900)
