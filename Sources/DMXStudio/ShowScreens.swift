@@ -1579,12 +1579,14 @@ struct SetListsScreen: View {
                 }
                 List(selection: $selected) {
                     ForEach(model.lineups) { l in
+                        let playing = model.playingLineupID == l.id
+                        let duration: String = l.entries.isEmpty ? "0" : formatTime(model.setTimeline(l).total)
                         HStack {
-                            Image(systemName: model.playingLineupID == l.id ? "speaker.wave.2.fill" : "list.number")
-                                .foregroundColor(model.playingLineupID == l.id ? Theme.accent : Theme.subtle)
+                            Image(systemName: playing ? "speaker.wave.2.fill" : "list.number")
+                                .foregroundColor(playing ? Theme.accent : Theme.subtle)
                             Text(l.name)
                             Spacer()
-                            Text(l.entries.isEmpty ? "0" : formatTime(model.setTimeline(l).total)).font(.caption).monospacedDigit().foregroundColor(Theme.subtle)
+                            Text(duration).font(.caption).monospacedDigit().foregroundColor(Theme.subtle)
                         }
                         .tag(Optional(l.id))
                         .onDrop(of: [UTType.fileURL, UTType.plainText], isTargeted: nil) { providers in
