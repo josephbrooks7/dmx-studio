@@ -244,7 +244,28 @@ def main():
                 sc = Vector(((slo.x + shi.x) / 2, (slo.y + shi.y) / 2, slo.z))
                 for i in idx:
                     final[i] = tc + (final[i] - sc) * k
-                shoe_fit[side] = round(k, 3)
+                # the opening must reach as high as the target's own shoe, so trouser hems made to
+                # sit inside it stay hidden: stretch height alone if the uniform size fell short
+                top = max(final[i].z for i in idx)
+                kz = 1.0
+                if top - tlo.z > 1e-4 and thi.z > top:
+                    kz = min((thi.z - tlo.z) / (top - tlo.z), 1.3)
+                    for i in idx:
+                        final[i].z = tlo.z + (final[i].z - tlo.z) * kz
+                shoe_fit[side] = {"size": round(k, 3), "height": round(kz, 3)}
+
+    hem_pushed = 0
+    if garment_name == "Trousers":
+        target_shoes = next((o for o in dst_objs if o.type == "MESH" and o.name.split(".")[0] == "Shoes"), None)
+        if target_shoes is not None:
+            shoe_body = surface(target_shoes)
+            for i, p in enumerate(final):
+                if feet[i] < 0.05 and p.z > 0.25:
+                    continue
+                near, normal, off = signed_offset(shoe_body, p)
+                if off < 0.006:
+                    final[i] = near + normal * 0.008     # hem rests 8 mm outside the shoe (a slight break)
+                    hem_pushed += 1
 
     covering = {"hand": 0, "head": 0}
     bones_d = dst_rig.data.bones
@@ -352,6 +373,7 @@ def main():
         "vertices_covering_hands": covering["hand"], "vertices_covering_head": covering["head"],
         "liner": liner.name if liner else None,
         "shoe_scale_xyz_per_foot": shoe_fit,
+        "trouser_hem_vertices_moved_over_shoes": hem_pushed,
         "liner_faces_removed_as_covered": liner_faces_removed,
         "degenerate_faces": sum(1 for p in out_mesh.polygons if p.area < 1e-10),
         "method": "skeleton retarget + body-surface ease transfer + smoothed correction + clearance",
