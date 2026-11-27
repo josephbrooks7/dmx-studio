@@ -450,7 +450,7 @@ struct StageInspector: View {
                                                     slider("Height", a.height, 1.4...2.1, "m") { v in model.updateStageItem(id) { var p = $0.performerAppearance ?? PerformerAppearance(); p.height = v; $0.performerAppearance = p } }
                                                     slider("Body build", a.build, 0.7...1.4, "×") { v in model.updateStageItem(id) { var p = $0.performerAppearance ?? PerformerAppearance(); p.build = v; $0.performerAppearance = p } }
                                                     Divider()
-                                                    Text("Hair, clothing and facial details are currently authored in the textured model.").font(.caption).foregroundColor(Theme.subtle)
+                                                    Text("Hairstyle, hair color, skin tone and outfit color are set in the panel on the right.").font(.caption).foregroundColor(Theme.subtle)
                                                 }
                                                 .padding(.trailing, 8)
                                             }

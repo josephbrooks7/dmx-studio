@@ -64,6 +64,18 @@ for asset in assets:
 shutil.copy2(source / "manifest.json", dest / "local-manifest.json")
 PYCHAR
 fi
+# Hairstyle modules for Character Studio (CC BY 4.0, see packaging/character-candidates/CREDITS.md).
+# Normalized offline: Y-up, front +Z, crown top at the origin. One per style and body: hair-<style>-<m|f>.usdz
+mkdir -p "$CHAR/Hair"
+for STYLE in short long swept ponytail curly spiked; do
+  for SEX in m f; do
+    F="packaging/hair-modules/hair-$STYLE-$SEX.usdz"
+    unzip -tq "$F" >/dev/null || { echo "Missing or invalid hair module: $F"; exit 1; }
+    cp "$F" "$CHAR/Hair/"
+  done
+done
+cp packaging/character-candidates/CREDITS.md "$CHAR/Hair/CREDITS.md"
+echo "Bundled $(ls "$CHAR/Hair"/*.usdz | wc -l | tr -d ' ') hair modules"
 if [[ "${DMX_SKIP_CHARACTERS:-0}" != "1" ]]; then
   CACHE=".character-cache"
   mkdir -p "$CACHE"

@@ -498,7 +498,7 @@ enum Build {
         guard let scene = try? SCNScene(url: url, options: nil) else { return nil }
         let node = SCNNode()
         for child in scene.rootNode.childNodes { node.addChildNode(child.clone()) }
-        if avatarCache.count >= 12 { avatarCache.removeAll() }
+        if avatarCache.count >= 24 { avatarCache.removeAll() }
         avatarCache[url] = node
         return node
     }
@@ -644,7 +644,12 @@ enum Build {
             NSColor(calibratedRed: 0.65, green: 0.48, blue: 0.36, alpha: 1),
             NSColor(calibratedRed: 0.48, green: 0.32, blue: 0.23, alpha: 1),
             NSColor(calibratedRed: 0.34, green: 0.22, blue: 0.16, alpha: 1)]
-        let outfits: [NSColor] = [.darkGray, .systemRed, .systemBlue, .white, .systemPurple, .systemGreen]
+        let outfits: [NSColor] = [NSColor(white: 0.22, alpha: 1),
+                                   NSColor(calibratedRed: 0.95, green: 0.22, blue: 0.22, alpha: 1),
+                                   NSColor(calibratedRed: 0.25, green: 0.40, blue: 0.95, alpha: 1),
+                                   NSColor(white: 1, alpha: 1),
+                                   NSColor(calibratedRed: 0.62, green: 0.30, blue: 0.90, alpha: 1),
+                                   NSColor(calibratedRed: 0.25, green: 0.78, blue: 0.35, alpha: 1)]
         let hairs: [NSColor] = [.darkGray, .brown, .systemYellow, .systemRed, .systemBlue, .lightGray]
         func pick(_ colors: [NSColor], _ index: Int) -> NSColor {
             colors[min(max(index, 0), colors.count - 1)]
@@ -655,11 +660,19 @@ enum Build {
             let materials = geometry.materials.map { original -> SCNMaterial in
                 let name = ((original.name ?? "") + " " + (node.name ?? "")).lowercased()
                 let tint: NSColor
-                if ["eye", "teeth", "mouth", "lash", "brow"].contains(where: { name.contains($0) }) { return original }
+                if ["eye", "teeth", "mouth", "lash", "brow", "hair_module"].contains(where: { name.contains($0) }) { return original }
                 if name.contains("hair") { tint = pick(hairs, a.hairColor) }
-                else if ["shirt", "jacket", "jeans", "denim", "pants", "trousers", "dress", "garment"].contains(where: { name.contains($0) }) {
+                else if ["outfit", "top_", "shirt", "jacket", "jeans", "denim", "pants", "trousers", "dress", "garment"].contains(where: { name.contains($0) }) {
                     tint = pick(outfits, a.outfit)
-                } else if name.contains("skin") || name.contains("face_skin") { tint = pick(skin, a.skin) }
+                } else if name.contains("skin") || name.contains("_head") || name.contains("_body") {
+                    // The textures are already one skin tone (lighter or darker model), so tint relative to it:
+                    // the model's own tone stays as authored, other tones shift from there.
+                    let base = pick(skin, a.skin >= 3 ? 4 : 1), want = pick(skin, a.skin)
+                    func ratio(_ w: CGFloat, _ b: CGFloat) -> CGFloat { min(1, w / max(b, 0.01)) }
+                    tint = NSColor(calibratedRed: ratio(want.redComponent, base.redComponent),
+                                   green: ratio(want.greenComponent, base.greenComponent),
+                                   blue: ratio(want.blueComponent, base.blueComponent), alpha: 1)
+                }
                 else { return original }
                 guard let material = original.copy() as? SCNMaterial else { return original }
                 material.multiply.contents = tint
@@ -671,6 +684,43 @@ enum Build {
                 node.geometry = copy
             }
         }
+    }
+
+    /// Crown of a built body (or hair module) in `space` coordinates: highest point, and the centre
+    /// and width of everything within `band` below it. Hidden nodes are ignored.
+    static func headFrame(_ body: SCNNode, in space: SCNNode, band: CGFloat) -> (top: CGFloat, x: CGFloat, z: CGFloat, width: CGFloat)? {
+        var points: [SIMD3<Float>] = []
+        func visible(_ n: SCNNode) -> Bool {
+            var c: SCNNode? = n
+            while let cur = c { if cur.isHidden { return false }; if cur === body { break }; c = cur.parent }
+            return true
+        }
+        var nodes: [SCNNode] = [body]
+        body.enumerateChildNodes { n, _ in nodes.append(n) }
+        for node in nodes {
+            guard visible(node), let g = node.geometry,
+                  let source = g.sources(for: .vertex).first,
+                  source.usesFloatComponents, source.bytesPerComponent == 4, source.componentsPerVector >= 3 else { continue }
+            let t = node.convertTransform(SCNMatrix4Identity, to: space)
+            let m = simd_float4x4(t)
+            source.data.withUnsafeBytes { (raw: UnsafeRawBufferPointer) in
+                for i in 0..<source.vectorCount {
+                    let o = source.dataOffset + i * source.dataStride
+                    guard o + 12 <= raw.count else { break }
+                    var v = SIMD3<Float>(0, 0, 0)
+                    withUnsafeMutableBytes(of: &v.x) { $0.copyBytes(from: UnsafeRawBufferPointer(rebasing: raw[o..<(o+4)])) }
+                    withUnsafeMutableBytes(of: &v.y) { $0.copyBytes(from: UnsafeRawBufferPointer(rebasing: raw[(o+4)..<(o+8)])) }
+                    withUnsafeMutableBytes(of: &v.z) { $0.copyBytes(from: UnsafeRawBufferPointer(rebasing: raw[(o+8)..<(o+12)])) }
+                    let w = m * SIMD4<Float>(v.x, v.y, v.z, 1)
+                    points.append(SIMD3<Float>(w.x, w.y, w.z))
+                }
+            }
+        }
+        guard let top = points.map({ $0.y }).max() else { return nil }
+        let crown = points.filter { $0.y >= top - Float(band) }
+        guard let minX = crown.map({ $0.x }).min(), let maxX = crown.map({ $0.x }).max(),
+              let minZ = crown.map({ $0.z }).min(), let maxZ = crown.map({ $0.z }).max() else { return nil }
+        return (CGFloat(top), CGFloat((minX + maxX) / 2), CGFloat((minZ + maxZ) / 2), CGFloat(maxX - minX))
     }
 
     static func performer(_ a: PerformerAppearance) -> SCNNode {
@@ -731,19 +781,9 @@ enum Build {
                 mesh.position = SCNVector3(-(bounds.min.x+bounds.max.x)*width/2, -bounds.min.y*scale, -(bounds.min.z+bounds.max.z)*depth/2)
                 mesh.name = "character_body_for_framing"
                 root.addChildNode(mesh)
-                // Optional authored hair modules use a common head-relative scale.
-                // Only attach to assets with explicitly separated hair nodes.
+                // Hairstyle: swap in a bundled hair module (Characters/Hair/hair-<style>-<m|f>.usdz,
+                // Y-up, front +Z, crown top at the origin) fitted to this body's measured head.
                 if a.modelPath == nil {
-                    let style: String
-                    switch a.hair {
-                    case .long: style = "long"
-                    case .swept: style = "swept"
-                    case .ponytail: style = "ponytail"
-                    case .curly: style = "curly"
-                    case .spiked: style = "spiked"
-                    case .shaved: style = "shaved"
-                    default: style = "short"
-                    }
                     var originalHair: [SCNNode] = []
                     imported.enumerateChildNodes { node, _ in
                         let name = (node.name ?? "").lowercased()
@@ -751,24 +791,44 @@ enum Build {
                             originalHair.append(node)
                         }
                     }
-                    if !originalHair.isEmpty {
-                        if style == "shaved" {
-                            originalHair.forEach { $0.isHidden = true }
-                        } else if let hairURL = Bundle.main.url(forResource: style, withExtension: "usdz", subdirectory: "Characters/Hair"),
-                                  let hairTemplate = avatarTemplate(hairURL) {
-                            let module = hairTemplate.clone()
-                            let b = module.boundingBox
-                            let span = b.max.x - b.min.x
-                            if span.isFinite && span > 0.001 {
-                                let factor = CGFloat(a.height) * 0.135 / span
-                                module.scale = SCNVector3(factor, factor, factor)
-                                module.position = SCNVector3(-(b.min.x + b.max.x) * factor / 2,
-                                    CGFloat(a.height) + 0.025 - b.max.y * factor,
-                                    -(b.min.z + b.max.z) * factor / 2)
-                                originalHair.forEach { $0.isHidden = true }
-                                root.addChildNode(module)
-                            }
+                    // The authored hair is replaced in every case, so the selected style is what shows.
+                    originalHair.forEach { $0.isHidden = true }
+                    if a.hair != .shaved,
+                       let head = headFrame(mesh, in: root, band: 0.055 * CGFloat(a.height)),
+                       let hairURL = Bundle.main.url(forResource: "hair-" + a.hair.rawValue.lowercased() + (avatarFeminine ? "-f" : "-m"),
+                                                     withExtension: "usdz", subdirectory: "Characters/Hair"),
+                       let hairTemplate = avatarTemplate(hairURL) {
+                        let module = hairTemplate.clone()
+                        module.name = "hair_module"
+                        let hairColors: [NSColor] = [
+                            NSColor(calibratedRed: 0.035, green: 0.03, blue: 0.028, alpha: 1),   // black
+                            NSColor(calibratedRed: 0.20, green: 0.10, blue: 0.045, alpha: 1),    // brown
+                            NSColor(calibratedRed: 0.70, green: 0.52, blue: 0.26, alpha: 1),     // blonde
+                            NSColor(calibratedRed: 0.48, green: 0.11, blue: 0.04, alpha: 1),     // red
+                            NSColor(calibratedRed: 0.08, green: 0.17, blue: 0.62, alpha: 1),     // blue
+                            NSColor(calibratedRed: 0.66, green: 0.66, blue: 0.68, alpha: 1)]     // silver
+                        let tone = hairColors[min(max(a.hairColor, 0), hairColors.count - 1)]
+                        module.enumerateChildNodes { node, _ in
+                            guard let g = node.geometry?.copy() as? SCNGeometry else { return }
+                            let m = SCNMaterial()
+                            m.name = "hair_module_material"
+                            m.lightingModel = .physicallyBased
+                            m.diffuse.contents = tone
+                            m.roughness.contents = 0.55
+                            m.metalness.contents = 0.0
+                            m.isDoubleSided = true
+                            g.materials = [m]
+                            node.geometry = g
                         }
+                        // Size the module's crown to the head's crown, then sit it on the head.
+                        let crown = headFrame(module, in: module, band: 0.096)
+                        let crownWidth = crown?.width ?? 0.19
+                        let f = crownWidth > 0.01 ? min(max(head.width * 1.04 / crownWidth, 0.7), 1.5) : 1
+                        module.scale = SCNVector3(f, f, f)
+                        module.position = SCNVector3(head.x - (crown?.x ?? 0) * f,
+                                                     head.top + 0.004 - (crown?.top ?? 0) * f,
+                                                     head.z - (crown?.z ?? 0) * f)
+                        root.addChildNode(module)
                     }
                 }
                 // Independent accessory geometry leaves imported skin/clothing textures untouched.
