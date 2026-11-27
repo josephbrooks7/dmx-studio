@@ -10,6 +10,7 @@ on:
       - 'packaging/inspect-body-reference.py'
       - 'packaging/inspect-body-candidates.py'
       - 'packaging/extract-runtime-garments.py'
+      - 'packaging/cross-fit-runtime-tee.py'
       - 'packaging/blender-body-fit-trial.py'
       - 'packaging/test_*.py'
       - '.github/workflows/garment-reference-tests.yml'
@@ -101,3 +102,16 @@ jobs:
           name: runtime-garment-modules
           path: garment-modules/
           if-no-files-found: error
+      - name: Fit existing tees in both directions across runtime characters
+        run: |
+          set -euo pipefail
+          for pair in "andre_casual emma_casual" "emma_casual andre_casual"; do
+            read -r source target <<< "$pair"
+            blender --background --factory-startup --disable-autoexec --python-exit-code 1 --python packaging/cross-fit-runtime-tee.py -- "garment-modules/$source-Top_tee.glb" "garment-modules/$target-Top_tee.glb" "cross-fit/$source-to-$target"
+          done
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: cross-body-tee-trials
+          path: cross-fit/
+          if-no-files-found: warn
