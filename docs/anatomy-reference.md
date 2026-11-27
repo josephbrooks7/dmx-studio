@@ -91,6 +91,23 @@ slider and the clothing area it pushes on.
 | Thigh | Quadriceps (front), hamstrings (back), adductors (inner) | Thigh thickness | Separate front/back/inner shaping |
 | Lower leg | Gastrocnemius + soleus (calf) | Calf size |  |
 
+## 4b. Hands
+
+- Structure: 27 bones (8 carpals, 5 metacarpals, 14 phalanges). Our skeleton's three bones per
+  finger plus the wrist cover what's visible; the thumb's base joint rotates it across the palm.
+- **Resting hand (default for every performer):** never flat. Fingers form a cascade of
+  increasing curl from index to little finger; knuckles roughly 45-75°, middle joints about 10°,
+  tips 0-10°, wrist slightly bent back, thumb slightly away from the palm. The palm cups a little
+  (transverse and lengthwise arches).
+- **Wrist-finger coupling:** bending the wrist back curls relaxed fingers further; bending it
+  down opens them. Applied automatically to relaxed hands so they react to every wrist move.
+- **Mic grip = power (cylindrical) grip:** all four fingers wrapped around the handle, thumb
+  closing over them, wrist near neutral. Not a fingertip hold.
+- **Precision (pinch) grip:** thumb pad against finger pads for a guitar pick, drumstick tip,
+  setlist or water bottle cap.
+- Gesture hands (peace sign, rock horns, fist, point) start from these shapes and stay within
+  the finger ranges in section 2; fingers never bend backward or sideways past their limits.
+
 ## 5. Body proportions
 
 Segment lengths scale roughly with height (Drillis & Contini proportions, widely used). These
@@ -270,6 +287,9 @@ other rather than snapping.
   BMC Musculoskeletal Disorders movement criteria.
 - Muscles: Teach Me Anatomy upper limb, lower limb and abdominal wall pages; OpenStax Anatomy
   & Physiology 11.6; Wikipedia "Abdominal muscles"; Osmosis anterolateral abdominal wall.
+- Hands: LibreTexts / InformedHealth hand bones; Eaton Hand resting cascade; clinical resting
+  posture (position of function); tenodesis effect (hand rehab notes); Cornell ergonomics
+  "Grasping Hands" (power vs pinch grip); Wikipedia "Hand" (arches).
 - Proportions: Penn State OpenLab "Proportionality Constants" (Drillis & Contini 1966).
 - Skinning: Kavan et al. (dual quaternion skinning); Walt Disney Animation Studios, "Enhanced
   Dual Quaternion Skinning for Production Use"; Disney Research, "Skinning with Optimized
