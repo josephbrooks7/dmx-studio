@@ -6,6 +6,8 @@ on:
       - 'packaging/body_fit.py'
       - 'packaging/garment_*.py'
       - 'packaging/blender_garment_fit.py'
+      - 'packaging/blender-garment-smoke.py'
+      - 'packaging/inspect-body-reference.py'
       - 'packaging/test_*.py'
       - '.github/workflows/garment-reference-tests.yml'
   workflow_dispatch:
@@ -22,3 +24,15 @@ jobs:
       - name: Run offline fitting regression suite
         working-directory: packaging
         run: python3 -m unittest -v test_body_fit test_garment_regions test_garment_skin test_garment_clearance test_garment_pipeline
+  blender-smoke:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+      - name: Install Blender from Ubuntu repository
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y --no-install-recommends blender
+          blender --version
+      - name: Verify fitted geometry, materials and target skeleton
+        run: blender --background --factory-startup --disable-autoexec --python-exit-code 1 --python packaging/blender-garment-smoke.py
