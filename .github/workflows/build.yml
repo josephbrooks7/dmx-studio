@@ -30,6 +30,12 @@ jobs:
         with:
           path: .character-cache
           key: ${{ runner.os }}-character-assets-v1-${{ hashFiles('packaging/export-character.py', 'packaging/build-dmg.sh', 'packaging/character-library/**') }}
+      - name: MakeHuman character pack (CC0, built by makehuman-library.yml)
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          gh release download character-library-1 -R "$GITHUB_REPOSITORY" -p character-app-pack.zip -D packaging
+          ls -la packaging/character-app-pack.zip
       - name: Build universal app + DMG (Intel and Apple Silicon, macOS 12+)
         run: |
           set -o pipefail

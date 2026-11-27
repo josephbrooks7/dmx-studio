@@ -3,3 +3,4 @@ build/
 .DS_Store
 *.xcodeproj/xcuserdata/
 __pycache__/
+packaging/character-app-pack.zip
