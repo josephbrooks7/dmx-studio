@@ -213,6 +213,37 @@ def main():
         return n
     # long sleeves legitimately reach past the wrist; compare with the garment on its own body
     sleeve_baseline = past_wrist(src_rig, src_pts)
+    # Shoes are the wearer's feet (there is no foot skin underneath), so a moved shoe must fill the
+    # space the target's own shoe filled: map each shoe's box onto the target shoe's box, per foot.
+    shoe_fit = {}
+    if garment_name == "Shoes":
+        own_shoe = next((o for o in dst_objs if o.type == "MESH" and o.name.split(".")[0] == "Shoes"), None)
+        if own_shoe is not None:
+            own_groups = {g.index: g.name for g in own_shoe.vertex_groups}
+            def side_of(groups_map, v):
+                best = max(v.groups, key=lambda g: g.weight, default=None)
+                name = groups_map.get(best.group, "") if best else ""
+                return "Left" if "Left" in name else ("Right" if "Right" in name else None)
+            own_pts = [own_shoe.matrix_world @ v.co for v in own_shoe.data.vertices]
+            for side in ("Left", "Right"):
+                tgt = [p for v, p in zip(own_shoe.data.vertices, own_pts) if side_of(own_groups, v) == side]
+                idx = [i for i, v in enumerate(mesh.vertices) if side_of(groups, v) == side]
+                if len(tgt) < 10 or len(idx) < 10:
+                    continue
+                def box(pts):
+                    return (Vector(tuple(min(p[k] for p in pts) for k in range(3))),
+                            Vector(tuple(max(p[k] for p in pts) for k in range(3))))
+                tlo, thi = box(tgt)
+                slo, shi = box([final[i] for i in idx])
+                c = (tlo + thi) / 2
+                tlo = c + (tlo - c) * 1.03; thi = c + (thi - c) * 1.03   # 3% margin so nothing pokes out
+                tlo.z = min(p.z for p in tgt)                              # sole stays on the floor
+                for i in idx:
+                    p = final[i]
+                    final[i] = Vector(tuple(tlo[k] + (p[k] - slo[k]) * (thi[k] - tlo[k]) / max(shi[k] - slo[k], 1e-6)
+                                            for k in range(3)))
+                shoe_fit[side] = [round((thi[k] - tlo[k]) / max(shi[k] - slo[k], 1e-6), 3) for k in range(3)]
+
     covering = {"hand": 0, "head": 0}
     bones_d = dst_rig.data.bones
     chin_z = None
@@ -244,6 +275,7 @@ def main():
     # garment's fabric. Each body's skin mesh has holes where its own clothes sit; the liner closes
     # them wherever the new garment is cut differently (neckline, hem, sleeve length).
     liner = None
+    liner_faces_removed = 0
     own = [o for o in dst_objs if o.type == "MESH" and o.name.split(".")[0] == garment_name]
     if own and garment_name != "Shoes":
         own = own[0]
@@ -262,6 +294,28 @@ def main():
         for poly in liner_mesh.polygons:
             poly.material_index = 0
         liner_mesh.update()
+        # the liner is only needed where the new garment doesn't cover: drop liner faces with
+        # fitted fabric directly outside them (within 6 cm along the outward normal)
+        from mathutils.bvhtree import BVHTree as _BVH
+        out_mesh.calc_loop_triangles()
+        garment_tree = _BVH.FromPolygons([v.co.copy() for v in out_mesh.vertices],
+                                         [tuple(t.vertices) for t in out_mesh.loop_triangles], all_triangles=True)
+        covered = set()
+        for poly in liner_mesh.polygons:
+            ctr = poly.center
+            _, nrm, _ = signed_offset(dst_tree, ctr)
+            hit = garment_tree.ray_cast(ctr + nrm * 0.0005, nrm, 0.06)
+            if hit[0] is not None:
+                covered.add(poly.index)
+        if covered:
+            import bmesh as _bm
+            bm = _bm.new(); bm.from_mesh(liner_mesh); bm.faces.ensure_lookup_table()
+            _bm.ops.delete(bm, geom=[bm.faces[i] for i in covered], context="FACES_ONLY")
+            loose = [v for v in bm.verts if not v.link_faces]
+            if loose:
+                _bm.ops.delete(bm, geom=loose, context="VERTS")
+            bm.to_mesh(liner_mesh); bm.free(); liner_mesh.update()
+        liner_faces_removed = len(covered)
         # the liner stops at the ankle: remove faces mostly driven by the feet
         import bmesh
         own_g = {g.index: g.name for g in own.vertex_groups}
@@ -295,6 +349,8 @@ def main():
         "sleeve_vertices_past_wrist_on_own_body": sleeve_baseline,
         "vertices_covering_hands": covering["hand"], "vertices_covering_head": covering["head"],
         "liner": liner.name if liner else None,
+        "shoe_scale_xyz_per_foot": shoe_fit,
+        "liner_faces_removed_as_covered": liner_faces_removed,
         "degenerate_faces": sum(1 for p in out_mesh.polygons if p.area < 1e-10),
         "method": "skeleton retarget + body-surface ease transfer + smoothed correction + clearance",
     }
