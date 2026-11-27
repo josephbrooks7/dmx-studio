@@ -919,6 +919,10 @@ enum MHRenderCLI {
         let again = Date()
         _ = MHCharacter.build(recolor)
         print("MH_TIME rebuild after color change seconds", String(format: "%.3f", Date().timeIntervalSince(again)))
+        var taller = a; taller.height = a.height + 0.03
+        let reshape = Date()
+        _ = MHCharacter.build(taller)
+        print("MH_TIME rebuild after height change seconds", String(format: "%.3f", Date().timeIntervalSince(reshape)))
         MHCharacter.overrideItems = []
         Build.addTopHat(root: character, body: character.childNode(withName: "mh_body", recursively: true) ?? character, a)
         let size = CGSize(width: 600, height: 900)
