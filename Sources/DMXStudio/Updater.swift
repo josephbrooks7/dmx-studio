@@ -221,7 +221,7 @@ final class Updater: ObservableObject {
     private func startAutomaticChecks() {
         guard automaticTimer == nil else { return }
         automaticTimer = Timer.scheduledTimer(withTimeInterval: 15, repeats: true) { [weak self] _ in
-            Task { @MainActor in await self?.automaticTick() }
+            Task { @MainActor [weak self] in await self?.automaticTick() }
         }
         Task { await automaticTick() }
     }
@@ -521,10 +521,10 @@ final class Updater: ObservableObject {
                 p.arguments = args
                 let out = Pipe()
                 p.standardOutput = out; p.standardError = out
-                var data = Data()
+                let data = UpdateOutputBuffer()
                 let reader = DispatchGroup()
                 reader.enter()
-                DispatchQueue.global(qos: .utility).async { data = out.fileHandleForReading.readDataToEndOfFile(); reader.leave() }
+                DispatchQueue.global(qos: .utility).async { data.store(out.fileHandleForReading.readDataToEndOfFile()); reader.leave() }
                 do { try p.run() } catch {
                     try? out.fileHandleForWriting.close()
                     reader.wait()
@@ -539,7 +539,7 @@ final class Updater: ObservableObject {
                 reader.wait()
                 RunningStep.process = nil
                 let name = (tool as NSString).lastPathComponent
-                let text = String(decoding: data, as: UTF8.self)
+                let text = String(decoding: data.load(), as: UTF8.self)
                 if timedOut {
                     c.resume(throwing: UpdateError("An update step took too long (\(name)). Nothing was changed: try again, or use the installer."))
                 } else if p.terminationStatus != 0 {
@@ -717,3 +717,11 @@ struct InstallStepView: View {
 
 /// The tool an update step is running right now (so Cancel can stop it)
 enum RunningStep { static var process: Process? }
+
+// Synchronize the background pipe reader with the update worker.
+private final class UpdateOutputBuffer: @unchecked Sendable {
+    private let lock = NSLock()
+    private var bytes = Data()
+    func store(_ value: Data) { lock.lock(); defer { lock.unlock() }; bytes = value }
+    func load() -> Data { lock.lock(); defer { lock.unlock() }; return bytes }
+}
