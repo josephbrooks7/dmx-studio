@@ -103,6 +103,20 @@ slider and the clothing area it pushes on.
 | Thigh | Quadriceps (front), hamstrings (back), adductors (inner) | Thigh thickness | Separate front/back/inner shaping |
 | Lower leg | Gastrocnemius + soleus (calf) | Calf size |  |
 
+## 4a. Hips and glutes
+
+- Hip = femur head in the deep pelvic socket (ball and socket), see section 2 for ranges.
+- **Pelvis stays nearly level on one leg:** gluteus medius/minimus hold it, so contrapposto and
+  mid-step pelvis tilt is small (a big drop on the free side reads as a limp).
+- **Walking stride:** the back leg extends about 20° behind the body at a comfortable pace.
+- **Hip width is bony:** the greater trochanter (outer upper thigh) is the widest point of the
+  hips; the hip measurement and trouser fit key off it. Glute and body-fat sliders add shape
+  around it; the bony width is fixed per skeleton (a separate pelvis-width slider changes it).
+- **Glute slider = gluteus maximus** (the large buttock muscle, main hip extender); it firms
+  when a performer steps back, pushes off or stands from a crouch.
+- **Seated performers** (drums, keys) bear weight on the two sit bones; the seat and the
+  trousers' seat area compress there instead of floating above the stool.
+
 ## 4b. Hands
 
 - Structure: 27 bones (8 carpals, 5 metacarpals, 14 phalanges). Our skeleton's three bones per
@@ -343,6 +357,7 @@ other rather than snapping.
   BMC Musculoskeletal Disorders movement criteria.
 - Muscles: Teach Me Anatomy upper limb, lower limb and abdominal wall pages; OpenStax Anatomy
   & Physiology 11.6; Wikipedia "Abdominal muscles"; Osmosis anterolateral abdominal wall.
+- Hips and glutes: Goodwin Living, "Anatomy Lesson: The Hips and Glutes".
 - Hands: LibreTexts / InformedHealth hand bones; Eaton Hand resting cascade; clinical resting
   posture (position of function); tenodesis effect (hand rehab notes); Cornell ergonomics
   "Grasping Hands" (power vs pinch grip); Wikipedia "Hand" (arches); Physiopedia "Functional
