@@ -725,7 +725,7 @@ enum Build {
         for (n, v) in nodes { n.isHidden = !keep.contains(v) }
     }
 
-    static func headFrame(_ body: SCNNode, in space: SCNNode, band: CGFloat) -> (top: CGFloat, x: CGFloat, z: CGFloat, width: CGFloat)? {
+    static func headFrame(_ body: SCNNode, in space: SCNNode, band: CGFloat) -> (top: CGFloat, x: CGFloat, z: CGFloat, width: CGFloat, depth: CGFloat)? {
         var points: [SIMD3<Float>] = []
         func visible(_ n: SCNNode) -> Bool {
             var c: SCNNode? = n
@@ -757,7 +757,7 @@ enum Build {
         let crown = points.filter { $0.y >= top - Float(band) }
         guard let minX = crown.map({ $0.x }).min(), let maxX = crown.map({ $0.x }).max(),
               let minZ = crown.map({ $0.z }).min(), let maxZ = crown.map({ $0.z }).max() else { return nil }
-        return (CGFloat(top), CGFloat((minX + maxX) / 2), CGFloat((minZ + maxZ) / 2), CGFloat(maxX - minX))
+        return (CGFloat(top), CGFloat((minX + maxX) / 2), CGFloat((minZ + maxZ) / 2), CGFloat(maxX - minX), CGFloat(maxZ - minZ))
     }
 
     static func performer(_ a: PerformerAppearance) -> SCNNode {
@@ -855,7 +855,9 @@ enum Build {
                     let moduleStyle = closeCrop ? "short" : a.hair.rawValue.lowercased()
                     if let head = headFrame(mesh, in: root, band: 0.055 * CGFloat(a.height)),
                        let hairURL = Bundle.main.url(forResource: "hair-" + moduleStyle + (avatarFeminine ? "-f" : "-m"),
-                                                     withExtension: "usdz", subdirectory: "Characters/Hair"),
+                                                      withExtension: "usdz", subdirectory: "Characters/Hair")
+                            ?? Bundle.main.url(forResource: "hair-" + moduleStyle + (avatarFeminine ? "-m" : "-f"),
+                                               withExtension: "usdz", subdirectory: "Characters/Hair"),
                        let hairTemplate = avatarTemplate(hairURL) {
                         let module = hairTemplate.clone()
                         module.name = "hair_module"
@@ -893,11 +895,18 @@ enum Build {
                         let crown = headFrame(module, in: module, band: 0.096)
                         let crownWidth = crown?.width ?? 0.19
                         let f = (crownWidth > 0.01 ? min(max(head.width * 1.04 / crownWidth, 0.7), 1.5) : 1) * (closeCrop ? 0.985 : 1)
-                        module.scale = SCNVector3(f, f, f)
+                        let crownDepth = crown?.depth ?? 0.19
+                        let depthFit = crownDepth > 0.01 && head.depth > 0.01
+                            ? min(max(head.depth * 1.04 / crownDepth, 0.7), 1.5) : f
+                        // Fit scalp width and depth without stretching long hair vertically.
+                        let verticalFit: CGFloat = closeCrop ? f : 1
+                        module.scale = SCNVector3(f, verticalFit, depthFit)
                         module.position = SCNVector3(head.x - (crown?.x ?? 0) * f,
-                                                     head.top + 0.004 - (crown?.top ?? 0) * f,
-                                                     head.z - (crown?.z ?? 0) * f)
+                                                     head.top + 0.004 - (crown?.top ?? 0) * verticalFit,
+                                                     head.z - (crown?.z ?? 0) * depthFit)
                         root.addChildNode(module)
+                    } else if a.hair != .bald && a.hair != .shaved {
+                        originalHair.forEach { $0.isHidden = false }
                     }
                 }
                 // Independent accessory geometry leaves imported skin/clothing textures untouched.
@@ -921,7 +930,18 @@ enum Build {
                     let capNode = SCNNode(geometry: cap)
                     capNode.position.y = 0.13 * headScale
                     hat.addChildNode(capNode)
-                    hat.position.y = CGFloat(a.height) - 0.065 * headScale
+                    if let head = headFrame(mesh, in: root, band: 0.085 * CGFloat(a.height)) {
+                        let nominalDiameter = 0.182 * headScale
+                        hat.scale.x = min(max(head.width * 1.08 / nominalDiameter, 0.8), 1.6)
+                        hat.scale.z = min(max(head.depth * 1.08 / nominalDiameter, 0.8), 1.6)
+                        hat.position = SCNVector3(head.x, head.top - 0.035 * headScale, head.z)
+                        if let hair = root.childNode(withName: "hair_module", recursively: false),
+                           let crown = headFrame(hair, in: root, band: 0.055 * CGFloat(a.height)) {
+                            hat.position.y = max(hat.position.y, crown.top - 0.055 * headScale)
+                        }
+                    } else {
+                        hat.position.y = CGFloat(a.height) - 0.065 * headScale
+                    }
                     root.addChildNode(hat)
                 }
                 if url == bundled { applyImportedColors(root, a) }
