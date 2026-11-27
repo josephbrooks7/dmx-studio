@@ -372,8 +372,8 @@ enum MHCharacter {
         picks.append(best(lib, slot: "shoes", sex: sex, want: shoeWant, avoid: ["sock", "barefoot"]))
         picks.append(hair(a.hair, sex: sex, lib: lib))
         picks.append(best(lib, slot: "eyes", sex: sex, want: ["highpoly"]))
-        picks.append(best(lib, slot: "eyebrows", sex: sex, want: ["eyebrow001"]))
-        picks.append(best(lib, slot: "eyelashes", sex: sex, want: ["eyelashes01"]))
+        picks.append(lib.items.first(where: { $0.slot == "eyebrows" && $0.name.lowercased() == "eyebrow001" }) ?? best(lib, slot: "eyebrows", sex: sex, want: ["eyebrow"]))
+        picks.append(lib.items.first(where: { $0.slot == "eyelashes" && $0.name.lowercased() == "eyelashes01" }) ?? best(lib, slot: "eyelashes", sex: sex, want: ["eyelash"]))
         return picks.compactMap { $0 }
     }
 
@@ -529,7 +529,7 @@ enum MHCharacter {
             m.multiply.contents = hairColors[min(max(a.hairColor, 0), hairColors.count - 1)]
         } else if let d = item.diffuse, let img = lib.image(d) {
             m.diffuse.contents = img
-            if item.slot == "top" || item.slot == "outfit" {
+            if item.slot == "top" {
                 // Outfit color: tint the garment's own (usually light) fabric.
                 let c = outfitColors[min(max(a.outfit, 0), outfitColors.count - 1)]
                 m.multiply.contents = c
@@ -555,6 +555,8 @@ enum MHCharacter {
 
     /// Items forced by id (tests and contact sheets); they replace the chosen item in the same slot.
     static var overrideItems: [String] = []
+    static var debugLog = false
+    static var unlit = false
 
     static func build(_ a: PerformerAppearance) -> SCNNode? {
         guard let lib = MHLibrary.shared else { return nil }
@@ -621,7 +623,9 @@ enum MHCharacter {
                 if total == 0 { weights[0] = 1 }
                 mesh.influences.append((bones, weights))
             }
-            for d in bin.uints("deleteVerts") { deleted.insert(Int(d)) }
+            let removes = bin.uints("deleteVerts")
+            for d in removes { deleted.insert(Int(d)) }
+            if debugLog { print("MH_ITEM", item.slot, item.name, "vertices", n, "hides", removes.count) }
             fitted.append((item, mesh))
         }
 
@@ -636,6 +640,7 @@ enum MHCharacter {
             bodyMesh.triangles += [UInt32(a0), UInt32(a1), UInt32(a2)]
         }
 
+        if debugLog { print("MH_BODY triangles kept", bodyMesh.triangles.count / 3, "of", lib.triangles.count / 3, "height m", shape.heightMeters) }
         // Ground the character: lowest point of body and shoes at y = 0, centered on x/z.
         var floor = Float.greatestFiniteMagnitude
         for p in bodyMesh.positions { floor = min(floor, p.y) }
@@ -669,10 +674,12 @@ enum MHCharacter {
         let skinNode = skinned(bodyMesh, name: "mh_body", material: skinMaterial(a, female: shape.female, lib: lib),
                                boneNodes: boneNodes, inverseBind: inverseBind, skeleton: armature)
         rigRoot.addChildNode(skinNode)
+        if unlit { skinNode.geometry?.materials.forEach { $0.lightingModel = .constant } }
         for (item, mesh) in fitted {
             let node = skinned(mesh, name: "mh_" + item.slot, material: itemMaterial(item, a, lib: lib),
                                boneNodes: boneNodes, inverseBind: inverseBind, skeleton: armature)
             if item.slot == "hair" || item.slot == "eyebrows" || item.slot == "eyelashes" { node.renderingOrder = 10 }
+            if unlit { node.geometry?.materials.forEach { $0.lightingModel = .constant } }
             rigRoot.addChildNode(node)
         }
 
@@ -705,6 +712,19 @@ enum MHPose {
         node.simdOrientation = parentWorld.inverse * world
     }
 
+    /// Turn a bone about its own current direction (forearm twist), keeping its aim.
+    static func twist(_ bone: String, toward endBone: String, degrees: Float, bones: [SCNNode], index: [String: Int], heads: [SIMD3<Float>]) {
+        guard let b = index[bone], let e = index[endBone], degrees != 0 else { return }
+        let node = bones[b]
+        let parentWorld = node.parent.map { simd_quatf($0.simdWorldTransform) } ?? simd_quatf(angle: 0, axis: SIMD3(0, 1, 0))
+        let current = parentWorld * node.simdOrientation
+        let axis = normalize(current.act(heads[e] - heads[b]))
+        let world = simd_quatf(angle: degrees * .pi / 180, axis: axis) * current
+        node.simdOrientation = parentWorld.inverse * world
+    }
+
+    static var palmTwist: Float = 0
+
     static func apply(_ pose: String, bones: [SCNNode], index: [String: Int], heads: [SIMD3<Float>], tails: [SIMD3<Float>]) {
         // Arms down from MakeHuman's rest pose (arms angled out, forearms forward), elbows softly bent.
         var upper = SIMD3<Float>(0.16, -1, -0.02)
@@ -720,6 +740,9 @@ enum MHPose {
             let f = SIMD3(fore.x * sx, fore.y, fore.z)
             aim("upperarm01.\(side)", to: "lowerarm01.\(side)", direction: u, bones: bones, index: index, heads: heads)
             aim("lowerarm01.\(side)", to: "wrist.\(side)", direction: f, bones: bones, index: index, heads: heads)
+            // Palms toward the thighs: split the turn over the two forearm bones to avoid a wrist pinch.
+            twist("lowerarm01.\(side)", toward: "lowerarm02.\(side)", degrees: palmTwist * sx * 0.4, bones: bones, index: index, heads: heads)
+            twist("lowerarm02.\(side)", toward: "wrist.\(side)", degrees: palmTwist * sx * 0.6, bones: bones, index: index, heads: heads)
             if spread > 0 {
                 aim("upperleg01.\(side)", to: "lowerleg01.\(side)", direction: SIMD3(spread * sx, -1, 0.02),
                     bones: bones, index: index, heads: heads)
@@ -801,6 +824,8 @@ enum MHRenderCLI {
             case "Build": a.build = Double(v) ?? a.build
             case "Pose": a.pose = v
             case "Accessory": a.accessory = v
+            case "Twist": MHPose.palmTwist = Float(v) ?? 0
+            case "Lighting": MHCharacter.unlit = v == "unlit"
             default: break
             }
         }
@@ -814,6 +839,7 @@ enum MHRenderCLI {
         let shape = MHCharacter.shape(for: a)
         let picks = MHCharacter.wardrobe(a, female: shape.female, lib: lib).map { "\($0.slot)=\($0.name)" }
         print("MH_RENDER", args.joined(separator: " "), "->", picks.joined(separator: ", "))
+        MHCharacter.debugLog = true
         MHCharacter.overrideItems = args.first(where: { $0.hasPrefix("Items=") }).map { $0.dropFirst(6).split(separator: ",").map(String.init) } ?? []
         guard let character = MHCharacter.build(a) else { print("MH_RENDER build failed"); return false }
         MHCharacter.overrideItems = []
@@ -835,9 +861,9 @@ enum MHRenderCLI {
         let scene = SCNScene()
         scene.background.contents = NSColor(white: 0.42, alpha: 1)
         scene.rootNode.addChildNode(character)
-        let ambient = SCNNode(); ambient.light = SCNLight(); ambient.light?.type = .ambient; ambient.light?.intensity = 300
+        let ambient = SCNNode(); ambient.light = SCNLight(); ambient.light?.type = .ambient; ambient.light?.intensity = 120
         scene.rootNode.addChildNode(ambient)
-        for (x, y, z, i) in [(CGFloat(2), CGFloat(3), CGFloat(4), CGFloat(900)), (-3, 2, 2, 400), (1, 3, -3, 500), (0, 2, -4, 300)] {
+        for (x, y, z, i) in [(CGFloat(2), CGFloat(3), CGFloat(4), CGFloat(420)), (-3, 2, 2, 180), (1, 3, -3, 200)] {
             let l = SCNNode(); l.light = SCNLight(); l.light?.type = .omni; l.light?.intensity = i
             l.position = SCNVector3(x, y, z); scene.rootNode.addChildNode(l)
         }
