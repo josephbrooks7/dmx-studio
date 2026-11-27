@@ -161,6 +161,8 @@ def watch(V, F, side=1):
     return merge(parts)
 
 
+QUIFF_GROUPS = []
+
 def smoothstep(a, b, x):
     t = np.clip((x - a) / (b - a), 0, 1); return t * t * (3 - 2 * t)
 
@@ -170,7 +172,7 @@ def quiff_undercut(V, F):
     c = joint(V, "joint-head") * 0 + np.array([0.0, (joint(V, "joint-head")[1] + joint(V, "joint-head-2")[1]) / 2, 0.55])
     top_y = V[np.unique(F)][:, 1].max()
     eye_y = joint(V, "joint-l-eye")[1]
-    front_hl = eye_y + 0.68                                          # forehead hairline
+    front_hl = eye_y + 0.52                                          # forehead hairline
     def in_scalp(p):
         d = p - c; phi = np.arctan2(d[0], d[2])                     # 0 = front
         f = (1 + np.cos(phi)) / 2
@@ -195,7 +197,37 @@ def quiff_undercut(V, F):
     sweep = (top * front ** 2)[:, None] * np.array([0, 0.16, -0.02])  # front lifts up and back
     P = P0 + out * t[:, None] + sweep
     P = laplacian(P, tri, 6, 0.5)
-    return P, tri, np.zeros((len(P), 2))
+    sp, st = hair_strands(P, tri, c, front_hl)
+    QUIFF_GROUPS[:] = [{"name": "base", "start": 0, "count": len(tri), "color": [0.26, 0.17, 0.09], "roughness": 0.7},
+                       {"name": "strands", "start": len(tri), "count": len(st), "color": [0.40, 0.28, 0.16], "roughness": 0.45}]
+    return np.vstack([P, sp]), np.vstack([tri, st + len(P)]), np.zeros((len(P) + len(sp), 2))
+
+def hair_strands(shell, T, c, front_hl, rng=np.random.default_rng(7), count=1600):
+    """Thin hair ribbons laid over a hair shell, following the style's flow (cards for a strand texture)."""
+    tri = shell[T]; area = np.linalg.norm(np.cross(tri[:, 1] - tri[:, 0], tri[:, 2] - tri[:, 0]), axis=1) / 2
+    pick = rng.choice(len(T), count, p=area / area.sum())
+    u, v = rng.random(count), rng.random(count); m = u + v > 1; u[m], v[m] = 1 - u[m], 1 - v[m]
+    roots = tri[pick, 0] + u[:, None] * (tri[pick, 1] - tri[pick, 0]) + v[:, None] * (tri[pick, 2] - tri[pick, 0])
+    nrm = np.cross(tri[pick, 1] - tri[pick, 0], tri[pick, 2] - tri[pick, 0]); nrm /= np.linalg.norm(nrm, axis=1, keepdims=True)
+    nrm *= np.sign(((roots - c) * nrm).sum(1))[:, None]
+    top = smoothstep(front_hl - 0.2, front_hl + 0.15, roots[:, 1]) * (1 - smoothstep(0.35, 0.55, np.abs(roots[:, 0])))
+    flow = top[:, None] * np.array([0, 0.55, -0.85]) + (1 - top)[:, None] * np.array([0, -0.8, -0.6])
+    flow += rng.normal(0, 0.15, flow.shape)
+    flow -= (flow * nrm).sum(1)[:, None] * nrm; flow /= np.linalg.norm(flow, axis=1, keepdims=True)
+    length = np.where(top > 0.5, rng.uniform(0.28, 0.5, count), rng.uniform(0.06, 0.12, count))
+    side = np.cross(nrm, flow); width = np.where(top > 0.5, 0.035, 0.02)
+    pos, tris, segs = [], [], 4
+    for k in range(count):
+        base = len(pos)
+        for sgi in range(segs + 1):
+            t = sgi / segs
+            p = roots[k] + flow[k] * length[k] * t + nrm[k] * (0.012 + 0.02 * t * (1 - t))
+            w = width[k] * (1 - 0.7 * t)
+            pos += [p - side[k] * w, p + side[k] * w]
+        for sgi in range(segs):
+            a = base + 2 * sgi
+            tris += [(a, a + 2, a + 1), (a + 1, a + 2, a + 3)]
+    return np.array(pos), np.array(tris)
 
 def subdivide(P, T):
     edges = {}; newP = list(P); out = []
@@ -223,6 +255,51 @@ def laplacian(P, T, iters, lam):
         P = P + lam * m[:, None] * (avg - P)
     return P
 
+def vertex_normals(V, F):
+    n = np.zeros_like(V)
+    fn = np.cross(V[F[:, 1]] - V[F[:, 0]], V[F[:, 2]] - V[F[:, 0]])
+    for k in range(3): np.add.at(n, F[:, k], fn)
+    return n / (np.linalg.norm(n, axis=1, keepdims=True) + 1e-12)
+
+def tee_34(V, F, weights):
+    """Long crew-neck tee with 3/4 sleeves (sleeve faces returned as a second group, e.g. leather)."""
+    import json as _j
+    bones = {}
+    for b, lst in weights.items():
+        for i, w in lst:
+            if w > bones.get(i, (None, 0))[1]: bones[i] = (b, w)
+    torso_b = ("spine", "pelvis", "clavicle", "shoulder", "breast", "pectoral", "root")
+    def part(i):
+        b = bones.get(i, ("", 0))[0]
+        if b.startswith(("upperarm",)): return "sleeve"
+        if b.startswith("lowerarm"): return "forearm"
+        if b.startswith(torso_b): return "torso"
+        return None
+    neck_y = joint(V, "joint-neck")[1]
+    hip_y = joint(V, "joint-pelvis")[1] - 1.15                       # long hem, below the belt
+    n = vertex_normals(V, F)
+    keep = {}
+    for i in np.unique(F):
+        p = part(i); y = V[i][1]
+        if p is None: continue
+        if p == "torso" and not (hip_y < y < neck_y - 0.12): continue
+        if p == "forearm":
+            side = "l" if V[i][0] > 0 else "r"
+            el, hd = joint(V, f"joint-{side}-elbow"), joint(V, f"joint-{side}-hand")
+            t = (V[i] - el) @ (hd - el) / ((hd - el) @ (hd - el))
+            if t > 0.45: continue                                    # sleeve ends mid-forearm
+            p = "sleeve"
+        keep[i] = p
+    tris = np.array([t for t in F if all(i in keep for i in t)])
+    ids = np.unique(tris); remap = {int(o): k for k, o in enumerate(ids)}
+    T = np.vectorize(remap.get)(tris)
+    sleeve = np.array([keep[int(i)] == "sleeve" for i in ids])
+    P = V[ids] + n[ids] * np.where(sleeve, 0.11, 0.17)[:, None]       # loose, boxy fit
+    P = laplacian(P, T, 12, 0.5)                                    # smooths away body contours
+    is_sleeve_tri = sleeve[T].sum(1) >= 2
+    order = np.r_[np.where(~is_sleeve_tri)[0], np.where(is_sleeve_tri)[0]]
+    return P, T[order], np.zeros((len(P), 2)), int((~is_sleeve_tri).sum())
+
 def merge(parts):
     pos, tris, uvs, base = [], [], [], 0
     for p, t, u in parts:
@@ -240,17 +317,23 @@ def main():
     made = [("rv_gold_rope_chain", "Gold rope chain", rope_chain(V, F), ["chain", "necklace", "gold", "hip-hop", "streetwear"]),
             ("rv_gold_watch", "Gold watch", watch(V, F), ["watch", "gold", "wrist"]),
             ("rv_quiff_undercut", "Quiff undercut", quiff_undercut(V, F), ["hair", "short", "quiff", "undercut", "male"])]
+    W = json.load(open(mh / "rigs/default_weights.mhw"))["weights"]
+    tp, tt, tu, n_cotton = tee_34(V, F, W)
+    made.append(("rv_tee_34_leather", "Long tee, leather 3/4 sleeves", (tp, tt, tu), ["top", "tee", "leather", "streetwear", "male"]))
+    groups = {"rv_quiff_undercut": QUIFF_GROUPS, "rv_tee_34_leather": [{"name": "cotton", "start": 0, "count": n_cotton, "color": [0.06, 0.06, 0.065], "roughness": 0.9},
+                                    {"name": "leather", "start": n_cotton, "count": len(tt) - n_cotton, "color": [0.035, 0.035, 0.04], "roughness": 0.35}]}
     for iid, name, (pos, tris, uv), tags in made:
         idx, w, off = bind(pos, V, F)
         write_bin(lib / "items" / iid / "item.bin",
-                  {"kind": "item", "id": iid, "scales": [scales["x_scale"], scales["y_scale"], scales["z_scale"]], "zDepth": "60"},
+                  {"kind": "item", "id": iid, "scales": [scales["x_scale"], scales["y_scale"], scales["z_scale"]], "zDepth": "60", "groups": groups.get(iid, [])},
                   {"positions": pos.astype(np.float32), "uvs": uv.astype(np.float32), "triangles": tris.astype(np.uint32).reshape(-1),
                    "bindIndex": idx, "bindWeight": w, "bindOffset": off, "deleteVerts": np.zeros(0, np.uint32)})
-        slot = "hair" if "hair" in tags else "jewelry"
+        slot = "hair" if "hair" in tags else ("top" if "top" in tags else "jewelry")
         cat["items"].append({"id": iid, "name": name, "slot": slot, "pack": "red-velvet-originals", "license": "Red Velvet original",
                              "author": "Red Velvet Studios", "tags": tags, "styles": ["hip-hop", "glam"], "gender": "any",
                              "file": f"items/{iid}/item.bin", "textures": {}, "thumb": None, "transparent": False,
-                             "diffuseColor": [0.32, 0.22, 0.13] if slot == "hair" else [0.93, 0.70, 0.28], "metal": slot != "hair", "roughness": 0.6 if slot == "hair" else 0.28, "vertices": int(len(pos))})
+                             "diffuseColor": {"hair": [0.32, 0.22, 0.13], "top": [0.06, 0.06, 0.065]}.get(slot, [1.0, 0.766, 0.336]), "metal": slot == "jewelry", "roughness": {"hair": 0.6, "top": 0.9}.get(slot, 0.22),
+                             "groups": groups.get(iid, []), "vertices": int(len(pos))})
         print(iid, len(pos), "verts", len(tris), "tris", "max offset", float(np.linalg.norm(off, axis=1).max()))
     json.dump(cat, open(lib / "catalog.json", "w"), indent=1)
 

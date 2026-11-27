@@ -59,6 +59,17 @@ def pose(V, spec):
         if "hand_dir" in tgt:
             wr = apply(G[hd], head(V, hd)); fe = apply(G[hd], tail(V, hd))
             push(hd, about(align(fe - wr, np.array(tgt["hand_dir"], float)), wr))
+    # finger curls: {"L": {"finger2": 25, "finger3": 70, ...}} degrees per joint, around the knuckle line
+    for side, curls in spec.get("fingers", {}).items():
+        k2 = apply(G[f"finger2-1.{side}"], head(V, f"finger2-1.{side}"))
+        k5 = apply(G[f"finger5-1.{side}"], head(V, f"finger5-1.{side}"))
+        axis = (k5 - k2) / np.linalg.norm(k5 - k2)
+        if side == "R": axis = -axis
+        for f, deg in curls.items():
+            for seg in (1, 2, 3):
+                b = f"{f}-{seg}.{side}"
+                ax = axis if f != "finger1" else np.array(spec.get("thumb_axis", {}).get(side, axis))
+                push(b, about(axis_angle(ax, deg), apply(G[b], head(V, b))))
     # skin
     out = np.zeros_like(V); tot = np.zeros(len(V))
     for b, lst in WTS.items():
