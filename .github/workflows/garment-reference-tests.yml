@@ -8,6 +8,7 @@ on:
       - 'packaging/blender_garment_fit.py'
       - 'packaging/blender-garment-smoke.py'
       - 'packaging/inspect-body-reference.py'
+      - 'packaging/inspect-body-candidates.py'
       - 'packaging/test_*.py'
       - '.github/workflows/garment-reference-tests.yml'
   workflow_dispatch:
@@ -36,3 +37,12 @@ jobs:
           blender --version
       - name: Verify fitted geometry, materials and target skeleton
         run: blender --background --factory-startup --disable-autoexec --python-exit-code 1 --python packaging/blender-garment-smoke.py
+      - name: Retrieve existing body candidates from Git LFS
+        run: git lfs pull --include="packaging/character-candidates/bodies/*.usdz" --exclude=""
+      - name: Inspect actual male and female body candidate meshes
+        run: blender --background --factory-startup --disable-autoexec --python-exit-code 1 --python packaging/inspect-body-candidates.py -- packaging/character-candidates/bodies/male.usdz packaging/character-candidates/bodies/female.usdz body-candidate-report.json
+      - uses: actions/upload-artifact@v4
+        with:
+          name: body-candidate-inventory
+          path: body-candidate-report.json
+          if-no-files-found: error
