@@ -8,7 +8,12 @@ def inspect(path):
     if not path.is_file() or path.stat().st_size < 1024:
         raise ValueError("Missing asset or unresolved Git LFS pointer: "+str(path))
     bpy.ops.wm.read_factory_settings(use_empty=True)
-    bpy.ops.wm.usd_import(filepath=str(path.resolve()))
+    if path.suffix.lower() == ".glb":
+        bpy.ops.import_scene.gltf(filepath=str(path.resolve()))
+    elif path.suffix.lower() == ".usdz":
+        bpy.ops.wm.usd_import(filepath=str(path.resolve()))
+    else:
+        raise ValueError("Unsupported reference format: "+str(path))
     bpy.context.view_layer.update()
     meshes=[]
     for obj in sorted(bpy.context.scene.objects,key=lambda o:o.name):
