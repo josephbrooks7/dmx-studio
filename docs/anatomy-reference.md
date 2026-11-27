@@ -128,6 +128,29 @@ slider and the clothing area it pushes on.
 - Gesture hands (peace sign, rock horns, fist, point) start from these shapes and stay within
   the finger ranges in section 2; fingers never bend backward or sideways past their limits.
 
+## 5b. Clothing sizes and body measurements
+
+Characters are measured like a tailor would, by slicing the body mesh at standard landmarks:
+- **Waist:** around the natural waist, about 1 in (2.5 cm) above the navel.
+- **Hip:** around the fullest part of hips and seat, about 8 in (20 cm) below the natural waist.
+- **Inseam:** crotch to ankle bone along the inside of the leg; **outseam:** natural waist to
+  ankle along the outside.
+- **Thigh:** around the fullest part, about 1 in below the crotch.
+- (Tops: chest/bust at the fullest point, shoulder width, sleeve length; to be added.)
+
+Each character gets real measurements and a size label (men's waist x inseam, women's numeric
+and S/M/L), shown in Character Studio.
+
+Slider ranges match real size charts so every setting is a real body:
+- Men's waist 28-46 in (71-117 cm, XS-4XL); inseam about 28-38 in and tied to height
+  (under 5'7": 28-32, 5'7"-5'11": 30-34, 6'-6'3": 32-36, taller: 34-38+).
+- Women's waist about 23-42 in with hips about 33-52 in (sizes 0-24, XXS-4XL); inseam petite
+  ~28, regular ~30, tall 32-34 in.
+
+Fit styles map to the fitter's ease: slim (minimal ease), regular, relaxed (generous ease);
+rise low (2-3 in below the natural waist), mid (at the waist), high (above it). A garment's
+waist opening runs about 1 in larger than its labeled size.
+
 ## 5. Body proportions
 
 Segment lengths scale roughly with height (Drillis & Contini proportions, widely used). These
@@ -313,6 +336,7 @@ other rather than snapping.
   posture (position of function); tenodesis effect (hand rehab notes); Cornell ergonomics
   "Grasping Hands" (power vs pinch grip); Wikipedia "Hand" (arches); Physiopedia "Functional
   Anatomy of the Hand" (thumb, finger spread, arches).
+- Sizing: MFG Merch "Pants Size Chart" (men's and women's charts, how to measure, rise and fit).
 - Proportions: Penn State OpenLab "Proportionality Constants" (Drillis & Contini 1966).
 - Skinning: Kavan et al. (dual quaternion skinning); Walt Disney Animation Studios, "Enhanced
   Dual Quaternion Skinning for Production Use"; Disney Research, "Skinning with Optimized
