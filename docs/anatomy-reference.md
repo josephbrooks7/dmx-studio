@@ -150,7 +150,17 @@ Characters are measured like a tailor would, by slicing the body mesh at standar
 - **Inseam:** crotch to ankle bone along the inside of the leg; **outseam:** natural waist to
   ankle along the outside.
 - **Thigh:** around the fullest part, about 1 in below the crotch.
-- (Tops: chest/bust at the fullest point, shoulder width, sleeve length; to be added.)
+- **Underbust / band:** snug around the ribcage just beneath the bust (the torso frame).
+- **Bust:** loosely around the fullest point. Cup = bust minus band, one cup per inch
+  (<1" AA, 1" A, 2" B, 3" C, 4" D, 5" DD/E, 6" DDD/F ... up to about 11" K).
+- **Chest (male):** around the fullest point of the chest; pectoral development is separate.
+- (Shoulder width and sleeve length for tops: to be added.)
+
+Bust controls are three independent sliders: ribcage (band, from build/weight), bust size
+(cup, in real inches over the band, AA to K), and shape (shallow / average / full projection).
+The ribcage doesn't change when the bust does. Male chest: frame circumference plus a separate
+pectoral-development slider. Tops report chest ease in inches on every body and flag a top too
+tight across the bust instead of flattening the body.
 
 Each character gets real measurements and a size label (men's waist x inseam, women's numeric
 and S/M/L), shown in Character Studio.
@@ -363,7 +373,8 @@ other rather than snapping.
   "Grasping Hands" (power vs pinch grip); Wikipedia "Hand" (arches); Physiopedia "Functional
   Anatomy of the Hand" (thumb, finger spread, arches).
 - Sizing: MFG Merch "Pants Size Chart" (men's and women's charts, how to measure, rise and fit);
-  Creative Muse "Sizing & Fit" (garment vs body ease, flat-lay, grading, fabric behavior).
+  Creative Muse "Sizing & Fit" (garment vs body ease, flat-lay, grading, fabric behavior);
+  National Breast Cancer Foundation "Bra Fit Guide"; Lane Bryant / Cacique "Bra Fit Guide".
 - Proportions: Penn State OpenLab "Proportionality Constants" (Drillis & Contini 1966).
 - Skinning: Kavan et al. (dual quaternion skinning); Walt Disney Animation Studios, "Enhanced
   Dual Quaternion Skinning for Production Use"; Disney Research, "Skinning with Optimized
