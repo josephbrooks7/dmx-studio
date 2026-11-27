@@ -42,13 +42,13 @@ def main():
     if len(rigmods)!=1: raise ValueError("Target shirt must have one rig")
     rig=rigmods[0].object
     bones={b.name for b in rig.data.bones if b.use_deform}
-    mapped=[];weight_rows=[];distances=[]
+    mapped=[];weight_rows=[];distances=[];affine=[];projected=[]
     for p in sp:
         q=Vector(tuple(c[i]+(p[i]-a[i])/(b[i]-a[i])*(d[i]-c[i]) for i in range(3)))
         near,n,face,dist=tree.find_nearest(q)
         if near is None or dist>.15: raise ValueError("Unreliable surface match")
         distances.append(dist)
-        mapped.append(near)
+        affine.append(q.copy());projected.append(near.copy())
         accum={}
         for _,idx,r in kd.find_n(near,4):
             for g in target.data.vertices[idx].groups:
@@ -58,6 +58,24 @@ def main():
         total=sum(w for _,w in keep)
         if total<=0: raise ValueError("No target skin weights")
         weight_rows.append({k:w/total for k,w in keep})
+    # A hard nearest-surface projection can map neighboring vertices to
+    # the same edge. Retain a bounded fraction of the original affine
+    # geometry and reject candidates that collapse previously valid faces.
+    faces=[tuple(p.vertices) for p in source.data.polygons]
+    def area(points,face):
+        a=points[face[0]]
+        return sum((points[face[i]]-a).cross(points[face[i+1]]-a).length*.5
+                   for i in range(1,len(face)-1))
+    baseline=[area(affine,f) for f in faces]
+    existing=sum(a<1e-10 for a in baseline)
+    if existing: raise ValueError("Source already contains degenerate faces")
+    for strength in (.95,.85,.70,.50,.25):
+        candidate=[q.lerp(p,strength) for q,p in zip(affine,projected)]
+        ratios=[area(candidate,f)/a for f,a in zip(faces,baseline)]
+        if min(ratios)>=.02:
+            mapped=candidate
+            break
+    if not mapped: raise ValueError("No topology-preserving projection candidate")
     mesh=source.data.copy()
     fitted=bpy.data.objects.new("CrossFit_Tee",mesh)
     bpy.context.scene.collection.objects.link(fitted)
@@ -76,7 +94,7 @@ def main():
     degenerate=sum(1 for p in mesh.polygons if p.area<1e-10)
     out.mkdir(parents=True,exist_ok=True)
     report={"source":src.name,"target":dst.name,"vertices":len(mapped),"faces":len(mesh.polygons),
-            "max_projection_m":max(distances),"degenerate_faces":degenerate,
+            "max_projection_m":max(distances),"projection_strength":strength,"minimum_face_area_ratio":min(ratios),"degenerate_faces":degenerate,
             "limitations":["Target authored tee required","Nearest-surface projection may distort topology","No skin collision or posed visual validation","Experimental output only"]}
     (out/"cross-fit-report.json").write_text(json.dumps(report,indent=2)+"\n")
     if degenerate: raise ValueError("Collapsed garment faces; inspect report")
