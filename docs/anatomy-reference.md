@@ -116,7 +116,52 @@ For our characters:
 - Clothing is skinned to the same skeleton, so the same rules apply to sleeves and trouser
   knees.
 
-## 7. How this is used
+## 7. Physics and gravity
+
+Performers live on a stage under normal gravity (g = 9.81 m/s², ~1 g). Real-world units
+(metres, kilograms, seconds) are used everywhere so motion has believable weight: a smaller g
+looks floaty, a larger one looks like collapsing.
+
+**Balance (center of mass over base of support).**
+- A standing person stays balanced by keeping the vertical line through the center of mass
+  inside the base of support (the area under and between the feet). Every pose and gesture is
+  checked for this: arms thrown out, a lean to the mic or a crouch must be offset by the hips
+  and torso so the weight stays over the feet, otherwise the performer looks like falling.
+- A wide stance or low crouch has a bigger base and a lower center of mass, so it is more
+  stable and can lean further (why the wide bass stance and the crouch look grounded).
+- Even standing still people sway slightly; the idle animation includes this gentle sway.
+
+**Weight on one leg (contrapposto).** The natural relaxed stance: most weight on one straight
+"engaged" leg, the other "free" leg relaxed and slightly bent. The hip over the engaged leg rises
+and swings out, the shoulders tilt the opposite way, and the spine forms a gentle S-curve, with
+the head finishing the curve. Performers default to this rather than standing square, and shift
+weight between legs during idles.
+
+**Ground contact.** Feet never float above or sink into the stage. Foot IK keeps planted feet
+locked to the floor while the hips and knees move (crouches, swaying, stepping), and the
+character is grounded by its lowest foot, not by its bounding box.
+
+**Secondary motion (things that follow the body).** Hair (ponytails, long hair), loose clothing
+(open shirts, hems), jewelry and mic cables move after the body moves: they lag, swing, overshoot
+and settle under gravity. Real-time engines do this with spring-damper chains or position-based
+dynamics (moving points directly to satisfy length and collision constraints, which stays stable
+at game frame rates). For us:
+- Ponytail and long hair: a short bone chain driven by springs + gravity, colliding with the
+  head, neck and shoulders.
+- Loose garment areas (shirt hems, sleeves ends): light spring offsets on top of skinning,
+  never passing through the body (same clearance rules as the fitter).
+- Tight garments stay purely skinned.
+
+**Fixed physics time step.** All physics (hair, cloth, sway) steps at a fixed rate, e.g. 60 Hz,
+independent of the display frame rate; rendering interpolates between the last two physics
+states. This keeps motion identical at 30 fps (Light mode on the 2016 MacBook Pro) and 60 fps,
+and identical in exported videos. Frame time is capped so a slow frame can't make the
+simulation spiral.
+
+**Collision.** Performers and props collide with the stage floor, mic stands and instruments so
+hands rest on the mic and guitar instead of passing through them.
+
+## 8. How this is used
 
 1. **Joint table** (`packaging/joint-limits.json`, shared by the review renderer and the app):
    for each bone, its joint type, allowed axes and the ranges above. Any pose, gesture or
@@ -127,6 +172,8 @@ For our characters:
    the table only stops impossible bends.
 4. **Body sliders** follow the muscle groups in section 4.
 5. **Deformation fixes** in section 6 for joints that pinch.
+6. **Physics** in section 7: balance check on every pose, foot contact, spring-driven hair and
+   loose clothing at a fixed time step.
 
 ## Sources
 
@@ -147,4 +194,8 @@ For our characters:
 - Skinning: Kavan et al. (dual quaternion skinning); Walt Disney Animation Studios, "Enhanced
   Dual Quaternion Skinning for Production Use"; Disney Research, "Skinning with Optimized
   Centers of Rotation"; Autodesk Maya documentation on smooth skinning methods.
+- Physics: Stickman Physics, "Physics of Video Games"; Cal State "Postural Stability in Motor
+  Control"; Wikipedia "Balance (ability)"; contrapposto (Wikipedia, Art in Context, Robert
+  Oosti); Müller et al., "Position Based Dynamics" (2006); Wikipedia "Soft-body dynamics";
+  Glenn Fiedler, "Fix Your Timestep!"; Godot physics interpolation docs.
 - Reference only, not used for assets: Innerbody Anatomy Explorer; Anatomy 3D Atlas.
