@@ -196,14 +196,24 @@ def main():
             near, normal, off = signed_offset(dst_tree, p)
             final[i] = p if off >= CLEARANCE * 0.8 else near + normal * CLEARANCE
 
+    # Features must stay visible. A sleeve may reach the wrist (cuffs are weighted to the hand bone),
+    # but fabric more than 2.5 cm past the wrist toward the fingers is covering the hand; fabric above
+    # chin height is covering the face.
     covering = {"hand": 0, "head": 0}
-    for v in mesh.vertices:
-        best = max(v.groups, key=lambda g: g.weight, default=None)
-        name = groups.get(best.group, "") if best else ""
-        if "Hand" in name:
-            covering["hand"] += 1
-        elif name.endswith("Head") or "Bip01" in name:
-            covering["head"] += 1
+    bones_d = dst_rig.data.bones
+    chin_z = None
+    if "mixamorig:Head" in bones_d:
+        chin_z = (dst_rig.matrix_world @ bones_d["mixamorig:Head"].head_local).z + 0.06
+    for side in ("Left", "Right"):
+        hb = bones_d.get(f"mixamorig:{side}Hand")
+        if hb is None:
+            continue
+        wrist = dst_rig.matrix_world @ hb.head_local
+        tip = dst_rig.matrix_world @ hb.tail_local
+        along = (tip - wrist).normalized()
+        covering["hand"] += sum(1 for p in final if (p - wrist).dot(along) > 0.025 and (p - wrist).length < 0.25)
+    if chin_z is not None:
+        covering["head"] = sum(1 for p in final if p.z > chin_z)
 
     # build the fitted garment bound to the target rig, original weights/UVs/materials kept
     out_mesh = mesh.copy()
