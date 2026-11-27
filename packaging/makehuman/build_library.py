@@ -215,8 +215,48 @@ def main():
     pos, uv, tris, src = unweld(v, vt, faces)
     write_bin(out / "base.bin", {"kind": "base", "baseVertexCount": int(len(v)), "license": "CC0",
                                  "source": "MakeHuman hm08 base mesh"},
-              {"positions": pos, "uvs": uv, "triangles": tris, "baseIndex": src})
+              {"positions": pos, "uvs": uv, "triangles": tris, "baseIndex": src,
+               # every base vertex, helpers included: joints are averages of helper vertices,
+               # so the skeleton follows any body shape the targets produce
+               "allPositions": np.asarray(v, np.float32)})
     print("base:", len(v), "verts,", len(pos), "unwelded,", len(tris) // 3, "triangles")
+
+    # ---- skeleton and skin weights (MakeHuman default rig, CC0)
+    skel_path = mh / "rigs/default.mhskel"
+    if skel_path.exists():
+        skel = json.load(open(skel_path))
+        wts = json.load(open(mh / "rigs/default_weights.mhw"))["weights"]
+        names = sorted(skel["bones"])
+        # parents before children
+        order, placed = [], set()
+        while len(order) < len(names):
+            for b in names:
+                if b in placed: continue
+                par = skel["bones"][b].get("parent")
+                if par is None or par in placed:
+                    order.append(b); placed.add(b)
+        index = {b: i for i, b in enumerate(order)}
+        rig = {"kind": "rig", "license": "CC0", "source": "MakeHuman default skeleton",
+               "bones": [{"name": b, "parent": skel["bones"][b].get("parent"),
+                          "head": skel["bones"][b]["head"], "tail": skel["bones"][b]["tail"]} for b in order],
+               "joints": skel["joints"]}
+        json.dump(rig, open(out / "rig.json", "w"))
+        # top 4 influences per base vertex, normalized
+        per = [[] for _ in range(len(v))]
+        for b, pairs in wts.items():
+            if b not in index: continue
+            for vi, w in pairs:
+                if vi < len(per): per[vi].append((w, index[b]))
+        bi = np.zeros((len(v), 4), np.uint32); bw = np.zeros((len(v), 4), np.float32)
+        for vi, lst in enumerate(per):
+            lst.sort(reverse=True); lst = lst[:4]
+            tot = sum(w for w, _ in lst) or 1.0
+            for k, (w, b) in enumerate(lst):
+                bi[vi, k] = b; bw[vi, k] = w / tot
+        write_bin(out / "weights.bin", {"kind": "weights", "boneCount": len(order)},
+                  {"boneIndex": bi, "boneWeight": bw})
+        catalog["rig"] = {"file": "rig.json", "weights": "weights.bin", "bones": len(order), "joints": len(skel["joints"])}
+        print("rig:", len(order), "bones,", len(skel["joints"]), "joints, weights for", int((bw[:, 0] > 0).sum()), "vertices")
 
     # ---- shape targets: repository modeling targets + realistic deformation packs
     groups = {}

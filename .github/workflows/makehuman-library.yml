@@ -1,0 +1,95 @@
+name: MakeHuman character library
+# Builds the DMX Studio Character Library from MakeHuman CC0 data (base mesh, shape targets,
+# skeleton) plus the mirrored asset packs, publishes it as a release asset, and commits review
+# renders of a dressed man and woman.
+on:
+  push:
+    branches-ignore: [main]
+    paths:
+      - 'packaging/makehuman/**'
+      - '.github/workflows/makehuman-library.yml'
+  workflow_dispatch:
+permissions:
+  contents: write
+concurrency:
+  group: makehuman-library-${{ github.ref }}
+  cancel-in-progress: true
+jobs:
+  library:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 60
+    env:
+      GH_TOKEN: ${{ github.token }}
+      PACKS: >-
+        makehuman_system_assets_cc0.zip skins01_cc0.zip skins02_cc0.zip shirts01_cc0.zip pants01_cc0.zip
+        shoes01_cc0.zip suits01_cc0.zip hair01_cc0.zip eyebrows01_cc0.zip eyelashes01_cc0.zip
+        underwear04_cc0.zip nose01_cc0.zip ears01_cc0.zip cheek01_cc0.zip arms01_cc0.zip hands01_cc0.zip
+    steps:
+      - uses: actions/checkout@v4
+      - name: MakeHuman base data (CC0 assets only)
+        run: |
+          set -euo pipefail
+          git clone -q --depth 1 --filter=blob:none --sparse https://github.com/makehumancommunity/makehuman mh
+          git -C mh sparse-checkout set makehuman/data/3dobjs makehuman/data/rigs makehuman/data/targets makehuman/data/modifiers
+          ls mh/makehuman/data
+      - name: Download starter asset packs
+        run: |
+          set -euo pipefail
+          mkdir -p packs
+          gh release download makehuman-assets-1 -R "$GITHUB_REPOSITORY" -D packs -p manifest.json
+          for p in $PACKS; do gh release download makehuman-assets-1 -R "$GITHUB_REPOSITORY" -D packs -p "$p"; done
+          ls -la packs
+      - name: Build library
+        run: |
+          set -euo pipefail
+          pip install --quiet numpy pillow
+          python3 packaging/makehuman/build_library.py --mh mh/makehuman/data --packs packs --out lib --only $PACKS
+          du -sh lib
+      - name: Publish library
+        run: |
+          set -euo pipefail
+          (cd lib && zip -qr ../character-library.zip .)
+          ls -la character-library.zip
+          TAG=character-library-1
+          gh release view "$TAG" -R "$GITHUB_REPOSITORY" >/dev/null 2>&1 || gh release create "$TAG" -R "$GITHUB_REPOSITORY" --prerelease \
+            --title "DMX Studio Character Library (MakeHuman CC0 / CC-BY)" \
+            --notes "Built by .github/workflows/makehuman-library.yml from MakeHuman CC0 data and the makehuman-assets-1 packs. Licenses and credits in catalog.json."
+          gh release upload "$TAG" -R "$GITHUB_REPOSITORY" character-library.zip lib/catalog.json --clobber
+      - name: Restore official Blender archive cache
+        uses: actions/cache@v4
+        with:
+          path: ${{ runner.temp }}/dmx-blender-cache
+          key: blender-4.5.16-linux-x64-verified-v1
+      - name: Install official Blender 4.5.16 LTS
+        shell: bash
+        run: |
+          set -euo pipefail
+          mkdir -p "$RUNNER_TEMP/dmx-blender-cache"; cd "$RUNNER_TEMP/dmx-blender-cache"
+          base=https://download.blender.org/release/Blender4.5; archive=blender-4.5.16-linux-x64.tar.xz
+          test -s blender.sha256 || curl -fL --retry 4 -o blender.sha256 "$base/blender-4.5.16.sha256"
+          (test -s "$archive" && grep -F "$archive" blender.sha256 | sha256sum --check --strict) || curl -fL --retry 4 -o "$archive" "$base/$archive"
+          grep -F "$archive" blender.sha256 | sha256sum --check --strict
+          tar -xJf "$archive" -C "$RUNNER_TEMP"
+          echo "$RUNNER_TEMP/blender-4.5.16-linux-x64" >> "$GITHUB_PATH"
+      - name: Render dressed review
+        run: |
+          mkdir -p packaging/makehuman/review
+          blender --background --factory-startup --python-exit-code 1 --python packaging/makehuman/render_mh_review.py -- lib packaging/makehuman/review 2>&1 | grep -E "MH_REVIEW|Error|Traceback|Saved" || true
+          python3 - <<'PY'
+          import json
+          c = json.load(open('lib/catalog.json'))
+          from collections import Counter
+          summary = {"items": len(c["items"]), "skins": len(c["skins"]), "targets": sum(len(t["names"]) for t in c["targets"]),
+                     "slots": dict(Counter(i["slot"] for i in c["items"])), "licenses": dict(Counter(i["license"] for i in c["items"])),
+                     "rig": c.get("rig")}
+          json.dump(summary, open('packaging/makehuman/review/library-summary.json', 'w'), indent=2)
+          print(summary)
+          PY
+      - name: Commit review
+        if: always()
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898283+github-actions[bot]@users.noreply.github.com"
+          git add packaging/makehuman/review || true
+          git commit -m "MakeHuman library review renders (run ${{ github.run_id }})" || echo "nothing to commit"
+          git pull --rebase origin ${{ github.ref_name }} && git push origin HEAD:${{ github.ref_name }}
