@@ -262,7 +262,9 @@ enum StemSplitter {
         let lowm: [Float] = (0..<bins).map { Float(min(max((300 - Double($0) * binHz) / 100, 0), 1)) }
         let vband: [Float] = (0..<bins).map { k in
             let f = Double(k) * binHz
-            return Float(min(max((f - 150) / 100, 0), 1) * min(max((6000 - f) / 1500, 0), 1))
+            let low: Double = min(max((f - 150.0) / 100.0, 0.0), 1.0)
+            let high: Double = min(max((6000.0 - f) / 1500.0, 0.0), 1.0)
+            return Float(low * high)
         }
         let vp: [Float] = pres.map { min(max(($0 - 0.2) / 0.2, 0), 1) }
         let ns = stems.count
