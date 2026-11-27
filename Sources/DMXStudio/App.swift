@@ -17,6 +17,10 @@ struct DMXStudioApp: App {
         if let i = args.firstIndex(of: "--analyze"), i + 1 < args.count {
             Self.runAnalyzeAndExit(path: args[i + 1])
         }
+        // Test hook: `DMXStudio --character-selftest ansur2-model.json` checks the body measurement engine.
+        if let i = args.firstIndex(of: "--character-selftest"), i + 1 < args.count {
+            exit(AnthropometryModel.runSelfTest(modelPath: args[i + 1]) ? 0 : 1)
+        }
         // Helper modes: risky work runs in a separate process so a failure can't crash the app
         // Test hook: export a session with one song to a .dmxsession file, import it back, check it matches.
         if let i = args.firstIndex(of: "--test-package"), i + 1 < args.count {

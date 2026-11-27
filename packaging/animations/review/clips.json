@@ -1,0 +1,649 @@
+{
+  "files": [
+    {
+      "file": "KinemIQ_Mannequin.glb",
+      "meshes": 4,
+      "vertices": 8525,
+      "armatures": 1,
+      "actions": [
+        {
+          "name": "KinemIQ_Mannequin",
+          "frames": [
+            0,
+            60
+          ],
+          "fcurves": 267
+        }
+      ]
+    },
+    {
+      "file": "GLB/Action_dance.glb",
+      "meshes": 0,
+      "vertices": 0,
+      "armatures": 0,
+      "actions": [
+        {
+          "name": "Action_dance",
+          "frames": [
+            0,
+            24
+          ],
+          "fcurves": 4
+        }
+      ]
+    },
+    {
+      "file": "GLB/Action_interact.glb",
+      "meshes": 0,
+      "vertices": 0,
+      "armatures": 0,
+      "actions": [
+        {
+          "name": "Action_interact",
+          "frames": [
+            0,
+            48
+          ],
+          "fcurves": 4
+        }
+      ]
+    },
+    {
+      "file": "GLB/Action_pick_up_from_a_table.glb",
+      "meshes": 0,
+      "vertices": 0,
+      "armatures": 0,
+      "actions": [
+        {
+          "name": "Action_pick_up_from_a_table",
+          "frames": [
+            0,
+            19
+          ],
+          "fcurves": 4
+        }
+      ]
+    },
+    {
+      "file": "GLB/Action_sit_down.glb",
+      "meshes": 0,
+      "vertices": 0,
+      "armatures": 0,
+      "actions": [
+        {
+          "name": "Action_sit_down",
+          "frames": [
+            0,
+            31
+          ],
+          "fcurves": 4
+        }
+      ]
+    },
+    {
+      "file": "GLB/Action_stand_up_from_sitting.glb",
+      "meshes": 0,
+      "vertices": 0,
+      "armatures": 0,
+      "actions": [
+        {
+          "name": "Action_stand_up_from_sitting",
+          "frames": [
+            0,
+            24
+          ],
+          "fcurves": 4
+        }
+      ]
+    },
+    {
+      "file": "GLB/Block_with_the_sword.glb",
+      "meshes": 0,
+      "vertices": 0,
+      "armatures": 0,
+      "actions": [
+        {
+          "name": "Block_with_the_sword",
+          "frames": [
+            0,
+            28
+          ],
+          "fcurves": 4
+        }
+      ]
+    },
+    {
+      "file": "GLB/Death_fall_backwards.glb",
+      "meshes": 0,
+      "vertices": 0,
+      "armatures": 0,
+      "actions": [
+        {
+          "name": "Death_fall_backwards",
+          "frames": [
+            0,
+            56
+          ],
+          "fcurves": 4
+        }
+      ]
+    },
+    {
+      "file": "GLB/Dodge_roll.glb",
+      "meshes": 0,
+      "vertices": 0,
+      "armatures": 0,
+      "actions": [
+        {
+          "name": "Dodge_roll",
+          "frames": [
+            0,
+            34
+          ],
+          "fcurves": 4
+        }
+      ]
+    },
+    {
+      "file": "GLB/Hit_knockback.glb",
+      "meshes": 0,
+      "vertices": 0,
+      "armatures": 0,
+      "actions": [
+        {
+          "name": "Hit_knockback",
+          "frames": [
+            0,
+            20
+          ],
+          "fcurves": 4
+        }
+      ]
+    },
+    {
+      "file": "GLB/Hit_to_the_chest.glb",
+      "meshes": 0,
+      "vertices": 0,
+      "armatures": 0,
+      "actions": [
+        {
+          "name": "Hit_to_the_chest",
+          "frames": [
+            0,
+            8
+          ],
+          "fcurves": 4
+        }
+      ]
+    },
+    {
+      "file": "GLB/Hit_to_the_head.glb",
+      "meshes": 0,
+      "vertices": 0,
+      "armatures": 0,
+      "actions": [
+        {
+          "name": "Hit_to_the_head",
+          "frames": [
+            0,
+            10
+          ],
+          "fcurves": 4
+        }
+      ]
+    },
+    {
+      "file": "GLB/Idle_arms_folded_waiting.glb",
+      "meshes": 0,
+      "vertices": 0,
+      "armatures": 0,
+      "actions": [
+        {
+          "name": "Idle_arms_folded_waiting",
+          "frames": [
+            0,
+            60
+          ],
+          "fcurves": 4
+        }
+      ]
+    },
+    {
+      "file": "GLB/Idle_crouching.glb",
+      "meshes": 0,
+      "vertices": 0,
+      "armatures": 0,
+      "actions": [
+        {
+          "name": "Idle_crouching",
+          "frames": [
+            0,
+            70
+          ],
+          "fcurves": 4
+        }
+      ]
+    },
+    {
+      "file": "GLB/Idle_relaxed.glb",
+      "meshes": 0,
+      "vertices": 0,
+      "armatures": 0,
+      "actions": [
+        {
+          "name": "Idle_relaxed",
+          "frames": [
+            0,
+            60
+          ],
+          "fcurves": 4
+        }
+      ]
+    },
+    {
+      "file": "GLB/Idle_sitting.glb",
+      "meshes": 0,
+      "vertices": 0,
+      "armatures": 0,
+      "actions": [
+        {
+          "name": "Idle_sitting",
+          "frames": [
+            0,
+            40
+          ],
+          "fcurves": 4
+        }
+      ]
+    },
+    {
+      "file": "GLB/Idle_talking.glb",
+      "meshes": 0,
+      "vertices": 0,
+      "armatures": 0,
+      "actions": [
+        {
+          "name": "Idle_talking",
+          "frames": [
+            0,
+            70
+          ],
+          "fcurves": 4
+        }
+      ]
+    },
+    {
+      "file": "GLB/Idle_with_a_sword.glb",
+      "meshes": 0,
+      "vertices": 0,
+      "armatures": 0,
+      "actions": [
+        {
+          "name": "Idle_with_a_sword",
+          "frames": [
+            0,
+            40
+          ],
+          "fcurves": 4
+        }
+      ]
+    },
+    {
+      "file": "GLB/Idle_zombie.glb",
+      "meshes": 0,
+      "vertices": 0,
+      "armatures": 0,
+      "actions": [
+        {
+          "name": "Idle_zombie",
+          "frames": [
+            0,
+            32
+          ],
+          "fcurves": 4
+        }
+      ]
+    },
+    {
+      "file": "GLB/Jump_in_the_air.glb",
+      "meshes": 0,
+      "vertices": 0,
+      "armatures": 0,
+      "actions": [
+        {
+          "name": "Jump_in_the_air",
+          "frames": [
+            0,
+            60
+          ],
+          "fcurves": 4
+        }
+      ]
+    },
+    {
+      "file": "GLB/Jump_landing.glb",
+      "meshes": 0,
+      "vertices": 0,
+      "armatures": 0,
+      "actions": [
+        {
+          "name": "Jump_landing",
+          "frames": [
+            0,
+            29
+          ],
+          "fcurves": 4
+        }
+      ]
+    },
+    {
+      "file": "GLB/Jump_take_off.glb",
+      "meshes": 0,
+      "vertices": 0,
+      "armatures": 0,
+      "actions": [
+        {
+          "name": "Jump_take_off",
+          "frames": [
+            0,
+            29
+          ],
+          "fcurves": 4
+        }
+      ]
+    },
+    {
+      "file": "GLB/Move_climb_up_1_m.glb",
+      "meshes": 0,
+      "vertices": 0,
+      "armatures": 0,
+      "actions": [
+        {
+          "name": "Move_climb_up_1_m",
+          "frames": [
+            0,
+            15
+          ],
+          "fcurves": 4
+        }
+      ]
+    },
+    {
+      "file": "GLB/Move_get_up_from_the_ground.glb",
+      "meshes": 0,
+      "vertices": 0,
+      "armatures": 0,
+      "actions": [
+        {
+          "name": "Move_get_up_from_the_ground",
+          "frames": [
+            0,
+            36
+          ],
+          "fcurves": 4
+        }
+      ]
+    },
+    {
+      "file": "GLB/Punch_cross_right_2.glb",
+      "meshes": 0,
+      "vertices": 0,
+      "armatures": 0,
+      "actions": [
+        {
+          "name": "Punch_cross_right_2",
+          "frames": [
+            0,
+            22
+          ],
+          "fcurves": 4
+        }
+      ]
+    },
+    {
+      "file": "GLB/Punch_hook_right_2.glb",
+      "meshes": 0,
+      "vertices": 0,
+      "armatures": 0,
+      "actions": [
+        {
+          "name": "Punch_hook_right_2",
+          "frames": [
+            0,
+            10
+          ],
+          "fcurves": 4
+        }
+      ]
+    },
+    {
+      "file": "GLB/Punch_jab_left_2.glb",
+      "meshes": 0,
+      "vertices": 0,
+      "armatures": 0,
+      "actions": [
+        {
+          "name": "Punch_jab_left_2",
+          "frames": [
+            0,
+            19
+          ],
+          "fcurves": 4
+        }
+      ]
+    },
+    {
+      "file": "GLB/Run_jog_forwards.glb",
+      "meshes": 0,
+      "vertices": 0,
+      "armatures": 0,
+      "actions": [
+        {
+          "name": "Run_jog_forwards",
+          "frames": [
+            0,
+            20
+          ],
+          "fcurves": 4
+        }
+      ]
+    },
+    {
+      "file": "GLB/Run_sprint.glb",
+      "meshes": 0,
+      "vertices": 0,
+      "armatures": 0,
+      "actions": [
+        {
+          "name": "Run_sprint",
+          "frames": [
+            0,
+            15
+          ],
+          "fcurves": 4
+        }
+      ]
+    },
+    {
+      "file": "GLB/Strike_zombie_scratch.glb",
+      "meshes": 0,
+      "vertices": 0,
+      "armatures": 0,
+      "actions": [
+        {
+          "name": "Strike_zombie_scratch",
+          "frames": [
+            0,
+            43
+          ],
+          "fcurves": 4
+        }
+      ]
+    },
+    {
+      "file": "GLB/Sword_slash.glb",
+      "meshes": 0,
+      "vertices": 0,
+      "armatures": 0,
+      "actions": [
+        {
+          "name": "Sword_slash",
+          "frames": [
+            0,
+            36
+          ],
+          "fcurves": 4
+        }
+      ]
+    },
+    {
+      "file": "GLB/Walk_carrying.glb",
+      "meshes": 0,
+      "vertices": 0,
+      "armatures": 0,
+      "actions": [
+        {
+          "name": "Walk_carrying",
+          "frames": [
+            0,
+            48
+          ],
+          "fcurves": 4
+        }
+      ]
+    },
+    {
+      "file": "GLB/Walk_crouched_forwards.glb",
+      "meshes": 0,
+      "vertices": 0,
+      "armatures": 0,
+      "actions": [
+        {
+          "name": "Walk_crouched_forwards",
+          "frames": [
+            0,
+            48
+          ],
+          "fcurves": 4
+        }
+      ]
+    },
+    {
+      "file": "GLB/Walk_formal.glb",
+      "meshes": 0,
+      "vertices": 0,
+      "armatures": 0,
+      "actions": [
+        {
+          "name": "Walk_formal",
+          "frames": [
+            0,
+            31
+          ],
+          "fcurves": 4
+        }
+      ]
+    },
+    {
+      "file": "GLB/Walk_forwards.glb",
+      "meshes": 0,
+      "vertices": 0,
+      "armatures": 0,
+      "actions": [
+        {
+          "name": "Walk_forwards",
+          "frames": [
+            0,
+            31
+          ],
+          "fcurves": 4
+        }
+      ]
+    },
+    {
+      "file": "GLB/Walk_zombie_forwards.glb",
+      "meshes": 0,
+      "vertices": 0,
+      "armatures": 0,
+      "actions": [
+        {
+          "name": "Walk_zombie_forwards",
+          "frames": [
+            0,
+            30
+          ],
+          "fcurves": 4
+        }
+      ]
+    }
+  ],
+  "bones": [
+    "root",
+    "pelvis",
+    "spine_01",
+    "spine_02",
+    "spine_03",
+    "neck_01",
+    "Head",
+    "head_leaf",
+    "clavicle_l",
+    "upperarm_l",
+    "lowerarm_l",
+    "hand_l",
+    "index_01_l",
+    "index_02_l",
+    "index_03_l",
+    "index_04_leaf_l",
+    "middle_01_l",
+    "middle_02_l",
+    "middle_03_l",
+    "middle_04_leaf_l",
+    "pinky_01_l",
+    "pinky_02_l",
+    "pinky_03_l",
+    "pinky_04_leaf_l",
+    "ring_01_l",
+    "ring_02_l",
+    "ring_03_l",
+    "ring_04_leaf_l",
+    "thumb_01_l",
+    "thumb_02_l",
+    "thumb_03_l",
+    "thumb_04_leaf_l",
+    "clavicle_r",
+    "upperarm_r",
+    "lowerarm_r",
+    "hand_r",
+    "index_01_r",
+    "index_02_r",
+    "index_03_r",
+    "index_04_leaf_r",
+    "middle_01_r",
+    "middle_02_r",
+    "middle_03_r",
+    "middle_04_leaf_r",
+    "pinky_01_r",
+    "pinky_02_r",
+    "pinky_03_r",
+    "pinky_04_leaf_r",
+    "ring_01_r",
+    "ring_02_r",
+    "ring_03_r",
+    "ring_04_leaf_r",
+    "thumb_01_r",
+    "thumb_02_r",
+    "thumb_03_r",
+    "thumb_04_leaf_r",
+    "thigh_l",
+    "calf_l",
+    "foot_l",
+    "ball_l",
+    "ball_leaf_l",
+    "thigh_r",
+    "calf_r",
+    "foot_r",
+    "ball_r",
+    "ball_leaf_r"
+  ],
+  "mannequin": "KinemIQ_Mannequin.glb"
+}

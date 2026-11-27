@@ -1,0 +1,428 @@
+{
+  "schema_version": 1,
+  "bodies": [
+    {
+      "asset": "male.usdz",
+      "meshes": [
+        {
+          "name": "tripo_node_d0bcade7_tripo_mat_d0bcade7_0_007",
+          "vertices": 65532,
+          "polygons": 115183,
+          "bounds_blender_world": [
+            [
+              -0.10849761962890625,
+              -0.01144412998110056,
+              -0.4995729625225067
+            ],
+            [
+              0.1253509521484375,
+              0.4641725718975067,
+              0.37347424030303955
+            ]
+          ],
+          "materials": [
+            "tripo_mat_d0bcade7"
+          ],
+          "uv_layers": [
+            "UVMap"
+          ],
+          "vertex_groups": [],
+          "armature_modifiers": []
+        },
+        {
+          "name": "tripo_node_d0bcade7_tripo_mat_d0bcade7_0_008",
+          "vertices": 65532,
+          "polygons": 105849,
+          "bounds_blender_world": [
+            [
+              -0.11939239501953125,
+              -0.16873188316822052,
+              -0.4997255504131317
+            ],
+            [
+              0.0852813720703125,
+              0.13768018782138824,
+              0.31387338042259216
+            ]
+          ],
+          "materials": [
+            "tripo_mat_d0bcade7"
+          ],
+          "uv_layers": [
+            "UVMap"
+          ],
+          "vertex_groups": [],
+          "armature_modifiers": []
+        },
+        {
+          "name": "tripo_node_d0bcade7_tripo_mat_d0bcade7_0_009",
+          "vertices": 65532,
+          "polygons": 114298,
+          "bounds_blender_world": [
+            [
+              -0.12067413330078125,
+              -0.15757770836353302,
+              -0.5000001788139343
+            ],
+            [
+              0.077850341796875,
+              0.0026763242203742266,
+              0.28268441557884216
+            ]
+          ],
+          "materials": [
+            "tripo_mat_d0bcade7"
+          ],
+          "uv_layers": [
+            "UVMap"
+          ],
+          "vertex_groups": [],
+          "armature_modifiers": []
+        },
+        {
+          "name": "tripo_node_d0bcade7_tripo_mat_d0bcade7_0_010",
+          "vertices": 65532,
+          "polygons": 116523,
+          "bounds_blender_world": [
+            [
+              -0.1253509521484375,
+              -0.46417251229286194,
+              -0.2517090439796448
+            ],
+            [
+              0.12530517578125,
+              0.0011705879587680101,
+              0.30932632088661194
+            ]
+          ],
+          "materials": [
+            "tripo_mat_d0bcade7"
+          ],
+          "uv_layers": [
+            "UVMap"
+          ],
+          "vertex_groups": [],
+          "armature_modifiers": []
+        },
+        {
+          "name": "tripo_node_d0bcade7_tripo_mat_d0bcade7_0_011",
+          "vertices": 65532,
+          "polygons": 95138,
+          "bounds_blender_world": [
+            [
+              -0.1253509521484375,
+              -0.17507953941822052,
+              -0.49984756112098694
+            ],
+            [
+              0.08550262451171875,
+              0.11568450927734375,
+              0.5000001788139343
+            ]
+          ],
+          "materials": [
+            "tripo_mat_d0bcade7"
+          ],
+          "uv_layers": [
+            "UVMap"
+          ],
+          "vertex_groups": [],
+          "armature_modifiers": []
+        },
+        {
+          "name": "tripo_node_d0bcade7_tripo_mat_d0bcade7_0_012",
+          "vertices": 65532,
+          "polygons": 93740,
+          "bounds_blender_world": [
+            [
+              -0.12506103515625,
+              -0.017196595668792725,
+              -0.45672622323036194
+            ],
+            [
+              0.08480072021484375,
+              0.16854871809482574,
+              0.4993898272514343
+            ]
+          ],
+          "materials": [
+            "tripo_mat_d0bcade7"
+          ],
+          "uv_layers": [
+            "UVMap"
+          ],
+          "vertex_groups": [],
+          "armature_modifiers": []
+        },
+        {
+          "name": "tripo_node_d0bcade7_tripo_mat_d0bcade7_0_013",
+          "vertices": 1800,
+          "polygons": 1816,
+          "bounds_blender_world": [
+            [
+              -0.096771240234375,
+              0.03286351263523102,
+              -0.4895021319389343
+            ],
+            [
+              -0.0009071230888366699,
+              0.1141967624425888,
+              -0.16021737456321716
+            ]
+          ],
+          "materials": [
+            "tripo_mat_d0bcade7"
+          ],
+          "uv_layers": [
+            "UVMap"
+          ],
+          "vertex_groups": [],
+          "armature_modifiers": []
+        }
+      ],
+      "armatures": [],
+      "note": "Inventory only: anatomical landmarks, body orientation, rig and garment compatibility are not yet validated."
+    },
+    {
+      "asset": "female.usdz",
+      "meshes": [
+        {
+          "name": "Bra_001",
+          "vertices": 638,
+          "polygons": 546,
+          "bounds_blender_world": [
+            [
+              -0.1631753146648407,
+              -0.1567113995552063,
+              1.2023015022277832
+            ],
+            [
+              0.12498333305120468,
+              0.13845156133174896,
+              1.4600465297698975
+            ]
+          ],
+          "materials": [
+            "Bra"
+          ],
+          "uv_layers": [
+            "Channel0"
+          ],
+          "vertex_groups": [],
+          "armature_modifiers": []
+        },
+        {
+          "name": "CC_Base_Body_001",
+          "vertices": 14164,
+          "polygons": 14046,
+          "bounds_blender_world": [
+            [
+              -0.30812719464302063,
+              -0.41063249111175537,
+              -0.007614697329699993
+            ],
+            [
+              0.27436354756355286,
+              0.4460256099700928,
+              1.7321910858154297
+            ]
+          ],
+          "materials": [
+            "Std_Skin_Head",
+            "Std_Skin_Body",
+            "Std_Skin_Arm",
+            "Std_Skin_Leg",
+            "Std_Nails",
+            "Std_Eyelash"
+          ],
+          "uv_layers": [
+            "Channel0"
+          ],
+          "vertex_groups": [],
+          "armature_modifiers": []
+        },
+        {
+          "name": "CC_Base_EyeOcclusion_001",
+          "vertices": 182,
+          "polygons": 144,
+          "bounds_blender_world": [
+            [
+              -0.05697585269808769,
+              -0.06741675734519958,
+              1.6217058897018433
+            ],
+            [
+              0.03277706727385521,
+              -0.05438193678855896,
+              1.6341387033462524
+            ]
+          ],
+          "materials": [
+            "Std_Eye_Occlusion_R",
+            "Std_Eye_Occlusion_L"
+          ],
+          "uv_layers": [
+            "Channel0",
+            "Channel1"
+          ],
+          "vertex_groups": [],
+          "armature_modifiers": []
+        },
+        {
+          "name": "CC_Base_TearLine_001",
+          "vertices": 190,
+          "polygons": 136,
+          "bounds_blender_world": [
+            [
+              -0.05726626515388489,
+              -0.0669955387711525,
+              1.6216858625411987
+            ],
+            [
+              0.03295346349477768,
+              -0.05418088287115097,
+              1.6340065002441406
+            ]
+          ],
+          "materials": [
+            "Std_Tearline_R",
+            "Std_Tearline_L"
+          ],
+          "uv_layers": [
+            "Channel0"
+          ],
+          "vertex_groups": [],
+          "armature_modifiers": []
+        },
+        {
+          "name": "CC_Base_Tongue_001",
+          "vertices": 309,
+          "polygons": 296,
+          "bounds_blender_world": [
+            [
+              -0.025366095826029778,
+              -0.07791798561811447,
+              1.5447062253952026
+            ],
+            [
+              0.006718731485307217,
+              -0.02679811231791973,
+              1.566108226776123
+            ]
+          ],
+          "materials": [
+            "Std_Tongue"
+          ],
+          "uv_layers": [
+            "Channel0"
+          ],
+          "vertex_groups": [],
+          "armature_modifiers": []
+        },
+        {
+          "name": "CC_Game_Eye_001",
+          "vertices": 140,
+          "polygons": 152,
+          "bounds_blender_world": [
+            [
+              -0.05901722609996796,
+              -0.06531942635774612,
+              1.609485149383545
+            ],
+            [
+              0.035688091069459915,
+              -0.02812991850078106,
+              1.6439179182052612
+            ]
+          ],
+          "materials": [
+            "Ga_Eye"
+          ],
+          "uv_layers": [
+            "Channel0"
+          ],
+          "vertex_groups": [],
+          "armature_modifiers": []
+        },
+        {
+          "name": "CC_Game_Teeth_001",
+          "vertices": 154,
+          "polygons": 156,
+          "bounds_blender_world": [
+            [
+              -0.03937269374728203,
+              -0.08436276763677597,
+              1.5406115055084229
+            ],
+            [
+              0.021230904385447502,
+              -0.020016763359308243,
+              1.5878205299377441
+            ]
+          ],
+          "materials": [
+            "Ga_Teeth"
+          ],
+          "uv_layers": [
+            "Channel0"
+          ],
+          "vertex_groups": [],
+          "armature_modifiers": []
+        },
+        {
+          "name": "Female_Angled_001",
+          "vertices": 1328,
+          "polygons": 540,
+          "bounds_blender_world": [
+            [
+              -0.0732310563325882,
+              -0.0820784643292427,
+              1.628496766090393
+            ],
+            [
+              0.049807097762823105,
+              -0.03841270133852959,
+              1.658738613128662
+            ]
+          ],
+          "materials": [
+            "Female_Angled_Transparency",
+            "Female_Angled_Base_Transparency"
+          ],
+          "uv_layers": [
+            "Channel0"
+          ],
+          "vertex_groups": [],
+          "armature_modifiers": []
+        },
+        {
+          "name": "Underwear_Bottoms_001",
+          "vertices": 762,
+          "polygons": 686,
+          "bounds_blender_world": [
+            [
+              -0.14809435606002808,
+              -0.08240512013435364,
+              0.8309632539749146
+            ],
+            [
+              0.14660978317260742,
+              0.1426806002855301,
+              1.0178889036178589
+            ]
+          ],
+          "materials": [
+            "Underwear_Bottoms"
+          ],
+          "uv_layers": [
+            "Channel0"
+          ],
+          "vertex_groups": [],
+          "armature_modifiers": []
+        }
+      ],
+      "armatures": [],
+      "note": "Inventory only: anatomical landmarks, body orientation, rig and garment compatibility are not yet validated."
+    }
+  ]
+}

@@ -1,0 +1,59 @@
+name: Mirror MakeHuman assets
+# Downloads the CC0 / CC-BY MakeHuman Community asset packs listed in
+# packaging/makehuman/packs.txt and stores them in one GitHub Release
+# (makehuman-assets-1) with a manifest of licenses, sources and checksums.
+on:
+  push:
+    branches: [assets/makehuman]
+    paths: [packaging/makehuman/packs.txt, .github/workflows/makehuman-assets.yml]
+  workflow_dispatch:
+permissions:
+  contents: write
+jobs:
+  mirror:
+    runs-on: ubuntu-latest
+    env:
+      TAG: makehuman-assets-1
+      GH_TOKEN: ${{ github.token }}
+    steps:
+      - uses: actions/checkout@v4
+      - name: Download and verify packs
+        run: |
+          set -euo pipefail
+          mkdir -p out
+          echo '[' > out/manifest.json; first=1
+          grep -v '^#' packaging/makehuman/packs.txt | grep -v '^\s*$' | while read -r path license desc; do
+            f=$(basename "$path")
+            ok=0
+            for host in files.makehumancommunity.org files2.makehumancommunity.org; do
+              if curl -fsSL --retry 3 --max-time 900 "https://$host/$path" -o "out/$f"; then ok=1; break; fi
+            done
+            [ "$ok" = 1 ] || { echo "FAILED $path"; exit 1; }
+            unzip -tq "out/$f" >/dev/null
+            # the pack name must carry the same license we recorded
+            case "$license" in CC0) [[ "$f" == *cc0* || "$path" == functional/* ]] ;; CC-BY) [[ "$f" == *ccby* || "$f" == *cc-by* ]] ;; *) false ;; esac
+            sha=$(sha256sum "out/$f" | cut -d' ' -f1); size=$(stat -c%s "out/$f")
+            files=$(unzip -Z1 "out/$f" | wc -l)
+            [ $first = 1 ] && first=0 || echo ',' >> out/manifest.json
+            printf '{"file":"%s","license":"%s","source":"https://files.makehumancommunity.org/%s","page":"https://static.makehumancommunity.org/assets/assetpacks.html","sha256":"%s","bytes":%s,"entries":%s,"description":"%s"}\n' \
+              "$f" "$license" "$path" "$sha" "$size" "$files" "$desc" >> out/manifest.json
+            echo "OK $f $license $size bytes $files entries"
+          done
+          echo ']' >> out/manifest.json
+          python3 -c "import json;d=json.load(open('out/manifest.json'));print(len(d),'packs',sum(x['bytes'] for x in d)//1048576,'MB')"
+      - name: Collect CC-BY authors for credits
+        run: |
+          set -euo pipefail
+          for z in out/*cc-by*.zip out/*ccby*.zip; do
+            [ -f "$z" ] || continue
+            echo "== $(basename "$z")" >> out/CC-BY-CREDITS.txt
+            unzip -Z1 "$z" | grep -iE '\.(mhclo|mhmat|thumb)$|license|credits|readme' | head -0 || true
+            unzip -p "$z" '*.mhclo' '*.mhmat' 2>/dev/null | grep -iE '^(author|license|homepage|name) ' | sort -u >> out/CC-BY-CREDITS.txt || true
+          done
+          wc -l out/CC-BY-CREDITS.txt
+      - name: Publish to one GitHub Release
+        run: |
+          set -euo pipefail
+          gh release view "$TAG" >/dev/null 2>&1 || gh release create "$TAG" --title "MakeHuman assets (CC0 / CC-BY)" --prerelease \
+            --notes "Mirror of MakeHuman Community asset packs used to build DMX Studio characters. Licenses per file in manifest.json; CC-BY authors in CC-BY-CREDITS.txt. Source: https://static.makehumancommunity.org/assets/assetpacks.html"
+          gh release upload "$TAG" out/*.zip out/manifest.json out/CC-BY-CREDITS.txt --clobber

@@ -1,0 +1,86 @@
+{
+  "schema_version": 1,
+  "garments": [
+    {
+      "source": "andre_casual.glb",
+      "mesh": "Top_tee",
+      "file": "andre_casual-Top_tee.glb",
+      "vertices": 399,
+      "bones": 80,
+      "materials": [
+        "Top_tee"
+      ]
+    },
+    {
+      "source": "andre_casual.glb",
+      "mesh": "Top_shirt",
+      "file": "andre_casual-Top_shirt.glb",
+      "vertices": 698,
+      "bones": 80,
+      "materials": [
+        "Top_shirt"
+      ]
+    },
+    {
+      "source": "andre_casual.glb",
+      "mesh": "Trousers",
+      "file": "andre_casual-Trousers.glb",
+      "vertices": 336,
+      "bones": 80,
+      "materials": [
+        "Trousers"
+      ]
+    },
+    {
+      "source": "andre_casual.glb",
+      "mesh": "Shoes",
+      "file": "andre_casual-Shoes.glb",
+      "vertices": 440,
+      "bones": 80,
+      "materials": [
+        "Shoes"
+      ]
+    },
+    {
+      "source": "emma_casual.glb",
+      "mesh": "Top_tee",
+      "file": "emma_casual-Top_tee.glb",
+      "vertices": 682,
+      "bones": 80,
+      "materials": [
+        "Top_tee"
+      ]
+    },
+    {
+      "source": "emma_casual.glb",
+      "mesh": "Top_shirt",
+      "file": "emma_casual-Top_shirt.glb",
+      "vertices": 1154,
+      "bones": 80,
+      "materials": [
+        "Top_shirt"
+      ]
+    },
+    {
+      "source": "emma_casual.glb",
+      "mesh": "Trousers",
+      "file": "emma_casual-Trousers.glb",
+      "vertices": 493,
+      "bones": 80,
+      "materials": [
+        "Trousers"
+      ]
+    },
+    {
+      "source": "emma_casual.glb",
+      "mesh": "Shoes",
+      "file": "emma_casual-Shoes.glb",
+      "vertices": 325,
+      "bones": 80,
+      "materials": [
+        "Shoes"
+      ]
+    }
+  ],
+  "status": "source-body garment modules; cross-body fit not verified"
+}

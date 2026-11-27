@@ -1,0 +1,42 @@
+{
+  "source": "emma_casual.glb",
+  "target": "andre_casual.glb",
+  "garment": "Shoes",
+  "vertices": 325,
+  "faces": 438,
+  "vertices_without_matching_bones": 0,
+  "vertices_pushed_out_of_body": 0,
+  "deepest_penetration_before_fix_m": -0.0,
+  "max_body_fit_correction_m": 0.055,
+  "bone_length_ratios": {
+    "mixamorig:Spine": 1.203,
+    "mixamorig:LeftUpLeg": 0.937,
+    "mixamorig:LeftLeg": 0.991,
+    "mixamorig:RightUpLeg": 0.937,
+    "mixamorig:RightLeg": 0.991,
+    "mixamorig:Spine1": 1.256,
+    "mixamorig:Spine2": 1.15,
+    "mixamorig:LeftArm": 1.131,
+    "mixamorig:LeftForeArm": 1.128,
+    "mixamorig:RightArm": 1.131,
+    "mixamorig:RightForeArm": 1.128
+  },
+  "sleeve_vertices_past_wrist_on_own_body": 0,
+  "vertices_covering_hands": 0,
+  "vertices_covering_head": 0,
+  "liner": null,
+  "shoe_scale_xyz_per_foot": {
+    "Left": {
+      "size": 1.35,
+      "height": 1.0
+    },
+    "Right": {
+      "size": 1.35,
+      "height": 1.3
+    }
+  },
+  "trouser_hem_vertices_moved_over_shoes": 0,
+  "liner_faces_removed_as_covered": 0,
+  "degenerate_faces": 0,
+  "method": "skeleton retarget + body-surface ease transfer + smoothed correction + clearance"
+}

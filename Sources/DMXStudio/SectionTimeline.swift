@@ -436,6 +436,7 @@ struct SectionTimelineEditor: View {
             return true
         }
         .contextMenu {
+            Group {
             Button("Play from Here") { play(from: s.start) }
             Button("Move Playhead Here") { scrub(to: s.start) }
             Divider()
@@ -454,6 +455,7 @@ struct SectionTimelineEditor: View {
             Button("Copy Look") { copied = s }
             Button("Paste Look") { if let c = copied { applyLook(of: c, to: s.id) } }.disabled(copied == nil)
             Divider()
+            }
             Button("Split in Two") { model.splitSection(songID: song.id, sectionID: s.id) }
             Button("Merge with Next") { model.mergeWithNext(songID: song.id, sectionID: s.id) }
             Divider()

@@ -1,0 +1,87 @@
+name: Cross-body garment fitting
+# Fits every runtime garment from each character onto the other, renders before/after
+# review images, and commits the fitted garments, reports and renders to the branch.
+on:
+  push:
+    branches-ignore: [main]
+    paths:
+      - 'packaging/fit-garment-cross-body.py'
+      - 'packaging/render-garment-fit-review.py'
+      - '.github/workflows/cross-body-garments.yml'
+  workflow_dispatch:
+permissions:
+  contents: write
+concurrency:
+  group: cross-body-garments-${{ github.ref }}
+  cancel-in-progress: true
+jobs:
+  fit:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 45
+    steps:
+      - uses: actions/checkout@v4
+      - name: Restore official Blender archive cache
+        uses: actions/cache@v4
+        with:
+          path: ${{ runner.temp }}/dmx-blender-cache
+          key: blender-4.5.16-linux-x64-verified-v1
+      - name: Install official Blender 4.5.16 LTS
+        shell: bash
+        run: |
+          set -euo pipefail
+          mkdir -p "$RUNNER_TEMP/dmx-blender-cache"
+          cd "$RUNNER_TEMP/dmx-blender-cache"
+          base=https://download.blender.org/release/Blender4.5
+          archive=blender-4.5.16-linux-x64.tar.xz
+          if ! test -s blender.sha256; then
+            curl --fail --location --retry 4 --retry-all-errors --retry-delay 5 --output blender.sha256.tmp "$base/blender-4.5.16.sha256"
+            mv blender.sha256.tmp blender.sha256
+          fi
+          if ! (test -s "$archive" && grep -F "$archive" blender.sha256 | sha256sum --check --strict); then
+            rm -f "$archive"
+            curl --fail --location --retry 4 --retry-all-errors --retry-delay 5 --output "$archive.tmp" "$base/$archive"
+            mv "$archive.tmp" "$archive"
+          fi
+          grep -F "$archive" blender.sha256 | sha256sum --check --strict
+          tar -xJf "$archive" -C "$RUNNER_TEMP"
+          echo "$RUNNER_TEMP/blender-4.5.16-linux-x64" >> "$GITHUB_PATH"
+      - name: Retrieve runtime character sources
+        run: |
+          set -euo pipefail
+          mkdir -p runtime-source
+          base=https://raw.githubusercontent.com/memoriesrohit/avatar-studio/2fd9ec82fbe1613d40ae38aadcca3f410725f740
+          for name in andre_casual emma_casual; do
+            curl -fLsS --retry 2 "$base/models/$name.glb" -o "runtime-source/$name.glb"
+          done
+      - name: Fit all garments in both directions and render reviews
+        run: |
+          set -uo pipefail
+          OUT=packaging/garment-results/cross-body
+          rm -rf "$OUT"; mkdir -p "$OUT"
+          fail=0
+          for pair in "andre_casual emma_casual" "emma_casual andre_casual"; do
+            read -r src dst <<< "$pair"
+            for g in Top_tee Top_shirt Trousers Shoes; do
+              dir="$OUT/$src-to-$dst/$g"; mkdir -p "$dir"
+              if blender --background --factory-startup --disable-autoexec --python-exit-code 1 \
+                   --python packaging/fit-garment-cross-body.py -- "runtime-source/$src.glb" "runtime-source/$dst.glb" "$g" "$dir" > "$dir.log" 2>&1; then
+                blender --background --factory-startup --disable-autoexec --python-exit-code 1 \
+                  --python packaging/render-garment-fit-review.py -- "runtime-source/$dst.glb" "$dir/$g.glb" "$g" "$dir/review" >> "$dir.log" 2>&1 || { echo "render failed $src->$dst $g"; fail=1; }
+              else
+                echo "fit failed $src->$dst $g"; fail=1
+              fi
+              grep -E "GARMENT_FIT_DONE|Error|error" "$dir.log" | tail -5 || true
+            done
+          done
+          echo "FAIL=$fail" >> "$GITHUB_ENV"
+      - name: Commit results
+        if: always()
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898283+github-actions[bot]@users.noreply.github.com"
+          git add packaging/garment-results/cross-body
+          git commit -m "Cross-body garment fits and review renders (run ${{ github.run_id }})" || echo "nothing to commit"
+          git pull --rebase origin ${{ github.ref_name }} && git push origin HEAD:${{ github.ref_name }}
+      - name: Fail if any fit failed
+        if: env.FAIL == '1'
+        run: exit 1

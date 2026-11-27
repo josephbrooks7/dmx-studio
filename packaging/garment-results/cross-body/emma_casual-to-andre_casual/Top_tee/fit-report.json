@@ -1,0 +1,33 @@
+{
+  "source": "emma_casual.glb",
+  "target": "andre_casual.glb",
+  "garment": "Top_tee",
+  "vertices": 682,
+  "faces": 1032,
+  "vertices_without_matching_bones": 0,
+  "vertices_pushed_out_of_body": 428,
+  "deepest_penetration_before_fix_m": 0.0384,
+  "max_body_fit_correction_m": 0.0832,
+  "bone_length_ratios": {
+    "mixamorig:Spine": 1.203,
+    "mixamorig:LeftUpLeg": 0.937,
+    "mixamorig:LeftLeg": 0.991,
+    "mixamorig:RightUpLeg": 0.937,
+    "mixamorig:RightLeg": 0.991,
+    "mixamorig:Spine1": 1.256,
+    "mixamorig:Spine2": 1.15,
+    "mixamorig:LeftArm": 1.131,
+    "mixamorig:LeftForeArm": 1.128,
+    "mixamorig:RightArm": 1.131,
+    "mixamorig:RightForeArm": 1.128
+  },
+  "sleeve_vertices_past_wrist_on_own_body": 0,
+  "vertices_covering_hands": 0,
+  "vertices_covering_head": 0,
+  "liner": "Liner_Top_tee",
+  "shoe_scale_xyz_per_foot": {},
+  "trouser_hem_vertices_moved_over_shoes": 0,
+  "liner_faces_removed_as_covered": 0,
+  "degenerate_faces": 0,
+  "method": "skeleton retarget + body-surface ease transfer + smoothed correction + clearance"
+}

@@ -1,0 +1,28 @@
+{
+  "items": 148,
+  "skins": 42,
+  "targets": 1209,
+  "slots": {
+    "eyebrows": 26,
+    "eyelashes": 9,
+    "hair": 35,
+    "hat": 2,
+    "shoes": 29,
+    "outfit": 17,
+    "teeth": 6,
+    "tongue": 1,
+    "eyes": 2,
+    "bottom": 6,
+    "top": 11,
+    "socks": 4
+  },
+  "licenses": {
+    "CC0": 148
+  },
+  "rig": {
+    "file": "rig.json",
+    "weights": "weights.bin",
+    "bones": 163,
+    "joints": 326
+  }
+}

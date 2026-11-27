@@ -417,6 +417,7 @@ struct SectionRow: View {
                 ForEach(LightEffect.allCases) { Text($0.rawValue).tag($0) }
             }.labelsHidden().frame(width: 140)
 
+            Group {
             Picker("", selection: $section.palette) {
                 ForEach(Palette.all) { p in
                     Text(p.id).tag(p.id)
@@ -438,6 +439,7 @@ struct SectionRow: View {
                 Text("2× speed").tag(2.0)
             }.labelsHidden().frame(width: 90)
 
+            }
             Slider(value: $section.intensity, in: 0.1...1).frame(width: 80)
             Toggle("Hit", isOn: $section.accentStrobe).help("Strobe hit on the first bar")
             Menu {

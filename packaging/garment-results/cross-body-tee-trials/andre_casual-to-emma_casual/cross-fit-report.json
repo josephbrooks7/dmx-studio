@@ -1,0 +1,18 @@
+{
+  "source": "andre_casual-Top_tee.glb",
+  "target": "emma_casual-Top_tee.glb",
+  "vertices": 399,
+  "faces": 635,
+  "max_projection_m": 0.05198455974459648,
+  "projection_strength": 0.85,
+  "minimum_face_area_ratio": 0.022500832786793813,
+  "degenerate_faces": 2,
+  "baseline_degenerate_faces": 2,
+  "newly_degenerate_faces": 0,
+  "limitations": [
+    "Target authored tee required",
+    "Nearest-surface projection may distort topology",
+    "No skin collision or posed visual validation",
+    "Experimental output only"
+  ]
+}

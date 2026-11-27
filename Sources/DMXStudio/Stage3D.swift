@@ -1822,7 +1822,8 @@ struct Stage3DView: NSViewRepresentable {
             camera.camera?.bloomIntensity = high ? 0.5 : 0
             lightPools = high
             scene.lightingEnvironment.contents = high ? Self.studioEnvironment : nil
-            scene.lightingEnvironment.intensity = 0.65
+            // Kept low: the reflection map lights every surface in neutral grey, which washed out the fixture colors.
+            scene.lightingEnvironment.intensity = 0.28
             camera.camera?.screenSpaceAmbientOcclusionIntensity = high ? 0.65 : 0
             camera.camera?.screenSpaceAmbientOcclusionRadius = 0.35
         }
@@ -1842,6 +1843,14 @@ struct Stage3DView: NSViewRepresentable {
             return image
         }()
         private var lightPools = true
+        /// The venue's own lights and their normal (show-off) levels. They dim while the stage is lit,
+        /// like house lights going down, so the fixtures' colors carry the room.
+        private var houseLights: [(light: SCNLight, base: CGFloat)] = []
+        private var houseDim: Double = 0
+        private func houseLight(_ l: SCNLight?, _ base: CGFloat) {
+            guard let l = l else { return }
+            l.intensity = base; houseLights.append((l, base))
+        }
 
         /// What the camera orbits around (dragging turns around this point, like a turntable)
         private var orbitTarget = SCNVector3(0, 1.4, -1.8)
@@ -1905,7 +1914,7 @@ struct Stage3DView: NSViewRepresentable {
             let floor = SCNFloor()
             floor.reflectivity = 0.12
             floor.reflectionFalloffEnd = 6
-            floor.materials = [Mat.make(NSColor(white: 0.22, alpha: 1), rough: 0.55)]
+            floor.materials = [Mat.make(NSColor(white: 0.13, alpha: 1), rough: 0.55)]   // dark enough for colored pools to show
             scene.rootNode.addChildNode(SCNNode(geometry: floor))
             let wallMat = Mat.make(NSColor(calibratedRed: 0.09, green: 0.085, blue: 0.095, alpha: 1), rough: 0.9)
             let wall = SCNNode(geometry: { let g = SCNPlane(width: 40, height: 14); g.materials = [wallMat]; return g }())
@@ -1930,17 +1939,18 @@ struct Stage3DView: NSViewRepresentable {
                 scene.rootNode.addChildNode(side)
             }
             // house lights at a low level
-            let amb = SCNNode(); amb.light = SCNLight(); amb.light?.type = .ambient; amb.light?.intensity = 210   // every venue has some light in the room
+            houseLights = []
+            let amb = SCNNode(); amb.light = SCNLight(); amb.light?.type = .ambient; houseLight(amb.light, 75)   // every venue has some light in the room
             amb.light?.color = NSColor(calibratedRed: 0.85, green: 0.88, blue: 1.0, alpha: 1)
             scene.rootNode.addChildNode(amb)
-            let key = SCNNode(); key.light = SCNLight(); key.light?.type = .directional; key.light?.intensity = 250
+            let key = SCNNode(); key.light = SCNLight(); key.light?.type = .directional; houseLight(key.light, 70)
             key.light?.color = NSColor(calibratedRed: 0.9, green: 0.92, blue: 1.0, alpha: 1)
             key.eulerAngles = SCNVector3(-0.9, 0.35, 0)
             scene.rootNode.addChildNode(key)
             // front-of-house wash: two soft warm spots from out front onto the stage and performer
             for x in [-3.5, 3.5] {
                 let fw = SCNNode(); fw.light = SCNLight(); fw.light?.type = .spot
-                fw.light?.intensity = 340
+                houseLight(fw.light, 150)
                 fw.light?.spotInnerAngle = 25; fw.light?.spotOuterAngle = 55
                 fw.light?.attenuationStartDistance = 6; fw.light?.attenuationEndDistance = 22
                 fw.light?.color = NSColor(calibratedRed: 1.0, green: 0.86, blue: 0.7, alpha: 1)
@@ -1950,7 +1960,7 @@ struct Stage3DView: NSViewRepresentable {
             }
             // house lights, dimmed: a broad soft fill from the ceiling over the audience
             let house = SCNNode(); house.light = SCNLight(); house.light?.type = .omni
-            house.light?.color = NSColor(calibratedRed: 1.0, green: 0.9, blue: 0.8, alpha: 1); house.light?.intensity = 170
+            house.light?.color = NSColor(calibratedRed: 1.0, green: 0.9, blue: 0.8, alpha: 1); self.houseLight(house.light, 60)
             house.light?.attenuationStartDistance = 3; house.light?.attenuationEndDistance = 18
             house.position = SCNVector3(0, 7, 5); scene.rootNode.addChildNode(house)
             // warm pendant lamps hanging over the audience
@@ -1963,7 +1973,7 @@ struct Stage3DView: NSViewRepresentable {
                 scene.rootNode.addChildNode(Build.warmHalo(1.6, at: SCNVector3(p.x, p.y - 0.05, p.z)))
             }
             let pendants = SCNNode(); pendants.light = SCNLight(); pendants.light?.type = .omni
-            pendants.light?.color = NSColor(calibratedRed: 1, green: 0.7, blue: 0.42, alpha: 1); pendants.light?.intensity = 140
+            pendants.light?.color = NSColor(calibratedRed: 1, green: 0.7, blue: 0.42, alpha: 1); houseLight(pendants.light, 80)
             pendants.light?.attenuationStartDistance = 1; pendants.light?.attenuationEndDistance = 9
             pendants.position = SCNVector3(0, 4.3, 5); scene.rootNode.addChildNode(pendants)
             // the room's own light, on even when the stage is dark: a bar at the back with a warm under-glow and
@@ -2004,7 +2014,7 @@ struct Stage3DView: NSViewRepresentable {
                 scene.rootNode.addChildNode(Build.warmHalo(0.55, at: SCNVector3(p.x, y + 0.02, p.z)))
             }
             let barLight = SCNNode(); barLight.light = SCNLight(); barLight.light?.type = .omni
-            barLight.light?.color = warm; barLight.light?.intensity = 220
+            barLight.light?.color = warm; houseLight(barLight.light, 150)
             barLight.light?.attenuationStartDistance = 0.5; barLight.light?.attenuationEndDistance = 6
             barLight.position = SCNVector3(0, 2.4, barZ + 0.4); scene.rootNode.addChildNode(barLight)
             // sconces: small glowing shades on the side walls (glow only, no extra light sources)
@@ -2019,7 +2029,7 @@ struct Stage3DView: NSViewRepresentable {
                 }
                 // faint blue house uplight on each side wall
                 let up = SCNNode(); up.light = SCNLight(); up.light?.type = .omni
-                up.light?.color = NSColor(calibratedRed: 0.35, green: 0.45, blue: 1.0, alpha: 1); up.light?.intensity = 110
+                up.light?.color = NSColor(calibratedRed: 0.35, green: 0.45, blue: 1.0, alpha: 1); houseLight(up.light, 70)
                 up.light?.attenuationStartDistance = 1; up.light?.attenuationEndDistance = 8
                 up.position = SCNVector3(CGFloat(x) * 0.93, 0.6, 4); scene.rootNode.addChildNode(up)
             }
@@ -2342,8 +2352,14 @@ struct Stage3DView: NSViewRepresentable {
                     l.castsShadow = lightPools && fx.colorWheel != nil
                 }
             }
-            // Haze in the room: the air takes on a little of the lights' color and swallows distance
+            // House lights down: the brighter the stage, the darker the room, so the show's colors read
+            // on the floor, walls and performer instead of being flattened by neutral venue light.
             let n = max(1, roomGlow.n)
+            let stageLevel = min(1, max(roomGlow.r, roomGlow.g, roomGlow.b) / n * 2.5)
+            houseDim += (stageLevel - houseDim) * 0.08    // ease, so strobes and kicks don't flicker the room
+            let houseLevel = CGFloat(1 - 0.6 * houseDim)
+            for h in houseLights { h.light.intensity = h.base * houseLevel }
+            // Haze in the room: the air takes on a little of the lights' color and swallows distance
             let tint = (r: roomGlow.r / n, g: roomGlow.g / n, b: roomGlow.b / n)
             // the haze picks up the lights' color, so the room glows with the show instead of sitting flat black
             let base = 0.025 + 0.025 * haze

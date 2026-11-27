@@ -1435,25 +1435,7 @@ struct SongsScreen: View {
         return "Remove \(ids.count) songs?"
     }
 
-    var body: some View {
-        HStack(spacing: 0) {
-            VStack(alignment: .leading, spacing: 10) {
-                HStack {
-                    Text("Song Library").font(.system(size: 17, weight: .bold))
-                    Spacer()
-                    Menu {
-                        Button("Rebuild Light Shows for the Lights That Are On") { model.rebuildShowsForCurrentLights() }
-                    } label: { Image(systemName: "wand.and.rays") }
-                        .menuStyle(.borderlessButton).fixedSize()
-                        .help("Remake every song's learned shows for the lights switched on now (hand edits to a show's sections are replaced)")
-                    Button { importing = true } label: { Image(systemName: "plus") }.buttonStyle(PillButtonStyle())
-                }
-                TextField("Search songs or artists", text: $search).textFieldStyle(.roundedBorder)
-                GeometryReader { listGeo in
-                ScrollView {
-                    VStack(alignment: .leading, spacing: 0) {
-                    LazyVStack(alignment: .leading, spacing: 2) {
-                        ForEach(filteredSongs) { s in
+    private func libraryRow(_ s: Song) -> some View {
                             SongRow(song: s)
                                 .padding(.vertical, 5).padding(.horizontal, 8)
                                 .background(RoundedRectangle(cornerRadius: 7, style: .continuous)
@@ -1490,6 +1472,28 @@ struct SongsScreen: View {
                                         Button("Remove Song…", role: .destructive) { model.requestRemove([s.id]) }
                                     }
                                 }
+    }
+
+    var body: some View {
+        HStack(spacing: 0) {
+            VStack(alignment: .leading, spacing: 10) {
+                HStack {
+                    Text("Song Library").font(.system(size: 17, weight: .bold))
+                    Spacer()
+                    Menu {
+                        Button("Rebuild Light Shows for the Lights That Are On") { model.rebuildShowsForCurrentLights() }
+                    } label: { Image(systemName: "wand.and.rays") }
+                        .menuStyle(.borderlessButton).fixedSize()
+                        .help("Remake every song's learned shows for the lights switched on now (hand edits to a show's sections are replaced)")
+                    Button { importing = true } label: { Image(systemName: "plus") }.buttonStyle(PillButtonStyle())
+                }
+                TextField("Search songs or artists", text: $search).textFieldStyle(.roundedBorder)
+                GeometryReader { listGeo in
+                ScrollView {
+                    VStack(alignment: .leading, spacing: 0) {
+                    LazyVStack(alignment: .leading, spacing: 2) {
+                        ForEach(filteredSongs) { s in
+                            libraryRow(s)
                         }
                     }
                     .padding(4)
@@ -1575,12 +1579,14 @@ struct SetListsScreen: View {
                 }
                 List(selection: $selected) {
                     ForEach(model.lineups) { l in
+                        let playing = model.playingLineupID == l.id
+                        let duration: String = l.entries.isEmpty ? "0" : formatTime(model.setTimeline(l).total)
                         HStack {
-                            Image(systemName: model.playingLineupID == l.id ? "speaker.wave.2.fill" : "list.number")
-                                .foregroundColor(model.playingLineupID == l.id ? Theme.accent : Theme.subtle)
+                            Image(systemName: playing ? "speaker.wave.2.fill" : "list.number")
+                                .foregroundColor(playing ? Theme.accent : Theme.subtle)
                             Text(l.name)
                             Spacer()
-                            Text(l.entries.isEmpty ? "0" : formatTime(model.setTimeline(l).total)).font(.caption).monospacedDigit().foregroundColor(Theme.subtle)
+                            Text(duration).font(.caption).monospacedDigit().foregroundColor(Theme.subtle)
                         }
                         .tag(Optional(l.id))
                         .onDrop(of: [UTType.fileURL, UTType.plainText], isTargeted: nil) { providers in
@@ -1624,10 +1630,7 @@ struct SetupScreen: View {
     @ObservedObject private var errors = ErrorCenter.shared
     @State private var page: SetupPage? = .wireless
 
-    var body: some View {
-        HStack(spacing: 0) {
-            List(selection: $page) {
-                ForEach(SetupPage.allCases) { p in
+    private func setupRow(_ p: SetupPage) -> some View {
                     HStack {
                         Label(p.rawValue, systemImage: p.icon)
                         Spacer()
@@ -1637,6 +1640,13 @@ struct SetupScreen: View {
                         }
                     }
                     .tag(Optional(p))
+    }
+
+    var body: some View {
+        HStack(spacing: 0) {
+            List(selection: $page) {
+                ForEach(SetupPage.allCases) { p in
+                    setupRow(p)
                 }
             }
             .listStyle(.sidebar)

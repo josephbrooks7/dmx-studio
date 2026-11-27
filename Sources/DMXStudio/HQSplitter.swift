@@ -377,8 +377,11 @@ enum HQSplitter {
                     fft.forward(lp.baseAddress! + t * hop, &lre, &lim)
                     fft.forward(rp.baseAddress! + t * hop, &rre, &rim)
                     for k in 0..<bins {
-                        let en = lre[k] * lre[k] + lim[k] * lim[k] + rre[k] * rre[k] + rim[k] * rim[k] + 1e-12
-                        var c = 2 * max(0, lre[k] * rre[k] + lim[k] * rim[k]) / en
+                        let leftEnergy: Float = lre[k] * lre[k] + lim[k] * lim[k]
+                        let rightEnergy: Float = rre[k] * rre[k] + rim[k] * rim[k]
+                        let en: Float = leftEnergy + rightEnergy + 1e-12
+                        let correlation: Float = lre[k] * rre[k] + lim[k] * rim[k]
+                        var c: Float = 2 * max(Float(0), correlation) / en
                         c = c * c
                         mask[k] = c
                     }

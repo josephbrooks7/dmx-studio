@@ -1,0 +1,43 @@
+name: Import garment fitting results
+# Copies the outputs of a finished garment-fitting run (rigged garment modules, cross-body
+# fits and review renders) into a branch so they can be inspected and bundled.
+on:
+  push:
+    branches-ignore: [main]
+    paths: ['.github/workflows/import-garment-results.yml']
+env:
+  RUN_ID: '45961212402'   # garment fitting run whose results are imported
+permissions:
+  contents: write
+  actions: read
+jobs:
+  import:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ github.ref_name }}
+      - name: Download results
+        uses: actions/download-artifact@v4
+        with:
+          run-id: ${{ env.RUN_ID }}
+          github-token: ${{ secrets.GITHUB_TOKEN }}
+          path: incoming
+      - name: Place results
+        run: |
+          set -e
+          ls -R incoming | head -100
+          DEST=packaging/garment-results
+          rm -rf "$DEST"; mkdir -p "$DEST"
+          for d in runtime-garment-modules cross-body-tee-trials dressed-character-review runtime-source-inventory body-candidate-inventory; do
+            if [ -d "incoming/$d" ]; then cp -R "incoming/$d" "$DEST/$d"; fi
+          done
+          echo "Imported from run ${{ env.RUN_ID }}" > "$DEST/SOURCE.txt"
+          find "$DEST" -type f | sort
+      - name: Commit
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898283+github-actions[bot]@users.noreply.github.com"
+          git add packaging/garment-results
+          git commit -m "Import garment fitting results from run ${{ env.RUN_ID }}" || echo "nothing to commit"
+          git push origin HEAD:${{ github.ref_name }}

@@ -1,0 +1,35 @@
+name: Anthropometry model (ANSUR II)
+# Downloads the public ANSUR II records, learns summary statistics, height relationships and
+# correlations, and commits only the resulting model (never the raw records).
+on:
+  push:
+    branches-ignore: [main]
+    paths:
+      - 'packaging/ansur2_model.py'
+      - '.github/workflows/anthropometry-model.yml'
+  workflow_dispatch:
+permissions:
+  contents: write
+jobs:
+  model:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+      - name: Download ANSUR II public records
+        run: |
+          set -euo pipefail
+          mkdir -p /tmp/ansur
+          curl -fLsS --retry 3 https://tools.openlab.psu.edu/publicData/ANSUR_II_MALE_Public.csv -o /tmp/ansur/male.csv
+          curl -fLsS --retry 3 https://tools.openlab.psu.edu/publicData/ANSUR_II_FEMALE_Public.csv -o /tmp/ansur/female.csv
+          wc -l /tmp/ansur/*.csv
+          head -c 600 /tmp/ansur/male.csv; echo
+      - name: Learn the model
+        run: python3 packaging/ansur2_model.py /tmp/ansur/male.csv /tmp/ansur/female.csv packaging/character-reference/ansur2-model.json
+      - name: Commit the model
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898283+github-actions[bot]@users.noreply.github.com"
+          git add packaging/character-reference/ansur2-model.json
+          git commit -m "ANSUR II anthropometry model (run ${{ github.run_id }})" || echo "nothing to commit"
+          git pull --rebase origin ${{ github.ref_name }} && git push origin HEAD:${{ github.ref_name }}
