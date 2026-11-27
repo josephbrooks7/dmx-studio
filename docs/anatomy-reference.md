@@ -58,6 +58,16 @@ own power); passive ranges, pushed by an outside force, are larger. Performers u
 ranges, and gestures stay comfortably inside them (about 80% of the limit), because people
 rarely perform at their end range and end-range poses look strained.
 
+**Real population vs textbook maximum (shoulder).** In a community study of 2404 adults
+(20-91, no shoulder pain) average active flexion was about 160° (161.5 men, 158.5 women) and
+abduction about 150° (151.5 / 149.7), below the AAOS 180°. Young adults reach higher, and range
+falls steeply with age (flexion about 40° lower in the oldest groups; external rotation also
+drops, especially in women). So a typical performer's comfortable "arms straight up" is ~160°;
+180° is the extreme. Task mapping: high reach and hair washing = flexion + adduction; hand to
+back pocket = internal rotation + extension + adduction; combing hair = abduction + flexion +
+external rotation (used for the hair and back-pocket fidget idles). The study's data is
+CC0 (public domain), so its age/sex tables can be bundled as joint-limit data.
+
 **Individual flexibility.** Default characters allow only 0-5° of elbow and knee overextension
 and modest finger back-bend. Clinical hypermobility (Beighton score, 5+ of 9 in adults) starts
 at more than 10° of elbow or knee overextension, little-finger knuckle bending back beyond 90°,
@@ -475,7 +485,8 @@ other rather than snapping.
 - Range types and flexibility: Hinge Health "Range of Motion"; Minser Chiropractic "Range of
   Motion in Exercise"; Ehlers-Danlos Society "Assessing Joint Hypermobility" (Beighton score).
 - Neck: Physiopedia "Cervical Spine Range of Motion" (AAOS norms).
-- Shoulder ranges: FPnotebook "Shoulder Range of Motion".
+- Shoulder ranges: FPnotebook "Shoulder Range of Motion"; Gill et al., "Shoulder range of movement
+  in the general population", BMC Musculoskeletal Disorders 2020 (PMC7549223, CC0 data).
 - Shoulder rhythm: Physiopedia "Scapulohumeral Rhythm"; OUHSC kinesiology notes; Braman et al.
   (PMC2841046).
 - Lumbopelvic rhythm: Takahashi & Yamaji (PMC7064356); Vazirian et al. reviews (CDC stacks);
