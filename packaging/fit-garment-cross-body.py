@@ -235,14 +235,15 @@ def main():
                             Vector(tuple(max(p[k] for p in pts) for k in range(3))))
                 tlo, thi = box(tgt)
                 slo, shi = box([final[i] for i in idx])
-                c = (tlo + thi) / 2
-                tlo = c + (tlo - c) * 1.03; thi = c + (thi - c) * 1.03   # 3% margin so nothing pokes out
-                tlo.z = min(p.z for p in tgt)                              # sole stays on the floor
+                # one uniform size per shoe (keeps the shoe's real proportions): big enough to cover
+                # the target shoe's length and width, plus 3%; centered over it; sole on the floor
+                ratio = max((thi.x - tlo.x) / max(shi.x - slo.x, 1e-6), (thi.y - tlo.y) / max(shi.y - slo.y, 1e-6))
+                k = min(max(ratio * 1.03, 0.8), 1.35)
+                tc = Vector(((tlo.x + thi.x) / 2, (tlo.y + thi.y) / 2, tlo.z))
+                sc = Vector(((slo.x + shi.x) / 2, (slo.y + shi.y) / 2, slo.z))
                 for i in idx:
-                    p = final[i]
-                    final[i] = Vector(tuple(tlo[k] + (p[k] - slo[k]) * (thi[k] - tlo[k]) / max(shi[k] - slo[k], 1e-6)
-                                            for k in range(3)))
-                shoe_fit[side] = [round((thi[k] - tlo[k]) / max(shi[k] - slo[k], 1e-6), 3) for k in range(3)]
+                    final[i] = tc + (final[i] - sc) * k
+                shoe_fit[side] = round(k, 3)
 
     covering = {"hand": 0, "head": 0}
     bones_d = dst_rig.data.bones
@@ -294,6 +295,17 @@ def main():
         for poly in liner_mesh.polygons:
             poly.material_index = 0
         liner_mesh.update()
+        # the liner stops at the ankle: remove faces mostly driven by the feet
+        import bmesh
+        own_g = {g.index: g.name for g in own.vertex_groups}
+        def own_foot(v):
+            t = sum(g.weight for g in v.groups) or 1.0
+            return sum(g.weight for g in v.groups if "Foot" in own_g.get(g.group, "") or "Toe" in own_g.get(g.group, "")) / t
+        drop = {v.index for v in own.data.vertices if own_foot(v) > 0.3}
+        if drop:
+            bm = bmesh.new(); bm.from_mesh(liner_mesh); bm.verts.ensure_lookup_table()
+            bmesh.ops.delete(bm, geom=[bm.verts[i] for i in drop], context="VERTS")
+            bm.to_mesh(liner_mesh); bm.free(); liner_mesh.update()
         # the liner is only needed where the new garment doesn't cover: drop liner faces with
         # fitted fabric directly outside them (within 6 cm along the outward normal)
         from mathutils.bvhtree import BVHTree as _BVH
@@ -316,17 +328,6 @@ def main():
                 _bm.ops.delete(bm, geom=loose, context="VERTS")
             bm.to_mesh(liner_mesh); bm.free(); liner_mesh.update()
         liner_faces_removed = len(covered)
-        # the liner stops at the ankle: remove faces mostly driven by the feet
-        import bmesh
-        own_g = {g.index: g.name for g in own.vertex_groups}
-        def own_foot(v):
-            t = sum(g.weight for g in v.groups) or 1.0
-            return sum(g.weight for g in v.groups if "Foot" in own_g.get(g.group, "") or "Toe" in own_g.get(g.group, "")) / t
-        drop = {v.index for v in own.data.vertices if own_foot(v) > 0.3}
-        if drop:
-            bm = bmesh.new(); bm.from_mesh(liner_mesh); bm.verts.ensure_lookup_table()
-            bmesh.ops.delete(bm, geom=[bm.verts[i] for i in drop], context="VERTS")
-            bm.to_mesh(liner_mesh); bm.free(); liner_mesh.update()
         # the copied mesh already carries the weights; recreate the group names in the same order
         for g in sorted(own.vertex_groups, key=lambda g: g.index):
             liner.vertex_groups.new(name=g.name)
