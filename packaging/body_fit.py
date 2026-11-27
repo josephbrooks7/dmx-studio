@@ -56,3 +56,50 @@ def fit_vertices(vertices, source, target, clearance=0.0):
                        mix(c.y,d.y,t),
                        mix(c.cz,d.cz,t)+v*(mix(c.half_depth,d.half_depth,t)+clearance)))
     return result
+
+
+@dataclass(frozen=True)
+class AnatomySection:
+    y: float
+    cx: float
+    cz: float
+    half_width: float
+    front_depth: float
+    back_depth: float
+
+def fit_anatomical_torso(vertices, source, target, clearance=0.0):
+    """Independent anterior/posterior fitting with absolute exterior ease.
+    
+    Landmarks must be measured from the actual bodies, not clothing.
+    Only garment vertices are returned; body geometry is never modified.
+    This is an envelope approximation, not individual breast contours.
+    """
+    if len(source)!=len(target) or len(source)<2:
+        raise ValueError("Corresponding anatomical sections required")
+    if not isfinite(clearance) or clearance<0:
+        raise ValueError("Invalid clearance")
+    for sections in (source,target):
+        for i,s in enumerate(sections):
+            if not all(isfinite(v) for v in (s.y,s.cx,s.cz,s.half_width,s.front_depth,s.back_depth)):
+                raise ValueError("Nonfinite anatomy")
+            if min(s.half_width,s.front_depth,s.back_depth)<=0 or (i and s.y<=sections[i-1].y):
+                raise ValueError("Invalid anatomical section")
+    def mix(a,b,t): return a+(b-a)*t
+    def ease(v,old,new):
+        sign=1 if v>=0 else -1
+        magnitude=abs(v)
+        return sign*(new*min(magnitude/old,1)+max(0,magnitude-old)+clearance*min(magnitude/old,1))
+    result=[]
+    for x,y,z in vertices:
+        if not all(isfinite(v) for v in (x,y,z)) or not source[0].y<=y<=source[-1].y:
+            raise ValueError("Invalid torso vertex")
+        i=next(i for i in range(len(source)-1) if y<=source[i+1].y)
+        a,b=source[i:i+2];c,d=target[i:i+2]
+        t=(y-a.y)/(b.y-a.y)
+        def interp(p,q,k): return mix(getattr(p,k),getattr(q,k),t)
+        sx=interp(a,b,"cx");sz=interp(a,b,"cz")
+        depth="front_depth" if z>=sz else "back_depth"
+        result.append((interp(c,d,"cx")+ease(x-sx,interp(a,b,"half_width"),interp(c,d,"half_width")),
+                       interp(c,d,"y"),
+                       interp(c,d,"cz")+ease(z-sz,interp(a,b,depth),interp(c,d,depth))))
+    return result
