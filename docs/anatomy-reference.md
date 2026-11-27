@@ -118,6 +118,12 @@ For our characters:
 
 ## 7. Physics and gravity
 
+Principle: imitate physics, don't simulate it. Be exact where viewers notice errors (gravity,
+balance over the feet, planted feet, jump arcs); approximate cheaply elsewhere (hair and loose
+cloth as a few spring-driven bones, not full cloth or strand simulation); skip what nobody can
+see. Whatever is chosen behaves the same in every pose, song and export. This keeps the whole
+performer system within the 2016 Intel MacBook Pro budget.
+
 Performers live on a stage under normal gravity (g = 9.81 m/s², ~1 g). Real-world units
 (metres, kilograms, seconds) are used everywhere so motion has believable weight: a smaller g
 looks floaty, a larger one looks like collapsing.
@@ -258,7 +264,7 @@ other rather than snapping.
 - Physics: Stickman Physics, "Physics of Video Games"; Cal State "Postural Stability in Motor
   Control"; Wikipedia "Balance (ability)"; contrapposto (Wikipedia, Art in Context, Robert
   Oosti); Müller et al., "Position Based Dynamics" (2006); Wikipedia "Soft-body dynamics";
-  Real World Physics Problems, "Physics of Gymnastics"; Glenn Fiedler, "Fix Your Timestep!"; Godot physics interpolation docs.
+  Real World Physics Problems, "Physics of Gymnastics"; GameDesigning.org, "Game Physics"; Glenn Fiedler, "Fix Your Timestep!"; Godot physics interpolation docs.
 - Idles: TV Tropes, "Idle Animation"; Antidote, "How Idle Animations Secretly Give Video Game
   Characters Life"; GarageFarm idle animation tips; Urna "Idle animation in Blender"; IMVU Creator
   "Idle animations".
