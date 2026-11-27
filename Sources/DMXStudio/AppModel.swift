@@ -605,6 +605,7 @@ final class AppModel: ObservableObject {
         stage = s.stage ?? StageLayout.starter(for: s.fixtures)
         stage.useBackdrop()
         stage.upgradeToRealStage()
+        stage.keepPerformersOnStage()   // repairs layouts where a performer was dragged off into the room
         manual = [:]
         activePresetID = nil
     }
@@ -847,7 +848,22 @@ final class AppModel: ObservableObject {
 
     func updateStageItem(_ id: UUID, _ change: (inout StageItem) -> Void) {
         guard let i = stage.items.firstIndex(where: { $0.id == id }) else { return }
-        change(&stage.items[i])
+        var items = stage.items
+        let before = items[i]
+        change(&items[i])
+        // Moving the stage carries the performers standing on it.
+        if before.prop == .stage {
+            let dx = items[i].x - before.x, dz = items[i].z - before.z, dy = items[i].y - before.y
+            if dx != 0 || dz != 0 || dy != 0 {
+                for k in items.indices where items[k].prop == .performer {
+                    items[k].x += dx; items[k].z += dz; items[k].y += dy
+                }
+            }
+        }
+        var layout = stage
+        layout.items = items
+        layout.keepPerformersOnStage()
+        stage = layout
     }
 
     func deleteStageItem(_ id: UUID) {

@@ -1101,6 +1101,30 @@ struct StageLayout: Codable, Hashable {
         }
     }
 
+    /// Performers stand on the stage deck. If one is off the deck (e.g. dragged out into the room),
+    /// pull it back to the nearest spot on the deck and stand it on top. Does nothing without a stage.
+    mutating func keepPerformersOnStage() {
+        guard let deck = items.first(where: { $0.prop == .stage }) else { return }
+        let halfW = 3 * max(deck.size, 0.1) - 0.35   // deck is 6 m × size wide, 4 m deep
+        let halfD = 2.0 - 0.35                         // keep a little away from the edge
+        let r = -deck.rotation * .pi / 180            // same rotation the 3D view applies
+        let top = deck.y + 0.6
+        for k in items.indices where items[k].prop == .performer {
+            let dx = items[k].x - deck.x, dz = items[k].z - deck.z
+            // world → deck-local
+            var lx = dx * cos(r) - dz * sin(r)
+            var lz = dx * sin(r) + dz * cos(r)
+            let onDeck = abs(lx) <= halfW && abs(lz) <= halfD && abs(items[k].y - top) < 0.05
+            if onDeck { continue }
+            lx = min(max(lx, -halfW), halfW)
+            lz = min(max(lz, -halfD), halfD)
+            // deck-local → world
+            items[k].x = deck.x + lx * cos(r) + lz * sin(r)
+            items[k].z = deck.z - lx * sin(r) + lz * cos(r)
+            items[k].y = top
+        }
+    }
+
     mutating func useBackdrop() {
         guard !items.contains(where: { $0.prop == .backdrop }),
               let ring = items.firstIndex(where: { $0.prop == .circleTruss && abs($0.x) < 1 }) else { return }

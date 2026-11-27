@@ -1502,6 +1502,7 @@ final class StageSCNView: SCNView {
     var editing = false
     private var draggingID: UUID?
     private var dragOffset = CGPoint.zero
+    private var dragHeight: CGFloat = 0
 
     private func itemID(at p: CGPoint) -> UUID? {
         for hit in hitTest(p, options: [SCNHitTestOption.searchMode: SCNHitTestSearchMode.all.rawValue]) {
@@ -1514,13 +1515,15 @@ final class StageSCNView: SCNView {
         return nil
     }
 
-    /// Where the mouse ray hits the floor (y = 0).
-    private func floorPoint(_ p: CGPoint) -> (Double, Double)? {
+    /// Where the mouse ray crosses the horizontal plane at `height` (0 = the room floor).
+    /// Dragging uses the grabbed item's own height, so something standing on the 0.6 m deck
+    /// follows the cursor instead of sliding off to wherever the ray reaches the floor.
+    private func floorPoint(_ p: CGPoint, height: CGFloat = 0) -> (Double, Double)? {
         let a = unprojectPoint(SCNVector3(p.x, p.y, 0))
         let b = unprojectPoint(SCNVector3(p.x, p.y, 1))
         let dy = b.y - a.y
         guard abs(dy) > 1e-6 else { return nil }
-        let t = -a.y / dy
+        let t = (height - a.y) / dy
         guard t > 0 else { return nil }
         return (Double(a.x + (b.x - a.x) * t), Double(a.z + (b.z - a.z) * t))
     }
@@ -1530,6 +1533,15 @@ final class StageSCNView: SCNView {
         if editing, let id = itemID(at: p) {
             onSelect?(id)
             draggingID = id
+            // Remember where on the item it was grabbed, so a click (or the start of a drag)
+            // never makes it jump.
+            let node = scene?.rootNode.childNode(withName: "item:\(id.uuidString)", recursively: false)
+            dragHeight = node?.position.y ?? 0
+            if let node, let (x, z) = floorPoint(p, height: dragHeight) {
+                dragOffset = CGPoint(x: Double(node.position.x) - x, y: Double(node.position.z) - z)
+            } else {
+                dragOffset = .zero
+            }
             return
         }
         draggingID = nil
@@ -1540,7 +1552,7 @@ final class StageSCNView: SCNView {
     override func mouseDragged(with event: NSEvent) {
         if let id = draggingID {
             let p = convert(event.locationInWindow, from: nil)
-            if let (x, z) = floorPoint(p) { onDrag?(id, x, z) }
+            if let (x, z) = floorPoint(p, height: dragHeight) { onDrag?(id, x + Double(dragOffset.x), z + Double(dragOffset.y)) }
             return
         }
         super.mouseDragged(with: event)
