@@ -26,6 +26,7 @@
   "vertices_covering_head": 0,
   "liner": "Liner_Top_shirt",
   "shoe_scale_xyz_per_foot": {},
+  "trouser_hem_vertices_moved_over_shoes": 0,
   "liner_faces_removed_as_covered": 0,
   "degenerate_faces": 3,
   "method": "skeleton retarget + body-surface ease transfer + smoothed correction + clearance"
