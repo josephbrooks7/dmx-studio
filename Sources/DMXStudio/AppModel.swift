@@ -607,6 +607,7 @@ final class AppModel: ObservableObject {
         stage.upgradeToRealStage()
         stage.keepPerformersOnStage()   // repairs layouts where a performer was dragged off into the room
         stage.recenterEdgePerformers()
+        stage.facePerformersToAudience()
         manual = [:]
         activePresetID = nil
     }

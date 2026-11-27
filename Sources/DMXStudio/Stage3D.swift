@@ -662,7 +662,7 @@ enum Build {
                 let tint: NSColor
                 if ["eye", "teeth", "mouth", "lash", "brow", "hair_module"].contains(where: { name.contains($0) }) { return original }
                 if name.contains("hair") { tint = pick(hairs, a.hairColor) }
-                else if ["outfit", "top_", "shirt", "jacket", "jeans", "denim", "pants", "trousers", "dress", "garment"].contains(where: { name.contains($0) }) {
+                else if ["outfit_formal", "top_", "shirt", "jacket", "dress", "garment"].contains(where: { name.contains($0) }) && !name.contains("skin") {
                     tint = pick(outfits, a.outfit)
                 } else if name.contains("skin") || name.contains("_head") || name.contains("_body") {
                     // The textures are already one skin tone (lighter or darker model), so tint relative to it:
@@ -688,6 +688,43 @@ enum Build {
 
     /// Crown of a built body (or hair module) in `space` coordinates: highest point, and the centre
     /// and width of everything within `band` below it. Hidden nodes are ignored.
+    /// Bundled bodies carry every outfit variant (tee, shirt, formal, original). Show one set:
+    /// Casual/Punk = tee, Rock Jacket/Glam/Fantasy = shirt, Formal = formal suit. Older converted
+    /// files without the variants are left untouched.
+    private static func selectOutfit(_ root: SCNNode, _ style: String?) {
+        let sets: [String: Set<String>] = [
+            "tee": ["top_tee", "skin_tee", "trousers", "shoes"],
+            "shirt": ["top_shirt", "skin_shirt", "trousers", "shoes"],
+            "formal": ["outfit_formal", "skin_formal", "shoes"],
+            "original": ["outfit_original", "skin_original"]]
+        let all = sets.values.reduce(Set<String>()) { $0.union($1) }
+        func variant(_ node: SCNNode) -> String? {
+            var c: SCNNode? = node
+            while let cur = c, cur !== root {
+                var name = (cur.name ?? "").lowercased()
+                if name.hasPrefix("stage_") { name.removeFirst(6) }
+                if all.contains(name) { return name }
+                c = cur.parent
+            }
+            return nil
+        }
+        var found = Set<String>()
+        var nodes: [(SCNNode, String)] = []
+        root.enumerateChildNodes { n, _ in
+            if n.geometry != nil, let v = variant(n) { found.insert(v); nodes.append((n, v)) }
+        }
+        guard found.contains("top_tee") || found.contains("top_shirt") || found.contains("outfit_formal") else { return }
+        var pick: String
+        switch style ?? "Casual" {
+        case "Formal": pick = "formal"
+        case "Rock Jacket", "Glam", "Fantasy": pick = "shirt"
+        default: pick = "tee"
+        }
+        if !sets[pick]!.isSubset(of: found) { pick = sets["tee"]!.isSubset(of: found) ? "tee" : "original" }
+        let keep = sets[pick]!
+        for (n, v) in nodes { n.isHidden = !keep.contains(v) }
+    }
+
     static func headFrame(_ body: SCNNode, in space: SCNNode, band: CGFloat) -> (top: CGFloat, x: CGFloat, z: CGFloat, width: CGFloat)? {
         var points: [SIMD3<Float>] = []
         func visible(_ n: SCNNode) -> Bool {
@@ -739,6 +776,7 @@ enum Build {
             let mesh = SCNNode()
             let imported = template.clone()
             if url == bundled { refineGarments(imported) }
+            if url == bundled { selectOutfit(imported, a.clothingStyle) }
             // Some exported avatars retain Blender's Z-up coordinates. Normalize
             // the dominant vertical axis before measuring height or grounding.
             let raw = imported.boundingBox

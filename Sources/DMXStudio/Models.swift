@@ -1133,6 +1133,14 @@ struct StageLayout: Codable, Hashable {
         }
     }
 
+    /// One-time (layout version 4): performers face the audience (the stage's front).
+    mutating func facePerformersToAudience() {
+        guard (version ?? 1) < 4 else { return }
+        version = 4
+        let front = items.first(where: { $0.prop == .stage })?.rotation ?? 0
+        for k in items.indices where items[k].prop == .performer { items[k].rotation = front }
+    }
+
     mutating func keepPerformersOnStage() {
         guard let deck = items.first(where: { $0.prop == .stage }) else { return }
         let halfW = 3 * max(deck.size, 0.1) - 0.35   // deck is 6 m × size wide, 4 m deep
