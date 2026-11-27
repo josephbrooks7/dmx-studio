@@ -569,71 +569,12 @@ struct StageInspector: View {
                             }
                             if !characterNotice.isEmpty { Text(characterNotice).font(.caption).foregroundColor(Theme.subtle) }
 
-                            Divider()
-                            Text("Performance").font(.headline)
-                            Picker("Role", selection: Binding(get: { appearance.role }, set: { v in model.updateStageItem(id) { var a = $0.performerAppearance ?? PerformerAppearance(); a.role = v; $0.performerAppearance = a } })) {
-                                ForEach(PerformerRole.allCases) { Text($0.rawValue).tag($0) }
-                            }
-                            Divider()
-                            Text("Body & proportions").font(.headline)
-                            Picker("Body shape", selection: Binding(get: { appearance.bodyStyle ?? "Masculine" }, set: { v in model.updateStageItem(id) { var a = $0.performerAppearance ?? PerformerAppearance(); a.bodyStyle = v; $0.performerAppearance = a } })) {
-                                ForEach(["Masculine","Feminine","Androgynous"], id: \.self) { Text($0).tag($0) }
-                            }
-                            Divider()
-                            Text("Wardrobe & accessories").font(.headline)
-                            Picker("Clothing", selection: Binding(get: { appearance.clothingStyle ?? "Casual" }, set: { v in model.updateStageItem(id) { var a = $0.performerAppearance ?? PerformerAppearance(); a.clothingStyle = v; $0.performerAppearance = a } })) {
-                                ForEach(["Casual","Rock Jacket","Punk","Glam","Formal","Fantasy"], id: \.self) { Text($0).tag($0) }
-                            }
-                            Picker("Accessory", selection: Binding(get: { appearance.accessory ?? "None" }, set: { v in model.updateStageItem(id) { var a = $0.performerAppearance ?? PerformerAppearance(); a.accessory = v; $0.performerAppearance = a } })) {
-                                ForEach(["None","Top Hat","Glasses","Choker","Wings"], id: \.self) { Text($0).tag($0) }
-                            }
-                            Picker("Stance", selection: Binding(get: { appearance.pose ?? "Natural" }, set: { v in model.updateStageItem(id) { var a = $0.performerAppearance ?? PerformerAppearance(); a.pose = v; $0.performerAppearance = a } })) {
-                                ForEach(["Natural","Wide","Performance"], id: \.self) { Text($0).tag($0) }
-                            }
-                            Divider()
-                            Text("Hair & complexion").font(.headline)
-                            Picker("Hair", selection: Binding(get: { appearance.hair }, set: { v in model.updateStageItem(id) { var a = $0.performerAppearance ?? PerformerAppearance(); a.hair = v; $0.performerAppearance = a } })) {
-                                ForEach(PerformerHair.allCases) { Text($0.rawValue).tag($0) }
-                            }
-                            Picker("Skin tone", selection: Binding(get: { appearance.skin }, set: { v in model.updateStageItem(id) { var a = $0.performerAppearance ?? PerformerAppearance(); a.skin = v; $0.performerAppearance = a } })) {
-                                ForEach(0..<6) { Text("Tone " + String($0 + 1)).tag($0) }
-                            }
-                            Picker("Outfit", selection: Binding(get: { appearance.outfit }, set: { v in model.updateStageItem(id) { var a = $0.performerAppearance ?? PerformerAppearance(); a.outfit = v; $0.performerAppearance = a } })) {
-                                ForEach(Array(["Black", "Red", "Blue", "White", "Purple", "Green"].enumerated()), id: \.offset) { i, name in Text(name).tag(i) }
-                            }
-                            Picker("Hair color", selection: Binding(get: { appearance.hairColor }, set: { v in model.updateStageItem(id) { var a = $0.performerAppearance ?? PerformerAppearance(); a.hairColor = v; $0.performerAppearance = a } })) {
-                                ForEach(Array(["Black", "Brown", "Blonde", "Red", "Blue", "Silver"].enumerated()), id: \.offset) { i, name in Text(name).tag(i) }
-                            }
-                            Divider()
-                            Text("Measurements").font(.headline)
-                            let inches = Int((appearance.height / 0.0254).rounded())
-                            let heightFeet = inches / 12
-                            let heightInches = inches % 12
-                            let heightCentimeters = Int((appearance.height * 100).rounded())
-                            Text("Height: \(heightFeet) ft \(heightInches) in · \(heightCentimeters) cm").font(.caption)
-                            Slider(value: Binding(get: { appearance.height }, set: { v in model.updateStageItem(id) { var a = $0.performerAppearance ?? PerformerAppearance(); a.height = v; $0.performerAppearance = a } }), in: 1.4...2.1, step: 0.01)
-                            let heightRatio: Double = appearance.height / 1.75
-                            let baseWeight: Double = 73.0 * heightRatio * heightRatio
-                            let estimatedWeight: Double = baseWeight * appearance.build
-                            let pounds = Int(estimatedWeight * 2.20462)
-                            let kilograms = Int(estimatedWeight)
-                            let weightRange: ClosedRange<Double> = (baseWeight * 0.7)...(baseWeight * 1.4)
-                            let weightBinding = Binding<Double>(get: { estimatedWeight }, set: { value in
-                                model.updateStageItem(id) { item in
-                                    var a = item.performerAppearance ?? PerformerAppearance()
-                                    let ratio: Double = a.height / 1.75
-                                    let baseline: Double = 73.0 * ratio * ratio
-                                    a.build = min(1.4, max(0.7, value / baseline))
-                                    item.performerAppearance = a
-                                }
-                            })
-                            Text("Estimated weight: \(pounds) lb · \(kilograms) kg").font(.caption)
-                            Slider(value: weightBinding, in: weightRange)
-                            Text("Weight is an approximate visual build control, not a physical simulation.").font(.caption2).foregroundColor(Theme.subtle)
-                            Divider()
-                            Text("Face").font(.headline)
-                            Text("Independent face meshes are not available for the current bundled models. Use Face view to inspect the authored face.").font(.caption).foregroundColor(Theme.subtle)
-                            slider("Body build", appearance.build, 0.7...1.4, "×") { v in model.updateStageItem(id) { var a = $0.performerAppearance ?? PerformerAppearance(); a.build = v; $0.performerAppearance = a } }
+                            performanceControls(appearance, id: id)
+                            bodyControls(appearance, id: id)
+                            wardrobeControls(appearance, id: id)
+                            complexionControls(appearance, id: id)
+                            measurementControls(appearance, id: id)
+                            faceControls(appearance, id: id)
                         }
                         if fx?.colorWheel != nil {
                             Picker("", selection: Binding(get: { item.onStand ?? true }, set: { v in
@@ -676,6 +617,94 @@ struct StageInspector: View {
                 }
             }
         }
+    }
+
+    @ViewBuilder private func performanceControls(_ appearance: PerformerAppearance, id: UUID) -> some View {
+                            Divider()
+                            Text("Performance").font(.headline)
+                            Picker("Role", selection: Binding(get: { appearance.role }, set: { v in model.updateStageItem(id) { var a = $0.performerAppearance ?? PerformerAppearance(); a.role = v; $0.performerAppearance = a } })) {
+                                ForEach(PerformerRole.allCases) { Text($0.rawValue).tag($0) }
+                            }
+
+    }
+
+    @ViewBuilder private func bodyControls(_ appearance: PerformerAppearance, id: UUID) -> some View {
+                            Divider()
+                            Text("Body & proportions").font(.headline)
+                            Picker("Body shape", selection: Binding(get: { appearance.bodyStyle ?? "Masculine" }, set: { v in model.updateStageItem(id) { var a = $0.performerAppearance ?? PerformerAppearance(); a.bodyStyle = v; $0.performerAppearance = a } })) {
+                                ForEach(["Masculine","Feminine","Androgynous"], id: \.self) { Text($0).tag($0) }
+                            }
+
+    }
+
+    @ViewBuilder private func wardrobeControls(_ appearance: PerformerAppearance, id: UUID) -> some View {
+                            Divider()
+                            Text("Wardrobe & accessories").font(.headline)
+                            Picker("Clothing", selection: Binding(get: { appearance.clothingStyle ?? "Casual" }, set: { v in model.updateStageItem(id) { var a = $0.performerAppearance ?? PerformerAppearance(); a.clothingStyle = v; $0.performerAppearance = a } })) {
+                                ForEach(["Casual","Rock Jacket","Punk","Glam","Formal","Fantasy"], id: \.self) { Text($0).tag($0) }
+                            }
+                            Picker("Accessory", selection: Binding(get: { appearance.accessory ?? "None" }, set: { v in model.updateStageItem(id) { var a = $0.performerAppearance ?? PerformerAppearance(); a.accessory = v; $0.performerAppearance = a } })) {
+                                ForEach(["None","Top Hat","Glasses","Choker","Wings"], id: \.self) { Text($0).tag($0) }
+                            }
+                            Picker("Stance", selection: Binding(get: { appearance.pose ?? "Natural" }, set: { v in model.updateStageItem(id) { var a = $0.performerAppearance ?? PerformerAppearance(); a.pose = v; $0.performerAppearance = a } })) {
+                                ForEach(["Natural","Wide","Performance"], id: \.self) { Text($0).tag($0) }
+                            }
+
+    }
+
+    @ViewBuilder private func complexionControls(_ appearance: PerformerAppearance, id: UUID) -> some View {
+                            Divider()
+                            Text("Hair & complexion").font(.headline)
+                            Picker("Hair", selection: Binding(get: { appearance.hair }, set: { v in model.updateStageItem(id) { var a = $0.performerAppearance ?? PerformerAppearance(); a.hair = v; $0.performerAppearance = a } })) {
+                                ForEach(PerformerHair.allCases) { Text($0.rawValue).tag($0) }
+                            }
+                            Picker("Skin tone", selection: Binding(get: { appearance.skin }, set: { v in model.updateStageItem(id) { var a = $0.performerAppearance ?? PerformerAppearance(); a.skin = v; $0.performerAppearance = a } })) {
+                                ForEach(0..<6) { Text("Tone " + String($0 + 1)).tag($0) }
+                            }
+                            Picker("Outfit", selection: Binding(get: { appearance.outfit }, set: { v in model.updateStageItem(id) { var a = $0.performerAppearance ?? PerformerAppearance(); a.outfit = v; $0.performerAppearance = a } })) {
+                                ForEach(Array(["Black", "Red", "Blue", "White", "Purple", "Green"].enumerated()), id: \.offset) { i, name in Text(name).tag(i) }
+                            }
+                            Picker("Hair color", selection: Binding(get: { appearance.hairColor }, set: { v in model.updateStageItem(id) { var a = $0.performerAppearance ?? PerformerAppearance(); a.hairColor = v; $0.performerAppearance = a } })) {
+                                ForEach(Array(["Black", "Brown", "Blonde", "Red", "Blue", "Silver"].enumerated()), id: \.offset) { i, name in Text(name).tag(i) }
+                            }
+
+    }
+
+    @ViewBuilder private func measurementControls(_ appearance: PerformerAppearance, id: UUID) -> some View {
+                            Divider()
+                            Text("Measurements").font(.headline)
+                            let inches = Int((appearance.height / 0.0254).rounded())
+                            let heightFeet = inches / 12
+                            let heightInches = inches % 12
+                            let heightCentimeters = Int((appearance.height * 100).rounded())
+                            Text("Height: \(heightFeet) ft \(heightInches) in · \(heightCentimeters) cm").font(.caption)
+                            Slider(value: Binding(get: { appearance.height }, set: { v in model.updateStageItem(id) { var a = $0.performerAppearance ?? PerformerAppearance(); a.height = v; $0.performerAppearance = a } }), in: 1.4...2.1, step: 0.01)
+                            let heightRatio: Double = appearance.height / 1.75
+                            let baseWeight: Double = 73.0 * heightRatio * heightRatio
+                            let estimatedWeight: Double = baseWeight * appearance.build
+                            let pounds = Int(estimatedWeight * 2.20462)
+                            let kilograms = Int(estimatedWeight)
+                            let weightRange: ClosedRange<Double> = (baseWeight * 0.7)...(baseWeight * 1.4)
+                            let weightBinding = Binding<Double>(get: { estimatedWeight }, set: { value in
+                                model.updateStageItem(id) { item in
+                                    var a = item.performerAppearance ?? PerformerAppearance()
+                                    let ratio: Double = a.height / 1.75
+                                    let baseline: Double = 73.0 * ratio * ratio
+                                    a.build = min(1.4, max(0.7, value / baseline))
+                                    item.performerAppearance = a
+                                }
+                            })
+                            Text("Estimated weight: \(pounds) lb · \(kilograms) kg").font(.caption)
+                            Slider(value: weightBinding, in: weightRange)
+                            Text("Weight is an approximate visual build control, not a physical simulation.").font(.caption2).foregroundColor(Theme.subtle)
+
+    }
+
+    @ViewBuilder private func faceControls(_ appearance: PerformerAppearance, id: UUID) -> some View {
+                            Divider()
+                            Text("Face").font(.headline)
+                            Text("Independent face meshes are not available for the current bundled models. Use Face view to inspect the authored face.").font(.caption).foregroundColor(Theme.subtle)
+                            slider("Body build", appearance.build, 0.7...1.4, "×") { v in model.updateStageItem(id) { var a = $0.performerAppearance ?? PerformerAppearance(); a.build = v; $0.performerAppearance = a } }
     }
 
     private func slider(_ label: String, _ value: Double, _ range: ClosedRange<Double>, _ unit: String, set: @escaping (Double) -> Void) -> some View {
