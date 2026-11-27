@@ -172,6 +172,16 @@ at game frame rates). For us:
   the impact, followed by a small settle and recovery. Never land with locked straight legs.
   Hair and loose clothing keep falling briefly after the feet land, then settle (secondary motion).
 
+**Locomotion (walking or jogging across the stage).**
+- Each foot lands under the center of mass, not reaching far in front of it.
+- The body bobs only about 3-5 cm per step and never rises above standing height.
+- Lean comes from the ankles with head, shoulders, hips and ankles stacked, not a bend at the waist.
+- Arms swing forward and back with the opposite leg (a saw motion), not up and down.
+- Propulsion pushes the ground backward; faster movement means quicker steps with shorter
+  ground contact, not only longer strides.
+- Stride length and step rate match the distance actually covered, so planted feet never slide
+  on the stage (no foot skating); foot IK keeps each planted foot locked until it lifts.
+
 **Fixed physics time step.** All physics (hair, cloth, sway) steps at a fixed rate, e.g. 60 Hz,
 independent of the display frame rate; rendering interpolates between the last two physics
 states. This keeps motion identical at 30 fps (Light mode on the 2016 MacBook Pro) and 60 fps,
@@ -264,7 +274,7 @@ other rather than snapping.
 - Physics: Stickman Physics, "Physics of Video Games"; Cal State "Postural Stability in Motor
   Control"; Wikipedia "Balance (ability)"; contrapposto (Wikipedia, Art in Context, Robert
   Oosti); Müller et al., "Position Based Dynamics" (2006); Wikipedia "Soft-body dynamics";
-  Real World Physics Problems, "Physics of Gymnastics"; GameDesigning.org, "Game Physics"; Glenn Fiedler, "Fix Your Timestep!"; Godot physics interpolation docs.
+  Real World Physics Problems, "Physics of Gymnastics"; GameDesigning.org, "Game Physics"; Join the Movement Movement, "The Physics of Proper Running"; Glenn Fiedler, "Fix Your Timestep!"; Godot physics interpolation docs.
 - Idles: TV Tropes, "Idle Animation"; Antidote, "How Idle Animations Secretly Give Video Game
   Characters Life"; GarageFarm idle animation tips; Urna "Idle animation in Blender"; IMVU Creator
   "Idle animations".
