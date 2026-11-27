@@ -111,7 +111,16 @@ slider and the clothing area it pushes on.
 - The ball stays centered in the socket (rotator cuff pulls it in): the `Arm` bone only rotates
   about a fixed pivot, never translates. Whole-shoulder shifts (shrug, reach, the shoulder
   blade's third of an arm raise) come from the `Shoulder` bone (collarbone + shoulder blade).
-- Shoulder slider = deltoid cap (the largest shoulder muscle) and sets shirt shoulder width.
+- Two shoulder widths, two sliders:
+  - **Frame (biacromial, bone tip to bone tip):** spacing of the `Shoulder` bones. Men 5th /
+    50th / 95th percentile 15.1 / 16.3 / 17.6 in (median 41.5 cm); women 13.2 / 14.4 / 15.6 in
+    (median 36.5 cm).
+  - **Muscle (bideltoid, across the deltoids):** deltoid slider on top of the frame. Men
+    18.1 / 20.0 / 22.3 in (median 50.9 cm); women 16.0 / 17.7 / 19.7 in (median 45.0 cm).
+  - Realistic mode tops out near the 95th percentile ("very broad"); stylized can go further.
+  - V-taper marker: shoulder circumference / waist circumference ~1.6 is the often-quoted
+    athletic ideal (an aesthetic reference, not an average) for the athletic end of the build
+    slider. Shirt shoulder seams key off the frame width.
 - Raised arms: the deltoid bunches and the armpit opens; corrective shapes keep the shoulder
   and sleeve round instead of pinching (arms-up, victory V, fist up).
 
@@ -459,7 +468,8 @@ other rather than snapping.
 - Muscles: Teach Me Anatomy upper limb, lower limb and abdominal wall pages; OpenStax Anatomy
   & Physiology 11.6; Wikipedia "Abdominal muscles"; Osmosis anterolateral abdominal wall.
 - Shoulders: Wikipedia "Shoulder joint"; StatPearls "Glenohumeral Joint"; Arthritis
-  Foundation "Shoulder Anatomy"; University of Utah shoulder anatomy.
+  Foundation "Shoulder Anatomy"; University of Utah shoulder anatomy; Body Type Calculator "Average Shoulder Width"
+  (ANSUR II, NHANES III).
 - Hips and glutes: Goodwin Living, "Anatomy Lesson: The Hips and Glutes".
 - Hands: LibreTexts / InformedHealth hand bones; Eaton Hand resting cascade; clinical resting
   posture (position of function); tenodesis effect (hand rehab notes); Cornell ergonomics
