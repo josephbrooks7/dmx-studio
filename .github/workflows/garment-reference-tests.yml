@@ -9,6 +9,7 @@ on:
       - 'packaging/blender-garment-smoke.py'
       - 'packaging/inspect-body-reference.py'
       - 'packaging/inspect-body-candidates.py'
+      - 'packaging/blender-body-fit-trial.py'
       - 'packaging/test_*.py'
       - '.github/workflows/garment-reference-tests.yml'
   workflow_dispatch:
@@ -56,4 +57,11 @@ jobs:
         with:
           name: body-candidate-inventory
           path: body-candidate-report.json
+          if-no-files-found: error
+      - name: Fit reference fabric on actual female body
+        run: blender --background --factory-startup --disable-autoexec --python-exit-code 1 --python packaging/blender-body-fit-trial.py -- packaging/character-candidates/bodies/female.usdz body-fit-trial
+      - uses: actions/upload-artifact@v4
+        with:
+          name: female-body-static-fit-trial
+          path: body-fit-trial/fit-trial.json
           if-no-files-found: error
