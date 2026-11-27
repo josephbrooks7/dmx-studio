@@ -856,13 +856,14 @@ enum Build {
                        let hairTemplate = avatarTemplate(hairURL) {
                         let module = hairTemplate.clone()
                         module.name = "hair_module"
+                        // Deep, natural shades: the preview and stage lights are bright, so light values read as white.
                         let hairColors: [NSColor] = [
-                            NSColor(calibratedRed: 0.035, green: 0.03, blue: 0.028, alpha: 1),   // black
-                            NSColor(calibratedRed: 0.20, green: 0.10, blue: 0.045, alpha: 1),    // brown
-                            NSColor(calibratedRed: 0.70, green: 0.52, blue: 0.26, alpha: 1),     // blonde
-                            NSColor(calibratedRed: 0.48, green: 0.11, blue: 0.04, alpha: 1),     // red
-                            NSColor(calibratedRed: 0.08, green: 0.17, blue: 0.62, alpha: 1),     // blue
-                            NSColor(calibratedRed: 0.66, green: 0.66, blue: 0.68, alpha: 1)]     // silver
+                            NSColor(calibratedRed: 0.025, green: 0.022, blue: 0.02, alpha: 1),   // black
+                            NSColor(calibratedRed: 0.15, green: 0.075, blue: 0.035, alpha: 1),   // brown
+                            NSColor(calibratedRed: 0.50, green: 0.34, blue: 0.13, alpha: 1),     // blonde
+                            NSColor(calibratedRed: 0.36, green: 0.07, blue: 0.025, alpha: 1),    // red
+                            NSColor(calibratedRed: 0.05, green: 0.11, blue: 0.42, alpha: 1),     // blue
+                            NSColor(calibratedRed: 0.40, green: 0.40, blue: 0.42, alpha: 1)]     // silver
                         let tone = hairColors[min(max(a.hairColor, 0), hairColors.count - 1)]
                         module.enumerateChildNodes { node, _ in
                             guard let g = node.geometry?.copy() as? SCNGeometry else { return }
@@ -870,7 +871,7 @@ enum Build {
                             m.name = "hair_module_material"
                             m.lightingModel = .physicallyBased
                             m.diffuse.contents = tone
-                            m.roughness.contents = 0.55
+                            m.roughness.contents = 0.72
                             m.metalness.contents = 0.0
                             m.isDoubleSided = true
                             g.materials = [m]

@@ -53,6 +53,41 @@ for obj in list(bpy.data.objects):
 # texture atlas and cannot be recolored, so it stays as the fallback only.
 mesh_names = {o.name for o in bpy.data.objects if o.type == "MESH"}
 print("Character outfit variants kept:", sorted(n for n in mesh_names if n.startswith(("Outfit_", "Skin_", "Top_")) or n in ("Trousers", "Shoes")))
+# Rocketbox female heads ("Body", f00x_head) carry the ponytail inside the head mesh, so it
+# stayed visible under every Character Studio hairstyle. Cut the faces behind the skull into
+# their own object "Hair_ponytail" (exported as Stage_Hair_ponytail, hidden like the other hair).
+# glTF import maps (x, y, z) to Blender (x, -z, y): "behind" is +y or -y depending on the source,
+# so try both and keep the one that selects a plausible ponytail; otherwise leave the head alone.
+import bmesh
+names = {o.name for o in bpy.data.objects}
+if args.kind == "body" and {"Body", "Hair"}.issubset(names):
+    head = bpy.data.objects["Body"]
+    mw = head.matrix_world
+    def tail_faces(sign):
+        def behind(v):
+            p = mw @ v.co
+            back = sign * p.y
+            return back > 0.15 or (back > 0.115 and p.z < 1.60)
+        bm = bmesh.new(); bm.from_mesh(head.data)
+        n = sum(1 for f in bm.faces if all(behind(v) for v in f.verts))
+        bm.free()
+        return n, behind
+    counts = {sign: tail_faces(sign) for sign in (1, -1)}
+    plausible = [sign for sign, (n, _) in counts.items() if 100 <= n <= 900]
+    print("Ponytail face counts by orientation:", {k: v[0] for k, v in counts.items()})
+    if len(plausible) == 1:
+        behind = counts[plausible[0]][1]
+        tail = head.copy(); tail.data = head.data.copy(); tail.name = "Hair_ponytail"
+        for collection in head.users_collection:
+            collection.objects.link(tail)
+        for obj, keep_tail in ((head, False), (tail, True)):
+            bm = bmesh.new(); bm.from_mesh(obj.data)
+            doomed = [f for f in bm.faces if all(behind(v) for v in f.verts) != keep_tail]
+            bmesh.ops.delete(bm, geom=doomed, context="FACES")
+            bm.to_mesh(obj.data); bm.free()
+        print("Separated ponytail from head:", len(tail.data.polygons), "faces")
+    else:
+        print("Ponytail not separated (orientation ambiguous)")
 # Remove only exact duplicate mesh instances (same world-space vertices,
 # topology and material slots). Never guess which distinct clothing layer
 # should be removed: report those for asset-specific inspection instead.
