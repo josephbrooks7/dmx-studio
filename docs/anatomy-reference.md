@@ -172,6 +172,10 @@ Fit checkpoints the fitter verifies on every garment and body (tailoring rules):
   knuckles. One garment can be offered in several sleeve lengths by ending the sleeve at a
   different landmark. The hand-coverage check compares each sleeve with its own style's
   landmark (a coat at the knuckles passes; a tee there fails).
+- **Sleeve shape** is independent of length: fitted (follows the arm, low ease), tapered (wider
+  at the shoulder, narrowing to the cuff), flared (widens toward the end), bell (dramatic flare,
+  volume and movement), oversized. Flared and bell sleeves count as loose fabric and swing with
+  secondary motion; fitted and tapered stay skinned to the arm.
 - **Jacket length** covers the seat; hem near the thumb knuckle with arms relaxed.
 - **Collar:** about 1/2 in of shirt collar shows above a jacket collar; lapels lie flat.
 - **Layering:** inner layers show at collar and cuffs and never poke through outer layers.
@@ -418,7 +422,7 @@ other rather than snapping.
   Anatomy of the Hand" (thumb, finger spread, arches).
 - Sizing: MFG Merch "Pants Size Chart" (men's and women's charts, how to measure, rise and fit);
   Creative Muse "Sizing & Fit" (garment vs body ease, flat-lay, grading, fabric behavior);
-  National Breast Cancer Foundation "Bra Fit Guide"; Saucony men's size chart; Men's Wearhouse "Complete Guide to Men's Suit Sizing and Fit"; Selvane "Sleeve Length Guide"; MasterClass "How to Properly Measure Sleeve Length"; Transfer Express "Design Sizes" (print zones); Lane Bryant / Cacique "Bra Fit Guide".
+  National Breast Cancer Foundation "Bra Fit Guide"; Saucony men's size chart; Men's Wearhouse "Complete Guide to Men's Suit Sizing and Fit"; Selvane "Sleeve Length Guide"; MasterClass "How to Properly Measure Sleeve Length"; Transfer Express "Design Sizes" (print zones); Holy Clothing women's sleeve length guide; Lane Bryant / Cacique "Bra Fit Guide".
 - Proportions: Penn State OpenLab "Proportionality Constants" (Drillis & Contini 1966).
 - Skinning: Kavan et al. (dual quaternion skinning); Walt Disney Animation Studios, "Enhanced
   Dual Quaternion Skinning for Production Use"; Disney Research, "Skinning with Optimized
