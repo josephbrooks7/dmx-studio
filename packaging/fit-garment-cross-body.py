@@ -149,6 +149,15 @@ def main():
         # how much this vertex is "worn on the body" (1) versus hanging free (0)
         free.append(min(max((off - FREE_START) / (FREE_END - FREE_START), 0.0), 1.0))
 
+    # Around the feet the body surface is the shoe, so fitting there would flare trouser hems.
+    # Vertices mostly driven by foot bones follow the skeleton only.
+    def foot_share(v):
+        total = sum(g.weight for g in v.groups) or 1.0
+        return sum(g.weight for g in v.groups if "Foot" in groups.get(g.group, "") or "Toe" in groups.get(g.group, "")) / total
+    feet = [foot_share(v) for v in mesh.vertices]
+    if garment_name != "Shoes":
+        free = [max(f, min(1.0, ft * 2)) for f, ft in zip(free, feet)]
+
     # fit correction toward the target body, keeping the original ease
     delta = []
     for q, e, f in zip(retarget, ease, free):
@@ -170,6 +179,8 @@ def main():
     pushed, worst_inside = 0, 0.0
     for i, p in enumerate(final):
         near, normal, off = signed_offset(dst_tree, p)
+        if garment_name != "Shoes" and feet[i] > 0.3:
+            continue
         if off < CLEARANCE * 0.8:
             worst_inside = min(worst_inside, off)
             final[i] = near + normal * CLEARANCE
@@ -179,8 +190,20 @@ def main():
         relaxed = [p.lerp(sum((final[j] for j in nb), Vector((0, 0, 0))) / len(nb), 0.25) if nb else p
                    for p, nb in zip(final, neighbours)]
         for i, p in enumerate(relaxed):
+            if garment_name != "Shoes" and feet[i] > 0.3:
+                final[i] = p
+                continue
             near, normal, off = signed_offset(dst_tree, p)
             final[i] = p if off >= CLEARANCE * 0.8 else near + normal * CLEARANCE
+
+    covering = {"hand": 0, "head": 0}
+    for v in mesh.vertices:
+        best = max(v.groups, key=lambda g: g.weight, default=None)
+        name = groups.get(best.group, "") if best else ""
+        if "Hand" in name:
+            covering["hand"] += 1
+        elif name.endswith("Head") or "Bip01" in name:
+            covering["head"] += 1
 
     # build the fitted garment bound to the target rig, original weights/UVs/materials kept
     out_mesh = mesh.copy()
@@ -222,12 +245,20 @@ def main():
         for poly in liner_mesh.polygons:
             poly.material_index = 0
         liner_mesh.update()
-        own_groups = {g.index: g.name for g in own.vertex_groups}
-        for g in own.vertex_groups:
+        # the liner stops at the ankle: remove faces mostly driven by the feet
+        import bmesh
+        own_g = {g.index: g.name for g in own.vertex_groups}
+        def own_foot(v):
+            t = sum(g.weight for g in v.groups) or 1.0
+            return sum(g.weight for g in v.groups if "Foot" in own_g.get(g.group, "") or "Toe" in own_g.get(g.group, "")) / t
+        drop = {v.index for v in own.data.vertices if own_foot(v) > 0.3}
+        if drop:
+            bm = bmesh.new(); bm.from_mesh(liner_mesh); bm.verts.ensure_lookup_table()
+            bmesh.ops.delete(bm, geom=[bm.verts[i] for i in drop], context="VERTS")
+            bm.to_mesh(liner_mesh); bm.free(); liner_mesh.update()
+        # the copied mesh already carries the weights; recreate the group names in the same order
+        for g in sorted(own.vertex_groups, key=lambda g: g.index):
             liner.vertex_groups.new(name=g.name)
-        for v in own.data.vertices:
-            for g in v.groups:
-                liner.vertex_groups[own_groups[g.group]].add([v.index], g.weight, "REPLACE")
         liner.parent = dst_rig
         liner.matrix_parent_inverse = dst_rig.matrix_world.inverted()
         lm = liner.modifiers.new("Target rig", "ARMATURE"); lm.object = dst_rig
@@ -242,6 +273,9 @@ def main():
         "vertices_pushed_out_of_body": pushed, "deepest_penetration_before_fix_m": round(-worst_inside, 4),
         "max_body_fit_correction_m": round(max(moved), 4),
         "bone_length_ratios": bone_length_ratios,
+        # Features must stay visible: garment vertices mostly driven by hand, finger or head bones
+        # mean a sleeve or collar is swallowing a hand or the face.
+        "vertices_covering_hands": covering["hand"], "vertices_covering_head": covering["head"],
         "liner": liner.name if liner else None,
         "degenerate_faces": sum(1 for p in out_mesh.polygons if p.area < 1e-10),
         "method": "skeleton retarget + body-surface ease transfer + smoothed correction + clearance",
@@ -256,6 +290,8 @@ def main():
     bpy.ops.export_scene.gltf(filepath=str((out / f"{garment_name}.glb").resolve()), export_format="GLB",
                               use_selection=True, export_animations=False, export_skins=True)
     print("GARMENT_FIT_DONE", json.dumps(report))
+    if garment_name != "Shoes" and (covering["hand"] > 0 or covering["head"] > 0):
+        raise SystemExit(f"Garment covers hands or head: {covering}")
 
 
 if __name__ == "__main__":
