@@ -68,6 +68,26 @@ back pocket = internal rotation + extension + adduction; combing hair = abductio
 external rotation (used for the hair and back-pocket fidget idles). The study's data is
 CC0 (public domain), so its age/sex tables can be bundled as joint-limit data.
 
+**Shoulder by age and sex** (mean active range, Meloq Devices clinical guide, from the user's
+recording; women slightly more mobile at every age):
+| Age | Forward raise M / F | Side raise M / F |
+|---|---|---|
+| 20-29 | 160 / 165 | 170 / 175 |
+| 30-39 | 155 / 160 | 165 / 170 |
+| 40-49 | 150 / 155 | 160 / 165 |
+| 50-59 | 148 / 152 | 155 / 160 |
+| 60-69 | 145 / 148 | 150 / 155 |
+Healthy individuals vary widely (lowest healthy forward raise among men 20-24 was 90°).
+
+**Muscles per shoulder movement** (drives which part bulges in each pose): forward raise =
+front deltoid, chest, coracobrachialis, biceps; side raise = middle deltoid, supraspinatus;
+outward rotation = infraspinatus, teres minor; inward rotation = subscapularis, teres major,
+lats, chest.
+
+**End-of-range compensation.** At their limit people lean the trunk, arch the back or hike the
+shoulder to gain reach. Full reaches (fist to the sky, highest point of a victory V) include a
+little of each, instead of the arm alone going past its limit.
+
 **Individual flexibility.** Default characters allow only 0-5° of elbow and knee overextension
 and modest finger back-bend. Clinical hypermobility (Beighton score, 5+ of 9 in adults) starts
 at more than 10° of elbow or knee overextension, little-finger knuckle bending back beyond 90°,
@@ -544,7 +564,7 @@ other rather than snapping.
   Motion in Exercise"; Ehlers-Danlos Society "Assessing Joint Hypermobility" (Beighton score).
 - Neck: Physiopedia "Cervical Spine Range of Motion" (AAOS norms).
 - Shoulder ranges: FPnotebook "Shoulder Range of Motion"; Gill et al., "Shoulder range of movement
-  in the general population", BMC Musculoskeletal Disorders 2020 (PMC7549223, CC0 data).
+  in the general population", BMC Musculoskeletal Disorders 2020 (PMC7549223, CC0 data); Meloq Devices "Shoulder Range of Motion Norms: A Clinical Guide".
 - Shoulder rhythm: Physiopedia "Scapulohumeral Rhythm"; OUHSC kinesiology notes; Braman et al.
   (PMC2841046).
 - Lumbopelvic rhythm: Takahashi & Yamaji (PMC7064356); Vazirian et al. reviews (CDC stacks);
