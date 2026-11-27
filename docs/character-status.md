@@ -58,8 +58,15 @@ Legend: **IT** implemented and tested · **INV** implemented, not visually verif
 
 ## Blocked / needs Joseph
 
-- **Real animation clips** (natural poses, idles): Mixamo needs Joseph's Adobe sign-in, or we use
-  free open-license mocap with retargeting. Decision pending.
+- **Real animation clips**: decided 2026-11-27, no Mixamo (Joseph has no Adobe sign-in). Sources:
+  - Quaternius Universal Animation Library 1 and 2, free standard versions (CC0): idles,
+    8-direction locomotion, emotes, sitting. Built for retargeting.
+  - CMU Graphics Lab Motion Capture Database: free for all uses, may ship inside a commercial
+    product, but the data can't be resold on its own. Covers dance, walks, gestures and pantomime.
+    Hand and toe channels are noisy and need smoothing; finger joints aren't captured.
+  - MakeHuman's own CC0 poses and expressions.
+  - Retargeted onto the MakeHuman 163-bone rig in CI (Blender), then clamped by the joint-limit
+    table. A credits file is added for CMU.
 - **Visual verification inside the app**: CI renders are from Blender; screenshots of the actual
   app need the Mac (diagnostic capture exists) or a macOS CI capture step (planned).
 
