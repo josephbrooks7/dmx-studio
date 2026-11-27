@@ -25,6 +25,12 @@ struct DMXStudioApp: App {
         if let i = args.firstIndex(of: "--character-render"), i + 1 < args.count {
             exit(MHRenderCLI.run(out: args[i + 1], args: Array(args[(i + 2)...])) ? 0 : 1)
         }
+        // The app's own Character Studio capture (its lighting and framing).
+        if let i = args.firstIndex(of: "--character-capture"), i + 1 < args.count {
+            let a = MHRenderCLI.appearance(Array(args[(i + 2)...]))
+            let ok = (try? CharacterDiagnosticCapture.png(appearance: a, enabled: true)).map { (try? $0.write(to: URL(fileURLWithPath: args[i + 1]))) != nil } ?? false
+            exit(ok ? 0 : 1)
+        }
         if let i = args.firstIndex(of: "--character-sheet"), i + 1 < args.count {
             exit(MHSheetCLI.run(out: args[i + 1], args: Array(args[(i + 2)...])) ? 0 : 1)
         }

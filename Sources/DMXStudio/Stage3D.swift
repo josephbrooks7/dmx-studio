@@ -801,7 +801,8 @@ enum Build {
         // MakeHuman characters (bundled character pack); the older scanned bodies remain only as a
         // fallback when the pack is missing. Custom imported models keep their own path.
         if a.modelPath == nil, let character = MHCharacter.build(a) {
-            if let body = character.childNode(withName: "character_body_for_framing", recursively: false) {
+            // Seat the hat on the scalp (the body mesh), not on top of the hair.
+            if let body = character.childNode(withName: "mh_body", recursively: true) {
                 addTopHat(root: character, body: body, a)
             }
             return character

@@ -730,7 +730,7 @@ enum MHPose {
     }
 
     static var palmTwist: Float = 60
-    static var fingerCurl: Float = 0
+    static var fingerCurl: Float = -20
 
     static func apply(_ pose: String, bones: [SCNNode], index: [String: Int], heads: [SIMD3<Float>], tails: [SIMD3<Float>]) {
         // Arms down from MakeHuman's rest pose (arms angled out, forearms forward), elbows softly bent.
@@ -833,7 +833,7 @@ enum MHRenderCLI {
             case "Pose": a.pose = v
             case "Accessory": a.accessory = v
             case "Twist": MHPose.palmTwist = Float(v) ?? 0
-            case "Curl": MHPose.fingerCurl = Float(v) ?? 0
+            case "Curl": MHPose.fingerCurl = Float(v) ?? -20
             case "Lighting": MHCharacter.unlit = v == "unlit"
             default: break
             }
@@ -850,9 +850,11 @@ enum MHRenderCLI {
         print("MH_RENDER", args.joined(separator: " "), "->", picks.joined(separator: ", "))
         MHCharacter.debugLog = true
         MHCharacter.overrideItems = args.first(where: { $0.hasPrefix("Items=") }).map { $0.dropFirst(6).split(separator: ",").map(String.init) } ?? []
+        let started = Date()
         guard let character = MHCharacter.build(a) else { print("MH_RENDER build failed"); return false }
+        print("MH_TIME build seconds", String(format: "%.3f", Date().timeIntervalSince(started)))
         MHCharacter.overrideItems = []
-        Build.addTopHat(root: character, body: character.childNode(withName: "character_body_for_framing", recursively: false) ?? character, a)
+        Build.addTopHat(root: character, body: character.childNode(withName: "mh_body", recursively: true) ?? character, a)
         let size = CGSize(width: 600, height: 900)
         let images = [0.0, 90.0, 180.0].map { snapshot(character, height: CGFloat(a.height), angle: $0, size: size) }
         let sheet = NSImage(size: NSSize(width: size.width * 3, height: size.height))
