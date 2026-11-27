@@ -43,3 +43,6 @@ asset_packs/hats03/hats03_cc-by.zip CC-BY hats and caps
 asset_packs/glasses01/glasses01_cc0.zip CC0 glasses
 asset_packs/glasses02/glasses02_ccby.zip CC-BY glasses
 asset_packs/gloves01/gloves01_cc0.zip CC0 gloves
+asset_packs/poses01/poses01_cc0.zip CC0 sitting poses
+asset_packs/poses02/poses02_cc0.zip CC0 sports poses
+functional/faceunits01.zip CC0 ARKit-style face units (expressions)

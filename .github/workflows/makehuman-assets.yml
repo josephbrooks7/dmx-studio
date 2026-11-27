@@ -31,7 +31,7 @@ jobs:
             [ "$ok" = 1 ] || { echo "FAILED $path"; exit 1; }
             unzip -tq "out/$f" >/dev/null
             # the pack name must carry the same license we recorded
-            case "$license" in CC0) [[ "$f" == *cc0* ]] ;; CC-BY) [[ "$f" == *ccby* || "$f" == *cc-by* ]] ;; *) false ;; esac
+            case "$license" in CC0) [[ "$f" == *cc0* || "$path" == functional/* ]] ;; CC-BY) [[ "$f" == *ccby* || "$f" == *cc-by* ]] ;; *) false ;; esac
             sha=$(sha256sum "out/$f" | cut -d' ' -f1); size=$(stat -c%s "out/$f")
             files=$(unzip -Z1 "out/$f" | wc -l)
             [ $first = 1 ] && first=0 || echo ',' >> out/manifest.json

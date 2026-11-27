@@ -160,6 +160,69 @@ def watch(V, F, side=1):
     parts.append((pos, tris, np.zeros((len(pos), 2))))
     return merge(parts)
 
+
+def smoothstep(a, b, x):
+    t = np.clip((x - a) / (b - a), 0, 1); return t * t * (3 - 2 * t)
+
+def quiff_undercut(V, F):
+    """Short faded sides and back with a tall top swept up and back at the front (Red Velvet original).
+    Built as a shell over the scalp region of the base head, so it fits every head shape."""
+    c = joint(V, "joint-head") * 0 + np.array([0.0, (joint(V, "joint-head")[1] + joint(V, "joint-head-2")[1]) / 2, 0.55])
+    top_y = V[np.unique(F)][:, 1].max()
+    eye_y = joint(V, "joint-l-eye")[1]
+    front_hl = eye_y + 0.68                                          # forehead hairline
+    def in_scalp(p):
+        d = p - c; phi = np.arctan2(d[0], d[2])                     # 0 = front
+        f = (1 + np.cos(phi)) / 2
+        hl = (eye_y - 0.55) + (front_hl - (eye_y - 0.55)) * f ** 0.7
+        ear = abs(p[0]) > 0.78 and (eye_y - 0.4) < p[1] < (eye_y + 0.32)
+        return p[1] > hl and not ear
+    body = np.unique(F)
+    keep = {i for i in body if in_scalp(V[i])}
+    tris = np.array([t for t in F if all(i in keep for i in t)])
+    ids = np.unique(tris); remap = {int(o): k for k, o in enumerate(ids)}
+    P0 = V[ids].copy()
+    tri = np.vectorize(remap.get)(tris)
+    for _ in range(2):                                               # midpoint subdivision x2 -> smooth surface
+        P0, tri = subdivide(P0, tri)
+    out = P0 - c; out /= np.linalg.norm(out, axis=1, keepdims=True)
+    y, x, z = P0[:, 1], np.abs(P0[:, 0]), P0[:, 2]
+    top = smoothstep(front_hl - 0.3, front_hl + 0.1, y) * (1 - smoothstep(0.36, 0.6, x))
+    front = smoothstep(-0.3, 1.35, z)
+    crown = smoothstep(top_y - 0.5, top_y, y)
+    fade = 0.02 + 0.035 * smoothstep(eye_y - 0.5, front_hl, y)
+    t = fade + top * (0.10 + 0.20 * front + 0.04 * crown)
+    sweep = (top * front ** 2)[:, None] * np.array([0, 0.16, -0.02])  # front lifts up and back
+    P = P0 + out * t[:, None] + sweep
+    P = laplacian(P, tri, 6, 0.5)
+    return P, tri, np.zeros((len(P), 2))
+
+def subdivide(P, T):
+    edges = {}; newP = list(P); out = []
+    def mid(a, b):
+        k = (min(a, b), max(a, b))
+        if k not in edges: edges[k] = len(newP); newP.append((P[a] + P[b]) / 2)
+        return edges[k]
+    for a, b, c in T:
+        ab, bc, ca = mid(a, b), mid(b, c), mid(c, a)
+        out += [(a, ab, ca), (ab, b, bc), (ca, bc, c), (ab, bc, ca)]
+    return np.array(newP), np.array(out)
+
+def laplacian(P, T, iters, lam):
+    n = len(P); nb = [set() for _ in range(n)]
+    for a, b, c in T: nb[a] |= {b, c}; nb[b] |= {a, c}; nb[c] |= {a, b}
+    deg = np.array([len(x) for x in nb]); border = set()
+    from collections import Counter
+    ec = Counter(tuple(sorted(e)) for a, b, c in T for e in ((a, b), (b, c), (c, a)))
+    for (a, b), k in ec.items():
+        if k == 1: border |= {a, b}
+    idx = [list(x) for x in nb]
+    for _ in range(iters):
+        avg = np.array([P[i].mean(0) if i else p for p, i in zip(P, idx)])
+        m = np.ones(n); m[list(border)] = 0
+        P = P + lam * m[:, None] * (avg - P)
+    return P
+
 def merge(parts):
     pos, tris, uvs, base = [], [], [], 0
     for p, t, u in parts:
@@ -175,17 +238,19 @@ def main():
     cat["items"] = [i for i in cat["items"] if not i["id"].startswith("rv_")]
     cat.setdefault("licenses", {})["Red Velvet original"] = "Original work of Red Velvet Studios"
     made = [("rv_gold_rope_chain", "Gold rope chain", rope_chain(V, F), ["chain", "necklace", "gold", "hip-hop", "streetwear"]),
-            ("rv_gold_watch", "Gold watch", watch(V, F), ["watch", "gold", "wrist"])]
+            ("rv_gold_watch", "Gold watch", watch(V, F), ["watch", "gold", "wrist"]),
+            ("rv_quiff_undercut", "Quiff undercut", quiff_undercut(V, F), ["hair", "short", "quiff", "undercut", "male"])]
     for iid, name, (pos, tris, uv), tags in made:
         idx, w, off = bind(pos, V, F)
         write_bin(lib / "items" / iid / "item.bin",
                   {"kind": "item", "id": iid, "scales": [scales["x_scale"], scales["y_scale"], scales["z_scale"]], "zDepth": "60"},
                   {"positions": pos.astype(np.float32), "uvs": uv.astype(np.float32), "triangles": tris.astype(np.uint32).reshape(-1),
                    "bindIndex": idx, "bindWeight": w, "bindOffset": off, "deleteVerts": np.zeros(0, np.uint32)})
-        cat["items"].append({"id": iid, "name": name, "slot": "jewelry", "pack": "red-velvet-originals", "license": "Red Velvet original",
+        slot = "hair" if "hair" in tags else "jewelry"
+        cat["items"].append({"id": iid, "name": name, "slot": slot, "pack": "red-velvet-originals", "license": "Red Velvet original",
                              "author": "Red Velvet Studios", "tags": tags, "styles": ["hip-hop", "glam"], "gender": "any",
                              "file": f"items/{iid}/item.bin", "textures": {}, "thumb": None, "transparent": False,
-                             "diffuseColor": [0.93, 0.70, 0.28], "metal": True, "roughness": 0.28, "vertices": int(len(pos))})
+                             "diffuseColor": [0.32, 0.22, 0.13] if slot == "hair" else [0.93, 0.70, 0.28], "metal": slot != "hair", "roughness": 0.6 if slot == "hair" else 0.28, "vertices": int(len(pos))})
         print(iid, len(pos), "verts", len(tris), "tris", "max offset", float(np.linalg.norm(off, axis=1).max()))
     json.dump(cat, open(lib / "catalog.json", "w"), indent=1)
 
