@@ -91,6 +91,37 @@ def main():
             scene.render.filepath = str((out / f"{state}-{angle}.png").resolve())
             bpy.ops.render.render(write_still=True)
 
+    # Pose test: the same fitted garment on the character in other poses. Clothes are bound to the
+    # body's skeleton, so they must follow; anything poking through shows up here.
+    from math import radians
+    from mathutils import Quaternion
+    own.hide_render = True; fitted.hide_render = False
+    for l in liner:
+        l.hide_render = False
+    poses = {
+        "pose-arms-raised": {"mixamorig:LeftArm": ((1, 0, 0), -70), "mixamorig:RightArm": ((1, 0, 0), -70),
+                             "mixamorig:LeftForeArm": ((1, 0, 0), -30), "mixamorig:RightForeArm": ((1, 0, 0), -30)},
+        "pose-step": {"mixamorig:LeftUpLeg": ((1, 0, 0), -35), "mixamorig:LeftLeg": ((1, 0, 0), 45),
+                      "mixamorig:RightArm": ((0, 0, 1), 25), "mixamorig:Spine1": ((0, 1, 0), 12)},
+    }
+    for pose_name, bones in poses.items():
+        saved = {}
+        for bone, (axis, deg) in bones.items():
+            pb = rig.pose.bones.get(bone)
+            if pb is None:
+                continue
+            pb.rotation_mode = "QUATERNION"
+            saved[bone] = pb.rotation_quaternion.copy()
+            pb.rotation_quaternion = pb.rotation_quaternion @ Quaternion(axis, radians(deg))
+        bpy.context.view_layer.update()
+        for angle, offset in [("front", (0, -3, 0)), ("profile", (3, 0, 0))]:
+            cam.location = center + Vector(offset) * height; aim(cam, center)
+            scene.render.filepath = str((out / f"{pose_name}-{angle}.png").resolve())
+            bpy.ops.render.render(write_still=True)
+        for bone, q in saved.items():
+            rig.pose.bones[bone].rotation_quaternion = q
+        bpy.context.view_layer.update()
+
 
 if __name__ == "__main__":
     main()

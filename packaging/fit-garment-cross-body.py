@@ -94,7 +94,15 @@ def main():
     def rest(rig):
         return {b.name: rig.matrix_world @ b.matrix_local for b in rig.data.bones}
     src_rest, dst_rest = rest(src_rig), rest(dst_rig)
-    deltas = {n: dst_rest[n] @ src_rest[n].inverted() for n in src_rest if n in dst_rest}
+    # Each bone carries its stretch too: a bone's local Y axis runs along its length, so scaling
+    # local Y by the length ratio makes a sleeve or trouser leg longer on longer arms or legs.
+    def length_ratio(n):
+        a, b = src_rig.data.bones[n].length, dst_rig.data.bones[n].length
+        return min(max(b / a, 0.6), 1.6) if a > 1e-5 else 1.0
+    deltas = {n: dst_rest[n] @ Matrix.Diagonal((1, length_ratio(n), 1, 1)) @ src_rest[n].inverted()
+              for n in src_rest if n in dst_rest}
+    bone_length_ratios = {n: round(length_ratio(n), 3) for n in deltas
+                          if any(k in n for k in ("Arm", "ForeArm", "UpLeg", "Leg", "Spine"))}
 
     mesh = garment.data
     groups = {g.index: g.name for g in garment.vertex_groups}
@@ -208,6 +216,7 @@ def main():
         "vertices_without_matching_bones": unmatched,
         "vertices_pushed_out_of_body": pushed, "deepest_penetration_before_fix_m": round(-worst_inside, 4),
         "max_body_fit_correction_m": round(max(moved), 4),
+        "bone_length_ratios": bone_length_ratios,
         "liner": liner.name if liner else None,
         "degenerate_faces": sum(1 for p in out_mesh.polygons if p.area < 1e-10),
         "method": "skeleton retarget + body-surface ease transfer + smoothed correction + clearance",
