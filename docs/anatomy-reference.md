@@ -152,6 +152,20 @@ at game frame rates). For us:
   never passing through the body (same clearance rules as the fitter).
 - Tight garments stay purely skinned.
 
+**Jumps and spins (airborne moves: a jump on the drop, a spin, a leap off a riser).**
+- Once the feet leave the stage the center of mass follows a fixed arc (a parabola under g) set
+  by the takeoff speed and direction. Arms and legs can move around it, but nothing done in the
+  air changes that path. Hang time for a jump of height h is 2*sqrt(2h/g) (a 30 cm jump is
+  ~0.5 s in the air).
+- The body rotates about its center of mass. With no torque from gravity, angular momentum is
+  conserved: pulling arms and legs in spins faster, spreading them slows the spin, and an arm
+  swung one way turns the body the other way. A spin can't start or speed up mid-air without
+  such a counter-movement.
+- Takeoff: a crouch (hips, knees and ankles bend) before the push, arms swing up with it.
+- Landing: toes first, then ankles, knees and hips bend together over a short moment to absorb
+  the impact, followed by a small settle and recovery. Never land with locked straight legs.
+  Hair and loose clothing keep falling briefly after the feet land, then settle (secondary motion).
+
 **Fixed physics time step.** All physics (hair, cloth, sway) steps at a fixed rate, e.g. 60 Hz,
 independent of the display frame rate; rendering interpolates between the last two physics
 states. This keeps motion identical at 30 fps (Light mode on the 2016 MacBook Pro) and 60 fps,
@@ -197,5 +211,5 @@ hands rest on the mic and guitar instead of passing through them.
 - Physics: Stickman Physics, "Physics of Video Games"; Cal State "Postural Stability in Motor
   Control"; Wikipedia "Balance (ability)"; contrapposto (Wikipedia, Art in Context, Robert
   Oosti); Müller et al., "Position Based Dynamics" (2006); Wikipedia "Soft-body dynamics";
-  Glenn Fiedler, "Fix Your Timestep!"; Godot physics interpolation docs.
+  Real World Physics Problems, "Physics of Gymnastics"; Glenn Fiedler, "Fix Your Timestep!"; Godot physics interpolation docs.
 - Reference only, not used for assets: Innerbody Anatomy Explorer; Anatomy 3D Atlas.
