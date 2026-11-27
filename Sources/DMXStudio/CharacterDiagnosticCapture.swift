@@ -50,4 +50,25 @@ enum CharacterDiagnosticCapture {
               png.count <= 4 * 1024 * 1024 else { throw CaptureError.encodingFailed }
         return png
     }
+
+    /// Publish a request-specific image only after a successful render.
+    @MainActor
+    static func export(appearance: PerformerAppearance, requestID: UUID, enabled: Bool) throws -> URL {
+        guard enabled else { throw CaptureError.disabled }
+        let data = try png(appearance: appearance, enabled: enabled)
+        let root = try FileManager.default.url(for: .applicationSupportDirectory,
+            in: .userDomainMask, appropriateFor: nil, create: true)
+            .appendingPathComponent("DMX Studio", isDirectory: true)
+            .appendingPathComponent("DiagnosticPreviews", isDirectory: true)
+        try FileManager.default.createDirectory(at: root, withIntermediateDirectories: true,
+            attributes: [.posixPermissions: 0o700])
+        let attributes = try FileManager.default.attributesOfItem(atPath: root.path)
+        guard attributes[.type] as? FileAttributeType == .typeDirectory,
+              let permissions = attributes[.posixPermissions] as? NSNumber,
+              permissions.intValue & 0o077 == 0 else { throw CaptureError.encodingFailed }
+        let destination = root.appendingPathComponent(requestID.uuidString.lowercased() + ".png")
+        try data.write(to: destination, options: [.atomic])
+        try FileManager.default.setAttributes([.posixPermissions: 0o600], ofItemAtPath: destination.path)
+        return destination
+    }
 }
