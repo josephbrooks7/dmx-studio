@@ -64,6 +64,10 @@ Legend: **IT** implemented and tested · **INV** implemented, not visually verif
   - CMU Graphics Lab Motion Capture Database: free for all uses, may ship inside a commercial
     product, but the data can't be resold on its own. Covers dance, walks, gestures and pantomime.
     Hand and toe channels are noisy and need smoothing; finger joints aren't captured.
+  - KinemIQ free-game-animations (github.com/Kinemiq/free-game-animations, CC0): 35 of the
+    Quaternius clips already cleaned and retargeted to one 66-bone skeleton, FBX and GLB. Mirrored
+    to release animation-clips-1 by `.github/workflows/animation-clips.yml`. Only this CC0 repo is
+    used; KinemIQ's larger 460-clip site mixes in CC BY mocap and isn't imported.
   - MakeHuman's own CC0 poses and expressions.
   - Retargeted onto the MakeHuman 163-bone rig in CI (Blender), then clamped by the joint-limit
     table. A credits file is added for CMU.

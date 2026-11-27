@@ -1,0 +1,84 @@
+name: Animation clips (CC0)
+# Mirrors the CC0 KinemIQ/Quaternius animation pack into this repo's releases (one place for
+# assets), inspects every clip in Blender and commits a manifest plus review frames.
+on:
+  push:
+    branches-ignore: [main]
+    paths:
+      - 'packaging/animations/*.py'
+      - '.github/workflows/animation-clips.yml'
+  workflow_dispatch:
+permissions:
+  contents: write
+concurrency:
+  group: animation-clips-${{ github.ref }}
+  cancel-in-progress: true
+jobs:
+  clips:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 40
+    env:
+      GH_TOKEN: ${{ github.token }}
+      TAG: animation-clips-1
+    steps:
+      - uses: actions/checkout@v4
+      - name: Download KinemIQ free animations (CC0, motion by Quaternius)
+        run: |
+          set -euo pipefail
+          mkdir -p dl
+          gh release download -R Kinemiq/free-game-animations -D dl -p '*.zip' || gh release download -R Kinemiq/free-game-animations -D dl
+          curl -fsSL -o dl/LICENSE-KinemIQ.txt https://raw.githubusercontent.com/Kinemiq/free-game-animations/HEAD/LICENSE
+          curl -fsSL -o dl/README-KinemIQ.md https://raw.githubusercontent.com/Kinemiq/free-game-animations/HEAD/README.md
+          ls -la dl
+          mkdir -p glb && for z in dl/*GLB*.zip; do unzip -q -o "$z" -d glb; done
+          find glb -type f | head -80
+      - name: Mirror into this repo's releases
+        run: |
+          set -euo pipefail
+          gh release view "$TAG" -R "$GITHUB_REPOSITORY" >/dev/null 2>&1 || gh release create "$TAG" -R "$GITHUB_REPOSITORY" --prerelease \
+            --title "Animation clips (CC0)" \
+            --notes "Mirror of Kinemiq/free-game-animations (CC0 1.0; motion from the Universal Animation Library by Quaternius, CC0). Built by .github/workflows/animation-clips.yml."
+          gh release upload "$TAG" -R "$GITHUB_REPOSITORY" dl/* --clobber
+      - name: Restore official Blender archive cache
+        uses: actions/cache@v4
+        with:
+          path: ${{ runner.temp }}/dmx-blender-cache
+          key: blender-4.5.16-linux-x64-verified-v1
+      - name: Install official Blender 4.5.16 LTS
+        shell: bash
+        run: |
+          set -euo pipefail
+          mkdir -p "$RUNNER_TEMP/dmx-blender-cache"; cd "$RUNNER_TEMP/dmx-blender-cache"
+          base=https://download.blender.org/release/Blender4.5; archive=blender-4.5.16-linux-x64.tar.xz
+          test -s blender.sha256 || curl -fL --retry 4 -o blender.sha256 "$base/blender-4.5.16.sha256"
+          (test -s "$archive" && grep -F "$archive" blender.sha256 | sha256sum --check --strict) || curl -fL --retry 4 -o "$archive" "$base/$archive"
+          grep -F "$archive" blender.sha256 | sha256sum --check --strict
+          tar -xJf "$archive" -C "$RUNNER_TEMP"
+          echo "$RUNNER_TEMP/blender-4.5.16-linux-x64" >> "$GITHUB_PATH"
+      - name: Inspect clips and render review frames
+        run: |
+          mkdir -p packaging/animations/review
+          blender --background --factory-startup --python-exit-code 1 --python packaging/animations/inspect_clips.py -- glb packaging/animations/review 2>&1 | grep -E "CLIPS|Error|Traceback" || true
+          pip install --quiet pillow
+          python3 - <<'PY'
+          import glob, os
+          from PIL import Image
+          frames = sorted(glob.glob('packaging/animations/review/frames/*.png'))
+          if frames:
+              w, h = Image.open(frames[0]).size
+              cols = 6; rows = (len(frames) + cols - 1) // cols
+              sheet = Image.new('RGB', (cols * w // 2, rows * h // 2), 'white')
+              for i, f in enumerate(frames):
+                  im = Image.open(f).convert('RGB').resize((w // 2, h // 2))
+                  sheet.paste(im, ((i % cols) * w // 2, (i // cols) * h // 2))
+              sheet.save('packaging/animations/review/contact-sheet.png')
+          for f in frames: os.remove(f)
+          PY
+      - name: Commit review
+        if: always()
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898283+github-actions[bot]@users.noreply.github.com"
+          git add packaging/animations/review || true
+          git commit -m "Animation clips review (run ${{ github.run_id }})" || echo "nothing to commit"
+          git pull --rebase origin ${{ github.ref_name }} && git push origin HEAD:${{ github.ref_name }}
