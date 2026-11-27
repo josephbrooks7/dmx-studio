@@ -175,7 +175,30 @@ simulation spiral.
 **Collision.** Performers and props collide with the stage floor, mic stands and instruments so
 hands rest on the mic and guitar instead of passing through them.
 
-## 8. How this is used
+## 8. Performer idle and gesture system
+
+A performer standing perfectly still reads as unnatural. Idles are layered:
+
+1. **Base layer (always on):** breathing (chest and shoulders rise/fall), slight postural sway,
+   contrapposto weight on one leg with periodic weight shifts between legs.
+2. **Music layer:** nod or foot tap on the detected beat; sway amplitude follows song energy
+   (subtle in verses, bigger in choruses, still in silences).
+3. **Fidgets (occasional, randomized, never repeating back-to-back):** adjust the mic or stand,
+   hand through hair, tug clothing, look out across the crowd, glance at bandmates, point to the
+   audience; instrumentalists touch up tuning or adjust the strap.
+4. **Interaction:** bandmates turn toward each other during solos; the singer looks back to the
+   drummer before a drop.
+5. **Section gestures:** song structure triggers gestures (arms up on a chorus, fist up on the
+   final hit, mic-stand lean through a verse), the same way it triggers lights.
+6. **Between songs / long waits:** escalating rest idles (weight shift, then a water sip, then
+   talking to the band or tuning).
+7. **Role and personality:** singer, bassist, guitarist, drummer and keys each get their own
+   idle set; later a style per character (energetic, chill, brooding) picks among them.
+
+All layers obey the joint table, balance and ground-contact rules, and blend smoothly into each
+other rather than snapping.
+
+## 9. How this is used
 
 1. **Joint table** (`packaging/joint-limits.json`, shared by the review renderer and the app):
    for each bone, its joint type, allowed axes and the ranges above. Any pose, gesture or
@@ -212,4 +235,5 @@ hands rest on the mic and guitar instead of passing through them.
   Control"; Wikipedia "Balance (ability)"; contrapposto (Wikipedia, Art in Context, Robert
   Oosti); Müller et al., "Position Based Dynamics" (2006); Wikipedia "Soft-body dynamics";
   Real World Physics Problems, "Physics of Gymnastics"; Glenn Fiedler, "Fix Your Timestep!"; Godot physics interpolation docs.
+- Idles: TV Tropes, "Idle Animation".
 - Reference only, not used for assets: Innerbody Anatomy Explorer; Anatomy 3D Atlas.
