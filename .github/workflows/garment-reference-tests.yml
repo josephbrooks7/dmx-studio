@@ -9,6 +9,7 @@ on:
       - 'packaging/blender-garment-smoke.py'
       - 'packaging/inspect-body-reference.py'
       - 'packaging/inspect-body-candidates.py'
+      - 'packaging/extract-runtime-garments.py'
       - 'packaging/blender-body-fit-trial.py'
       - 'packaging/test_*.py'
       - '.github/workflows/garment-reference-tests.yml'
@@ -79,4 +80,11 @@ jobs:
         with:
           name: runtime-source-inventory
           path: runtime-source-inventory.json
+          if-no-files-found: error
+      - name: Extract independent rigged garment modules
+        run: blender --background --factory-startup --disable-autoexec --python-exit-code 1 --python packaging/extract-runtime-garments.py -- runtime-source/andre_casual.glb runtime-source/emma_casual.glb garment-modules
+      - uses: actions/upload-artifact@v4
+        with:
+          name: runtime-garment-modules
+          path: garment-modules/
           if-no-files-found: error
