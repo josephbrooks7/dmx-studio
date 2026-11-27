@@ -8,7 +8,8 @@ usage: blender --background --python render-garment-fit-review.py -- TARGET.glb 
 import sys
 from pathlib import Path
 import bpy
-from mathutils import Vector
+from mathutils import Vector, Matrix, Quaternion
+from math import radians
 
 TOP_SKIN = {"Top_tee": "Skin_tee", "Top_shirt": "Skin_shirt"}
 
@@ -98,43 +99,54 @@ def main():
     own.hide_render = True; fitted.hide_render = False
     for l in liner:
         l.hide_render = False
-    # Performance gestures (shared with the stage performer's gesture set). Rotations are
-    # (axis, degrees) in each pose bone's local space; fingers curl about local X.
+    # Performance gestures (shared with the stage performer's gesture set).
+    # ("aim", (x, y, z)): point that limb bone in a world direction. The character faces -Y, its
+    # left is +X and up is +Z. ("tilt", axis, deg): turn a bone about a world axis (head, spine).
+    # ("curl", deg): bend a finger joint. ("drop", metres): lower the hips (crouches).
     def curl(side, fingers, deg=80):
-        return {f"mixamorig:{side}Hand{f}{k}": ((1, 0, 0), deg) for f in fingers for k in (1, 2, 3)}
+        return {f"mixamorig:{side}Hand{f}{k}": ("curl", deg) for f in fingers for k in (1, 2, 3)}
+    def mirror(d):
+        out = {}
+        for k, v in d.items():
+            if v[0] == "aim":
+                out[k.replace("Left", "#").replace("Right", "Left").replace("#", "Right")] = ("aim", (-v[1][0], v[1][1], v[1][2]))
+        return out
+    A = "aim"
+    mic = {"mixamorig:RightArm": (A, (-0.3, -0.5, -0.8)), "mixamorig:RightForeArm": (A, (0.35, -0.45, 0.85)),
+           **curl("Right", ("Index", "Middle", "Ring", "Pinky"), 85)}
+    arms_up = {"mixamorig:LeftArm": (A, (0.25, 0, 1)), "mixamorig:LeftForeArm": (A, (0.15, 0, 1))}
+    arms_out = {"mixamorig:LeftArm": (A, (1, 0, 0.05)), "mixamorig:LeftForeArm": (A, (1, 0, 0.05))}
+    victory = {"mixamorig:LeftArm": (A, (0.6, 0, 1)), "mixamorig:LeftForeArm": (A, (0.6, 0, 1))}
+    wide_legs = {"mixamorig:LeftUpLeg": (A, (0.4, 0, -1)), "mixamorig:LeftLeg": (A, (0.4, 0, -1))}
     poses = {
-        "pose-arms-up": {"mixamorig:LeftArm": ((0, 0, 1), -75), "mixamorig:RightArm": ((0, 0, 1), 75)},
-        "pose-arms-out": {"mixamorig:LeftArm": ((0, 0, 1), -40), "mixamorig:RightArm": ((0, 0, 1), 40)},
-        "pose-mic-hold": {"mixamorig:RightArm": ((1, 0, 0), -45), "mixamorig:RightForeArm": ((0, 0, 1), 115),
-                          **curl("Right", ("Index", "Middle", "Ring", "Pinky"), 85)},
-        "pose-arms-crossed": {"mixamorig:LeftArm": ((1, 0, 0), -35), "mixamorig:RightArm": ((1, 0, 0), -35),
-                              "mixamorig:LeftForeArm": ((0, 0, 1), -105), "mixamorig:RightForeArm": ((0, 0, 1), 105)},
-        "pose-peace-sign": {"mixamorig:RightArm": ((0, 0, 1), 60), "mixamorig:RightForeArm": ((0, 0, 1), 70),
-                            **curl("Right", ("Ring", "Pinky"), 90), "mixamorig:RightHandThumb2": ((1, 0, 0), 45)},
-        "pose-rock-horns": {"mixamorig:RightArm": ((0, 0, 1), 80), "mixamorig:RightForeArm": ((0, 0, 1), 20),
-                            **curl("Right", ("Middle", "Ring"), 90), "mixamorig:RightHandThumb2": ((1, 0, 0), 45)},
+        "pose-arms-up": {**arms_up, **mirror(arms_up)},
+        "pose-arms-out": {**arms_out, **mirror(arms_out)},
+        "pose-mic-hold": {**mic, "mixamorig:LeftArm": (A, (0.2, 0, -1))},
+        "pose-arms-crossed": {"mixamorig:LeftArm": (A, (0.2, -0.45, -0.85)), "mixamorig:LeftForeArm": (A, (-1, -0.3, 0.15)),
+                              "mixamorig:RightArm": (A, (-0.2, -0.5, -0.85)), "mixamorig:RightForeArm": (A, (1, -0.35, 0.25))},
+        "pose-peace-sign": {"mixamorig:RightArm": (A, (-0.55, -0.2, 0.8)), "mixamorig:RightForeArm": (A, (-0.2, -0.1, 1)),
+                            **curl("Right", ("Ring", "Pinky"), 90), "mixamorig:RightHandThumb2": ("curl", 45)},
+        "pose-rock-horns": {"mixamorig:RightArm": (A, (-0.3, -0.1, 1)), "mixamorig:RightForeArm": (A, (-0.1, 0, 1)),
+                            **curl("Right", ("Middle", "Ring"), 90), "mixamorig:RightHandThumb2": ("curl", 45)},
         # from real stage photos
-        "pose-mic-stand-sing": {"mixamorig:RightArm": ((1, 0, 0), -50), "mixamorig:RightForeArm": ((0, 0, 1), 125),
-                                **curl("Right", ("Index", "Middle", "Ring", "Pinky"), 85),
-                                "mixamorig:Spine1": ((1, 0, 0), 8), "mixamorig:Head": ((1, 0, 0), -10)},
-        "pose-wide-stance-bass": {"mixamorig:LeftUpLeg": ((0, 0, 1), 18), "mixamorig:RightUpLeg": ((0, 0, 1), -18),
-                                  "mixamorig:LeftLeg": ((1, 0, 0), 15), "mixamorig:RightLeg": ((1, 0, 0), 15),
-                                  "mixamorig:LeftArm": ((1, 0, 0), -40), "mixamorig:LeftForeArm": ((0, 0, 1), -60),
-                                  "mixamorig:RightArm": ((1, 0, 0), -25), "mixamorig:RightForeArm": ((0, 0, 1), 45),
-                                  "mixamorig:Head": ((1, 0, 0), 20)},
-        "pose-victory-v": {"mixamorig:LeftArm": ((0, 0, 1), -95), "mixamorig:RightArm": ((0, 0, 1), 95),
-                           **curl("Right", ("Index", "Middle", "Ring", "Pinky"), 85)},
-        "pose-crouch-peace": {"mixamorig:LeftUpLeg": ((1, 0, 0), -80), "mixamorig:RightUpLeg": ((1, 0, 0), -80),
-                              "mixamorig:LeftLeg": ((1, 0, 0), 120), "mixamorig:RightLeg": ((1, 0, 0), 120),
-                              "mixamorig:Hips": ((0, 0, 1), 0),
-                              "mixamorig:RightArm": ((1, 0, 0), -50), "mixamorig:RightForeArm": ((0, 0, 1), 120),
-                              "mixamorig:LeftArm": ((0, 0, 1), -70), "mixamorig:LeftForeArm": ((0, 0, 1), -60),
+        "pose-mic-stand-sing": {**mic, "mixamorig:LeftArm": (A, (0.15, 0.05, -1)),
+                                "mixamorig:Spine1": ("tilt", (1, 0, 0), -8), "mixamorig:Head": ("tilt", (1, 0, 0), 10)},
+        "pose-wide-stance-bass": {**wide_legs, **mirror(wide_legs),
+                                  "mixamorig:LeftArm": (A, (0.35, -0.5, -0.8)), "mixamorig:LeftForeArm": (A, (-0.8, -0.55, 0.1)),
+                                  "mixamorig:RightArm": (A, (-0.3, -0.3, -0.9)), "mixamorig:RightForeArm": (A, (0.6, -0.6, -0.4)),
+                                  "mixamorig:Head": ("tilt", (1, 0, 0), -20)},
+        "pose-victory-v": {**victory, **mirror(victory), **curl("Right", ("Index", "Middle", "Ring", "Pinky"), 85)},
+        "pose-crouch-peace": {"mixamorig:Hips": ("drop", 0.38),
+                              "mixamorig:LeftUpLeg": (A, (0.45, -0.9, -0.05)), "mixamorig:LeftLeg": (A, (0.15, 0.25, -1)),
+                              "mixamorig:RightUpLeg": (A, (-0.45, -0.9, -0.05)), "mixamorig:RightLeg": (A, (-0.15, 0.25, -1)),
+                              **mic, "mixamorig:LeftArm": (A, (0.7, -0.2, 0.7)), "mixamorig:LeftForeArm": (A, (0.2, -0.1, 1)),
                               **curl("Left", ("Ring", "Pinky"), 90)},
-        "pose-fist-up-wide": {"mixamorig:LeftArm": ((0, 0, 1), -100), **curl("Left", ("Index", "Middle", "Ring", "Pinky"), 90),
-                              "mixamorig:LeftUpLeg": ((0, 0, 1), 25), "mixamorig:RightUpLeg": ((0, 0, 1), -25),
-                              "mixamorig:RightArm": ((0, 0, 1), 20), "mixamorig:Head": ((1, 0, 0), -20)},
-        "pose-step": {"mixamorig:LeftUpLeg": ((1, 0, 0), -35), "mixamorig:LeftLeg": ((1, 0, 0), 45),
-                      "mixamorig:Spine1": ((0, 1, 0), 12)},
+        "pose-fist-up-wide": {**wide_legs, **mirror(wide_legs),
+                              "mixamorig:LeftArm": (A, (0.1, 0, 1)), "mixamorig:LeftForeArm": (A, (0.05, 0, 1)),
+                              **curl("Left", ("Index", "Middle", "Ring", "Pinky"), 90),
+                              "mixamorig:RightArm": (A, (-0.35, -0.1, -0.95)), "mixamorig:Head": ("tilt", (1, 0, 0), 20)},
+        "pose-step": {"mixamorig:LeftUpLeg": (A, (0.05, -0.5, -0.85)), "mixamorig:LeftLeg": (A, (0.05, 0.1, -1)),
+                      "mixamorig:RightUpLeg": (A, (-0.05, 0.25, -1))},
     }
     # full-body framing with headroom for raised arms
     cam_data.ortho_scale = height * 1.45
@@ -149,24 +161,43 @@ def main():
     for name, (loc, rot, scl) in base_pose.items():
         pb = rig.pose.bones[name]; pb.location, pb.rotation_quaternion, pb.scale = loc, rot, scl
     bpy.context.view_layer.update()
-    for pose_name, bones in poses.items():
-        saved = {}
-        for bone, (axis, deg) in bones.items():
-            pb = rig.pose.bones.get(bone)
-            if pb is None:
-                continue
-            pb.rotation_mode = "QUATERNION"
-            saved[bone] = pb.rotation_quaternion.copy()
-            pb.rotation_quaternion = pb.rotation_quaternion @ Quaternion(axis, radians(deg))
+    world3 = rig.matrix_world.to_3x3()
+    to_arm = world3.inverted()
+
+    def apply(name, spec):
+        pb = rig.pose.bones.get(name)
+        if pb is None:
+            return
+        m = pb.matrix.copy()
+        if spec[0] == "aim":
+            want = (to_arm @ Vector(spec[1])).normalized()
+            have = m.to_3x3().col[1].normalized()   # a bone points along its local Y
+            rot = have.rotation_difference(want).to_matrix()
+            pb.matrix = Matrix.Translation(m.translation) @ (rot @ m.to_3x3()).to_4x4()
+        elif spec[0] == "tilt":
+            rot = Quaternion(to_arm @ Vector(spec[1]), radians(spec[2])).to_matrix()
+            pb.matrix = Matrix.Translation(m.translation) @ (rot @ m.to_3x3()).to_4x4()
+        elif spec[0] == "drop":
+            m.translation -= to_arm @ Vector((0, 0, spec[1] * height / 1.75))
+            pb.matrix = m
+        elif spec[0] == "curl":
+            pb.rotation_quaternion = pb.rotation_quaternion @ Quaternion((1, 0, 0), radians(spec[1]))
         bpy.context.view_layer.update()
+
+    order = ["Hips", "Spine", "Spine1", "Spine2", "Neck", "Head", "UpLeg", "Leg", "Shoulder", "Arm", "ForeArm", "Hand"]
+    def rank(name):
+        base = name.split(":")[-1].replace("Left", "").replace("Right", "")
+        return order.index(base) if base in order else len(order)
+    for pose_name, bones in poses.items():
+        for name in sorted(bones, key=rank):
+            apply(name, bones[name])
         for angle, offset in [("front", (0.8, -3, 0))]:
             cam.location = center + Vector(offset) * height; aim(cam, center)
             scene.render.filepath = str((out / f"{pose_name}-{angle}.png").resolve())
             bpy.ops.render.render(write_still=True)
-        for bone, q in saved.items():
-            rig.pose.bones[bone].rotation_quaternion = q
+        for name, (loc, rot, scl) in base_pose.items():
+            pb = rig.pose.bones[name]; pb.location, pb.rotation_quaternion, pb.scale = loc, rot, scl
         bpy.context.view_layer.update()
-
 
 if __name__ == "__main__":
     main()

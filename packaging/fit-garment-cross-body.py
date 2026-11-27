@@ -21,9 +21,9 @@ from mathutils import Vector, Matrix
 from mathutils.bvhtree import BVHTree
 
 BODY_PROXY = "Outfit_original"     # the full, close-fitting body surface each character carries
-MIN_EASE = 0.004                   # fabric never sits closer than 4 mm to the body
-LINER_EASE = 0.0025               # the liner hugs the body inside every garment's minimum ease
-CLEARANCE = 0.005                  # a point found inside the body is pushed out to 5 mm
+MIN_EASE = 0.006                   # fabric never sits closer than 6 mm to the body
+LINER_EASE = 0.0015               # the liner hugs the body, well inside every garment
+CLEARANCE = 0.007                  # garment surface stays at least 7 mm off the body (liner at 1.5 mm)
 FREE_START, FREE_END = 0.035, 0.09 # fabric hanging this far off the body (hems, cuffs) keeps its retargeted shape
 
 
@@ -170,7 +170,7 @@ def main():
     pushed, worst_inside = 0, 0.0
     for i, p in enumerate(final):
         near, normal, off = signed_offset(dst_tree, p)
-        if off < CLEARANCE * 0.6:
+        if off < CLEARANCE * 0.8:
             worst_inside = min(worst_inside, off)
             final[i] = near + normal * CLEARANCE
             pushed += 1
@@ -180,7 +180,7 @@ def main():
                    for p, nb in zip(final, neighbours)]
         for i, p in enumerate(relaxed):
             near, normal, off = signed_offset(dst_tree, p)
-            final[i] = p if off >= CLEARANCE * 0.6 else near + normal * CLEARANCE
+            final[i] = p if off >= CLEARANCE * 0.8 else near + normal * CLEARANCE
 
     # build the fitted garment bound to the target rig, original weights/UVs/materials kept
     out_mesh = mesh.copy()
