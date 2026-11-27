@@ -574,12 +574,14 @@ struct LyricsTab: View {
             VStack(alignment: .leading, spacing: 6) {
                 TextField("Words", text: $editText).textFieldStyle(.roundedBorder)
                 HStack(spacing: 8) {
+                    Group {
                     Text("Start").font(.caption).foregroundColor(.secondary)
                     TextField("0:00.0", text: $editStart).textFieldStyle(.roundedBorder).frame(width: 72)
                     Button("Playhead") { editStart = Self.tc(playhead) }.help("Set the start to where the song is now")
                     Text("End").font(.caption).foregroundColor(.secondary)
                     TextField("0:00.0", text: $editEnd).textFieldStyle(.roundedBorder).frame(width: 72)
                     Button("Playhead") { editEnd = Self.tc(playhead) }.help("Set the end to where the song is now")
+                    }
                     Button { model.play(song.id, from: max(0, (Self.parseTC(editStart) ?? line.start) - 0.5)) } label: { Image(systemName: "play.fill") }
                         .help("Play from this line")
                     Spacer()
