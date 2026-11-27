@@ -21,8 +21,8 @@
     "mixamorig:RightArm": 1.131,
     "mixamorig:RightForeArm": 1.128
   },
-  "vertices_covering_hands": 162,
-  "vertices_covering_head": 14,
+  "vertices_covering_hands": 72,
+  "vertices_covering_head": 0,
   "liner": "Liner_Top_shirt",
   "degenerate_faces": 0,
   "method": "skeleton retarget + body-surface ease transfer + smoothed correction + clearance"

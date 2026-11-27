@@ -1,40 +1,40 @@
-19:11:57 | INFO: Data are loaded, start creating Blender stuff
-19:11:57 | INFO: Blender create Mesh node Mesh.002
-19:11:57 | INFO: Blender create Mesh node Mesh
-19:11:57 | INFO: Blender create Mesh node Mesh.010
-19:11:57 | INFO: Blender create Mesh node Mesh.001
-19:11:57 | INFO: Blender create Mesh node Mesh.005
-19:11:57 | INFO: Blender create Mesh node Mesh.011
-19:11:57 | INFO: Blender create Mesh node Mesh.003
-19:11:57 | INFO: Blender create Mesh node Mesh.007
-19:11:57 | INFO: Blender create Mesh node Mesh.009
-19:11:57 | INFO: Blender create Mesh node Mesh.006
-19:11:57 | INFO: Blender create Mesh node Mesh.008
-19:11:57 | INFO: Blender create Mesh node Mesh.004
-19:11:58 | INFO: glTF import finished in 0.69s
-19:11:58 | INFO: Data are loaded, start creating Blender stuff
-19:11:58 | INFO: Blender create Mesh node Mesh
-19:11:58 | INFO: Blender create Mesh node Mesh.009
-19:11:58 | INFO: Blender create Mesh node Mesh.001
-19:11:58 | INFO: Blender create Mesh node Mesh.004
-19:11:58 | INFO: Blender create Mesh node Mesh.010
-19:11:58 | INFO: Blender create Mesh node Mesh.002
-19:11:58 | INFO: Blender create Mesh node Mesh.006
-19:11:58 | INFO: Blender create Mesh node Mesh.008
-19:11:58 | INFO: Blender create Mesh node Mesh.005
-19:11:58 | INFO: Blender create Mesh node Mesh.007
-19:11:58 | INFO: Blender create Mesh node Mesh.003
-19:11:59 | INFO: glTF import finished in 0.80s
+19:40:40 | INFO: Data are loaded, start creating Blender stuff
+19:40:40 | INFO: Blender create Mesh node Mesh.002
+19:40:40 | INFO: Blender create Mesh node Mesh
+19:40:40 | INFO: Blender create Mesh node Mesh.010
+19:40:40 | INFO: Blender create Mesh node Mesh.001
+19:40:40 | INFO: Blender create Mesh node Mesh.005
+19:40:40 | INFO: Blender create Mesh node Mesh.011
+19:40:40 | INFO: Blender create Mesh node Mesh.003
+19:40:40 | INFO: Blender create Mesh node Mesh.007
+19:40:40 | INFO: Blender create Mesh node Mesh.009
+19:40:40 | INFO: Blender create Mesh node Mesh.006
+19:40:40 | INFO: Blender create Mesh node Mesh.008
+19:40:40 | INFO: Blender create Mesh node Mesh.004
+19:40:41 | INFO: glTF import finished in 0.80s
+19:40:41 | INFO: Data are loaded, start creating Blender stuff
+19:40:41 | INFO: Blender create Mesh node Mesh
+19:40:41 | INFO: Blender create Mesh node Mesh.009
+19:40:41 | INFO: Blender create Mesh node Mesh.001
+19:40:41 | INFO: Blender create Mesh node Mesh.004
+19:40:41 | INFO: Blender create Mesh node Mesh.010
+19:40:41 | INFO: Blender create Mesh node Mesh.002
+19:40:41 | INFO: Blender create Mesh node Mesh.006
+19:40:41 | INFO: Blender create Mesh node Mesh.008
+19:40:41 | INFO: Blender create Mesh node Mesh.005
+19:40:41 | INFO: Blender create Mesh node Mesh.007
+19:40:41 | INFO: Blender create Mesh node Mesh.003
+19:40:42 | INFO: glTF import finished in 0.92s
 INFO Draco mesh compression is available, use library at /home/runner/work/_temp/blender-4.5.16-linux-x64/4.5/scripts/addons_core/io_scene_gltf2/libextern_draco.so
-19:11:59 | INFO: Starting glTF 2.0 export
-19:11:59 | INFO: Extracting primitive: Mesh.023
-19:11:59 | WARNING: More than one shader node tex image used for a texture. The resulting glTF sampler will behave like the first shader node tex image.
-19:11:59 | INFO: Primitives created: 1
-19:11:59 | INFO: Extracting primitive: Mesh.024
-19:11:59 | WARNING: The active Vertex Color will not be exported, as it is not used in the node tree of the material
-19:11:59 | INFO: Primitives created: 1
-19:11:59 | INFO: Finished glTF 2.0 export in 0.0900576114654541 s
+19:40:42 | INFO: Starting glTF 2.0 export
+19:40:42 | INFO: Extracting primitive: Mesh.023
+19:40:42 | WARNING: More than one shader node tex image used for a texture. The resulting glTF sampler will behave like the first shader node tex image.
+19:40:42 | INFO: Primitives created: 1
+19:40:42 | INFO: Extracting primitive: Mesh.024
+19:40:42 | WARNING: The active Vertex Color will not be exported, as it is not used in the node tree of the material
+19:40:42 | INFO: Primitives created: 1
+19:40:42 | INFO: Finished glTF 2.0 export in 0.08965516090393066 s
 Blender 4.5.16 LTS (hash 3f6797307da5 built 2026-11-10 01:31:21)
-Garment covers hands or head: {'hand': 162, 'head': 14}
+Garment covers hands or head: {'hand': 72, 'head': 0}
 
-GARMENT_FIT_DONE {"source": "emma_casual.glb", "target": "andre_casual.glb", "garment": "Top_shirt", "vertices": 1154, "faces": 1781, "vertices_without_matching_bones": 0, "vertices_pushed_out_of_body": 712, "deepest_penetration_before_fix_m": 0.0396, "max_body_fit_correction_m": 0.0996, "bone_length_ratios": {"mixamorig:Spine": 1.203, "mixamorig:LeftUpLeg": 0.937, "mixamorig:LeftLeg": 0.991, "mixamorig:RightUpLeg": 0.937, "mixamorig:RightLeg": 0.991, "mixamorig:Spine1": 1.256, "mixamorig:Spine2": 1.15, "mixamorig:LeftArm": 1.131, "mixamorig:LeftForeArm": 1.128, "mixamorig:RightArm": 1.131, "mixamorig:RightForeArm": 1.128}, "vertices_covering_hands": 162, "vertices_covering_head": 14, "liner": "Liner_Top_shirt", "degenerate_faces": 0, "method": "skeleton retarget + body-surface ease transfer + smoothed correction + clearance"}
+GARMENT_FIT_DONE {"source": "emma_casual.glb", "target": "andre_casual.glb", "garment": "Top_shirt", "vertices": 1154, "faces": 1781, "vertices_without_matching_bones": 0, "vertices_pushed_out_of_body": 712, "deepest_penetration_before_fix_m": 0.0396, "max_body_fit_correction_m": 0.0996, "bone_length_ratios": {"mixamorig:Spine": 1.203, "mixamorig:LeftUpLeg": 0.937, "mixamorig:LeftLeg": 0.991, "mixamorig:RightUpLeg": 0.937, "mixamorig:RightLeg": 0.991, "mixamorig:Spine1": 1.256, "mixamorig:Spine2": 1.15, "mixamorig:LeftArm": 1.131, "mixamorig:LeftForeArm": 1.128, "mixamorig:RightArm": 1.131, "mixamorig:RightForeArm": 1.128}, "vertices_covering_hands": 72, "vertices_covering_head": 0, "liner": "Liner_Top_shirt", "degenerate_faces": 0, "method": "skeleton retarget + body-surface ease transfer + smoothed correction + clearance"}
