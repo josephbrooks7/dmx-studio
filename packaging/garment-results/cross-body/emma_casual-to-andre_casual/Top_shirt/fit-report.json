@@ -5,9 +5,9 @@
   "vertices": 1154,
   "faces": 1781,
   "vertices_without_matching_bones": 0,
-  "vertices_pushed_out_of_body": 611,
-  "deepest_penetration_before_fix_m": 0.04,
-  "max_body_fit_correction_m": 0.0992,
+  "vertices_pushed_out_of_body": 712,
+  "deepest_penetration_before_fix_m": 0.0396,
+  "max_body_fit_correction_m": 0.0996,
   "bone_length_ratios": {
     "mixamorig:Spine": 1.203,
     "mixamorig:LeftUpLeg": 0.937,
@@ -21,6 +21,8 @@
     "mixamorig:RightArm": 1.131,
     "mixamorig:RightForeArm": 1.128
   },
+  "vertices_covering_hands": 162,
+  "vertices_covering_head": 14,
   "liner": "Liner_Top_shirt",
   "degenerate_faces": 0,
   "method": "skeleton retarget + body-surface ease transfer + smoothed correction + clearance"
