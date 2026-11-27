@@ -188,6 +188,14 @@ Fit checkpoints the fitter verifies on every garment and body (tailoring rules):
   using the break settings. Seat and thigh keep enough ease before any taper, so fuller glutes
   and thighs are never flattened by a slim cut. Fleece = heavier knit: more volume, softer
   folds, less cling than thin performance knit.
+- **Trouser spec points** (factory tech-pack style, measured by the fitter on every fitted
+  garment for a QA spec sheet): waist relaxed and stretched (half widths), waistband height,
+  hip, front rise, back rise, thigh 2.5 cm below the crotch, knee, inseam, outseam, leg opening
+  (relaxed and stretched on cuffs), cuff height, pocket placement. Rules: back rise is longer
+  than front rise (follows the seat; never flatten glutes or dip the back waistband); outseam
+  exceeds inseam by about the rise (automatic check); elastic waistbands settle on the body's
+  waist anywhere between their relaxed and stretched widths; tolerances are looser for knits
+  and for long measurements than for wovens and short ones.
 - **Chest:** room for a flat hand under a jacket; fabric pulling into an "X" = too small.
 - Fit types: slim (hugs the body, more taper), modern (some room, tapered), classic (more room
   through chest and middle). Suit length letters by height: S 5'5"-5'8", R 5'9"-6'0",
@@ -429,7 +437,7 @@ other rather than snapping.
   Anatomy of the Hand" (thumb, finger spread, arches).
 - Sizing: MFG Merch "Pants Size Chart" (men's and women's charts, how to measure, rise and fit);
   Creative Muse "Sizing & Fit" (garment vs body ease, flat-lay, grading, fabric behavior);
-  National Breast Cancer Foundation "Bra Fit Guide"; Saucony men's size chart; Men's Wearhouse "Complete Guide to Men's Suit Sizing and Fit"; Selvane "Sleeve Length Guide"; MasterClass "How to Properly Measure Sleeve Length"; Transfer Express "Design Sizes" (print zones); Holy Clothing women's sleeve length guide; Pillar Athletics "Joggers vs Sweatpants"; Lane Bryant / Cacique "Bra Fit Guide".
+  National Breast Cancer Foundation "Bra Fit Guide"; Saucony men's size chart; Men's Wearhouse "Complete Guide to Men's Suit Sizing and Fit"; Selvane "Sleeve Length Guide"; MasterClass "How to Properly Measure Sleeve Length"; Transfer Express "Design Sizes" (print zones); Holy Clothing women's sleeve length guide; Pillar Athletics "Joggers vs Sweatpants"; No Fugazi "How to Measure Joggers for Manufacturing"; Lane Bryant / Cacique "Bra Fit Guide".
 - Proportions: Penn State OpenLab "Proportionality Constants" (Drillis & Contini 1966).
 - Skinning: Kavan et al. (dual quaternion skinning); Walt Disney Animation Studios, "Enhanced
   Dual Quaternion Skinning for Production Use"; Disney Research, "Skinning with Optimized
