@@ -5,9 +5,23 @@
   "vertices": 336,
   "faces": 504,
   "vertices_without_matching_bones": 0,
-  "vertices_pushed_out_of_body": 79,
-  "deepest_penetration_before_fix_m": 0.0268,
-  "max_body_fit_correction_m": 0.0588,
+  "vertices_pushed_out_of_body": 82,
+  "deepest_penetration_before_fix_m": 0.0318,
+  "max_body_fit_correction_m": 0.065,
+  "bone_length_ratios": {
+    "mixamorig:Spine": 0.831,
+    "mixamorig:LeftUpLeg": 1.068,
+    "mixamorig:LeftLeg": 1.009,
+    "mixamorig:RightUpLeg": 1.068,
+    "mixamorig:RightLeg": 1.009,
+    "mixamorig:Spine1": 0.796,
+    "mixamorig:Spine2": 0.869,
+    "mixamorig:LeftArm": 0.884,
+    "mixamorig:LeftForeArm": 0.886,
+    "mixamorig:RightArm": 0.884,
+    "mixamorig:RightForeArm": 0.886
+  },
+  "liner": "Liner_Trousers",
   "degenerate_faces": 0,
   "method": "skeleton retarget + body-surface ease transfer + smoothed correction + clearance"
 }
