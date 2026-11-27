@@ -774,7 +774,10 @@ enum Build {
                 // silhouette close to the authored proportions until rigged bodies
                 // are available; do not stretch the entire head and clothing by 40%.
                 let restrainedBuild: CGFloat = 1
-                if url == bundled && !xUp { regionalBuild(imported, bounds: bounds, amount: build - 1, height: CGFloat(a.height), zUp: zUp) }
+                // regionalBuild rebuilt every mesh in a way SceneKit then failed to draw (only the shadow
+                // showed) whenever height or build left the default. Keep the authored meshes intact;
+                // height still scales the whole body below.
+                _ = build
                 let width = scale * restrainedBuild * neutralWidth
                 let depth = scale * sqrt(restrainedBuild) * neutralDepth
                 mesh.scale = SCNVector3(width, scale, depth)

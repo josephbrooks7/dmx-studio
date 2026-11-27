@@ -1103,6 +1103,36 @@ struct StageLayout: Codable, Hashable {
 
     /// Performers stand on the stage deck. If one is off the deck (e.g. dragged out into the room),
     /// pull it back to the nearest spot on the deck and stand it on top. Does nothing without a stage.
+    /// One-time (layout version 3): a performer left standing at the deck edge by the old drag bug
+    /// is moved back to the mic stand (or centre stage when there is none).
+    mutating func recenterEdgePerformers() {
+        guard (version ?? 1) < 3 else { return }
+        version = 3
+        guard let deck = items.first(where: { $0.prop == .stage }) else { return }
+        let r = -deck.rotation * .pi / 180
+        func local(_ i: StageItem) -> (Double, Double) {
+            let dx = i.x - deck.x, dz = i.z - deck.z
+            return (dx * cos(r) - dz * sin(r), dx * sin(r) + dz * cos(r))
+        }
+        let halfW = 3 * max(deck.size, 0.1), halfD = 2.0
+        func onDeck(_ i: StageItem) -> Bool {
+            let (lx, lz) = local(i)
+            return abs(lx) < halfW && abs(lz) < halfD
+        }
+        let mic = items.first { $0.prop == .micStand && onDeck($0) }
+        for k in items.indices where items[k].prop == .performer {
+            let (lx, lz) = local(items[k])
+            let nearEdge = abs(lx) > halfW - 0.5 || abs(lz) > halfD - 0.5
+            guard nearEdge else { continue }
+            if let mic {
+                items[k].x = mic.x; items[k].z = mic.z - 0.35   // just behind the mic
+            } else {
+                items[k].x = deck.x; items[k].z = deck.z
+            }
+            items[k].y = deck.y + 0.6
+        }
+    }
+
     mutating func keepPerformersOnStage() {
         guard let deck = items.first(where: { $0.prop == .stage }) else { return }
         let halfW = 3 * max(deck.size, 0.1) - 0.35   // deck is 6 m × size wide, 4 m deep
