@@ -154,7 +154,16 @@ Characters are measured like a tailor would, by slicing the body mesh at standar
 - **Bust:** loosely around the fullest point. Cup = bust minus band, one cup per inch
   (<1" AA, 1" A, 2" B, 3" C, 4" D, 5" DD/E, 6" DDD/F ... up to about 11" K).
 - **Chest (male):** around the fullest point of the chest; pectoral development is separate.
-- **Shoulder point:** the natural end of each shoulder (shoulder width between them).
+- **Shoulder point:** the natural end of each shoulder; shoulder width is measured across the
+  back from shoulder bone to shoulder bone.
+- **Torso length:** base of the neck to the natural waist (sets where a top's waist and hem
+  land on short vs long torsos).
+- Size labels are only a display computed from real measurements; labels vary by brand and era
+  and are never the source of truth.
+- **Era presets** (themed shows): adjust waist height, shoulder width, hip room, sleeve length
+  and button height on any garment, e.g. mid-century = higher waist, narrower shoulders, fitted
+  waist with generous hip room, darted bodice; vintage men's jackets = higher buttons, shorter
+  sleeves, narrower shoulders.
 - **Sleeve length:** nape of the neck to the shoulder point, plus shoulder point to the wrist
   bone (= half the shoulder width + arm length from the skeleton), arm relaxed and slightly bent.
   Sleeves include a small movement allowance because raising or bending the arm pulls fabric up
@@ -437,7 +446,7 @@ other rather than snapping.
   Anatomy of the Hand" (thumb, finger spread, arches).
 - Sizing: MFG Merch "Pants Size Chart" (men's and women's charts, how to measure, rise and fit);
   Creative Muse "Sizing & Fit" (garment vs body ease, flat-lay, grading, fabric behavior);
-  National Breast Cancer Foundation "Bra Fit Guide"; Saucony men's size chart; Men's Wearhouse "Complete Guide to Men's Suit Sizing and Fit"; Selvane "Sleeve Length Guide"; MasterClass "How to Properly Measure Sleeve Length"; Transfer Express "Design Sizes" (print zones); Holy Clothing women's sleeve length guide; Pillar Athletics "Joggers vs Sweatpants"; No Fugazi "How to Measure Joggers for Manufacturing"; Lane Bryant / Cacique "Bra Fit Guide".
+  National Breast Cancer Foundation "Bra Fit Guide"; Saucony men's size chart; Men's Wearhouse "Complete Guide to Men's Suit Sizing and Fit"; Selvane "Sleeve Length Guide"; MasterClass "How to Properly Measure Sleeve Length"; Transfer Express "Design Sizes" (print zones); Holy Clothing women's sleeve length guide; Pillar Athletics "Joggers vs Sweatpants"; No Fugazi "How to Measure Joggers for Manufacturing"; Steady Clothing "Vintage Sizing Guide"; Lane Bryant / Cacique "Bra Fit Guide".
 - Proportions: Penn State OpenLab "Proportionality Constants" (Drillis & Contini 1966).
 - Skinning: Kavan et al. (dual quaternion skinning); Walt Disney Animation Studios, "Enhanced
   Dual Quaternion Skinning for Production Use"; Disney Research, "Skinning with Optimized
