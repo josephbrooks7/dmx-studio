@@ -199,6 +199,23 @@ A performer standing perfectly still reads as unnatural. Idles are layered:
    toward a sweeping beam, wave through fog when the fog machine fires, more energy as the lights
    build. The performer and the DMX show read as one show.
 
+Building each idle loop:
+- Loop length comes from a real calm breath (resting breathing is roughly 12-20 breaths a
+  minute, so about 3-5 s per breath); inhale lifts the chest and raises the shoulders slightly.
+  Breath timing varies a little from cycle to cycle instead of repeating exactly.
+- First and last poses match exactly, and the duplicate end frame never plays twice (no hitch).
+- Eased curves, never linear motion.
+- Weight shift: pelvis slides over the supporting foot while both feet stay planted; animate
+  hips and spine first, then arms and head.
+- Overlap: shoulders and head trail the chest by a few frames; hair and loose clothing trail
+  further (secondary motion).
+- Break left-right symmetry and offset keys between sides; mirrored motion looks robotic.
+- Small pauses inside repeated actions.
+- Mocap clips are simplified or exaggerated to suit each character's style.
+- The next idle is picked at random (never the same one twice in a row) and blended in and out
+  over a fixed number of frames, never snapped.
+- Judge idles from the real stage cameras (Overview, Audience), not only close-ups.
+
 Restraint: idles stay subtle because shows loop performers through whole sets; big gestures
 are saved for real song moments so they don't turn repetitive or irritating.
 
@@ -243,5 +260,6 @@ other rather than snapping.
   Oosti); Müller et al., "Position Based Dynamics" (2006); Wikipedia "Soft-body dynamics";
   Real World Physics Problems, "Physics of Gymnastics"; Glenn Fiedler, "Fix Your Timestep!"; Godot physics interpolation docs.
 - Idles: TV Tropes, "Idle Animation"; Antidote, "How Idle Animations Secretly Give Video Game
-  Characters Life".
+  Characters Life"; GarageFarm idle animation tips; Urna "Idle animation in Blender"; IMVU Creator
+  "Idle animations".
 - Reference only, not used for assets: Innerbody Anatomy Explorer; Anatomy 3D Atlas.
