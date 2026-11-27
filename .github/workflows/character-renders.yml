@@ -49,6 +49,14 @@ jobs:
           $BIN --character-capture packaging/makehuman/app-review/studio-man.png Body=Masculine Skin=2 Hair=Short Clothing=Casual || echo "studio capture failed"
           $BIN --character-capture packaging/makehuman/app-review/studio-woman.png Body=Feminine Skin=1 Hair=Long Clothing=Formal || echo "studio capture failed"
           ls -la packaging/makehuman/app-review
+      - name: Release-build speed (what users run)
+        continue-on-error: true
+        run: |
+          swift build -c release --product DMXStudio 2>&1 | tail -3
+          export DMX_CHARACTER_LIBRARY=/tmp/mhpack
+          for A in "Body=Masculine Clothing=Casual" "Body=Feminine Clothing=Formal Hair=Long" "Body=Androgynous Clothing=Punk Height=1.9"; do
+            .build/release/DMXStudio --character-render /tmp/rel.png $A | grep MH_TIME | sed 's/^/RELEASE /' | tee -a packaging/makehuman/app-review/log.txt
+          done
       - name: Commit renders
         if: always()
         run: |
