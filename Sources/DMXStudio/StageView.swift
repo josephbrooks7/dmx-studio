@@ -91,7 +91,7 @@ struct StageScreen: View {
                 .help("Haze: how visible the beams are")
                 Toggle("Diagnostic captures", isOn: $diagnosticCaptureEnabled)
                     .toggleStyle(.switch).controlSize(.small)
-                    .help("Allow private character-only diagnostic renders while the stage is idle.")
+                    .help("Allow private character-only diagnostic renders while playback and physical DMX output are off.")
                 Toggle("HQ", isOn: $model.stageHighQuality)
                     .toggleStyle(.switch).controlSize(.small)
                     .help("High-quality 3D: glow, smoothing, light pools on the floor, 60 fps. Leave off on older Intel MacBooks, where heavy 3D can restart the Mac.")
@@ -325,8 +325,8 @@ struct StageScreen: View {
             }
         }
         .onReceive(diagnosticCaptureTimer) { _ in
-            guard diagnosticCaptureEnabled, model.playingSongID == nil else { return }
-            _ = try? CharacterCaptureRequests.processOne(enabled: diagnosticCaptureEnabled, playing: model.playingSongID != nil)
+            guard diagnosticCaptureEnabled, model.playingSongID == nil, !model.outputEnabled else { return }
+            _ = try? CharacterCaptureRequests.processOne(enabled: diagnosticCaptureEnabled, playing: model.playingSongID != nil || model.outputEnabled)
         }
         .onChange(of: model.fixtures) { _ in model.ensureStageItems() }
     }
