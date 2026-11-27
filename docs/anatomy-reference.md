@@ -1,5 +1,13 @@
 # Anatomy reference for DMX Studio characters
 
+**Interface rule (from Joseph): Character Studio must feel natural, not like a wall of sliders.
+Everything in this document is back-end knowledge.** The surface offers a few big choices
+(body type presets, height, weight, skin, outfit), direct manipulation on the body itself
+(drag shoulders, waist, legs, like The Sims), automatic fitting of clothes, hair, accessories
+and shoes, a "Surprise me" generator drawing realistic combinations from the population data,
+and a collapsed "Fine-tune" panel for exact measurements, regional muscle and fat, correlation
+strength and locks. Every simple control maps onto the detailed parameters underneath.
+
 The rules the character skeleton, poses, gestures, body sliders and clothing must follow so
 performers move and look like real people. Values are typical adult ranges collected from the
 clinical sources listed at the end; people vary, so these are limits for "natural", not exact
