@@ -23,9 +23,9 @@ palms forward), which is not the same as the T/A rest pose our meshes are stored
 |---|---|---|
 | Shoulder (`Arm`) | Raise forward (flexion) | 0-180 |
 |  | Reach back (extension) | 0-50 |
-|  | Raise to the side (abduction) | 0-180 |
+|  | Raise to the side (abduction) | 150-180 (the last part needs the shoulder blade, see section 3) |
 |  | Across the body (adduction) | 0-50 |
-|  | Twist in / out (arm at 90° out) | 90 / 90 |
+|  | Twist in / out (elbow bent 90°) | 70-90 / 90 (overhead athletes: more out, less in) |
 | Elbow (`ForeArm`) | Bend | 0-145, never backward (0 = straight) |
 | Forearm | Palm down / palm up | 80 / 80 |
 | Wrist (`Hand`) | Bend down / up | 70 / 70 |
@@ -475,6 +475,7 @@ other rather than snapping.
 - Range types and flexibility: Hinge Health "Range of Motion"; Minser Chiropractic "Range of
   Motion in Exercise"; Ehlers-Danlos Society "Assessing Joint Hypermobility" (Beighton score).
 - Neck: Physiopedia "Cervical Spine Range of Motion" (AAOS norms).
+- Shoulder ranges: FPnotebook "Shoulder Range of Motion".
 - Shoulder rhythm: Physiopedia "Scapulohumeral Rhythm"; OUHSC kinesiology notes; Braman et al.
   (PMC2841046).
 - Lumbopelvic rhythm: Takahashi & Yamaji (PMC7064356); Vazirian et al. reviews (CDC stacks);
