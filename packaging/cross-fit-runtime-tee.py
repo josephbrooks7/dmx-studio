@@ -68,10 +68,11 @@ def main():
                    for i in range(1,len(face)-1))
     baseline=[area(affine,f) for f in faces]
     existing=sum(a<1e-10 for a in baseline)
-    if existing: raise ValueError("Source already contains degenerate faces")
+    valid=[i for i,a in enumerate(baseline) if a>=1e-10]
+    if not valid: raise ValueError("Source has no valid faces")
     for strength in (.95,.85,.70,.50,.25):
         candidate=[q.lerp(p,strength) for q,p in zip(affine,projected)]
-        ratios=[area(candidate,f)/a for f,a in zip(faces,baseline)]
+        ratios=[area(candidate,faces[i])/baseline[i] for i in valid]
         if min(ratios)>=.02:
             mapped=candidate
             break
@@ -92,12 +93,13 @@ def main():
     assert len(mesh.uv_layers)==len(source.data.uv_layers)
     assert list(mesh.materials)==list(source.data.materials)
     degenerate=sum(1 for p in mesh.polygons if p.area<1e-10)
+    newly_degenerate=sum(mesh.polygons[i].area<1e-10 for i in valid)
     out.mkdir(parents=True,exist_ok=True)
     report={"source":src.name,"target":dst.name,"vertices":len(mapped),"faces":len(mesh.polygons),
-            "max_projection_m":max(distances),"projection_strength":strength,"minimum_face_area_ratio":min(ratios),"degenerate_faces":degenerate,
+            "max_projection_m":max(distances),"projection_strength":strength,"minimum_face_area_ratio":min(ratios),"degenerate_faces":degenerate,"baseline_degenerate_faces":existing,"newly_degenerate_faces":newly_degenerate,
             "limitations":["Target authored tee required","Nearest-surface projection may distort topology","No skin collision or posed visual validation","Experimental output only"]}
     (out/"cross-fit-report.json").write_text(json.dumps(report,indent=2)+"\n")
-    if degenerate: raise ValueError("Collapsed garment faces; inspect report")
+    if newly_degenerate: raise ValueError("Newly collapsed garment faces; inspect report")
     bpy.ops.object.select_all(action="DESELECT")
     fitted.select_set(True);rig.select_set(True)
     bpy.context.view_layer.objects.active=fitted
