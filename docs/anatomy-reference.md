@@ -43,9 +43,9 @@ palms forward), which is not the same as the T/A rest pose our meshes are stored
 | Ankle (`Foot`) | Toes up / toes down | 20 / 50 |
 |  | Sole in / sole out | 35 / 15 |
 | Toes | Curl / bend up | 40 / 60-70 |
-| Neck + head | Nod down / look up | 45-60 / 60-75 |
-|  | Tilt ear to shoulder | 45 |
-|  | Turn left or right | 70-80 |
+| Neck + head | Nod down / look up | 80-90 / 50-70 (AAOS; other sources 45-60 / 60-75) |
+|  | Tilt ear to shoulder | 20-45 per side |
+|  | Turn left or right | 70-90 per side |
 | Upper back (thoracic) | Bend forward / back | 30-40 / 20-30 (stiffest region: ribs) |
 |  | Twist | ~35 |
 |  | Side bend | 20-25 |
@@ -78,6 +78,9 @@ rockers, never past the hypermobile thresholds by default.
   `Spine2` (lumbar gets little twist, thoracic most of it), plus `Neck` and `Head` for the head.
 - **Head turns.** Most head rotation happens at the very top of the neck; the rest spreads
   through the neck.
+- **Head tilt couples with a small turn.** Tilting the ear toward a shoulder brings a few
+  degrees of turn the same way, instead of a rigid single-axis tilt.
+- Neck mobility drops with age (if older characters are added later, their neck limits shrink).
 - **Knees.** Ligaments stop the shin sliding forward/back under the thigh and stop sideways
   bending. In the rig the knee only rotates, never translates, and only about its bend axis
   (a little twist allowed when bent).
@@ -471,6 +474,7 @@ other rather than snapping.
   "Movements of the spine"; Enlyte normal ROM summary.
 - Range types and flexibility: Hinge Health "Range of Motion"; Minser Chiropractic "Range of
   Motion in Exercise"; Ehlers-Danlos Society "Assessing Joint Hypermobility" (Beighton score).
+- Neck: Physiopedia "Cervical Spine Range of Motion" (AAOS norms).
 - Shoulder rhythm: Physiopedia "Scapulohumeral Rhythm"; OUHSC kinesiology notes; Braman et al.
   (PMC2841046).
 - Lumbopelvic rhythm: Takahashi & Yamaji (PMC7064356); Vazirian et al. reviews (CDC stacks);
