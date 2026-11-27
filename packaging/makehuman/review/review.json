@@ -1,22 +1,22 @@
 {
   "male": {
-    "top": "T-shirt basic tucked",
-    "bottom": "jean shorts",
+    "top": "Polo t-shirt",
+    "bottom": "Pants Wool",
     "shoes": "shoes04",
     "hair": "short messy",
     "eyebrows": "Mind Eyebrows 11",
     "eyelashes": "Mind Eyelashes 02",
-    "skin": "old african female",
+    "skin": "young caucasian male detailed",
     "heightCm": 173.0
   },
   "female": {
     "top": "CrudeFemaleTshirt",
-    "bottom": "jean shorts",
+    "bottom": "Pants Harem",
     "shoes": "shoes04",
     "hair": "o4saken long01",
     "eyebrows": "Mind Eyebrows 11",
     "eyelashes": "Mind Eyelashes 02",
-    "skin": "old african female",
+    "skin": "young caucasian female2",
     "heightCm": 159.0
   }
 }
