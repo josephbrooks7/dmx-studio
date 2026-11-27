@@ -32,17 +32,30 @@ jobs:
     timeout-minutes: 15
     steps:
       - uses: actions/checkout@v4
+      - name: Restore official Blender archive cache
+        uses: actions/cache@v4
+        with:
+          path: ${{ runner.temp }}/dmx-blender-cache
+          key: blender-4.5.16-linux-x64-verified-v1
       - name: Install official Blender 4.5.16 LTS with USD support
         shell: bash
         run: |
           set -euo pipefail
-          cd "$RUNNER_TEMP"
+          mkdir -p "$RUNNER_TEMP/dmx-blender-cache"
+          cd "$RUNNER_TEMP/dmx-blender-cache"
           base=https://download.blender.org/release/Blender4.5
           archive=blender-4.5.16-linux-x64.tar.xz
-          curl --fail --location --retry 3 --output "$archive" "$base/$archive"
-          curl --fail --location --retry 3 --output blender.sha256 "$base/blender-4.5.16.sha256"
+          if ! test -s blender.sha256; then
+            curl --fail --location --retry 4 --retry-all-errors --retry-delay 5 --output blender.sha256.tmp "$base/blender-4.5.16.sha256"
+            mv blender.sha256.tmp blender.sha256
+          fi
+          if ! (test -s "$archive" && grep -F "$archive" blender.sha256 | sha256sum --check --strict); then
+            rm -f "$archive"
+            curl --fail --location --retry 4 --retry-all-errors --retry-delay 5 --output "$archive.tmp" "$base/$archive"
+            mv "$archive.tmp" "$archive"
+          fi
           grep -F "$archive" blender.sha256 | sha256sum --check --strict
-          tar -xJf "$archive"
+          tar -xJf "$archive" -C "$RUNNER_TEMP"
           echo "$RUNNER_TEMP/blender-4.5.16-linux-x64" >> "$GITHUB_PATH"
       - name: Require working USD import operator
         run: |
