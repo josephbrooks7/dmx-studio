@@ -160,8 +160,14 @@ Characters are measured like a tailor would, by slicing the body mesh at standar
 Fit checkpoints the fitter verifies on every garment and body (tailoring rules):
 - **Shoulder seam** ends at the natural shoulder point; down the arm = too big, pulling or
   dimpling = too small. Shoulders are fitted first when moving a top to a new body.
-- **Long sleeves** end at the wrist bone; a jacket shows 1/4-1/2 in of shirt cuff. Never
-  covering the hand.
+- **Sleeves end at their style's landmark on the wearer's own arm** (works on any arm length):
+  cap = outer edge of the shoulder (covers only the deltoid); short = about mid-bicep;
+  elbow = at or just past the elbow; three-quarter = slimmest part of the forearm;
+  bracelet = just above the wrist bone; full shirt = cuff meets the base of the thumb, just
+  covering the wrist bone; suit jacket = about 1/2 in above the shirt cuff; coat = up to the
+  knuckles. One garment can be offered in several sleeve lengths by ending the sleeve at a
+  different landmark. The hand-coverage check compares each sleeve with its own style's
+  landmark (a coat at the knuckles passes; a tee there fails).
 - **Jacket length** covers the seat; hem near the thumb knuckle with arms relaxed.
 - **Collar:** about 1/2 in of shirt collar shows above a jacket collar; lapels lie flat.
 - **Layering:** inner layers show at collar and cuffs and never poke through outer layers.
@@ -393,7 +399,7 @@ other rather than snapping.
   Anatomy of the Hand" (thumb, finger spread, arches).
 - Sizing: MFG Merch "Pants Size Chart" (men's and women's charts, how to measure, rise and fit);
   Creative Muse "Sizing & Fit" (garment vs body ease, flat-lay, grading, fabric behavior);
-  National Breast Cancer Foundation "Bra Fit Guide"; Saucony men's size chart; Men's Wearhouse "Complete Guide to Men's Suit Sizing and Fit"; Lane Bryant / Cacique "Bra Fit Guide".
+  National Breast Cancer Foundation "Bra Fit Guide"; Saucony men's size chart; Men's Wearhouse "Complete Guide to Men's Suit Sizing and Fit"; Selvane "Sleeve Length Guide"; Lane Bryant / Cacique "Bra Fit Guide".
 - Proportions: Penn State OpenLab "Proportionality Constants" (Drillis & Contini 1966).
 - Skinning: Kavan et al. (dual quaternion skinning); Walt Disney Animation Studios, "Enhanced
   Dual Quaternion Skinning for Production Use"; Disney Research, "Skinning with Optimized
