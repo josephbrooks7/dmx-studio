@@ -175,6 +175,9 @@ at game frame rates). For us:
 **Locomotion (walking or jogging across the stage).**
 - Each foot lands under the center of mass, not reaching far in front of it.
 - The body bobs only about 3-5 cm per step and never rises above standing height.
+- Walk vs run bob: walking vaults over a straight support leg, so the body is highest as it
+  passes over the planted foot; running compresses like a spring, so the body is lowest there.
+- Less bob comes from shorter strides at a higher step rate.
 - Lean comes from the ankles with head, shoulders, hips and ankles stacked, not a bend at the waist.
 - Arms swing forward and back with the opposite leg (a saw motion), not up and down.
 - Propulsion pushes the ground backward; faster movement means quicker steps with shorter
@@ -274,7 +277,7 @@ other rather than snapping.
 - Physics: Stickman Physics, "Physics of Video Games"; Cal State "Postural Stability in Motor
   Control"; Wikipedia "Balance (ability)"; contrapposto (Wikipedia, Art in Context, Robert
   Oosti); Müller et al., "Position Based Dynamics" (2006); Wikipedia "Soft-body dynamics";
-  Real World Physics Problems, "Physics of Gymnastics"; GameDesigning.org, "Game Physics"; Join the Movement Movement, "The Physics of Proper Running"; Glenn Fiedler, "Fix Your Timestep!"; Godot physics interpolation docs.
+  Real World Physics Problems, "Physics of Gymnastics"; GameDesigning.org, "Game Physics"; Join the Movement Movement, "The Physics of Proper Running"; UW-Madison Physics, "Physics of Running"; Glenn Fiedler, "Fix Your Timestep!"; Godot physics interpolation docs.
 - Idles: TV Tropes, "Idle Animation"; Antidote, "How Idle Animations Secretly Give Video Game
   Characters Life"; GarageFarm idle animation tips; Urna "Idle animation in Blender"; IMVU Creator
   "Idle animations".
