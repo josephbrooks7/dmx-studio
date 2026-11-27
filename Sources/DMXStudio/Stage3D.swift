@@ -667,7 +667,7 @@ enum Build {
                 } else if name.contains("skin") || name.contains("_head") || name.contains("_body") {
                     // The textures are already one skin tone (lighter or darker model), so tint relative to it:
                     // the model's own tone stays as authored, other tones shift from there.
-                    let base = pick(skin, a.skin >= 3 ? 4 : 1), want = pick(skin, a.skin)
+                    let base = pick(skin, 1), want = pick(skin, a.skin)
                     func ratio(_ w: CGFloat, _ b: CGFloat) -> CGFloat { min(1, w / max(b, 0.01)) }
                     tint = NSColor(calibratedRed: ratio(want.redComponent, base.redComponent),
                                    green: ratio(want.greenComponent, base.greenComponent),
@@ -730,8 +730,8 @@ enum Build {
         // This is an interim preset, not a topology-compatible facial morph.
         let avatarNeutral = a.bodyStyle == "Androgynous"
         let avatarFeminine = a.bodyStyle == "Feminine" || avatarNeutral
-        let builtInName = avatarFeminine ? (a.skin >= 3 ? "priya_casual" : "emma_casual") :
-            (a.skin >= 3 || a.clothingStyle == "Formal" ? "marcus_formal" : "andre_casual")
+        // One model per body style: skin tone and clothing recolor it, they never swap in another person.
+        let builtInName = avatarFeminine ? "emma_casual" : "andre_casual"
         let bundled = Bundle.main.url(forResource: builtInName, withExtension: "usdz", subdirectory: "Characters")
         let candidates = [a.modelPath.map { URL(fileURLWithPath: $0) }, bundled].compactMap { $0 }
         for url in candidates {
@@ -787,10 +787,25 @@ enum Build {
                 // Hairstyle: swap in a bundled hair module (Characters/Hair/hair-<style>-<m|f>.usdz,
                 // Y-up, front +Z, crown top at the origin) fitted to this body's measured head.
                 if a.modelPath == nil {
+                    // The authored hair is a node named Hair / Stage_Hair; after USD import the mesh itself
+                    // usually sits one level below it (e.g. Stage_Hair > Mesh_002), so match on the node
+                    // or any ancestor up to the template root.
+                    func isHairName(_ n: String?) -> Bool {
+                        let name = (n ?? "").lowercased()
+                        return name == "hair" || name == "stage_hair" || name.hasPrefix("hair_") || name.hasPrefix("stage_hair_")
+                            || name.hasSuffix("_hair") || name.contains("hair_mesh")
+                    }
                     var originalHair: [SCNNode] = []
                     imported.enumerateChildNodes { node, _ in
-                        let name = (node.name ?? "").lowercased()
-                        if node.geometry != nil && (name == "hair" || name == "stage_hair" || name.hasPrefix("hair_") || name.hasPrefix("stage_hair_")) {
+                        guard node.geometry != nil else { return }
+                        var c: SCNNode? = node
+                        while let cur = c, cur !== imported {
+                            if isHairName(cur.name) { originalHair.append(node); break }
+                            c = cur.parent
+                        }
+                        // Material-name fallback (f001_opacity is the hair-card material on these bodies).
+                        if !originalHair.contains(where: { $0 === node }),
+                           node.geometry?.materials.contains(where: { m in let n = (m.name ?? "").lowercased(); return n.contains("hair") || n.hasSuffix("_opacity") }) == true {
                             originalHair.append(node)
                         }
                     }
