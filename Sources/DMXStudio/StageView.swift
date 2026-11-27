@@ -447,13 +447,12 @@ struct StageInspector: View {
                                                     TextField("Character name", text: Binding(get: { current.performerName ?? "" }, set: { v in model.updateStageItem(id) { $0.performerName = v } }))
                                                     if a.modelPath == nil {
                                                         Picker("Body style", selection: Binding(get: { a.bodyStyle ?? "Masculine" }, set: { v in model.updateStageItem(id) { var p = $0.performerAppearance ?? PerformerAppearance(); p.bodyStyle = v; $0.performerAppearance = p } })) {
-                                                            ForEach(["Masculine", "Feminine"], id: \.self) { Text($0).tag($0) }
+                                                            ForEach(["Masculine", "Feminine", "Androgynous"], id: \.self) { Text($0).tag($0) }
                                                         }
-                                                        Picker("Model tone", selection: Binding(get: { a.skin >= 3 ? 3 : 0 }, set: { v in model.updateStageItem(id) { var p = $0.performerAppearance ?? PerformerAppearance(); p.skin = v; $0.performerAppearance = p } })) {
-                                                            Text("Lighter").tag(0)
-                                                            Text("Darker").tag(3)
+                                                        Picker("Skin tone", selection: Binding(get: { a.skin }, set: { v in model.updateStageItem(id) { var p = $0.performerAppearance ?? PerformerAppearance(); p.skin = v; $0.performerAppearance = p } })) {
+                                                            ForEach(0..<6) { Text("Tone " + String($0 + 1)).tag($0) }
                                                         }
-                                                        Text("Body style and tone select an authored base model, not a skin recolor.").font(.caption).foregroundColor(Theme.subtle)
+                                                        Text("Body shape, height and build reshape the character; clothes and hair refit automatically.").font(.caption).foregroundColor(Theme.subtle)
                                                     }
                                                     slider("Height", a.height, 1.4...2.1, "m") { v in model.updateStageItem(id) { var p = $0.performerAppearance ?? PerformerAppearance(); p.height = v; $0.performerAppearance = p } }
                                                     slider("Body build", a.build, 0.7...1.4, "×") { v in model.updateStageItem(id) { var p = $0.performerAppearance ?? PerformerAppearance(); p.build = v; $0.performerAppearance = p } }
@@ -464,7 +463,7 @@ struct StageInspector: View {
                                             }
                                             .frame(width: 250)
                                         }
-                                        Text("Drag to rotate · scroll to zoom. Textured models retain their authored materials.")
+                                        Text("Drag to rotate · scroll to zoom.")
                                             .font(.caption).foregroundColor(Theme.subtle)
                                         HStack {
                                             Menu("Choose starter") {
