@@ -318,62 +318,49 @@ enum MHCharacter {
         return top?.0
     }
 
+    /// Outfit and shoes per Character Studio clothing style, chosen from the contact sheets
+    /// (packaging/makehuman/app-review). First name found wins; keyword scoring is the fallback.
+    static let outfitByStyle: [String: (male: [String], female: [String])] = [
+        "Casual": (["male casualsuit01", "male casualsuit04"], ["female casualsuit01"]),
+        "Rock Jacket": (["male casualsuit05"], ["male casualsuit05"]),
+        "Punk": (["male casualsuit04"], ["female casualsuit02"]),
+        "Glam": (["Suit Double Breasted", "male casualsuit03"], ["Fem Suit2"]),
+        "Formal": (["Suit3", "male elegantsuit01"], ["Fem Suit", "Fem Suit Double Breasted"]),
+        "Fantasy": (["male casualsuit06"], ["male casualsuit06"])]
+    static let shoesByStyle: [String: (male: [String], female: [String])] = [
+        "Casual": (["shoes05", "shoes03"], ["shoes05", "shoes03"]),
+        "Rock Jacket": (["Boots Ankle Male", "male boots"], ["Boots Ankle"]),
+        "Punk": (["Boots Ankle Male", "male boots"], ["Boots Ankle"]),
+        "Glam": (["tbar", "MJ-Shoes"], ["Booties stiletto", "Flats"]),
+        "Formal": (["tbar", "MJ-Shoes"], ["Booties stiletto", "Flats"]),
+        "Fantasy": (["male boots", "Boots Ankle Male"], ["Boots Ankle"])]
+
+    static func named(_ lib: MHLibrary, slot: String, _ names: [String]) -> MHItem? {
+        for n in names {
+            if let item = lib.items.first(where: { $0.slot == slot && $0.name.lowercased() == n.lowercased() }) { return item }
+        }
+        return nil
+    }
+
     static func wardrobe(_ a: PerformerAppearance, female: Float, lib: MHLibrary) -> [MHItem] {
         let sex = female >= 0.5 ? "female" : "male"
-        let clothesAvoid = ["tucked", "crop", "bra", "bikini", "swim", "under", "panties", "lingerie", "naked", "transparent",
-                            "camisole", "tank", "tube", "bodice", "halter", "keyhole"]
-        let bottomAvoid = clothesAvoid + ["short", "skirt", "harem", "bermuda"]
+        let style = outfitByStyle[a.clothingStyle ?? "Casual"] != nil ? (a.clothingStyle ?? "Casual") : "Casual"
         var picks: [MHItem?] = []
-        func casualTop() -> MHItem? { best(lib, slot: "top", sex: sex, want: ["tee", "t-shirt", "tshirt", "casual", "shirt"], avoid: clothesAvoid) }
-        func pants(_ extra: [String] = []) -> MHItem? { best(lib, slot: "bottom", sex: sex, want: extra + ["jean", "pants", "trouser", "casual"], avoid: bottomAvoid) }
-        let style = a.clothingStyle ?? "Casual"
-        var shoeWant = ["sneaker", "trainer", "casual", "shoe"]
-        switch style {
-        case "Formal":
-            let want = sex == "female" ? ["dress", "gown", "formal", "suit", "elegant"] : ["suit", "formal", "tux", "elegant"]
-            if let outfit = best(lib, slot: "outfit", sex: sex, want: want, avoid: clothesAvoid, minimum: 2) {
-                picks.append(outfit)
-            } else {
-                picks.append(best(lib, slot: "top", sex: sex, want: ["shirt", "formal", "blouse"], avoid: clothesAvoid))
-                picks.append(pants(["formal", "suit", "trouser"]))
-            }
-            shoeWant = ["formal", "dress", "leather", "loafer", "heel"]
-        case "Glam":
-            if sex == "female", let dress = best(lib, slot: "outfit", sex: sex, want: ["dress", "gown", "glam", "sequin"], avoid: clothesAvoid, minimum: 2) {
-                picks.append(dress)
-            } else {
-                picks.append(best(lib, slot: "top", sex: sex, want: ["shirt", "glam", "blouse", "silk"], avoid: clothesAvoid))
-                picks.append(pants())
-            }
-            shoeWant = ["heel", "glam", "boot", "formal"]
-        case "Rock Jacket", "Punk":
-            if let suit = best(lib, slot: "outfit", sex: sex, want: ["casualsuit0" + (style == "Punk" ? "2" : "3")], avoid: clothesAvoid, minimum: 4) {
-                picks.append(suit)
-            } else {
-                picks.append(best(lib, slot: "top", sex: sex, want: ["jacket", "leather", "rock", "punk", "biker", "tee"], avoid: clothesAvoid))
-                picks.append(pants(["jean", "leather"]))
-            }
-            shoeWant = ["boot", "rock", "leather"]
-        case "Fantasy":
-            if let robe = best(lib, slot: "outfit", sex: sex, want: ["fantasy", "robe", "medieval", "elf", "armor"], avoid: clothesAvoid, minimum: 2) {
-                picks.append(robe)
-            } else {
-                picks.append(casualTop()); picks.append(pants())
-            }
-            shoeWant = ["boot", "fantasy"]
-        default:
-            if let suit = best(lib, slot: "outfit", sex: sex, want: ["casualsuit"], avoid: clothesAvoid, minimum: 4) {
-                picks.append(suit)
-            } else {
-                picks.append(casualTop())
-                picks.append(pants())
-            }
+        let outfitNames = outfitByStyle[style].map { sex == "female" ? $0.female : $0.male } ?? []
+        if let outfit = named(lib, slot: "outfit", outfitNames) {
+            picks.append(outfit)
+        } else {
+            let avoid = ["tucked", "crop", "camisole", "tank", "tube", "bodice", "halter", "keyhole"]
+            picks.append(best(lib, slot: "top", sex: sex, want: ["shirt", "tee", "t-shirt", "polo"], avoid: avoid))
+            picks.append(best(lib, slot: "bottom", sex: sex, want: ["pants", "jean", "trouser", "cargo"], avoid: ["short", "harem", "jacket"]))
         }
-        picks.append(best(lib, slot: "shoes", sex: sex, want: shoeWant, avoid: ["sock", "barefoot"]))
+        let shoeNames = shoesByStyle[style].map { sex == "female" ? $0.female : $0.male } ?? []
+        picks.append(named(lib, slot: "shoes", shoeNames)
+            ?? best(lib, slot: "shoes", sex: sex, want: ["shoes0"], avoid: ["hero", "gogo", "overknee", "botas", "leatherboots", "stiletto"]))
         picks.append(hair(a.hair, sex: sex, lib: lib))
         picks.append(best(lib, slot: "eyes", sex: sex, want: ["highpoly"]))
-        picks.append(lib.items.first(where: { $0.slot == "eyebrows" && $0.name.lowercased() == "eyebrow001" }) ?? best(lib, slot: "eyebrows", sex: sex, want: ["eyebrow"]))
-        picks.append(lib.items.first(where: { $0.slot == "eyelashes" && $0.name.lowercased() == "eyelashes01" }) ?? best(lib, slot: "eyelashes", sex: sex, want: ["eyelash"]))
+        picks.append(named(lib, slot: "eyebrows", ["eyebrow001"]) ?? best(lib, slot: "eyebrows", sex: sex, want: ["eyebrow"]))
+        picks.append(named(lib, slot: "eyelashes", ["Eyelashes01"]) ?? best(lib, slot: "eyelashes", sex: sex, want: ["eyelash"]))
         return picks.compactMap { $0 }
     }
 
@@ -723,7 +710,27 @@ enum MHPose {
         node.simdOrientation = parentWorld.inverse * world
     }
 
-    static var palmTwist: Float = 0
+    /// Relaxed hand: bend each finger joint about the knuckle line (index to pinky); thumb less.
+    static func curlFingers(side: String, degrees: Float, bones: [SCNNode], index: [String: Int]) {
+        guard degrees != 0, let i2 = index["finger2-1.\(side)"], let i5 = index["finger5-1.\(side)"] else { return }
+        let across = bones[i2].simdWorldPosition - bones[i5].simdWorldPosition
+        guard length(across) > 1e-5 else { return }
+        let axis = normalize(across)
+        for f in 1...5 {
+            for j in 1...3 {
+                guard let b = index["finger\(f)-\(j).\(side)"] else { continue }
+                let node = bones[b]
+                let parentWorld = node.parent.map { simd_quatf($0.simdWorldTransform) } ?? simd_quatf(angle: 0, axis: SIMD3(0, 1, 0))
+                let current = parentWorld * node.simdOrientation
+                let amount = degrees * (f == 1 ? 0.35 : (j == 1 ? 0.7 : 1.0))
+                let world = simd_quatf(angle: amount * .pi / 180, axis: axis) * current
+                node.simdOrientation = parentWorld.inverse * world
+            }
+        }
+    }
+
+    static var palmTwist: Float = 60
+    static var fingerCurl: Float = 0
 
     static func apply(_ pose: String, bones: [SCNNode], index: [String: Int], heads: [SIMD3<Float>], tails: [SIMD3<Float>]) {
         // Arms down from MakeHuman's rest pose (arms angled out, forearms forward), elbows softly bent.
@@ -743,6 +750,7 @@ enum MHPose {
             // Palms toward the thighs: split the turn over the two forearm bones to avoid a wrist pinch.
             twist("lowerarm01.\(side)", toward: "lowerarm02.\(side)", degrees: palmTwist * sx * 0.4, bones: bones, index: index, heads: heads)
             twist("lowerarm02.\(side)", toward: "wrist.\(side)", degrees: palmTwist * sx * 0.6, bones: bones, index: index, heads: heads)
+            curlFingers(side: side, degrees: fingerCurl * sx, bones: bones, index: index)
             if spread > 0 {
                 aim("upperleg01.\(side)", to: "lowerleg01.\(side)", direction: SIMD3(spread * sx, -1, 0.02),
                     bones: bones, index: index, heads: heads)
@@ -825,6 +833,7 @@ enum MHRenderCLI {
             case "Pose": a.pose = v
             case "Accessory": a.accessory = v
             case "Twist": MHPose.palmTwist = Float(v) ?? 0
+            case "Curl": MHPose.fingerCurl = Float(v) ?? 0
             case "Lighting": MHCharacter.unlit = v == "unlit"
             default: break
             }
