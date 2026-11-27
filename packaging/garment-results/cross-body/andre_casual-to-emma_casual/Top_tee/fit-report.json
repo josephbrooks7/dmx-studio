@@ -1,0 +1,13 @@
+{
+  "source": "andre_casual.glb",
+  "target": "emma_casual.glb",
+  "garment": "Top_tee",
+  "vertices": 399,
+  "faces": 635,
+  "vertices_without_matching_bones": 0,
+  "vertices_pushed_out_of_body": 121,
+  "deepest_penetration_before_fix_m": 0.0167,
+  "max_body_fit_correction_m": 0.044,
+  "degenerate_faces": 0,
+  "method": "skeleton retarget + body-surface ease transfer + smoothed correction + clearance"
+}

@@ -1,0 +1,13 @@
+{
+  "source": "emma_casual.glb",
+  "target": "andre_casual.glb",
+  "garment": "Trousers",
+  "vertices": 493,
+  "faces": 756,
+  "vertices_without_matching_bones": 0,
+  "vertices_pushed_out_of_body": 350,
+  "deepest_penetration_before_fix_m": 0.0276,
+  "max_body_fit_correction_m": 0.0628,
+  "degenerate_faces": 0,
+  "method": "skeleton retarget + body-surface ease transfer + smoothed correction + clearance"
+}
