@@ -168,6 +168,9 @@ and S/M/L), shown in Character Studio.
 Slider ranges match real size charts so every setting is a real body:
 - Men's waist 28-46 in (71-117 cm, XS-4XL); inseam about 28-38 in and tied to height
   (under 5'7": 28-32, 5'7"-5'11": 30-34, 6'-6'3": 32-36, taller: 34-38+).
+- Men's chest S 36-38, M 39-40, L 41-43, XL 44-46, XXL 47-49 in, with waist about 5-6 in
+  smaller in every size (the "drop"). Build sliders use the drop: average ~5-6 in, athletic /
+  muscular larger (V-shape), fuller builds shrink it toward zero.
 - Women's waist about 23-42 in with hips about 33-52 in (sizes 0-24, XXS-4XL); inseam petite
   ~28, regular ~30, tall 32-34 in.
 
@@ -374,7 +377,7 @@ other rather than snapping.
   Anatomy of the Hand" (thumb, finger spread, arches).
 - Sizing: MFG Merch "Pants Size Chart" (men's and women's charts, how to measure, rise and fit);
   Creative Muse "Sizing & Fit" (garment vs body ease, flat-lay, grading, fabric behavior);
-  National Breast Cancer Foundation "Bra Fit Guide"; Lane Bryant / Cacique "Bra Fit Guide".
+  National Breast Cancer Foundation "Bra Fit Guide"; Saucony men's size chart; Lane Bryant / Cacique "Bra Fit Guide".
 - Proportions: Penn State OpenLab "Proportionality Constants" (Drillis & Contini 1966).
 - Skinning: Kavan et al. (dual quaternion skinning); Walt Disney Animation Studios, "Enhanced
   Dual Quaternion Skinning for Production Use"; Disney Research, "Skinning with Optimized
