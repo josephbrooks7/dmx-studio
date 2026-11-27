@@ -201,19 +201,24 @@ def main():
     # Features must stay visible. A sleeve may reach the wrist (cuffs are weighted to the hand bone),
     # but fabric more than 2.5 cm past the wrist toward the fingers is covering the hand; fabric above
     # chin height is covering the face.
+    def past_wrist(rig, pts):
+        n = 0
+        for side in ("Left", "Right"):
+            hb = rig.data.bones.get(f"mixamorig:{side}Hand")
+            if hb is None:
+                continue
+            wrist = rig.matrix_world @ hb.head_local
+            along = ((rig.matrix_world @ hb.tail_local) - wrist).normalized()
+            n += sum(1 for p in pts if (p - wrist).dot(along) > 0.025 and (p - wrist).length < 0.25)
+        return n
+    # long sleeves legitimately reach past the wrist; compare with the garment on its own body
+    sleeve_baseline = past_wrist(src_rig, src_pts)
     covering = {"hand": 0, "head": 0}
     bones_d = dst_rig.data.bones
     chin_z = None
     if "mixamorig:Head" in bones_d:
         chin_z = (dst_rig.matrix_world @ bones_d["mixamorig:Head"].head_local).z + 0.06
-    for side in ("Left", "Right"):
-        hb = bones_d.get(f"mixamorig:{side}Hand")
-        if hb is None:
-            continue
-        wrist = dst_rig.matrix_world @ hb.head_local
-        tip = dst_rig.matrix_world @ hb.tail_local
-        along = (tip - wrist).normalized()
-        covering["hand"] += sum(1 for p in final if (p - wrist).dot(along) > 0.025 and (p - wrist).length < 0.25)
+    covering["hand"] = max(0, past_wrist(dst_rig, final) - sleeve_baseline - 10)
     if chin_z is not None:
         covering["head"] = sum(1 for p in final if p.z > chin_z)
 
@@ -287,6 +292,7 @@ def main():
         "bone_length_ratios": bone_length_ratios,
         # Features must stay visible: garment vertices mostly driven by hand, finger or head bones
         # mean a sleeve or collar is swallowing a hand or the face.
+        "sleeve_vertices_past_wrist_on_own_body": sleeve_baseline,
         "vertices_covering_hands": covering["hand"], "vertices_covering_head": covering["head"],
         "liner": liner.name if liner else None,
         "degenerate_faces": sum(1 for p in out_mesh.polygons if p.area < 1e-10),

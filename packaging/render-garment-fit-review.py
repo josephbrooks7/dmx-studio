@@ -196,12 +196,37 @@ def main():
         return order.index(base) if base in order else len(order)
     print("RIG", rig.name, "parent", rig.parent.name if rig.parent else None,
           "world", [tuple(round(c, 3) for c in row) for row in rig.matrix_world])
-    if garment == "Shoes":
+    if garment != "Top_tee":   # pose tests on the tee only until posing is verified
         poses = {}
     for pose_name, bones in poses.items():
         print("POSE", pose_name)
         for name in sorted(bones, key=rank):
             apply(name, bones[name])
+        # Does the rendered body follow the posed skeleton? Compare the evaluated (deformed) skin
+        # vertex most attached to each hand with that hand bone's head.
+        dg = bpy.context.evaluated_depsgraph_get()
+        for side in ("Left", "Right"):
+            bone = f"mixamorig:{side}Hand"
+            pbh = rig.pose.bones.get(bone)
+            if pbh is None:
+                continue
+            want = rig.matrix_world @ pbh.head
+            best = None
+            for o in objects:
+                if o.type != "MESH" or o.hide_render or bone not in o.vertex_groups:
+                    continue
+                gi = o.vertex_groups[bone].index
+                ev = o.evaluated_get(dg)
+                me = ev.to_mesh()
+                for v in o.data.vertices:
+                    w = next((g.weight for g in v.groups if g.group == gi), 0)
+                    if w > 0.9 and v.index < len(me.vertices):
+                        p = ev.matrix_world @ me.vertices[v.index].co
+                        d = (p - want).length
+                        if best is None or d < best[0]:
+                            best = (d, o.name, tuple(round(c, 2) for c in p))
+                ev.to_mesh_clear()
+            print("POSE_CHECK", pose_name, side, "bone", tuple(round(c, 2) for c in want), "skin", best)
         for angle, offset in [("front", (0.8, -3, 0))]:
             cam.location = center + Vector(offset) * height; aim(cam, center)
             scene.render.filepath = str((out / f"{pose_name}-{angle}.png").resolve())
