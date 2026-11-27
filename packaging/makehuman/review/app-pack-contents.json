@@ -1,0 +1,1845 @@
+{
+ "targets": 60,
+ "skins": [
+  "young caucasian female",
+  "young asian female",
+  "young african female",
+  "young caucasian male detailed",
+  "young asian male",
+  "young african male"
+ ],
+ "items": {
+  "eyebrows": [
+   {
+    "id": "eyebrows01_mind_eyebrows_11",
+    "name": "Mind Eyebrows 11",
+    "gender": "any",
+    "styles": [],
+    "license": "CC0",
+    "tags": [
+     "Eyebrows"
+    ],
+    "vertices": 24997,
+    "transparent": true
+   },
+   {
+    "id": "eyebrows01_mind_eyebrows_03",
+    "name": "Mind Eyebrows 03",
+    "gender": "any",
+    "styles": [],
+    "license": "CC0",
+    "tags": [
+     "Eyebrows"
+    ],
+    "vertices": 14558,
+    "transparent": true
+   },
+   {
+    "id": "eyebrows01_mind_eyebrows_14",
+    "name": "Mind Eyebrows 14",
+    "gender": "any",
+    "styles": [],
+    "license": "CC0",
+    "tags": [
+     "Eyebrows"
+    ],
+    "vertices": 28482,
+    "transparent": true
+   },
+   {
+    "id": "eyebrows01_mind_eyebrows_09",
+    "name": "Mind Eyebrows 09",
+    "gender": "any",
+    "styles": [],
+    "license": "CC0",
+    "tags": [
+     "Eyebrows"
+    ],
+    "vertices": 20143,
+    "transparent": true
+   },
+   {
+    "id": "eyebrows01_mind_eyebrows_02",
+    "name": "Mind Eyebrows 02",
+    "gender": "any",
+    "styles": [],
+    "license": "CC0",
+    "tags": [
+     "Eyebrows"
+    ],
+    "vertices": 12294,
+    "transparent": true
+   },
+   {
+    "id": "eyebrows01_mind_eyebrows_10",
+    "name": "Mind Eyebrows 10",
+    "gender": "any",
+    "styles": [],
+    "license": "CC0",
+    "tags": [
+     "Eyebrows"
+    ],
+    "vertices": 23870,
+    "transparent": true
+   },
+   {
+    "id": "eyebrows01_mind_eyebrows_04",
+    "name": "Mind Eyebrows 04",
+    "gender": "any",
+    "styles": [],
+    "license": "CC0",
+    "tags": [
+     "Eyebrows"
+    ],
+    "vertices": 20167,
+    "transparent": true
+   },
+   {
+    "id": "eyebrows01_mind_eyebrows_07",
+    "name": "Mind Eyebrows 07",
+    "gender": "any",
+    "styles": [],
+    "license": "CC0",
+    "tags": [
+     "Eyebrows"
+    ],
+    "vertices": 26421,
+    "transparent": true
+   },
+   {
+    "id": "eyebrows01_mind_eyebrows_06",
+    "name": "Mind Eyebrows 06",
+    "gender": "any",
+    "styles": [],
+    "license": "CC0",
+    "tags": [
+     "Eyebrows"
+    ],
+    "vertices": 21324,
+    "transparent": true
+   },
+   {
+    "id": "eyebrows01_mind_eyebrows_01",
+    "name": "Mind Eyebrows 01",
+    "gender": "any",
+    "styles": [],
+    "license": "CC0",
+    "tags": [
+     "Eyebrows"
+    ],
+    "vertices": 9472,
+    "transparent": true
+   },
+   {
+    "id": "eyebrows01_mind_eyebrows_12",
+    "name": "Mind Eyebrows 12",
+    "gender": "any",
+    "styles": [],
+    "license": "CC0",
+    "tags": [
+     "Eyebrows"
+    ],
+    "vertices": 21626,
+    "transparent": true
+   },
+   {
+    "id": "eyebrows01_mind_eyebrows_08",
+    "name": "Mind Eyebrows 08",
+    "gender": "any",
+    "styles": [],
+    "license": "CC0",
+    "tags": [
+     "Eyebrows"
+    ],
+    "vertices": 17760,
+    "transparent": true
+   },
+   {
+    "id": "eyebrows01_mind_eyebrows_13",
+    "name": "Mind Eyebrows 13",
+    "gender": "any",
+    "styles": [],
+    "license": "CC0",
+    "tags": [
+     "Eyebrows"
+    ],
+    "vertices": 16336,
+    "transparent": true
+   },
+   {
+    "id": "eyebrows01_mind_eyebrows_05",
+    "name": "Mind Eyebrows 05",
+    "gender": "any",
+    "styles": [],
+    "license": "CC0",
+    "tags": [
+     "Eyebrows"
+    ],
+    "vertices": 21476,
+    "transparent": true
+   },
+   {
+    "id": "makehuman_system_assets_eyebrow001",
+    "name": "eyebrow001",
+    "gender": "any",
+    "styles": [],
+    "license": "CC0",
+    "tags": [
+     "MakeHuman\u2122",
+     "young"
+    ],
+    "vertices": 126,
+    "transparent": true
+   },
+   {
+    "id": "makehuman_system_assets_eyebrow005",
+    "name": "eyebrow005",
+    "gender": "any",
+    "styles": [],
+    "license": "CC0",
+    "tags": [
+     "MakeHuman\u2122",
+     "young"
+    ],
+    "vertices": 126,
+    "transparent": true
+   },
+   {
+    "id": "makehuman_system_assets_eyebrow009",
+    "name": "eyebrow009",
+    "gender": "any",
+    "styles": [],
+    "license": "CC0",
+    "tags": [
+     "MakeHuman\u2122",
+     "young"
+    ],
+    "vertices": 126,
+    "transparent": true
+   },
+   {
+    "id": "makehuman_system_assets_eyebrow007",
+    "name": "eyebrow007",
+    "gender": "any",
+    "styles": [],
+    "license": "CC0",
+    "tags": [
+     "MakeHuman\u2122",
+     "young"
+    ],
+    "vertices": 126,
+    "transparent": true
+   },
+   {
+    "id": "makehuman_system_assets_eyebrow011",
+    "name": "eyebrow011",
+    "gender": "any",
+    "styles": [],
+    "license": "CC0",
+    "tags": [
+     "MakeHuman\u2122",
+     "young"
+    ],
+    "vertices": 126,
+    "transparent": true
+   },
+   {
+    "id": "makehuman_system_assets_eyebrow010",
+    "name": "eyebrow010",
+    "gender": "any",
+    "styles": [],
+    "license": "CC0",
+    "tags": [
+     "MakeHuman\u2122",
+     "young"
+    ],
+    "vertices": 126,
+    "transparent": true
+   },
+   {
+    "id": "makehuman_system_assets_eyebrow002",
+    "name": "eyebrow002",
+    "gender": "any",
+    "styles": [],
+    "license": "CC0",
+    "tags": [
+     "MakeHuman\u2122",
+     "young"
+    ],
+    "vertices": 126,
+    "transparent": true
+   },
+   {
+    "id": "makehuman_system_assets_eyebrow012",
+    "name": "eyebrow012",
+    "gender": "any",
+    "styles": [],
+    "license": "CC0",
+    "tags": [
+     "MakeHuman\u2122",
+     "young"
+    ],
+    "vertices": 126,
+    "transparent": true
+   },
+   {
+    "id": "makehuman_system_assets_eyebrow006",
+    "name": "eyebrow006",
+    "gender": "any",
+    "styles": [],
+    "license": "CC0",
+    "tags": [
+     "MakeHuman\u2122",
+     "young"
+    ],
+    "vertices": 126,
+    "transparent": true
+   },
+   {
+    "id": "makehuman_system_assets_eyebrow004",
+    "name": "eyebrow004",
+    "gender": "any",
+    "styles": [],
+    "license": "CC0",
+    "tags": [
+     "MakeHuman\u2122",
+     "young"
+    ],
+    "vertices": 126,
+    "transparent": true
+   },
+   {
+    "id": "makehuman_system_assets_eyebrow008",
+    "name": "eyebrow008",
+    "gender": "any",
+    "styles": [],
+    "license": "CC0",
+    "tags": [
+     "MakeHuman\u2122",
+     "young"
+    ],
+    "vertices": 126,
+    "transparent": true
+   },
+   {
+    "id": "makehuman_system_assets_eyebrow003",
+    "name": "eyebrow003",
+    "gender": "any",
+    "styles": [],
+    "license": "CC0",
+    "tags": [
+     "MakeHuman\u2122",
+     "young"
+    ],
+    "vertices": 126,
+    "transparent": true
+   }
+  ],
+  "eyelashes": [
+   {
+    "id": "eyelashes01_mind_eyelashes_02",
+    "name": "Mind Eyelashes 02",
+    "gender": "any",
+    "styles": [],
+    "license": "CC0",
+    "tags": [
+     "Eyelashes"
+    ],
+    "vertices": 16992,
+    "transparent": true
+   },
+   {
+    "id": "eyelashes01_mind_eyelashes_03",
+    "name": "Mind Eyelashes 03",
+    "gender": "any",
+    "styles": [],
+    "license": "CC0",
+    "tags": [
+     "Eyelashes"
+    ],
+    "vertices": 12528,
+    "transparent": true
+   },
+   {
+    "id": "eyelashes01_mind_eyelashes_01",
+    "name": "Mind Eyelashes 01",
+    "gender": "any",
+    "styles": [],
+    "license": "CC0",
+    "tags": [
+     "Eyelashes"
+    ],
+    "vertices": 11088,
+    "transparent": true
+   },
+   {
+    "id": "eyelashes01_mind_eyelashes_04",
+    "name": "Mind Eyelashes 04",
+    "gender": "any",
+    "styles": [],
+    "license": "CC0",
+    "tags": [
+     "Eyelashes"
+    ],
+    "vertices": 16248,
+    "transparent": true
+   },
+   {
+    "id": "eyelashes01_mind_eyelashes_05",
+    "name": "Mind Eyelashes 05",
+    "gender": "any",
+    "styles": [],
+    "license": "CC0",
+    "tags": [
+     "Eyelashes"
+    ],
+    "vertices": 19800,
+    "transparent": true
+   },
+   {
+    "id": "makehuman_system_assets_eyelashes01",
+    "name": "Eyelashes01",
+    "gender": "any",
+    "styles": [],
+    "license": "CC0",
+    "tags": [
+     "MakeHuman\u2122"
+    ],
+    "vertices": 250,
+    "transparent": true
+   },
+   {
+    "id": "makehuman_system_assets_eyelashes03",
+    "name": "eyelashes03",
+    "gender": "any",
+    "styles": [],
+    "license": "CC0",
+    "tags": [
+     "MakeHuman\u2122"
+    ],
+    "vertices": 250,
+    "transparent": true
+   },
+   {
+    "id": "makehuman_system_assets_eyelashes02",
+    "name": "eyelashes02",
+    "gender": "any",
+    "styles": [],
+    "license": "CC0",
+    "tags": [
+     "MakeHuman\u2122"
+    ],
+    "vertices": 250,
+    "transparent": true
+   },
+   {
+    "id": "makehuman_system_assets_eyelashes04",
+    "name": "eyelashes04",
+    "gender": "any",
+    "styles": [],
+    "license": "CC0",
+    "tags": [
+     "MakeHuman\u2122"
+    ],
+    "vertices": 254,
+    "transparent": true
+   }
+  ],
+  "hair": [
+   {
+    "id": "hair01_blondwithheadband",
+    "name": "blondwithheadband",
+    "gender": "any",
+    "styles": [],
+    "license": "CC0",
+    "tags": [],
+    "vertices": 1486,
+    "transparent": true
+   },
+   {
+    "id": "hair01_straight_bangs",
+    "name": "straight bangs",
+    "gender": "any",
+    "styles": [],
+    "license": "CC0",
+    "tags": [],
+    "vertices": 848,
+    "transparent": true
+   },
+   {
+    "id": "hair01_hair1",
+    "name": "hair1",
+    "gender": "any",
+    "styles": [],
+    "license": "CC0",
+    "tags": [],
+    "vertices": 647,
+    "transparent": true
+   },
+   {
+    "id": "hair01_hair_05",
+    "name": "hair 05",
+    "gender": "any",
+    "styles": [],
+    "license": "CC0",
+    "tags": [],
+    "vertices": 4713,
+    "transparent": true
+   },
+   {
+    "id": "hair01_bob_inverted",
+    "name": "Bob Inverted",
+    "gender": "any",
+    "styles": [],
+    "license": "CC0",
+    "tags": [],
+    "vertices": 1836,
+    "transparent": true
+   },
+   {
+    "id": "hair01_animehair",
+    "name": "animehair",
+    "gender": "any",
+    "styles": [],
+    "license": "CC0",
+    "tags": [],
+    "vertices": 49728,
+    "transparent": true
+   },
+   {
+    "id": "hair01_littleright_hair_bobcut",
+    "name": "LITTLERIGHT hair BobCut",
+    "gender": "any",
+    "styles": [],
+    "license": "CC0",
+    "tags": [],
+    "vertices": 1919,
+    "transparent": true
+   },
+   {
+    "id": "hair01_bob_blunt_bangs",
+    "name": "Bob Blunt Bangs",
+    "gender": "any",
+    "styles": [],
+    "license": "CC0",
+    "tags": [],
+    "vertices": 3113,
+    "transparent": true
+   },
+   {
+    "id": "hair01_short_messy",
+    "name": "short messy",
+    "gender": "any",
+    "styles": [],
+    "license": "CC0",
+    "tags": [],
+    "vertices": 832,
+    "transparent": true
+   },
+   {
+    "id": "hair01_double_mhbraid",
+    "name": "double mhbraid",
+    "gender": "any",
+    "styles": [],
+    "license": "CC0",
+    "tags": [],
+    "vertices": 8491,
+    "transparent": true
+   },
+   {
+    "id": "hair01_o4saken_long01",
+    "name": "o4saken long01",
+    "gender": "female",
+    "styles": [],
+    "license": "CC0",
+    "tags": [
+     "female",
+     "long"
+    ],
+    "vertices": 15033,
+    "transparent": true
+   },
+   {
+    "id": "hair01_bob_curled_under_bangs",
+    "name": "Bob Curled Under Bangs",
+    "gender": "any",
+    "styles": [],
+    "license": "CC0",
+    "tags": [],
+    "vertices": 2806,
+    "transparent": true
+   },
+   {
+    "id": "hair01_bob_blunt",
+    "name": "Bob Blunt",
+    "gender": "any",
+    "styles": [],
+    "license": "CC0",
+    "tags": [],
+    "vertices": 1837,
+    "transparent": true
+   },
+   {
+    "id": "hair01_shaggy_green",
+    "name": "shaggy green",
+    "gender": "any",
+    "styles": [],
+    "license": "CC0",
+    "tags": [],
+    "vertices": 968,
+    "transparent": true
+   },
+   {
+    "id": "hair01_rev_fr_braidbun1",
+    "name": "rev fr braidbun1",
+    "gender": "any",
+    "styles": [],
+    "license": "CC0",
+    "tags": [],
+    "vertices": 6174,
+    "transparent": true
+   },
+   {
+    "id": "hair01_hair_06",
+    "name": "hair 06",
+    "gender": "any",
+    "styles": [],
+    "license": "CC0",
+    "tags": [],
+    "vertices": 12256,
+    "transparent": true
+   },
+   {
+    "id": "hair01_fhair01",
+    "name": "fhair01",
+    "gender": "any",
+    "styles": [],
+    "license": "CC0",
+    "tags": [],
+    "vertices": 3406,
+    "transparent": true
+   },
+   {
+    "id": "hair01_strawberry_cloud",
+    "name": "strawberry cloud",
+    "gender": "any",
+    "styles": [],
+    "license": "CC0",
+    "tags": [],
+    "vertices": 480,
+    "transparent": true
+   },
+   {
+    "id": "hair01_bob_inverted_bangs",
+    "name": "Bob Inverted bangs",
+    "gender": "any",
+    "styles": [],
+    "license": "CC0",
+    "tags": [],
+    "vertices": 3031,
+    "transparent": true
+   },
+   {
+    "id": "hair01_mhair02",
+    "name": "mhair02",
+    "gender": "any",
+    "styles": [],
+    "license": "CC0",
+    "tags": [],
+    "vertices": 2541,
+    "transparent": true
+   },
+   {
+    "id": "hair01_unkempt_mhbraidfr",
+    "name": "unkempt mhbraidfr",
+    "gender": "any",
+    "styles": [],
+    "license": "CC0",
+    "tags": [],
+    "vertices": 6956,
+    "transparent": true
+   },
+   {
+    "id": "hair01_frenchbraid1mh01",
+    "name": "frenchbraid1mh01",
+    "gender": "any",
+    "styles": [],
+    "license": "CC0",
+    "tags": [],
+    "vertices": 6902,
+    "transparent": true
+   },
+   {
+    "id": "hair01_hair_bun_brown",
+    "name": "Hair bun brown",
+    "gender": "any",
+    "styles": [],
+    "license": "CC0",
+    "tags": [],
+    "vertices": 2756,
+    "transparent": true
+   },
+   {
+    "id": "hair01_bob_curled_under",
+    "name": "Bob Curled Under",
+    "gender": "any",
+    "styles": [],
+    "license": "CC0",
+    "tags": [],
+    "vertices": 1517,
+    "transparent": true
+   },
+   {
+    "id": "hair01_junglebookhair",
+    "name": "junglebookhair",
+    "gender": "any",
+    "styles": [],
+    "license": "CC0",
+    "tags": [],
+    "vertices": 4966,
+    "transparent": true
+   },
+   {
+    "id": "makehuman_system_assets_bob02",
+    "name": "bob02",
+    "gender": "female",
+    "styles": [],
+    "license": "CC0",
+    "tags": [
+     "MakeHuman\u2122",
+     "Short",
+     "Bob",
+     "Female"
+    ],
+    "vertices": 1759,
+    "transparent": true
+   },
+   {
+    "id": "makehuman_system_assets_short01",
+    "name": "short01",
+    "gender": "male",
+    "styles": [],
+    "license": "CC0",
+    "tags": [
+     "MakeHuman\u2122",
+     "Male",
+     "Short"
+    ],
+    "vertices": 3177,
+    "transparent": true
+   },
+   {
+    "id": "makehuman_system_assets_afro01",
+    "name": "afro01",
+    "gender": "any",
+    "styles": [],
+    "license": "CC0",
+    "tags": [
+     "MakeHuman\u2122",
+     "Afro"
+    ],
+    "vertices": 2276,
+    "transparent": true
+   },
+   {
+    "id": "makehuman_system_assets_short03",
+    "name": "short03",
+    "gender": "female",
+    "styles": [],
+    "license": "CC0",
+    "tags": [
+     "MakeHuman\u2122",
+     "Short",
+     "Female"
+    ],
+    "vertices": 1071,
+    "transparent": true
+   },
+   {
+    "id": "makehuman_system_assets_bob01",
+    "name": "bob01",
+    "gender": "female",
+    "styles": [],
+    "license": "CC0",
+    "tags": [
+     "MakeHuman\u2122",
+     "Bob",
+     "Short",
+     "Female"
+    ],
+    "vertices": 5961,
+    "transparent": true
+   },
+   {
+    "id": "makehuman_system_assets_ponytail01",
+    "name": "ponytail01",
+    "gender": "female",
+    "styles": [],
+    "license": "CC0",
+    "tags": [
+     "MakeHuman\u2122",
+     "Female",
+     "Long"
+    ],
+    "vertices": 4049,
+    "transparent": true
+   },
+   {
+    "id": "makehuman_system_assets_short02",
+    "name": "short02",
+    "gender": "male",
+    "styles": [],
+    "license": "CC0",
+    "tags": [
+     "MakeHuman\u2122",
+     "Short",
+     "Male"
+    ],
+    "vertices": 2061,
+    "transparent": true
+   },
+   {
+    "id": "makehuman_system_assets_braid01",
+    "name": "Braid01",
+    "gender": "female",
+    "styles": [],
+    "license": "CC0",
+    "tags": [
+     "MakeHuman\u2122",
+     "Long",
+     "Female"
+    ],
+    "vertices": 4771,
+    "transparent": true
+   },
+   {
+    "id": "makehuman_system_assets_long01",
+    "name": "long01",
+    "gender": "female",
+    "styles": [],
+    "license": "CC0",
+    "tags": [
+     "MakeHuman\u2122",
+     "Long",
+     "Female"
+    ],
+    "vertices": 3314,
+    "transparent": true
+   },
+   {
+    "id": "makehuman_system_assets_short04",
+    "name": "short04",
+    "gender": "male",
+    "styles": [],
+    "license": "CC0",
+    "tags": [
+     "MakeHuman\u2122",
+     "Male",
+     "Short"
+    ],
+    "vertices": 991,
+    "transparent": true
+   }
+  ],
+  "hat": [
+   {
+    "id": "makehuman_system_assets_fedora_cocked",
+    "name": "fedora cocked",
+    "gender": "any",
+    "styles": [],
+    "license": "CC0",
+    "tags": [
+     "MakeHuman\u2122",
+     "Hats"
+    ],
+    "vertices": 702,
+    "transparent": false
+   },
+   {
+    "id": "makehuman_system_assets_fedora",
+    "name": "fedora",
+    "gender": "any",
+    "styles": [],
+    "license": "CC0",
+    "tags": [
+     "MakeHuman\u2122",
+     "Hats"
+    ],
+    "vertices": 702,
+    "transparent": false
+   }
+  ],
+  "shoes": [
+   {
+    "id": "makehuman_system_assets_shoes04",
+    "name": "shoes04",
+    "gender": "any",
+    "styles": [],
+    "license": "CC0",
+    "tags": [
+     "MakeHuman\u2122",
+     "Shoes"
+    ],
+    "vertices": 1904,
+    "transparent": false
+   },
+   {
+    "id": "makehuman_system_assets_shoes05",
+    "name": "shoes05",
+    "gender": "any",
+    "styles": [],
+    "license": "CC0",
+    "tags": [
+     "MakeHuman\u2122",
+     "Shoes"
+    ],
+    "vertices": 1744,
+    "transparent": false
+   },
+   {
+    "id": "makehuman_system_assets_shoes01",
+    "name": "shoes01",
+    "gender": "any",
+    "styles": [],
+    "license": "CC0",
+    "tags": [
+     "MakeHuman\u2122",
+     "Shoes"
+    ],
+    "vertices": 1904,
+    "transparent": false
+   },
+   {
+    "id": "makehuman_system_assets_shoes03",
+    "name": "shoes03",
+    "gender": "any",
+    "styles": [],
+    "license": "CC0",
+    "tags": [
+     "MakeHuman\u2122",
+     "Shoes"
+    ],
+    "vertices": 2542,
+    "transparent": false
+   },
+   {
+    "id": "makehuman_system_assets_shoes06",
+    "name": "shoes06",
+    "gender": "any",
+    "styles": [],
+    "license": "CC0",
+    "tags": [
+     "MakeHuman\u2122",
+     "Shoes"
+    ],
+    "vertices": 1744,
+    "transparent": false
+   },
+   {
+    "id": "makehuman_system_assets_shoes02",
+    "name": "shoes02",
+    "gender": "any",
+    "styles": [],
+    "license": "CC0",
+    "tags": [
+     "MakeHuman\u2122",
+     "Shoes"
+    ],
+    "vertices": 1744,
+    "transparent": false
+   },
+   {
+    "id": "shoes01_leatherboots_2cm",
+    "name": "LeatherBoots 2cm",
+    "gender": "any",
+    "styles": [
+     "rock"
+    ],
+    "license": "CC0",
+    "tags": [
+     "Shoes"
+    ],
+    "vertices": 34146,
+    "transparent": false
+   },
+   {
+    "id": "shoes01_heroine_boots_4",
+    "name": "heroine boots 4",
+    "gender": "any",
+    "styles": [
+     "rock"
+    ],
+    "license": "CC0",
+    "tags": [],
+    "vertices": 1385,
+    "transparent": false
+   },
+   {
+    "id": "shoes01_hero_boots_4",
+    "name": "hero boots 4",
+    "gender": "any",
+    "styles": [
+     "rock"
+    ],
+    "license": "CC0",
+    "tags": [],
+    "vertices": 1358,
+    "transparent": false
+   },
+   {
+    "id": "shoes01_hero_boots_2",
+    "name": "hero boots 2",
+    "gender": "any",
+    "styles": [
+     "rock"
+    ],
+    "license": "CC0",
+    "tags": [],
+    "vertices": 1358,
+    "transparent": false
+   },
+   {
+    "id": "shoes01_mj_shoes",
+    "name": "MJ-Shoes",
+    "gender": "any",
+    "styles": [],
+    "license": "CC0",
+    "tags": [],
+    "vertices": 822,
+    "transparent": false
+   },
+   {
+    "id": "shoes01_heroine_boots_3",
+    "name": "heroine boots 3",
+    "gender": "any",
+    "styles": [
+     "rock"
+    ],
+    "license": "CC0",
+    "tags": [],
+    "vertices": 1578,
+    "transparent": false
+   },
+   {
+    "id": "shoes01_flats_ballet",
+    "name": "Flats ballet",
+    "gender": "any",
+    "styles": [],
+    "license": "CC0",
+    "tags": [],
+    "vertices": 5694,
+    "transparent": false
+   },
+   {
+    "id": "shoes01_hero_boots_3",
+    "name": "hero boots 3",
+    "gender": "any",
+    "styles": [
+     "rock"
+    ],
+    "license": "CC0",
+    "tags": [],
+    "vertices": 1358,
+    "transparent": false
+   },
+   {
+    "id": "shoes01_floppy_overknee_shoe",
+    "name": "floppy overknee shoe",
+    "gender": "any",
+    "styles": [],
+    "license": "CC0",
+    "tags": [],
+    "vertices": 1818,
+    "transparent": false
+   },
+   {
+    "id": "shoes01_male_boots",
+    "name": "male boots",
+    "gender": "male",
+    "styles": [
+     "rock"
+    ],
+    "license": "CC0",
+    "tags": [],
+    "vertices": 16072,
+    "transparent": false
+   },
+   {
+    "id": "shoes01_flats_ballet_bow",
+    "name": "Flats ballet bow",
+    "gender": "any",
+    "styles": [],
+    "license": "CC0",
+    "tags": [],
+    "vertices": 8900,
+    "transparent": false
+   },
+   {
+    "id": "shoes01_botas_102",
+    "name": "Botas 102",
+    "gender": "any",
+    "styles": [],
+    "license": "CC0",
+    "tags": [],
+    "vertices": 6060,
+    "transparent": false
+   },
+   {
+    "id": "shoes01_hero_boots_5",
+    "name": "hero boots 5",
+    "gender": "any",
+    "styles": [
+     "rock"
+    ],
+    "license": "CC0",
+    "tags": [],
+    "vertices": 6512,
+    "transparent": false
+   },
+   {
+    "id": "shoes01_boots_ankle_male",
+    "name": "Boots Ankle Male",
+    "gender": "any",
+    "styles": [
+     "rock"
+    ],
+    "license": "CC0",
+    "tags": [],
+    "vertices": 2530,
+    "transparent": false
+   },
+   {
+    "id": "shoes01_flats_ballet_flower",
+    "name": "Flats ballet flower",
+    "gender": "any",
+    "styles": [],
+    "license": "CC0",
+    "tags": [],
+    "vertices": 6476,
+    "transparent": false
+   },
+   {
+    "id": "shoes01_tbar",
+    "name": "tbar",
+    "gender": "any",
+    "styles": [],
+    "license": "CC0",
+    "tags": [],
+    "vertices": 566,
+    "transparent": false
+   },
+   {
+    "id": "shoes01_gogo_boots",
+    "name": "gogo boots",
+    "gender": "any",
+    "styles": [
+     "rock"
+    ],
+    "license": "CC0",
+    "tags": [],
+    "vertices": 5854,
+    "transparent": false
+   },
+   {
+    "id": "shoes01_boots_ankle",
+    "name": "Boots Ankle",
+    "gender": "any",
+    "styles": [
+     "rock"
+    ],
+    "license": "CC0",
+    "tags": [],
+    "vertices": 2530,
+    "transparent": false
+   },
+   {
+    "id": "shoes01_heroine_boots_1",
+    "name": "heroine boots 1",
+    "gender": "any",
+    "styles": [
+     "rock"
+    ],
+    "license": "CC0",
+    "tags": [],
+    "vertices": 2348,
+    "transparent": false
+   },
+   {
+    "id": "shoes01_heroine_boots_2",
+    "name": "heroine boots 2",
+    "gender": "any",
+    "styles": [
+     "rock"
+    ],
+    "license": "CC0",
+    "tags": [],
+    "vertices": 1578,
+    "transparent": false
+   },
+   {
+    "id": "shoes01_booties_stiletto",
+    "name": "Booties stiletto",
+    "gender": "any",
+    "styles": [
+     "rock"
+    ],
+    "license": "CC0",
+    "tags": [],
+    "vertices": 27870,
+    "transparent": false
+   },
+   {
+    "id": "shoes01_hero_boots_1",
+    "name": "hero boots 1",
+    "gender": "any",
+    "styles": [
+     "rock"
+    ],
+    "license": "CC0",
+    "tags": [],
+    "vertices": 1909,
+    "transparent": false
+   },
+   {
+    "id": "shoes01_flats",
+    "name": "Flats",
+    "gender": "any",
+    "styles": [],
+    "license": "CC0",
+    "tags": [
+     "shoes"
+    ],
+    "vertices": 30724,
+    "transparent": false
+   }
+  ],
+  "outfit": [
+   {
+    "id": "makehuman_system_assets_male_casualsuit04",
+    "name": "male casualsuit04",
+    "gender": "male",
+    "styles": [
+     "casual",
+     "formal"
+    ],
+    "license": "CC0",
+    "tags": [
+     "MakeHuman\u2122",
+     "Male",
+     "Casual"
+    ],
+    "vertices": 1887,
+    "transparent": false
+   },
+   {
+    "id": "makehuman_system_assets_male_casualsuit02",
+    "name": "male casualsuit02",
+    "gender": "male",
+    "styles": [
+     "casual",
+     "formal"
+    ],
+    "license": "CC0",
+    "tags": [
+     "MakeHuman\u2122",
+     "Male",
+     "Casual"
+    ],
+    "vertices": 2349,
+    "transparent": false
+   },
+   {
+    "id": "makehuman_system_assets_female_casualsuit02",
+    "name": "female casualsuit02",
+    "gender": "female",
+    "styles": [
+     "casual",
+     "formal"
+    ],
+    "license": "CC0",
+    "tags": [
+     "MakeHuman\u2122",
+     "Female",
+     "Casual"
+    ],
+    "vertices": 3204,
+    "transparent": false
+   },
+   {
+    "id": "makehuman_system_assets_male_casualsuit05",
+    "name": "male casualsuit05",
+    "gender": "male",
+    "styles": [
+     "casual",
+     "formal"
+    ],
+    "license": "CC0",
+    "tags": [
+     "MakeHuman\u2122",
+     "Male",
+     "Casual"
+    ],
+    "vertices": 3871,
+    "transparent": false
+   },
+   {
+    "id": "makehuman_system_assets_male_worksuit01",
+    "name": "male worksuit01",
+    "gender": "male",
+    "styles": [
+     "formal"
+    ],
+    "license": "CC0",
+    "tags": [
+     "MakeHuman\u2122"
+    ],
+    "vertices": 4166,
+    "transparent": false
+   },
+   {
+    "id": "makehuman_system_assets_male_casualsuit03",
+    "name": "male casualsuit03",
+    "gender": "male",
+    "styles": [
+     "casual",
+     "formal"
+    ],
+    "license": "CC0",
+    "tags": [
+     "MakeHuman\u2122",
+     "Male",
+     "Casual"
+    ],
+    "vertices": 2796,
+    "transparent": false
+   },
+   {
+    "id": "makehuman_system_assets_male_casualsuit06",
+    "name": "male casualsuit06",
+    "gender": "male",
+    "styles": [
+     "casual",
+     "formal"
+    ],
+    "license": "CC0",
+    "tags": [
+     "MakeHuman\u2122",
+     "Male",
+     "Casual"
+    ],
+    "vertices": 4035,
+    "transparent": false
+   },
+   {
+    "id": "makehuman_system_assets_female_sportsuit01",
+    "name": "female sportsuit01",
+    "gender": "female",
+    "styles": [
+     "formal",
+     "sport"
+    ],
+    "license": "CC0",
+    "tags": [
+     "MakeHuman\u2122",
+     "Female",
+     "Sport"
+    ],
+    "vertices": 1986,
+    "transparent": false
+   },
+   {
+    "id": "makehuman_system_assets_female_casualsuit01",
+    "name": "female casualsuit01",
+    "gender": "female",
+    "styles": [
+     "casual",
+     "formal"
+    ],
+    "license": "CC0",
+    "tags": [
+     "MakeHuman\u2122",
+     "Female",
+     "Casual"
+    ],
+    "vertices": 2406,
+    "transparent": false
+   },
+   {
+    "id": "makehuman_system_assets_male_elegantsuit01",
+    "name": "male elegantsuit01",
+    "gender": "male",
+    "styles": [
+     "formal"
+    ],
+    "license": "CC0",
+    "tags": [
+     "MakeHuman\u2122",
+     "Male",
+     "Elegant"
+    ],
+    "vertices": 8522,
+    "transparent": false
+   },
+   {
+    "id": "makehuman_system_assets_male_casualsuit01",
+    "name": "male casualsuit01",
+    "gender": "male",
+    "styles": [
+     "casual",
+     "formal"
+    ],
+    "license": "CC0",
+    "tags": [
+     "MakeHuman\u2122",
+     "Casual",
+     "Male"
+    ],
+    "vertices": 8984,
+    "transparent": false
+   },
+   {
+    "id": "makehuman_system_assets_female_elegantsuit01",
+    "name": "female elegantsuit01",
+    "gender": "female",
+    "styles": [
+     "formal"
+    ],
+    "license": "CC0",
+    "tags": [
+     "MakeHuman\u2122",
+     "Female",
+     "Elegant"
+    ],
+    "vertices": 2446,
+    "transparent": false
+   },
+   {
+    "id": "suits01_fem_suit",
+    "name": "Fem Suit",
+    "gender": "female",
+    "styles": [
+     "formal"
+    ],
+    "license": "CC0",
+    "tags": [
+     "suit",
+     "female"
+    ],
+    "vertices": 15758,
+    "transparent": false
+   },
+   {
+    "id": "suits01_fem_suit_double_breasted",
+    "name": "Fem Suit Double Breasted",
+    "gender": "any",
+    "styles": [
+     "formal"
+    ],
+    "license": "CC0",
+    "tags": [],
+    "vertices": 6021,
+    "transparent": false
+   },
+   {
+    "id": "suits01_fem_suit2",
+    "name": "Fem Suit2",
+    "gender": "any",
+    "styles": [
+     "formal"
+    ],
+    "license": "CC0",
+    "tags": [],
+    "vertices": 9781,
+    "transparent": false
+   },
+   {
+    "id": "suits01_suit_double_breasted",
+    "name": "Suit Double Breasted",
+    "gender": "any",
+    "styles": [
+     "formal"
+    ],
+    "license": "CC0",
+    "tags": [],
+    "vertices": 6021,
+    "transparent": false
+   },
+   {
+    "id": "suits01_suit3",
+    "name": "Suit3",
+    "gender": "any",
+    "styles": [
+     "formal"
+    ],
+    "license": "CC0",
+    "tags": [],
+    "vertices": 9795,
+    "transparent": false
+   }
+  ],
+  "teeth": [
+   {
+    "id": "makehuman_system_assets_teeth_shape02",
+    "name": "Teeth Shape02",
+    "gender": "any",
+    "styles": [
+     "casual"
+    ],
+    "license": "CC0",
+    "tags": [
+     "MakeHuman\u2122"
+    ],
+    "vertices": 4712,
+    "transparent": false
+   },
+   {
+    "id": "makehuman_system_assets_teeth_shape01",
+    "name": "Teeth Shape01",
+    "gender": "any",
+    "styles": [
+     "casual"
+    ],
+    "license": "CC0",
+    "tags": [
+     "MakeHuman\u2122"
+    ],
+    "vertices": 4712,
+    "transparent": false
+   },
+   {
+    "id": "makehuman_system_assets_teeth_base",
+    "name": "Teeth Base",
+    "gender": "any",
+    "styles": [
+     "casual"
+    ],
+    "license": "CC0",
+    "tags": [
+     "MakeHuman\u2122"
+    ],
+    "vertices": 4712,
+    "transparent": false
+   },
+   {
+    "id": "makehuman_system_assets_teeth_shape05",
+    "name": "Teeth Shape05",
+    "gender": "any",
+    "styles": [
+     "casual"
+    ],
+    "license": "CC0",
+    "tags": [
+     "MakeHuman\u2122"
+    ],
+    "vertices": 4712,
+    "transparent": false
+   },
+   {
+    "id": "makehuman_system_assets_teeth_shape03",
+    "name": "Teeth Shape03",
+    "gender": "any",
+    "styles": [
+     "casual"
+    ],
+    "license": "CC0",
+    "tags": [
+     "MakeHuman\u2122"
+    ],
+    "vertices": 4712,
+    "transparent": false
+   },
+   {
+    "id": "makehuman_system_assets_teeth_shape04",
+    "name": "Teeth Shape04",
+    "gender": "any",
+    "styles": [
+     "casual"
+    ],
+    "license": "CC0",
+    "tags": [
+     "MakeHuman\u2122"
+    ],
+    "vertices": 4712,
+    "transparent": false
+   }
+  ],
+  "eyes": [
+   {
+    "id": "makehuman_system_assets_highpolyeyes",
+    "name": "HighPolyEyes",
+    "gender": "any",
+    "styles": [],
+    "license": "CC0",
+    "tags": [
+     "MakeHuman\u2122"
+    ],
+    "vertices": 1076,
+    "transparent": true
+   },
+   {
+    "id": "makehuman_system_assets_low_poly",
+    "name": "Low-Poly",
+    "gender": "any",
+    "styles": [],
+    "license": "CC0",
+    "tags": [
+     "MakeHuman\u2122"
+    ],
+    "vertices": 96,
+    "transparent": true
+   }
+  ],
+  "bottom": [
+   {
+    "id": "pants01_pants_wool",
+    "name": "Pants Wool",
+    "gender": "male",
+    "styles": [],
+    "license": "CC0",
+    "tags": [
+     "pants",
+     "male"
+    ],
+    "vertices": 1593,
+    "transparent": false
+   },
+   {
+    "id": "pants01_pants_harem",
+    "name": "Pants Harem",
+    "gender": "any",
+    "styles": [],
+    "license": "CC0",
+    "tags": [],
+    "vertices": 7030,
+    "transparent": false
+   },
+   {
+    "id": "pants01_cargo_pants",
+    "name": "cargo pants",
+    "gender": "any",
+    "styles": [],
+    "license": "CC0",
+    "tags": [],
+    "vertices": 255,
+    "transparent": false
+   },
+   {
+    "id": "pants01_jean_shorts",
+    "name": "jean shorts",
+    "gender": "any",
+    "styles": [
+     "casual"
+    ],
+    "license": "CC0",
+    "tags": [],
+    "vertices": 342,
+    "transparent": false
+   },
+   {
+    "id": "suits01_jacket_bowtie_pants",
+    "name": "Jacket bowtie Pants",
+    "gender": "any",
+    "styles": [],
+    "license": "CC0",
+    "tags": [],
+    "vertices": 14115,
+    "transparent": false
+   },
+   {
+    "id": "suits01_jacket_tie_pants",
+    "name": "Jacket Tie Pants",
+    "gender": "any",
+    "styles": [],
+    "license": "CC0",
+    "tags": [
+     "pants"
+    ],
+    "vertices": 10982,
+    "transparent": false
+   }
+  ],
+  "top": [
+   {
+    "id": "shirts01_camisole_top",
+    "name": "Camisole Top",
+    "gender": "any",
+    "styles": [],
+    "license": "CC0",
+    "tags": [],
+    "vertices": 5096,
+    "transparent": false
+   },
+   {
+    "id": "shirts01_t_shirt_basic_tucked",
+    "name": "T-shirt basic tucked",
+    "gender": "any",
+    "styles": [
+     "casual"
+    ],
+    "license": "CC0",
+    "tags": [
+     "t-shirt",
+     "shirt",
+     "top",
+     "knit",
+     "casual"
+    ],
+    "vertices": 1644,
+    "transparent": false
+   },
+   {
+    "id": "shirts01_polo_t_shirt",
+    "name": "Polo t-shirt",
+    "gender": "male",
+    "styles": [
+     "casual"
+    ],
+    "license": "CC0",
+    "tags": [
+     "male",
+     "casual",
+     "profession",
+     "contemporary"
+    ],
+    "vertices": 2574,
+    "transparent": false
+   },
+   {
+    "id": "shirts01_crude_male_shirt",
+    "name": "crude male shirt",
+    "gender": "any",
+    "styles": [],
+    "license": "CC0",
+    "tags": [],
+    "vertices": 1150,
+    "transparent": false
+   },
+   {
+    "id": "shirts01_sweater_fisherman",
+    "name": "Sweater Fisherman",
+    "gender": "any",
+    "styles": [],
+    "license": "CC0",
+    "tags": [
+     "sweater",
+     "shirt",
+     "top",
+     "knit"
+    ],
+    "vertices": 2511,
+    "transparent": false
+   },
+   {
+    "id": "shirts01_tank_keyhole_neck",
+    "name": "Tank Keyhole Neck",
+    "gender": "any",
+    "styles": [],
+    "license": "CC0",
+    "tags": [],
+    "vertices": 823,
+    "transparent": false
+   },
+   {
+    "id": "shirts01_turtleneck_halter",
+    "name": "Turtleneck Halter",
+    "gender": "any",
+    "styles": [],
+    "license": "CC0",
+    "tags": [],
+    "vertices": 3504,
+    "transparent": false
+   },
+   {
+    "id": "shirts01_tube_top",
+    "name": "tube top",
+    "gender": "any",
+    "styles": [],
+    "license": "CC0",
+    "tags": [
+     "top",
+     "egen"
+    ],
+    "vertices": 1700,
+    "transparent": false
+   },
+   {
+    "id": "shirts01_crudefemaletshirt",
+    "name": "CrudeFemaleTshirt",
+    "gender": "female",
+    "styles": [],
+    "license": "CC0",
+    "tags": [],
+    "vertices": 1152,
+    "transparent": false
+   },
+   {
+    "id": "shirts01_bodice_style_top",
+    "name": "Bodice style top",
+    "gender": "any",
+    "styles": [],
+    "license": "CC0",
+    "tags": [],
+    "vertices": 1152,
+    "transparent": false
+   },
+   {
+    "id": "suits01_suit_dinner_jacket",
+    "name": "Suit Dinner Jacket",
+    "gender": "any",
+    "styles": [
+     "formal"
+    ],
+    "license": "CC0",
+    "tags": [],
+    "vertices": 9363,
+    "transparent": false
+   }
+  ],
+  "socks": [
+   {
+    "id": "underwear04_crudehighsocks",
+    "name": "CrudeHighSocks",
+    "gender": "any",
+    "styles": [],
+    "license": "CC0",
+    "tags": [],
+    "vertices": 394,
+    "transparent": false
+   },
+   {
+    "id": "underwear04_leg_warmer_socks",
+    "name": "Leg Warmer Socks",
+    "gender": "any",
+    "styles": [],
+    "license": "CC0",
+    "tags": [
+     "socks"
+    ],
+    "vertices": 4158,
+    "transparent": false
+   },
+   {
+    "id": "underwear04_sockslacefrill",
+    "name": "SocksLaceFrill",
+    "gender": "any",
+    "styles": [],
+    "license": "CC0",
+    "tags": [
+     "socks"
+    ],
+    "vertices": 748,
+    "transparent": false
+   },
+   {
+    "id": "underwear04_crudelowsocks",
+    "name": "CrudeLowSocks",
+    "gender": "any",
+    "styles": [],
+    "license": "CC0",
+    "tags": [],
+    "vertices": 312,
+    "transparent": false
+   }
+  ]
+ }
+}
