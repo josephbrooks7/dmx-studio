@@ -21,7 +21,7 @@
     "mixamorig:RightArm": 0.884,
     "mixamorig:RightForeArm": 0.886
   },
-  "vertices_covering_hands": 75,
+  "vertices_covering_hands": 84,
   "vertices_covering_head": 0,
   "liner": "Liner_Top_shirt",
   "degenerate_faces": 3,

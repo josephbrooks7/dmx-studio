@@ -5,9 +5,9 @@
   "vertices": 440,
   "faces": 614,
   "vertices_without_matching_bones": 0,
-  "vertices_pushed_out_of_body": 170,
-  "deepest_penetration_before_fix_m": 0.0128,
-  "max_body_fit_correction_m": 0.0255,
+  "vertices_pushed_out_of_body": 0,
+  "deepest_penetration_before_fix_m": -0.0,
+  "max_body_fit_correction_m": 0.0192,
   "bone_length_ratios": {
     "mixamorig:Spine": 0.831,
     "mixamorig:LeftUpLeg": 1.068,
