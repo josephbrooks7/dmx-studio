@@ -964,7 +964,7 @@ enum PerformerRole: String, Codable, CaseIterable, Identifiable {
     var id: String { rawValue }
 }
 enum PerformerHair: String, Codable, CaseIterable, Identifiable {
-    case short = "Short", long = "Long", shaved = "Shaved", swept = "Swept", spiked = "Spiked", ponytail = "Ponytail", curly = "Curly"
+    case short = "Short", long = "Long", shaved = "Shaved", swept = "Swept", spiked = "Spiked", ponytail = "Ponytail", curly = "Curly", bald = "Bald"
     var id: String { rawValue }
 }
 struct PerformerAppearance: Codable, Hashable {

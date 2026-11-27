@@ -849,9 +849,12 @@ enum Build {
                     }
                     // The authored hair is replaced in every case, so the selected style is what shows.
                     originalHair.forEach { $0.isHidden = true }
-                    if a.hair != .shaved,
-                       let head = headFrame(mesh, in: root, band: 0.055 * CGFloat(a.height)),
-                       let hairURL = Bundle.main.url(forResource: "hair-" + a.hair.rawValue.lowercased() + (avatarFeminine ? "-f" : "-m"),
+                    // Shaved = a close buzz cut in the hair color; Bald = a smooth skin-toned scalp that
+                    // covers hair painted into these heads. Both use the closest-fitting short module.
+                    let closeCrop = a.hair == .shaved || a.hair == .bald
+                    let moduleStyle = closeCrop ? "short" : a.hair.rawValue.lowercased()
+                    if let head = headFrame(mesh, in: root, band: 0.055 * CGFloat(a.height)),
+                       let hairURL = Bundle.main.url(forResource: "hair-" + moduleStyle + (avatarFeminine ? "-f" : "-m"),
                                                      withExtension: "usdz", subdirectory: "Characters/Hair"),
                        let hairTemplate = avatarTemplate(hairURL) {
                         let module = hairTemplate.clone()
@@ -864,14 +867,23 @@ enum Build {
                             NSColor(calibratedRed: 0.36, green: 0.07, blue: 0.025, alpha: 1),    // red
                             NSColor(calibratedRed: 0.05, green: 0.11, blue: 0.42, alpha: 1),     // blue
                             NSColor(calibratedRed: 0.40, green: 0.40, blue: 0.42, alpha: 1)]     // silver
-                        let tone = hairColors[min(max(a.hairColor, 0), hairColors.count - 1)]
+                        let skinTones: [NSColor] = [
+                            NSColor(calibratedRed: 0.86, green: 0.70, blue: 0.60, alpha: 1),
+                            NSColor(calibratedRed: 0.78, green: 0.60, blue: 0.48, alpha: 1),
+                            NSColor(calibratedRed: 0.64, green: 0.46, blue: 0.34, alpha: 1),
+                            NSColor(calibratedRed: 0.50, green: 0.34, blue: 0.24, alpha: 1),
+                            NSColor(calibratedRed: 0.36, green: 0.23, blue: 0.16, alpha: 1),
+                            NSColor(calibratedRed: 0.24, green: 0.15, blue: 0.10, alpha: 1)]
+                        let tone = a.hair == .bald
+                            ? skinTones[min(max(a.skin, 0), skinTones.count - 1)]
+                            : hairColors[min(max(a.hairColor, 0), hairColors.count - 1)]
                         module.enumerateChildNodes { node, _ in
                             guard let g = node.geometry?.copy() as? SCNGeometry else { return }
                             let m = SCNMaterial()
                             m.name = "hair_module_material"
                             m.lightingModel = .physicallyBased
                             m.diffuse.contents = tone
-                            m.roughness.contents = 0.72
+                            m.roughness.contents = a.hair == .bald ? 0.5 : 0.72
                             m.metalness.contents = 0.0
                             m.isDoubleSided = true
                             g.materials = [m]
@@ -880,7 +892,7 @@ enum Build {
                         // Size the module's crown to the head's crown, then sit it on the head.
                         let crown = headFrame(module, in: module, band: 0.096)
                         let crownWidth = crown?.width ?? 0.19
-                        let f = crownWidth > 0.01 ? min(max(head.width * 1.04 / crownWidth, 0.7), 1.5) : 1
+                        let f = (crownWidth > 0.01 ? min(max(head.width * 1.04 / crownWidth, 0.7), 1.5) : 1) * (closeCrop ? 0.985 : 1)
                         module.scale = SCNVector3(f, f, f)
                         module.position = SCNVector3(head.x - (crown?.x ?? 0) * f,
                                                      head.top + 0.004 - (crown?.top ?? 0) * f,
@@ -1015,7 +1027,7 @@ enum Build {
         }
         oval(0,headY-0.005,0.105,0.018,0.026,0.025,skin)
         oval(0,headY-0.052,0.091,0.032,0.006,0.009,Mat.darkGray)
-        if a.hair != .shaved {
+        if a.hair != .shaved && a.hair != .bald {
             oval(0,headY+0.075,-0.017,0.111,0.082,0.108,hair)
             if a.hair == .long { oval(0,headY-0.075,-0.085,0.12,0.21,0.06,hair) }
             if a.hair == .swept { oval(0.04,headY+0.10,0.01,0.10,0.055,0.10,hair) }
