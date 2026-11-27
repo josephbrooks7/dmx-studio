@@ -27,7 +27,7 @@ jobs:
         run: python3 -m py_compile packaging/body_fit.py packaging/garment_regions.py packaging/garment_skin.py packaging/garment_clearance.py packaging/garment_pipeline.py packaging/blender_garment_fit.py packaging/inspect-body-reference.py
       - name: Run offline fitting regression suite
         working-directory: packaging
-        run: python3 -m unittest -v test_body_fit test_garment_regions test_garment_skin test_garment_clearance test_garment_pipeline test_anatomical_fit test_lower_body_fit
+        run: python3 -m unittest -v test_body_fit test_garment_regions test_garment_skin test_garment_clearance test_garment_pipeline test_anatomical_fit test_lower_body_fit test_accessory_fit
   blender-smoke:
     runs-on: ubuntu-24.04
     timeout-minutes: 15
