@@ -1510,6 +1510,8 @@ struct CharacterModelPreview: NSViewRepresentable {
         view.antialiasingMode = .multisampling2X
         let camera = SCNNode(); camera.camera = SCNCamera()
         camera.camera?.fieldOfView = 37
+        camera.camera?.zNear = 0.02   // default is 1 m, which clipped the whole face view away
+        camera.camera?.zFar = 60
         camera.camera?.wantsHDR = true
         camera.camera?.wantsExposureAdaptation = false
         camera.camera?.screenSpaceAmbientOcclusionIntensity = 0.55
@@ -1592,6 +1594,14 @@ struct CharacterModelPreview: NSViewRepresentable {
                               bounds.0.y > low.y + bodySpan * 0.65,
                               bounds.1.y - bounds.0.y < bodySpan * 0.40 else { return }
                         heads.append(bounds)
+                    }
+                    // Measured crown of the visible head (and hair): frames any body, named parts or not.
+                    if heads.isEmpty, let scene = view.scene,
+                       let crown = Build.headFrame(node, in: scene.rootNode, band: 0.13 * bodySpan) {
+                        let h = bodySpan / 1.75
+                        low = SCNVector3(crown.x - 0.13 * h, crown.top - 0.30 * h, crown.z - 0.13 * h)
+                        high = SCNVector3(crown.x + 0.13 * h, crown.top + 0.02 * h, crown.z + 0.13 * h)
+                        exactHead = true
                     }
                     if let first = heads.first {
                         low = first.0; high = first.1
