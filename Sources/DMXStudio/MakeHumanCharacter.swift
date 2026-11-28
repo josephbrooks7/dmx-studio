@@ -784,9 +784,14 @@ enum MHCharacter {
             let eyeY: Float
             if let l = bi["eye.L"], let r = bi["eye.R"] { eyeY = (boneHeads[l].y + boneHeads[r].y) / 2 } else { eyeY = top - 0.115 }
             headFit = HeadwearFitter.fit(scalp: bodyMesh.positions, eyeY: eyeY)
+            if a.accessory == "Top Hat", var f = headFit {
+                let hair = fitted.filter { $0.0.slot == "hair" }.map { $0.1.positions }
+                f.hairLayer = HeadwearFitter.hairLayer(hair, fit: f, curly: a.hair == .curly)
+                headFit = f
+            }
             if debugLog, let f = headFit {
-                print("MH_HAT ring", String(format: "%.0f mm, width %.0f mm, length %.0f mm, oval %.2f, US %@", f.circumference * 1000,
-                                             f.width * 1000, f.length * 1000, f.length / max(f.width, 0.001), f.usSize), f.warning ?? "")
+                print("MH_HAT ring", String(format: "%.0f mm, width %.0f mm, length %.0f mm, oval %.2f, US %@, hair under band %.1f mm", f.circumference * 1000,
+                                             f.width * 1000, f.length * 1000, f.length / max(f.width, 0.001), f.usSize, f.hairLayer * 1000), f.warning ?? "")
             }
             if a.accessory == "Top Hat", let f = headFit {
                 for i in fitted.indices where fitted[i].0.slot == "hair" {

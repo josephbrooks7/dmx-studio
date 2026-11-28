@@ -18,6 +18,8 @@ struct HeadFit {
     var width: Float
     var length: Float
     var warning: String?
+    /// Compressed hair between scalp and band (meters): the hat sits on the hair, not on bare scalp.
+    var hairLayer: Float = 0
 
     static let directions = 72
     func angle(_ i: Int) -> Float { Float(i) / Float(HeadFit.directions) * 2 * .pi }
@@ -127,6 +129,28 @@ enum HeadwearFitter {
         return fit
     }
 
+    /// Hair thickness around the wearing line, compressed the way a firm band presses it (the reference's
+    /// suggested 30–80% volume reduction; coily/curly hair keeps a thicker layer). Median over directions.
+    static func hairLayer(_ hair: [[SIMD3<Float>]], fit: HeadFit, curly: Bool) -> Float {
+        let toHat = simd_quatf(angle: fit.pitch, axis: SIMD3(1, 0, 0))
+        var thickest = [Float](repeating: 0, count: HeadFit.directions)
+        for mesh in hair {
+            for p in mesh {
+                let q = toHat.act(p - fit.center)
+                guard abs(q.y) < 0.012 else { continue }
+                var a = atan2(q.x, q.z); if a < 0 { a += 2 * .pi }
+                let i = Int(a / (2 * .pi) * Float(HeadFit.directions)) % HeadFit.directions
+                let r = (q.x * q.x + q.z * q.z).squareRoot()
+                thickest[i] = max(thickest[i], r - fit.radii[i])
+            }
+        }
+        let covered = thickest.filter { $0 > 0.001 }.sorted()
+        guard covered.count >= HeadFit.directions / 4 else { return 0 }
+        let median = covered[covered.count / 2]
+        let kept: Float = curly ? 0.45 : 0.35
+        return min(0.014, median * kept)
+    }
+
     /// Hair policy for rigid hats: hair above the wearing plane is drawn in under the band (compressed into the
     /// crown cavity, where the closed hat hides it); strands below the brim stay where they are.
     static func tuckHair(_ positions: inout [SIMD3<Float>], fit: HeadFit, style: TopHatStyle) {
@@ -135,6 +159,7 @@ enum HeadwearFitter {
         let toHat = simd_quatf(angle: fit.pitch, axis: SIMD3(1, 0, 0))     // undo the hat's -pitch
         let toWorld = toHat.inverse
         let grow = style.allowance / (2 * .pi)
+        let layer = fit.hairLayer
         for i in positions.indices {
             let q = toHat.act(positions[i] - fit.center)                   // y = height above the plane
             guard q.y > -0.03 else { continue }
@@ -144,11 +169,11 @@ enum HeadwearFitter {
             var out = q
             let limit: Float
             if q.y >= 0 {
-                limit = ring * 0.97                                        // inside the hollow crown
+                limit = (ring + layer) * 0.97                              // flattened inside the hollow crown
                 out.y = min(q.y, style.crownHeight - 0.012)
             } else {
                 // Under the band: pressed to the band, fanning back to its own shape 3 cm lower.
-                limit = ring + grow + 0.002 + (-q.y) * 1.2
+                limit = ring + layer + grow + 0.002 + (-q.y) * 1.2
             }
             if r > limit, r > 0 { out.x = q.x * limit / r; out.z = q.z * limit / r }
             positions[i] = fit.center + toWorld.act(out)
@@ -206,7 +231,7 @@ enum HeadwearFitter {
         }
         let felt = mat(0.05, rough: 0.85), lining = mat(0.11, rough: 0.6), satin = mat(0.015, rough: 0.32)
         let n = HeadFit.directions
-        let grow = style.allowance / (2 * .pi)          // circumference allowance as a radial offset
+        let grow = style.allowance / (2 * .pi) + fit.hairLayer   // band allowance plus the compressed hair under it
         func ring(_ extra: Float, y: Float) -> [SIMD3<Float>] { (0..<n).map { let p = fit.point($0, grow: grow + extra); return SIMD3(p.x, y, p.y) } }
         func radial(_ sign: Float) -> [SIMD3<Float>] { (0..<n).map { let a = fit.angle($0); return SIMD3(sin(a) * sign, 0, cos(a) * sign) } }
         let H = style.crownHeight, t = style.shell
