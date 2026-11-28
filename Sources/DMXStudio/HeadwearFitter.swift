@@ -130,25 +130,28 @@ enum HeadwearFitter {
     /// Hair policy for rigid hats: hair above the wearing plane is drawn in under the band (compressed into the
     /// crown cavity, where the closed hat hides it); strands below the brim stay where they are.
     static func tuckHair(_ positions: inout [SIMD3<Float>], fit: HeadFit, style: TopHatStyle) {
+        // Work in the hat's own frame (the wearing plane, pitched like the hat), so the limits match the
+        // crown wall exactly even though the hat leans back.
+        let toHat = simd_quatf(angle: fit.pitch, axis: SIMD3(1, 0, 0))     // undo the hat's -pitch
+        let toWorld = toHat.inverse
+        let grow = style.allowance / (2 * .pi)
         for i in positions.indices {
-            var p = positions[i]
-            let dx = p.x - fit.center.x, dz = p.z - fit.center.z
-            let plane = fit.center.y + tan(fit.pitch) * dz
-            let below = plane - p.y
-            guard below < 0.03 else { continue }
-            var a = atan2(dx, dz); if a < 0 { a += 2 * .pi }
+            let q = toHat.act(positions[i] - fit.center)                   // y = height above the plane
+            guard q.y > -0.03 else { continue }
+            var a = atan2(q.x, q.z); if a < 0 { a += 2 * .pi }
             let ring = fit.radius(atAngle: a)
-            let r = (dx * dx + dz * dz).squareRoot()
+            let r = (q.x * q.x + q.z * q.z).squareRoot()
+            var out = q
             let limit: Float
-            if below <= 0 {
-                limit = ring * 0.97                                   // inside the crown cavity
-                p.y = min(p.y, plane + style.crownHeight - 0.012)
+            if q.y >= 0 {
+                limit = ring * 0.97                                        // inside the hollow crown
+                out.y = min(q.y, style.crownHeight - 0.012)
             } else {
-                // Just under the band: pressed in, flaring back to its own shape 3 cm lower.
-                limit = ring + style.allowance / (2 * .pi) + 0.002 + below * 1.2
+                // Under the band: pressed to the band, fanning back to its own shape 3 cm lower.
+                limit = ring + grow + 0.002 + (-q.y) * 1.2
             }
-            if r > limit, r > 0 { p.x = fit.center.x + dx * limit / r; p.z = fit.center.z + dz * limit / r }
-            positions[i] = p
+            if r > limit, r > 0 { out.x = q.x * limit / r; out.z = q.z * limit / r }
+            positions[i] = fit.center + toWorld.act(out)
         }
     }
 
