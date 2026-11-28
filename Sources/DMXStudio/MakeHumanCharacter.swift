@@ -800,9 +800,11 @@ enum MHCharacter {
             }
             // Library headwear (caps, fedoras, hoods) and the fitted baseball cap: press hair under the hat's inner surface.
             if let f = headFit {
-                var hats = fitted.filter { $0.0.slot == "hat" }.map { $0.1.positions }
+                let hats = fitted.filter { $0.0.slot == "hat" }.map { $0.1.positions }
                 if (a.accessory ?? "").hasPrefix("Baseball Cap") {
-                    hats.append(HeadwearFitter.capShell(f, backwards: a.accessory == "Baseball Cap (backwards)"))
+                    for i in fitted.indices where fitted[i].0.slot == "hair" {
+                        HeadwearFitter.pressHairUnderCap(&fitted[i].1.positions, fit: f, backwards: a.accessory == "Baseball Cap (backwards)")
+                    }
                 }
                 for hat in hats {
                     for i in fitted.indices where fitted[i].0.slot == "hair" {

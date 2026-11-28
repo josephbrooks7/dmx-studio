@@ -283,33 +283,49 @@ enum HeadwearFitter {
         return surface(ring + [center], Array(repeating: normal, count: n + 1), tris, material, name: name)
     }
 
-    /// Baseball cap on the fitted ring: soft dome over the head and pressed hair, curved front visor, top button,
-    /// rear opening above the strap (ponytails and buns pass through). `backwards` turns the visor to the back.
-    static func baseballCap(_ fit: HeadFit, backwards: Bool = false, color: NSColor = NSColor(calibratedRed: 0.08, green: 0.1, blue: 0.16, alpha: 1)) -> SCNNode {
+    /// Baseball cap shape: a soft six-panel crown (superellipse dome, flatter than a helmet), a curved bill across
+    /// the front only, top button, rear opening above the strap.
+    struct CapShape {
+        var crownHeight: Float = 0.088
+        var roundness: Float = 2.6           // >2 flattens the top like a structured cap
+        var billHalfAngle: Float = 0.72      // ±41° of the front
+        var billDepth: Float = 0.072
+        var openingHalfAngle: Float = 0.42
+        var openingHeight: Float = 0.032
+        func dome(_ r: Float, _ R: Float) -> Float {
+            guard r < R else { return 0 }
+            return crownHeight * pow(max(0, 1 - pow(r / R, roundness)), 1 / roundness)
+        }
+    }
+
+    static func capRing(_ fit: HeadFit) -> Float { 0.002 / (2 * .pi) + fit.hairLayer + 0.002 }
+
+    static func baseballCap(_ fit: HeadFit, backwards: Bool = false, color: NSColor = NSColor(calibratedRed: 0.08, green: 0.1, blue: 0.16, alpha: 1),
+                            shape: CapShape = CapShape()) -> SCNNode {
         let cloth = SCNMaterial(); cloth.lightingModel = .physicallyBased
         cloth.diffuse.contents = color; cloth.roughness.contents = 0.9; cloth.metalness.contents = 0.0; cloth.isDoubleSided = true
-        let n = HeadFit.directions, rows = 12
-        let grow: Float = 0.002 / (2 * .pi) + fit.hairLayer + 0.002
-        let crownH: Float = 0.105
+        let n = HeadFit.directions, rows = 14
+        let grow = capRing(fit)
         let front: Float = backwards ? .pi : 0
         func angleDist(_ a: Float, _ b: Float) -> Float { var d = abs(a - b).truncatingRemainder(dividingBy: 2 * .pi); if d > .pi { d = 2 * .pi - d }; return d }
-        // Dome: rows from the band (row 0) to the crown top; rear opening rows 0..2 over ±25° at the back.
+        let e = 2 / shape.roundness
         var pos: [SIMD3<Float>] = [], nor: [SIMD3<Float>] = []
         for r in 0...rows {
             let phi = Float(r) / Float(rows) * (.pi / 2)
+            let c = pow(cos(phi), e), sn = pow(sin(phi), e)
             for i in 0..<n {
-                let a = fit.angle(i)
-                let rad = (fit.radii[i] + grow) * cos(phi)
-                let y = crownH * sin(phi)
-                pos.append(SIMD3(sin(a) * rad, y, cos(a) * rad))
-                nor.append(normalize(SIMD3(sin(a) * cos(phi) * crownH, sin(phi) * (fit.radii[i] + grow), cos(a) * cos(phi) * crownH)))
+                let a = fit.angle(i), R = fit.radii[i] + grow
+                pos.append(SIMD3(sin(a) * R * c, shape.crownHeight * sn, cos(a) * R * c))
+                let radialN = cos(phi), upN = sin(phi)
+                nor.append(normalize(SIMD3(sin(a) * radialN, upN * 1.2, cos(a) * radialN)))
             }
         }
         var tris: [UInt32] = []
         for r in 0..<rows {
             for i in 0..<n {
                 let a = fit.angle(i)
-                if r < 3 && angleDist(a, front + .pi) < 0.42 && r > 0 { continue }   // opening above the strap
+                let y0 = shape.crownHeight * pow(sin(Float(r) / Float(rows) * (.pi / 2)), e)
+                if y0 > 0.009 && y0 < shape.openingHeight && angleDist(a, front + .pi) < shape.openingHalfAngle { continue }
                 let j = (i + 1) % n
                 let a0 = UInt32(r * n + i), a1 = UInt32(r * n + j), b0 = UInt32((r + 1) * n + i), b1 = UInt32((r + 1) * n + j)
                 tris += [a0, b0, a1, a1, b0, b1]
@@ -317,54 +333,67 @@ enum HeadwearFitter {
         }
         let cap = SCNNode(); cap.name = "mh_baseball_cap"
         cap.addChildNode(surface(pos, nor, tris, cloth, name: "cap_crown"))
-        // Top button.
-        let button = SCNCylinder(radius: 0.009, height: 0.005); button.materials = [cloth]
-        let b = SCNNode(geometry: button); b.position.y = CGFloat(crownH + 0.002); cap.addChildNode(b)
-        // Visor: across ±62° of the front, 75 mm deep at the center, curved down at the sides and tip.
-        let steps = 24
-        var vTop: [SIMD3<Float>] = [], vEdge: [SIMD3<Float>] = []
+        let button = SCNCylinder(radius: 0.008, height: 0.005); button.materials = [cloth]
+        let b = SCNNode(geometry: button); b.position.y = CGFloat(shape.crownHeight + 0.0015); cap.addChildNode(b)
+        // Bill: rooted on the band across the front, projecting straight forward, arched side to side.
+        let steps = 20
+        let fwd = SIMD3<Float>(sin(front), 0, cos(front)), side = SIMD3<Float>(cos(front), 0, -sin(front))
+        var root: [SIMD3<Float>] = [], tip: [SIMD3<Float>] = []
         for k in 0...steps {
-            let t = Float(k) / Float(steps) * 2 - 1                    // -1 … 1 across the visor
-            let a = front + t * 1.08
-            let ringR = fit.radius(atAngle: a < 0 ? a + 2 * .pi : a) + grow
-            let base = SIMD3(sin(a) * ringR, Float(0.004), cos(a) * ringR)
-            let depth = 0.075 * (1 - t * t * 0.55)
-            let dirV = SIMD3(sin(a), 0, cos(a))
-            let tip = base + dirV * depth + SIMD3(0, -0.012 - 0.01 * t * t, 0)
-            vTop.append(base); vEdge.append(tip)
+            let t = Float(k) / Float(steps) * 2 - 1
+            var a = front + t * shape.billHalfAngle; if a < 0 { a += 2 * .pi }
+            let R = fit.radius(atAngle: a) + grow
+            let base = SIMD3(sin(a) * R, Float(0.003), cos(a) * R)
+            let reach = shape.billDepth * (1 - 0.42 * t * t)
+            var end = base + fwd * reach + side * (t * 0.012)
+            end.y = 0.003 - 0.010 - 0.016 * t * t
+            root.append(base); tip.append(end)
         }
-        let thick = SIMD3<Float>(0, -0.004, 0)
-        let up = Array(repeating: SIMD3<Float>(0, 1, 0), count: vTop.count)
-        let down = Array(repeating: SIMD3<Float>(0, -1, 0), count: vTop.count)
-        func strip(_ a: [SIMD3<Float>], _ c: [SIMD3<Float>], _ na: [SIMD3<Float>], name: String) -> SCNNode {
+        let thick = SIMD3<Float>(0, -0.0035, 0)
+        func strip(_ a: [SIMD3<Float>], _ c: [SIMD3<Float>], _ normal: SIMD3<Float>, name: String) -> SCNNode {
             var t: [UInt32] = []
             let m = a.count
             for i in 0..<(m - 1) {
                 let a0 = UInt32(i), a1 = UInt32(i + 1), b0 = UInt32(m + i), b1 = UInt32(m + i + 1)
                 t += [a0, b0, a1, a1, b0, b1]
             }
-            return surface(a + c, na + na, t, cloth, name: name)
+            return surface(a + c, Array(repeating: normal, count: 2 * m), t, cloth, name: name)
         }
-        cap.addChildNode(strip(vTop, vEdge, up, name: "visor_top"))
-        cap.addChildNode(strip(vTop.map { $0 + thick }, vEdge.map { $0 + thick }, down, name: "visor_under"))
-        cap.addChildNode(strip(vEdge, vEdge.map { $0 + thick }, up, name: "visor_edge"))
+        cap.addChildNode(strip(root, tip, SIMD3(0, 1, 0), name: "bill_top"))
+        cap.addChildNode(strip(root.map { $0 + thick }, tip.map { $0 + thick }, SIMD3(0, -1, 0), name: "bill_under"))
+        cap.addChildNode(strip(tip, tip.map { $0 + thick }, fwd, name: "bill_edge"))
         cap.eulerAngles.x = CGFloat(-fit.pitch)
         return cap
     }
 
-    /// The cap's dome as points in the character's space (for pressing hair under it).
-    static func capShell(_ fit: HeadFit, backwards: Bool) -> [SIMD3<Float>] {
-        let toWorld = simd_quatf(angle: -fit.pitch, axis: SIMD3(1, 0, 0))
-        let grow: Float = 0.002 / (2 * .pi) + fit.hairLayer + 0.002
-        var out: [SIMD3<Float>] = []
-        for r in 0...12 {
-            let phi = Float(r) / 12 * (.pi / 2)
-            for i in 0..<HeadFit.directions {
-                let a = fit.angle(i), rad = (fit.radii[i] + grow) * cos(phi)
-                out.append(fit.center + toWorld.act(SIMD3(sin(a) * rad, 0.105 * sin(phi), cos(a) * rad)))
+    /// Hair under the cap, using its exact shape: inside the crown it is pressed under the dome; just under the band
+    /// it is pressed in and fans back out; through the rear opening it passes freely (ponytails, buns).
+    static func pressHairUnderCap(_ positions: inout [SIMD3<Float>], fit: HeadFit, backwards: Bool, shape: CapShape = CapShape()) {
+        let toCap = simd_quatf(angle: fit.pitch, axis: SIMD3(1, 0, 0)), toWorld = toCap.inverse
+        let grow = capRing(fit), back: Float = backwards ? 0 : .pi
+        func angleDist(_ a: Float, _ b: Float) -> Float { var d = abs(a - b).truncatingRemainder(dividingBy: 2 * .pi); if d > .pi { d = 2 * .pi - d }; return d }
+        for i in positions.indices {
+            var q = toCap.act(positions[i] - fit.center)
+            guard q.y > -0.03 else { continue }
+            var a = atan2(q.x, q.z); if a < 0 { a += 2 * .pi }
+            let R = fit.radius(atAngle: a) + grow
+            let inner = R - 0.004
+            let r = (q.x * q.x + q.z * q.z).squareRoot()
+            let inOpening = angleDist(a, back) < shape.openingHalfAngle && q.y > -0.005 && q.y < shape.openingHeight
+            if q.y >= 0 && !inOpening {
+                var rr = min(r, inner)
+                let top = shape.dome(rr, R) - 0.004
+                if q.y > top {
+                    if r > inner * 0.6 { rr = min(rr, inner * 0.97) }
+                    q.y = max(0, shape.dome(rr, R) - 0.004)
+                }
+                if r > 0, rr < r { q.x *= rr / r; q.z *= rr / r }
+            } else if q.y < 0 && !inOpening {
+                let limit = R + 0.001 + (-q.y) * 1.3
+                if r > limit, r > 0 { q.x *= limit / r; q.z *= limit / r }
             }
+            positions[i] = fit.center + toWorld.act(q)
         }
-        return out
     }
 
     /// Top hat built on the fitted ring, pivot at the inner band center, in the wearing plane's frame.
