@@ -215,6 +215,27 @@ final class MHLibrary {
         return img
     }
 
+    /// Texture with a color baked in (and, for hair, its own color removed first), cached.
+    /// Baking keeps the chosen color under every lighting setup (HDR, reflections, bloom).
+    private var tintCache: [String: CGImage] = [:]
+    func tinted(_ relative: String, r: CGFloat, g: CGFloat, b: CGFloat, neutral: Bool) -> CGImage? {
+        let key = relative + String(format: "|%.3f|%.3f|%.3f|%d", r, g, b, neutral ? 1 : 0)
+        cacheLock.lock()
+        if let cached = tintCache[key] { cacheLock.unlock(); return cached }
+        cacheLock.unlock()
+        let source: CIImage?
+        if neutral { source = neutralHair(relative).map { CIImage(cgImage: $0) } } else { source = CIImage(contentsOf: url(relative)) }
+        guard let input = source else { return nil }
+        let out = input.applyingFilter("CIColorMatrix", parameters: [
+            "inputRVector": CIVector(x: r, y: 0, z: 0, w: 0),
+            "inputGVector": CIVector(x: 0, y: g, z: 0, w: 0),
+            "inputBVector": CIVector(x: 0, y: 0, z: b, w: 0)])
+        let context = CIContext(options: [.workingColorSpace: NSNull()])
+        guard let cg = context.createCGImage(out, from: input.extent) else { return nil }
+        cacheLock.lock(); tintCache[key] = cg; cacheLock.unlock()
+        return cg
+    }
+
     /// Hair texture with its color removed and brightness normalized, alpha kept, so any hair color
     /// can be multiplied in while the strand detail stays.
     func neutralHair(_ relative: String) -> CGImage? {
@@ -325,7 +346,7 @@ enum MHCharacter {
         "Rock Jacket": (["male casualsuit05"], ["male casualsuit05"]),
         "Punk": (["male casualsuit04"], ["female casualsuit02"]),
         "Glam": (["Suit Double Breasted", "male casualsuit03"], ["Fem Suit2"]),
-        "Formal": (["Suit3", "male elegantsuit01"], ["Fem Suit", "Fem Suit Double Breasted"]),
+        "Formal": (["Suit3", "male elegantsuit01"], ["Fem Suit Double Breasted", "Fem Suit"]),
         "Fantasy": (["male casualsuit06"], ["male casualsuit06"])]
     static let shoesByStyle: [String: (male: [String], female: [String])] = [
         "Casual": (["shoes05", "shoes03"], ["shoes05", "shoes03"]),
@@ -530,9 +551,10 @@ enum MHCharacter {
         let sex = female >= 0.5 ? "female" : "male"
         let skin = lib.skins.first(where: { $0.sex == sex && $0.ancestry == tone.ancestry })
             ?? lib.skins.first(where: { $0.ancestry == tone.ancestry }) ?? lib.skins.first
-        if let s = skin, let img = lib.image(s.texture) {
+        // Slightly below full albedo: skin textures are bright and read white under the studio reflections.
+        let level = tone.tint * 0.86
+        if let s = skin, let img = lib.tinted(s.texture, r: level, g: level, b: level, neutral: false) {
             m.diffuse.contents = img
-            m.multiply.contents = NSColor(white: tone.tint, alpha: 1)
         } else {
             m.diffuse.contents = NSColor(calibratedRed: 0.8, green: 0.62, blue: 0.5, alpha: 1)
         }
@@ -546,16 +568,17 @@ enum MHCharacter {
         m.metalness.contents = 0.0
         let hairLike = item.slot == "hair" || item.slot == "eyebrows" || item.slot == "eyelashes"
         m.roughness.contents = item.slot == "eyes" ? 0.15 : (hairLike ? 0.7 : 0.82)
-        if item.slot == "hair", let d = item.diffuse, let neutral = lib.neutralHair(d) {
-            m.diffuse.contents = neutral
-            m.multiply.contents = hairColors[min(max(a.hairColor, 0), hairColors.count - 1)]
+        if item.slot == "hair", let d = item.diffuse {
+            let c = (hairColors[min(max(a.hairColor, 0), hairColors.count - 1)].usingColorSpace(.deviceRGB)) ?? NSColor.black
+            if let img = lib.tinted(d, r: c.redComponent, g: c.greenComponent, b: c.blueComponent, neutral: true) {
+                m.diffuse.contents = img
+            }
+        } else if item.slot == "top", let d = item.diffuse {
+            // Outfit color: tint the garment's own (usually light) fabric.
+            let c = (outfitColors[min(max(a.outfit, 0), outfitColors.count - 1)].usingColorSpace(.deviceRGB)) ?? NSColor.gray
+            m.diffuse.contents = lib.tinted(d, r: c.redComponent, g: c.greenComponent, b: c.blueComponent, neutral: false) ?? lib.image(d)
         } else if let d = item.diffuse, let img = lib.image(d) {
             m.diffuse.contents = img
-            if item.slot == "top" {
-                // Outfit color: tint the garment's own (usually light) fabric.
-                let c = outfitColors[min(max(a.outfit, 0), outfitColors.count - 1)]
-                m.multiply.contents = c
-            }
         } else {
             m.diffuse.contents = NSColor(white: 0.5, alpha: 1)
         }
@@ -876,6 +899,8 @@ enum MHSheetCLI {
 // MARK: - Test render (CI): `DMXStudio --character-render out.png Body=Feminine Hair=Long …`
 
 enum MHRenderCLI {
+    static var studio = false
+    static var face = false
     static func appearance(_ args: [String]) -> PerformerAppearance {
         var a = PerformerAppearance()
         a.pose = "Natural"
@@ -896,7 +921,8 @@ enum MHRenderCLI {
             case "Accessory": a.accessory = v
             case "Twist": MHPose.palmTwist = Float(v) ?? 0
             case "Curl": MHPose.fingerCurl = Float(v) ?? -20
-            case "Lighting": MHCharacter.unlit = v == "unlit"
+            case "Lighting": MHCharacter.unlit = v == "unlit"; MHRenderCLI.studio = v == "studio"
+            case "Face": MHRenderCLI.face = v == "1"
             default: break
             }
         }
@@ -940,26 +966,45 @@ enum MHRenderCLI {
 
     static func snapshot(_ character: SCNNode, height: CGFloat, angle: Double, size: CGSize) -> NSImage {
         let scene = SCNScene()
-        scene.background.contents = NSColor(white: 0.42, alpha: 1)
+        scene.background.contents = NSColor(white: studio ? 0.12 : 0.42, alpha: 1)
         scene.rootNode.addChildNode(character)
-        let ambient = SCNNode(); ambient.light = SCNLight(); ambient.light?.type = .ambient; ambient.light?.intensity = 120
-        scene.rootNode.addChildNode(ambient)
-        for (x, y, z, i) in [(CGFloat(2), CGFloat(3), CGFloat(4), CGFloat(420)), (-3, 2, 2, 180), (1, 3, -3, 200)] {
-            let l = SCNNode(); l.light = SCNLight(); l.light?.type = .omni; l.light?.intensity = i
-            l.position = SCNVector3(x, y, z); scene.rootNode.addChildNode(l)
+        let camera = SCNNode(); camera.camera = SCNCamera()
+        if studio {
+            // Same lights as Character Studio's preview (StageView / Stage3D CharacterPreview).
+            camera.camera?.wantsHDR = true
+            camera.camera?.wantsExposureAdaptation = false
+            camera.camera?.screenSpaceAmbientOcclusionIntensity = 0.55
+            camera.camera?.screenSpaceAmbientOcclusionRadius = 0.12
+            scene.lightingEnvironment.contents = Stage3DView.Coordinator.studioEnvironment
+            scene.lightingEnvironment.intensity = 0.25
+            let ambient = SCNNode(); ambient.light = SCNLight(); ambient.light?.type = .ambient; ambient.light?.intensity = 55
+            scene.rootNode.addChildNode(ambient)
+            for (x, y, z, i) in [(CGFloat(2), CGFloat(3), CGFloat(4), CGFloat(220)), (-3, 2, 2, 90), (1, 3, -3, 120)] {
+                let l = SCNNode(); l.light = SCNLight(); l.light?.type = x == 2 ? .spot : .omni; l.light?.intensity = i
+                if x == 2 { l.light?.spotInnerAngle = 30; l.light?.spotOuterAngle = 65 }
+                l.position = SCNVector3(x, y, z); scene.rootNode.addChildNode(l)
+                if x == 2 { l.look(at: SCNVector3(0, 0.9, 0)) }
+            }
+        } else {
+            let ambient = SCNNode(); ambient.light = SCNLight(); ambient.light?.type = .ambient; ambient.light?.intensity = 120
+            scene.rootNode.addChildNode(ambient)
+            for (x, y, z, i) in [(CGFloat(2), CGFloat(3), CGFloat(4), CGFloat(420)), (-3, 2, 2, 180), (1, 3, -3, 200)] {
+                let l = SCNNode(); l.light = SCNLight(); l.light?.type = .omni; l.light?.intensity = i
+                l.position = SCNVector3(x, y, z); scene.rootNode.addChildNode(l)
+            }
         }
         let h = max(height, 1.4) * 1.08
-        let camera = SCNNode(); camera.camera = SCNCamera()
         camera.camera?.usesOrthographicProjection = true
-        camera.camera?.orthographicScale = Double(h * 0.55)
+        camera.camera?.orthographicScale = Double(face ? h * 0.09 : h * 0.55)
         camera.camera?.zNear = 0.01; camera.camera?.zFar = 50
         scene.rootNode.addChildNode(camera)
         let renderer = SCNRenderer(device: MTLCreateSystemDefaultDevice(), options: nil)
         renderer.scene = scene
         renderer.pointOfView = camera
         let r = angle * Double.pi / 180
-        camera.position = SCNVector3(CGFloat(sin(r)) * 6, h * 0.5, CGFloat(cos(r)) * 6)
-        camera.look(at: SCNVector3(0, h * 0.5, 0))
+        let target: CGFloat = face ? max(height, 1.4) * 0.93 : h * 0.5
+        camera.position = SCNVector3(CGFloat(sin(r)) * 6, target, CGFloat(cos(r)) * 6)
+        camera.look(at: SCNVector3(0, target, 0))
         let image = renderer.snapshot(atTime: 1, with: size, antialiasingMode: .multisampling4X)
         character.removeFromParentNode()
         return image
