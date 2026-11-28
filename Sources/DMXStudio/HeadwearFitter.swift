@@ -403,7 +403,8 @@ enum HeadwearFitter {
             var a = atan2(q.x, q.z); if a < 0 { a += 2 * .pi }
             let R = fit.radius(atAngle: a) + grow - 0.005
             let r = (q.x * q.x + q.z * q.z).squareRoot()
-            let throughOpening = angleDist(a, back) < shape.openingHalfAngle && q.y < shape.openingHeight && r > R * 0.85
+            // Only a ponytail or bun passes through the opening: hair that already sits well outside the head there.
+            let throughOpening = angleDist(a, back) < shape.openingHalfAngle * 0.8 && q.y < shape.openingHeight - 0.004 && r > R * 1.25
             if q.y >= 0 {
                 // Inside the crown: scale toward the center until the point lies within the dome (superellipse).
                 let sCap = pow(pow(r / R, n) + pow(max(0, q.y) / H, n), 1 / n)
