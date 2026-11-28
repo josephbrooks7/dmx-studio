@@ -122,7 +122,8 @@ enum HeadwearFitter {
             }
         }
         var fit = HeadFit(center: SIMD3(cx, centerY, cz), pitch: pitch, radii: radii, circumference: 0, width: 0, length: 0, warning: nil)
-        for p in scalp where abs(p.x - cx) < 0.12 && abs(p.z - cz) < 0.14 { fit.crownTop = max(fit.crownTop, p.y - planeY(p.z)) }
+        fit.crownTop = 0
+        for p in scalp where abs(p.x - cx) < 0.12 && abs(p.z - cz) < 0.14 { fit.crownTop = max(fit.crownTop, p.y - centerY) }
         var perimeter: Float = 0, minX: Float = 0, maxX: Float = 0, minZ: Float = 0, maxZ: Float = 0
         for i in 0..<HeadFit.directions {
             let p = fit.point(i), q = fit.point(i + 1)
@@ -290,7 +291,7 @@ enum HeadwearFitter {
     /// the front only, top button, rear opening above the strap.
     struct CapShape {
         var crownHeight: Float = 0.088
-        var roundness: Float = 2.6           // >2 flattens the top like a structured cap
+        var roundness: Float = 2.2           // slightly >2: rounded crown that follows the head
         var billHalfAngle: Float = 0.72      // ±41° of the front
         var billDepth: Float = 0.072
         var openingHalfAngle: Float = 0.42
@@ -301,7 +302,7 @@ enum HeadwearFitter {
         var backwardsTilt: Float = 0.14
         func pitch(_ fit: HeadFit, backwards: Bool) -> Float { fit.pitch + (backwards ? backwardsTilt : 0) }
         /// Crown tall enough for this head: skull top above the seat, plus pressed hair and clearance.
-        func height(_ fit: HeadFit) -> Float { max(crownHeight, fit.crownTop + seatDrop + fit.hairLayer * 0.6 + 0.008) }
+        func height(_ fit: HeadFit) -> Float { max(crownHeight, fit.crownTop + seatDrop + fit.hairLayer * 0.5 + 0.004) }
         func dome(_ r: Float, _ R: Float, _ H: Float) -> Float {
             guard r < R else { return 0 }
             return H * pow(max(0, 1 - pow(r / R, roundness)), 1 / roundness)
