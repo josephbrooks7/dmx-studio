@@ -726,10 +726,18 @@ enum MHCharacter {
             for q in mesh.positions {
                 occupied.insert(SIMD3<Int32>(Int32((q.x / cell).rounded(.down)), Int32((q.y / cell).rounded(.down)), Int32((q.z / cell).rounded(.down))))
             }
+            // Shoes: hide the foot below the shoe's top edge (the foot inside can sit far from a heel's surface),
+            // keep the skin above it. Other garments: hide only skin the garment lies over.
+            var rim: Float = -.greatestFiniteMagnitude
+            if item.slot == "shoes" { for q in mesh.positions { rim = max(rim, q.y) } }
             for d in removes {
                 let vi = Int(d)
                 guard vi < body.count else { continue }
                 let q = body[vi] * k
+                if item.slot == "shoes" {
+                    if q.y < rim - 0.008 { deleted.insert(vi) }
+                    continue
+                }
                 let c = SIMD3<Int32>(Int32((q.x / cell).rounded(.down)), Int32((q.y / cell).rounded(.down)), Int32((q.z / cell).rounded(.down)))
                 var covered = false
                 search: for dx in Int32(-1)...1 { for dy in Int32(-1)...1 { for dz in Int32(-1)...1 {

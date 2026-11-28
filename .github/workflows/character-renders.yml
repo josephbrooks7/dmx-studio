@@ -41,6 +41,9 @@ jobs:
           : > packaging/makehuman/app-review/log.txt
           rm -f packaging/makehuman/app-review/*.png packaging/makehuman/app-review/*.jpg
           r full-woman-glam Body=Feminine Skin=2 Clothing=Glam Lighting=studio
+          r full-woman-casual Body=Feminine Skin=2 Clothing=Casual Lighting=studio
+          r full-woman-fantasy Body=Feminine Skin=2 Clothing=Fantasy Lighting=studio
+          r full-man-punk Body=Masculine Skin=2 Clothing=Punk Lighting=studio
           r full-man-formal Body=Masculine Skin=2 Clothing=Formal Lighting=studio
           for SEX in Masculine Feminine; do
             for C in Casual Punk Glam Formal; do
