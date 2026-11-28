@@ -39,6 +39,9 @@ jobs:
           r() { NAME=$1; shift; $BIN --character-render "packaging/makehuman/app-review/$NAME.png" "$@" 2>&1 | grep MH_ | tee -a packaging/makehuman/app-review/log.txt; }
           : > packaging/makehuman/app-review/log.txt
           r 1-man-casual Body=Masculine Skin=1 Hair=Short Clothing=Casual Outfit=3 HairColor=1
+          r s1-studio-man Body=Masculine Skin=0 Hair=Short Clothing=Formal HairColor=4 Lighting=studio
+          r s2-studio-woman Body=Feminine Skin=0 Hair=Ponytail Clothing=Formal HairColor=4 Lighting=studio
+          r s3-studio-face Body=Masculine Skin=0 Hair=Short Clothing=Formal HairColor=1 Lighting=studio Face=1
           r 1b-man-unlit Body=Masculine Skin=1 Hair=Short Clothing=Casual HairColor=1 Lighting=unlit
           r 2-woman-casual Body=Feminine Skin=0 Hair=Long Clothing=Casual Outfit=2 HairColor=0 Height=1.65
           r 2b-woman-unlit Body=Feminine Skin=0 Hair=Long Clothing=Casual HairColor=0 Height=1.65 Lighting=unlit

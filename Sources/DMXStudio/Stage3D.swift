@@ -796,6 +796,9 @@ enum Build {
         root.addChildNode(hat)
     }
 
+    /// Light category for lights that should only reach performers (front-of-house wash).
+    static let performerLightCategory = 2
+
     static func performer(_ a: PerformerAppearance) -> SCNNode {
         let root = SCNNode()
         // MakeHuman characters (bundled character pack); the older scanned bodies remain only as a
@@ -805,6 +808,8 @@ enum Build {
             if let body = character.childNode(withName: "mh_body", recursively: true) {
                 addTopHat(root: character, body: body, a)
             }
+            character.categoryBitMask |= performerLightCategory
+            character.enumerateChildNodes { n, _ in n.categoryBitMask |= performerLightCategory }
             return character
         }
         // Imported self-contained USDZ assets retain their authored meshes and materials.
@@ -1843,7 +1848,7 @@ struct Stage3DView: NSViewRepresentable {
 
         // Neutral studio reflection map: broad softboxes define metallic truss and hardware
         // without adding extra real lights or changing the programmed DMX colors.
-        fileprivate static let studioEnvironment: NSImage = {
+        static let studioEnvironment: NSImage = {
             let image = NSImage(size: NSSize(width: 512, height: 256))
             image.lockFocus()
             NSColor(white: 0.10, alpha: 1).setFill()
@@ -1953,16 +1958,18 @@ struct Stage3DView: NSViewRepresentable {
             }
             // house lights at a low level
             houseLights = []
-            let amb = SCNNode(); amb.light = SCNLight(); amb.light?.type = .ambient; houseLight(amb.light, 75)   // every venue has some light in the room
+            let amb = SCNNode(); amb.light = SCNLight(); amb.light?.type = .ambient; houseLight(amb.light, 115)   // every venue has some light in the room
             amb.light?.color = NSColor(calibratedRed: 0.85, green: 0.88, blue: 1.0, alpha: 1)
             scene.rootNode.addChildNode(amb)
             let key = SCNNode(); key.light = SCNLight(); key.light?.type = .directional; houseLight(key.light, 70)
             key.light?.color = NSColor(calibratedRed: 0.9, green: 0.92, blue: 1.0, alpha: 1)
             key.eulerAngles = SCNVector3(-0.9, 0.35, 0)
             scene.rootNode.addChildNode(key)
-            // front-of-house wash: two soft warm spots from out front onto the stage and performer
+            // front-of-house wash: two soft warm spots from out front onto the performers only
+            // (light category 2), so they never paint a hotspot on the back wall or the floor.
             for x in [-3.5, 3.5] {
                 let fw = SCNNode(); fw.light = SCNLight(); fw.light?.type = .spot
+                fw.light?.categoryBitMask = Build.performerLightCategory
                 houseLight(fw.light, 150)
                 fw.light?.spotInnerAngle = 25; fw.light?.spotOuterAngle = 55
                 fw.light?.attenuationStartDistance = 6; fw.light?.attenuationEndDistance = 22
@@ -1973,7 +1980,7 @@ struct Stage3DView: NSViewRepresentable {
             }
             // house lights, dimmed: a broad soft fill from the ceiling over the audience
             let house = SCNNode(); house.light = SCNLight(); house.light?.type = .omni
-            house.light?.color = NSColor(calibratedRed: 1.0, green: 0.9, blue: 0.8, alpha: 1); self.houseLight(house.light, 60)
+            house.light?.color = NSColor(calibratedRed: 1.0, green: 0.9, blue: 0.8, alpha: 1); self.houseLight(house.light, 95)
             house.light?.attenuationStartDistance = 3; house.light?.attenuationEndDistance = 18
             house.position = SCNVector3(0, 7, 5); scene.rootNode.addChildNode(house)
             // warm pendant lamps hanging over the audience
@@ -2370,7 +2377,7 @@ struct Stage3DView: NSViewRepresentable {
             let n = max(1, roomGlow.n)
             let stageLevel = min(1, max(roomGlow.r, roomGlow.g, roomGlow.b) / n * 2.5)
             houseDim += (stageLevel - houseDim) * 0.08    // ease, so strobes and kicks don't flicker the room
-            let houseLevel = CGFloat(1 - 0.6 * houseDim)
+            let houseLevel = CGFloat(1 - 0.4 * houseDim)
             for h in houseLights { h.light.intensity = h.base * houseLevel }
             // Haze in the room: the air takes on a little of the lights' color and swallows distance
             let tint = (r: roomGlow.r / n, g: roomGlow.g / n, b: roomGlow.b / n)
