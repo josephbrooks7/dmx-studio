@@ -1626,8 +1626,11 @@ struct CharacterModelPreview: NSViewRepresentable {
                 return (lo, hi)
             }
             var exactHead = false
+            // MakeHuman characters: frame on the bare body only, so clothes, wings, hair or a hat never change the
+            // zoom; the same body size always gets the same framing.
+            let skin = c.character?.childNode(withName: "mh_body", recursively: true)
             if let node = c.character {
-                let body = node.childNode(withName: "character_body_for_framing", recursively: false) ?? node
+                let body = skin ?? node.childNode(withName: "character_body_for_framing", recursively: false) ?? node
                 if let bounds = worldBounds(body) { (low, high) = bounds }
                 if faceCloseup {
                     let bodySpan = high.y - low.y
@@ -1643,7 +1646,7 @@ struct CharacterModelPreview: NSViewRepresentable {
                     }
                     // Measured crown of the visible head (and hair): frames any body, named parts or not.
                     if heads.isEmpty, let scene = view.scene,
-                       let crown = Build.headFrame(node, in: scene.rootNode, band: 0.13 * bodySpan) {
+                       let crown = Build.headFrame(skin ?? node, in: scene.rootNode, band: 0.13 * bodySpan) {
                         let h = bodySpan / 1.75
                         low = SCNVector3(crown.x - 0.13 * h, crown.top - 0.30 * h, crown.z - 0.13 * h)
                         high = SCNVector3(crown.x + 0.13 * h, crown.top + 0.02 * h, crown.z + 0.13 * h)
@@ -1665,7 +1668,7 @@ struct CharacterModelPreview: NSViewRepresentable {
             let z = (low.z + high.z) / 2
             let halfAngle = CGFloat(37.0 * Double.pi / 360)
             let vertical = span * (faceCloseup && !exactHead ? 0.16 : 0.65)
-            let horizontal = faceCloseup && !exactHead ? span * 0.13 : (high.x - low.x) * 0.65
+            let horizontal = faceCloseup && !exactHead ? span * 0.13 : (skin != nil && !faceCloseup ? span * 0.22 : (high.x - low.x) * 0.65)
             let distance = max(vertical / tan(halfAngle), horizontal / (tan(halfAngle) * aspect)) + (high.z - low.z) / 2
             let target = SCNVector3(x,y,z)
             c.camera?.position = SCNVector3(x,y,z + distance)

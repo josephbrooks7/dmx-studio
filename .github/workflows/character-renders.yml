@@ -40,11 +40,17 @@ jobs:
           r() { NAME=$1; shift; $BIN --character-render "packaging/makehuman/app-review/$NAME.png" "$@" 2>&1 | grep MH_ | tee -a packaging/makehuman/app-review/log.txt; }
           : > packaging/makehuman/app-review/log.txt
           rm -f packaging/makehuman/app-review/*.png packaging/makehuman/app-review/*.jpg
-          r h1-long-woman Body=Feminine Skin=2 Hair=Long HairColor=1 Clothing=Glam Lighting=studio
-          r h2-long-man Body=Masculine Skin=0 Hair=Long HairColor=2 Clothing=Fantasy Lighting=studio
-          r h3-face Body=Feminine Skin=2 Hair=Long HairColor=1 Clothing=Glam Lighting=studio Face=1
-          r h5-blonde Body=Feminine Skin=1 Hair=Ponytail HairColor=2 Clothing=Casual Lighting=studio
-          r h4-base Body=Feminine Skin=4 Hair=Bald Clothing=Base Lighting=studio
+          r full-woman-glam Body=Feminine Skin=2 Clothing=Glam Lighting=studio
+          r full-woman-casual Body=Feminine Skin=2 Clothing=Casual Lighting=studio
+          r full-woman-fantasy Body=Feminine Skin=2 Clothing=Fantasy Lighting=studio
+          r full-man-punk Body=Masculine Skin=2 Clothing=Punk Lighting=studio
+          r full-man-formal Body=Masculine Skin=2 Clothing=Formal Lighting=studio
+          for SEX in Masculine Feminine; do
+            for C in Casual Punk Glam Formal; do
+              F=$(echo "$C" | tr -d ' ')
+              r "feet-$SEX-$F" Body=$SEX Skin=2 "Clothing=$C" Lighting=studio Feet=1
+            done
+          done
           ls -la packaging/makehuman/app-review
       - name: Commit renders
         if: always()

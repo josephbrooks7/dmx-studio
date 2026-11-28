@@ -717,8 +717,34 @@ enum MHCharacter {
                 if total == 0 { weights[0] = 1 }
                 mesh.influences.append((bones, weights))
             }
+            // Hide skin only where this garment really covers it. MakeHuman's lists are written for its default
+            // proportions and can reach past a garment's edge (e.g. above a shoe), which leaves a see-through gap.
             let removes = bin.uints("deleteVerts")
-            for d in removes { deleted.insert(Int(d)) }
+            let cell: Float = 0.015
+            var occupied = Set<SIMD3<Int32>>()
+            occupied.reserveCapacity(mesh.positions.count)
+            for q in mesh.positions {
+                occupied.insert(SIMD3<Int32>(Int32((q.x / cell).rounded(.down)), Int32((q.y / cell).rounded(.down)), Int32((q.z / cell).rounded(.down))))
+            }
+            // Shoes: hide the foot below the shoe's top edge (the foot inside can sit far from a heel's surface),
+            // keep the skin above it. Other garments: hide only skin the garment lies over.
+            var rim: Float = -.greatestFiniteMagnitude
+            if item.slot == "shoes" { for q in mesh.positions { rim = max(rim, q.y) } }
+            for d in removes {
+                let vi = Int(d)
+                guard vi < body.count else { continue }
+                let q = body[vi] * k
+                if item.slot == "shoes" {
+                    if q.y < rim - 0.008 { deleted.insert(vi) }
+                    continue
+                }
+                let c = SIMD3<Int32>(Int32((q.x / cell).rounded(.down)), Int32((q.y / cell).rounded(.down)), Int32((q.z / cell).rounded(.down)))
+                var covered = false
+                search: for dx in Int32(-1)...1 { for dy in Int32(-1)...1 { for dz in Int32(-1)...1 {
+                    if occupied.contains(c &+ SIMD3(dx, dy, dz)) { covered = true; break search }
+                } } }
+                if covered { deleted.insert(vi) }
+            }
             if debugLog { print("MH_ITEM", item.slot, item.name, "vertices", n, "hides", removes.count) }
             fitted.append((item, mesh))
         }
@@ -968,6 +994,7 @@ enum MHSheetCLI {
 enum MHRenderCLI {
     static var studio = false
     static var face = false
+    static var feet = false
     static func appearance(_ args: [String]) -> PerformerAppearance {
         var a = PerformerAppearance()
         a.pose = "Natural"
@@ -990,6 +1017,7 @@ enum MHRenderCLI {
             case "Curl": MHPose.fingerCurl = Float(v) ?? -20
             case "Lighting": MHCharacter.unlit = v == "unlit"; MHRenderCLI.studio = v == "studio"
             case "Face": MHRenderCLI.face = v == "1"
+            case "Feet": MHRenderCLI.feet = v == "1"
             default: break
             }
         }
@@ -1062,14 +1090,14 @@ enum MHRenderCLI {
         }
         let h = max(height, 1.4) * 1.08
         camera.camera?.usesOrthographicProjection = true
-        camera.camera?.orthographicScale = Double(face ? h * 0.09 : h * 0.55)
+        camera.camera?.orthographicScale = Double(face ? h * 0.09 : (feet ? h * 0.1 : h * 0.55))
         camera.camera?.zNear = 0.01; camera.camera?.zFar = 50
         scene.rootNode.addChildNode(camera)
         let renderer = SCNRenderer(device: MTLCreateSystemDefaultDevice(), options: nil)
         renderer.scene = scene
         renderer.pointOfView = camera
         let r = angle * Double.pi / 180
-        let target: CGFloat = face ? max(height, 1.4) * 0.93 : h * 0.5
+        let target: CGFloat = face ? max(height, 1.4) * 0.93 : (feet ? 0.1 : h * 0.5)
         camera.position = SCNVector3(CGFloat(sin(r)) * 6, target, CGFloat(cos(r)) * 6)
         camera.look(at: SCNVector3(0, target, 0))
         let image = renderer.snapshot(atTime: 1, with: size, antialiasingMode: .multisampling4X)
