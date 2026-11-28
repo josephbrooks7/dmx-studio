@@ -65,20 +65,31 @@ enum HeadwearFitter {
         cx /= cn
         var cz = (front + back) / 2
         let half = max(0.05, (front - back) / 2)
-        let centerY = eyeY + 0.035                     // just above the ears
-        let pitch = atan(0.028 / half)                  // mid-forehead in front, lower over the occiput
+        // Eye centers sit ~2 cm below the brows; mid-forehead is ~4 cm above the eyes, the top of the ear
+        // attachment about level with the brows. Sides of the ring just above the ears, front at mid-forehead.
+        let centerY = eyeY + 0.022
+        let pitch = atan(0.018 / half)                  // ≈10°: front at mid-forehead, lower over the occiput
         func planeY(_ z: Float) -> Float { centerY + tan(pitch) * (z - cz) }
 
         var radii = [Float](repeating: 0, count: HeadFit.directions)
         for pass in 0..<2 {
-            var best = [Float](repeating: .greatestFiniteMagnitude, count: HeadFit.directions)
+            // Samples near the plane per direction: (radius, distance from the plane).
+            var samples = [[(r: Float, dy: Float)]](repeating: [], count: HeadFit.directions)
             for p in scalp {
                 let dx = p.x - cx, dz = p.z - cz
-                guard abs(p.y - planeY(p.z)) < 0.005, abs(dx) < 0.13, abs(dz) < 0.15 else { continue }
+                let dy = abs(p.y - planeY(p.z))
+                guard dy < 0.008, abs(dx) < 0.13, abs(dz) < 0.15 else { continue }
                 var a = atan2(dx, dz); if a < 0 { a += 2 * .pi }
                 let i = Int(a / (2 * .pi) * Float(HeadFit.directions)) % HeadFit.directions
-                // Innermost surface in each direction: the skull, never the ear standing off it.
-                best[i] = min(best[i], (dx * dx + dz * dz).squareRoot())
+                samples[i].append(((dx * dx + dz * dz).squareRoot(), dy))
+            }
+            // Skull radius at the plane: among samples on the skull (ears stand >12% further out), the one
+            // closest to the plane. Taking the plain minimum would read the narrower head just above it.
+            var best = [Float](repeating: .greatestFiniteMagnitude, count: HeadFit.directions)
+            for i in 0..<HeadFit.directions where !samples[i].isEmpty {
+                let rmin = samples[i].map { $0.r }.min() ?? 0
+                let skull = samples[i].filter { $0.r <= rmin * 1.12 }
+                best[i] = skull.min(by: { $0.dy < $1.dy })?.r ?? rmin
             }
             // Fill directions without samples from their neighbours.
             let known = best.enumerated().filter { $0.element < 1 }
@@ -123,12 +134,20 @@ enum HeadwearFitter {
             var p = positions[i]
             let dx = p.x - fit.center.x, dz = p.z - fit.center.z
             let plane = fit.center.y + tan(fit.pitch) * dz
-            guard p.y > plane - 0.002 else { continue }
+            let below = plane - p.y
+            guard below < 0.03 else { continue }
             var a = atan2(dx, dz); if a < 0 { a += 2 * .pi }
-            let limit = fit.radius(atAngle: a) * 0.97
+            let ring = fit.radius(atAngle: a)
             let r = (dx * dx + dz * dz).squareRoot()
+            let limit: Float
+            if below <= 0 {
+                limit = ring * 0.97                                   // inside the crown cavity
+                p.y = min(p.y, plane + style.crownHeight - 0.012)
+            } else {
+                // Just under the band: pressed in, flaring back to its own shape 3 cm lower.
+                limit = ring + style.allowance / (2 * .pi) + 0.002 + below * 1.2
+            }
             if r > limit, r > 0 { p.x = fit.center.x + dx * limit / r; p.z = fit.center.z + dz * limit / r }
-            p.y = min(p.y, plane + style.crownHeight - 0.012)
             positions[i] = p
         }
     }
