@@ -294,6 +294,9 @@ enum HeadwearFitter {
         var openingHeight: Float = 0.032
         /// Caps sit lower than a firm hat's band: front about 1.5 cm above the brows.
         var seatDrop: Float = 0.012
+        /// Worn backwards the cap tips back: forehead edge (the strap side) rides higher, hairline showing.
+        var backwardsTilt: Float = 0.14
+        func pitch(_ fit: HeadFit, backwards: Bool) -> Float { fit.pitch + (backwards ? backwardsTilt : 0) }
         func dome(_ r: Float, _ R: Float) -> Float {
             guard r < R else { return 0 }
             return crownHeight * pow(max(0, 1 - pow(r / R, roundness)), 1 / roundness)
@@ -336,6 +339,23 @@ enum HeadwearFitter {
         }
         let cap = SCNNode(); cap.name = "mh_baseball_cap"
         cap.addChildNode(surface(pos, nor, tris, cloth, name: "cap_crown"))
+        // Adjustable strap across the bottom of the rear opening.
+        do {
+            var top: [SIMD3<Float>] = [], bot: [SIMD3<Float>] = [], out: [SIMD3<Float>] = []
+            let steps = 12
+            for k in 0...steps {
+                var a = front + .pi + (Float(k) / Float(steps) * 2 - 1) * shape.openingHalfAngle
+                if a < 0 { a += 2 * .pi }; a = a.truncatingRemainder(dividingBy: 2 * .pi)
+                let R = fit.radius(atAngle: a) + grow + 0.0015
+                bot.append(SIMD3(sin(a) * R, 0.004, cos(a) * R)); top.append(SIMD3(sin(a) * R, 0.016, cos(a) * R))
+                out.append(SIMD3(sin(a), 0, cos(a)))
+            }
+            var t: [UInt32] = []
+            for i in 0..<steps { let a0 = UInt32(i), a1 = UInt32(i + 1), b0 = UInt32(steps + 1 + i), b1 = UInt32(steps + 2 + i); t += [a0, b0, a1, a1, b0, b1] }
+            let strapMat = SCNMaterial(); strapMat.lightingModel = .lambert; strapMat.isDoubleSided = true
+            strapMat.diffuse.contents = color.blended(withFraction: 0.35, of: .black) ?? color
+            cap.addChildNode(surface(bot + top, out + out, t, strapMat, name: "cap_strap"))
+        }
         let button = SCNCylinder(radius: 0.008, height: 0.005); button.materials = [cloth]
         let b = SCNNode(geometry: button); b.position.y = CGFloat(shape.crownHeight + 0.0015); cap.addChildNode(b)
         // Bill: rooted on the band across the front, projecting straight forward, arched side to side.
@@ -365,14 +385,14 @@ enum HeadwearFitter {
         cap.addChildNode(strip(root, tip, SIMD3(0, 1, 0), name: "bill_top"))
         cap.addChildNode(strip(root.map { $0 + thick }, tip.map { $0 + thick }, SIMD3(0, -1, 0), name: "bill_under"))
         cap.addChildNode(strip(tip, tip.map { $0 + thick }, fwd, name: "bill_edge"))
-        cap.eulerAngles.x = CGFloat(-fit.pitch)
+        cap.eulerAngles.x = CGFloat(-shape.pitch(fit, backwards: backwards))
         return cap
     }
 
     /// Hair under the cap, using its exact shape: inside the crown it is pressed under the dome; just under the band
     /// it is pressed in and fans back out; through the rear opening it passes freely (ponytails, buns).
     static func pressHairUnderCap(_ positions: inout [SIMD3<Float>], fit: HeadFit, backwards: Bool, shape: CapShape = CapShape()) {
-        let toCap = simd_quatf(angle: fit.pitch, axis: SIMD3(1, 0, 0)), toWorld = toCap.inverse
+        let toCap = simd_quatf(angle: shape.pitch(fit, backwards: backwards), axis: SIMD3(1, 0, 0)), toWorld = toCap.inverse
         let origin = fit.center - SIMD3(0, shape.seatDrop, 0)
         let grow = capRing(fit), back: Float = backwards ? 0 : .pi
         let n = shape.roundness, H = shape.crownHeight - 0.005
