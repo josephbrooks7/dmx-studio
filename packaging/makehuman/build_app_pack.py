@@ -64,7 +64,8 @@ SLOTS = {"hair", "eyebrows", "eyelashes", "eyes", "teeth", "shoes", "top", "bott
          "glasses", "gloves", "wings"}
 MAX_VERTICES = 60000      # very dense items cost too much per performer
 # Never shipped: copyrighted characters, political merchandise, anything made for children.
-EXCLUDE = ["ayanami", "spider gwen", "spider-gwen", "yoko tsuno", "deathnote", "death note", "maga", "child", "pillow man"]
+EXCLUDE = ["ayanami", "spider gwen", "spider-gwen", "yoko tsuno", "deathnote", "death note", "maga", "child", "pillow man",
+           "scifi-armor guardian", "scifi-armor jupiter"]
 items = [i for i in cat["items"] if i["slot"] in SLOTS and i.get("vertices", 0) <= MAX_VERTICES
          and not any(x in i["name"].lower() for x in EXCLUDE)]
 for i in items:

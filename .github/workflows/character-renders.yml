@@ -49,12 +49,10 @@ jobs:
           r a2-glasses Body=Masculine Skin=4 Hair=Short Clothing=Casual Lighting=studio Accessory=Glasses
           r a3-wings Body=Feminine Skin=1 Hair=Long Clothing=Fantasy Lighting=studio Accessory=Wings
           for SEX in Masculine Feminine; do
-            for SLOT in outfit top bottom shoes; do
-              $BIN --character-sheet "packaging/makehuman/app-review/sheet-$SEX-$SLOT.jpg" Body=$SEX Slot=$SLOT Hair=Short Lighting=studio || echo "sheet $SEX $SLOT failed"
+            for C in Casual "Rock Jacket" Punk Glam Formal Fantasy; do
+              F=$(echo "$C" | tr -d ' ')
+              r "style-$SEX-$F" Body=$SEX Skin=2 Hair=Long HairColor=1 "Clothing=$C" Lighting=studio
             done
-          done
-          for SLOT in hat glasses wings; do
-            $BIN --character-sheet "packaging/makehuman/app-review/sheet-$SLOT.jpg" Body=Feminine Slot=$SLOT Hair=Short Lighting=studio || echo "sheet $SLOT failed"
           done
           ls -la packaging/makehuman/app-review
       - name: Commit renders

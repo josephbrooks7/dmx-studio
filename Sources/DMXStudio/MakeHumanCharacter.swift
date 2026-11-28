@@ -181,7 +181,8 @@ final class MHLibrary {
     /// Items never offered: copyrighted characters, political merchandise, anything made for children.
     static func excluded(_ name: String) -> Bool {
         let n = name.lowercased()
-        return ["ayanami", "spider gwen", "spider-gwen", "yoko tsuno", "deathnote", "death note", "maga", "child", "pillow man"]
+        return ["ayanami", "spider gwen", "spider-gwen", "yoko tsuno", "deathnote", "death note", "maga", "child", "pillow man",
+                "scifi-armor guardian", "scifi-armor jupiter"]
             .contains { n.contains($0) }
     }
 
@@ -352,18 +353,18 @@ enum MHCharacter {
     static let outfitByStyle: [String: (male: [String], female: [String])] = [
         "Casual": (["male casualsuit01", "male casualsuit04"], ["female casualsuit01"]),
         "Rock Jacket": (["male casualsuit05"], ["male casualsuit05"]),
-        "Punk": (["male casualsuit04"], ["female casualsuit02"]),
-        "Glam": (["Suit Double Breasted", "male casualsuit03"], ["Fem Suit2"]),
-        "Formal": (["Suit3", "male elegantsuit01"], ["Fem Suit Double Breasted", "Fem Suit"]),
-        "Fantasy": (["male casualsuit06"], ["male casualsuit06"]),
+        "Punk": (["male casualsuit04"], ["Dress Shift", "female casualsuit02"]),
+        "Glam": (["Suit Double Breasted", "male casualsuit03"], ["frill partydress1", "elvs mini halterdress", "Fem Suit2"]),
+        "Formal": (["Suit3", "male elegantsuit01"], ["elvs long halterdress1", "Fem Suit Double Breasted"]),
+        "Fantasy": (["Monks Robe", "male casualsuit06"], ["elvs goddess dress4", "elvs goddess dress5", "male casualsuit06"]),
         "Base": ([], ["female sportsuit01"])]
     static let shoesByStyle: [String: (male: [String], female: [String])] = [
         "Casual": (["shoes05", "shoes03"], ["shoes05", "shoes03"]),
         "Rock Jacket": (["Boots Ankle Male", "male boots"], ["Boots Ankle"]),
         "Punk": (["Boots Ankle Male", "male boots"], ["Boots Ankle"]),
-        "Glam": (["tbar", "MJ-Shoes"], ["Booties stiletto", "Flats"]),
-        "Formal": (["tbar", "MJ-Shoes"], ["Booties stiletto", "Flats"]),
-        "Fantasy": (["male boots", "Boots Ankle Male"], ["Boots Ankle"])]
+        "Glam": (["Shoes Oxford male", "tbar", "MJ-Shoes"], ["Booties stiletto", "Flats"]),
+        "Formal": (["Shoes Oxford male", "tbar", "MJ-Shoes"], ["Booties stiletto", "Flats"]),
+        "Fantasy": (["BootsViking", "male boots"], ["elvs basic elfshoe1", "Flats ballet"])]
 
     static func named(_ lib: MHLibrary, slot: String, _ names: [String]) -> MHItem? {
         for n in names {
