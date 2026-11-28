@@ -6,6 +6,7 @@ on:
     branches-ignore: [main]
     paths:
       - 'Sources/DMXStudio/MakeHumanCharacter.swift'
+      - 'Sources/DMXStudio/HeadwearFitter.swift'
       - 'Sources/DMXStudio/Stage3D.swift'
       - 'Sources/DMXStudio/StageView.swift'
       - '.github/workflows/character-renders.yml'
