@@ -9,6 +9,1887 @@
   "young african male"
  ],
  "items": {
+  "wings": [
+   {
+    "id": "bodyparts03_dragonfly_wings1",
+    "name": "dragonfly wings1",
+    "gender": "any",
+    "styles": [
+     "fantasy"
+    ],
+    "license": "CC-BY",
+    "tags": [
+     "wings",
+     "fantasy",
+     "roleplay",
+     "insect"
+    ],
+    "vertices": 7292,
+    "transparent": true
+   },
+   {
+    "id": "bodyparts03_elvs_dragonwing1",
+    "name": "elvs dragonwing1",
+    "gender": "any",
+    "styles": [
+     "fantasy"
+    ],
+    "license": "CC-BY",
+    "tags": [
+     "wings",
+     "fantasy",
+     "roleplay",
+     "dragon"
+    ],
+    "vertices": 816,
+    "transparent": true
+   },
+   {
+    "id": "bodyparts03_wingcostume_child1",
+    "name": "wingcostume child1",
+    "gender": "any",
+    "styles": [
+     "fantasy"
+    ],
+    "license": "CC-BY",
+    "tags": [],
+    "vertices": 18157,
+    "transparent": true
+   },
+   {
+    "id": "bodyparts03_bonewings1",
+    "name": "bonewings1",
+    "gender": "any",
+    "styles": [
+     "fantasy"
+    ],
+    "license": "CC-BY",
+    "tags": [
+     "wings",
+     "fantasy",
+     "roleplay",
+     "skeletal"
+    ],
+    "vertices": 15886,
+    "transparent": false
+   },
+   {
+    "id": "bodyparts03_fairy_buttflywing2",
+    "name": "fairy buttflywing2",
+    "gender": "any",
+    "styles": [
+     "fantasy"
+    ],
+    "license": "CC-BY",
+    "tags": [
+     "wings",
+     "costume",
+     "fantasy",
+     "roleplay"
+    ],
+    "vertices": 28442,
+    "transparent": false
+   },
+   {
+    "id": "bodyparts03_dual_fanned_wings_v",
+    "name": "dual fanned wings v",
+    "gender": "any",
+    "styles": [
+     "fantasy"
+    ],
+    "license": "CC-BY",
+    "tags": [],
+    "vertices": 18118,
+    "transparent": true
+   },
+   {
+    "id": "bodyparts03_elv_butterflywing1",
+    "name": "elv butterflywing1",
+    "gender": "any",
+    "styles": [
+     "fantasy"
+    ],
+    "license": "CC-BY",
+    "tags": [],
+    "vertices": 7472,
+    "transparent": true
+   }
+  ],
+  "outfit": [
+   {
+    "id": "dress01_dress_keyhole_neck",
+    "name": "Dress Keyhole Neck",
+    "gender": "any",
+    "styles": [
+     "formal",
+     "glam"
+    ],
+    "license": "CC0",
+    "tags": [],
+    "vertices": 9623,
+    "transparent": false
+   },
+   {
+    "id": "dress01_dress_midi_halter",
+    "name": "Dress Midi Halter",
+    "gender": "any",
+    "styles": [
+     "formal",
+     "glam"
+    ],
+    "license": "CC0",
+    "tags": [],
+    "vertices": 2841,
+    "transparent": false
+   },
+   {
+    "id": "dress01_flapper_dress_1",
+    "name": "Flapper Dress 1",
+    "gender": "female",
+    "styles": [
+     "formal",
+     "glam"
+    ],
+    "license": "CC0",
+    "tags": [
+     "Female",
+     "Historical",
+     "Dress"
+    ],
+    "vertices": 6862,
+    "transparent": false
+   },
+   {
+    "id": "dress01_dress_shift",
+    "name": "Dress Shift",
+    "gender": "any",
+    "styles": [
+     "formal",
+     "glam"
+    ],
+    "license": "CC0",
+    "tags": [],
+    "vertices": 7814,
+    "transparent": false
+   },
+   {
+    "id": "dress01_dress_knee_halter",
+    "name": "Dress Knee Halter",
+    "gender": "any",
+    "styles": [
+     "formal",
+     "glam"
+    ],
+    "license": "CC0",
+    "tags": [],
+    "vertices": 2181,
+    "transparent": false
+   },
+   {
+    "id": "dress01_f_kimono",
+    "name": "F Kimono",
+    "gender": "female",
+    "styles": [
+     "casual",
+     "fantasy"
+    ],
+    "license": "CC0",
+    "tags": [
+     "Female",
+     "Robe",
+     "Casual"
+    ],
+    "vertices": 4092,
+    "transparent": false
+   },
+   {
+    "id": "dress01_dress_cut_outs",
+    "name": "Dress Cut Outs",
+    "gender": "any",
+    "styles": [
+     "formal",
+     "glam"
+    ],
+    "license": "CC0",
+    "tags": [],
+    "vertices": 3662,
+    "transparent": false
+   },
+   {
+    "id": "dress02_elvs_goddess_dress6",
+    "name": "elvs goddess dress6",
+    "gender": "female",
+    "styles": [
+     "fantasy",
+     "formal",
+     "glam"
+    ],
+    "license": "CC-BY",
+    "tags": [
+     "female",
+     "fantasy",
+     "festive",
+     "vintage",
+     "dress",
+     "goddess"
+    ],
+    "vertices": 27552,
+    "transparent": true
+   },
+   {
+    "id": "dress02_elvs_offshoulder_fringedress2_p",
+    "name": "elvs offshoulder fringedress2 p",
+    "gender": "any",
+    "styles": [
+     "fantasy",
+     "formal",
+     "glam"
+    ],
+    "license": "CC-BY",
+    "tags": [
+     "unisex",
+     "fantasy",
+     "festive",
+     "contemporary",
+     "dress",
+     "dress"
+    ],
+    "vertices": 21266,
+    "transparent": true
+   },
+   {
+    "id": "dress02_elvs_fringe_dress1",
+    "name": "elvs fringe dress1",
+    "gender": "female",
+    "styles": [
+     "formal",
+     "glam"
+    ],
+    "license": "CC-BY",
+    "tags": [
+     "female",
+     "formal",
+     "festive",
+     "vintage",
+     "dress",
+     "fringe club"
+    ],
+    "vertices": 9633,
+    "transparent": true
+   },
+   {
+    "id": "dress02_elvs_goddess_dress4",
+    "name": "elvs goddess dress4",
+    "gender": "female",
+    "styles": [
+     "fantasy",
+     "formal",
+     "glam"
+    ],
+    "license": "CC-BY",
+    "tags": [
+     "female",
+     "fantasy",
+     "festive",
+     "vintage",
+     "dress",
+     "goddess"
+    ],
+    "vertices": 35916,
+    "transparent": true
+   },
+   {
+    "id": "dress02_elvs_goddess_dress5",
+    "name": "elvs goddess dress5",
+    "gender": "female",
+    "styles": [
+     "fantasy",
+     "formal",
+     "glam"
+    ],
+    "license": "CC-BY",
+    "tags": [
+     "female",
+     "fantasy",
+     "festive",
+     "vintage",
+     "dress",
+     "goddess"
+    ],
+    "vertices": 23160,
+    "transparent": true
+   },
+   {
+    "id": "dress02_elvs_hippydress1",
+    "name": "elvs hippydress1",
+    "gender": "any",
+    "styles": [
+     "formal",
+     "glam"
+    ],
+    "license": "CC-BY",
+    "tags": [
+     "dress",
+     "ladies ware",
+     "fashion",
+     "hippy"
+    ],
+    "vertices": 1715,
+    "transparent": false
+   },
+   {
+    "id": "dress02_westernized_quipoa",
+    "name": "westernized quipoa",
+    "gender": "any",
+    "styles": [
+     "formal",
+     "glam"
+    ],
+    "license": "CC-BY",
+    "tags": [
+     "dress",
+     "asian",
+     "ladies",
+     "fashion"
+    ],
+    "vertices": 40165,
+    "transparent": false
+   },
+   {
+    "id": "dress02_elvs_leather_fringedress1",
+    "name": "elvs leather fringedress1",
+    "gender": "female",
+    "styles": [
+     "fantasy",
+     "formal",
+     "glam",
+     "rock"
+    ],
+    "license": "CC-BY",
+    "tags": [
+     "female",
+     "fantasy",
+     "festive",
+     "vintage",
+     "dress",
+     "dress"
+    ],
+    "vertices": 15153,
+    "transparent": true
+   },
+   {
+    "id": "dress02_frill_partydress1",
+    "name": "frill partydress1",
+    "gender": "female",
+    "styles": [
+     "formal",
+     "glam"
+    ],
+    "license": "CC-BY",
+    "tags": [
+     "dress",
+     "party dress",
+     "female",
+     "fashion"
+    ],
+    "vertices": 16698,
+    "transparent": true
+   },
+   {
+    "id": "dress02_elvs_goddess_dress2",
+    "name": "elvs goddess dress2",
+    "gender": "female",
+    "styles": [
+     "fantasy",
+     "formal",
+     "glam"
+    ],
+    "license": "CC-BY",
+    "tags": [
+     "female",
+     "fantasy",
+     "play",
+     "vintage",
+     "dress",
+     "goddess"
+    ],
+    "vertices": 14664,
+    "transparent": true
+   },
+   {
+    "id": "dress02_tieredhalterdress1",
+    "name": "tieredhalterdress1",
+    "gender": "female",
+    "styles": [
+     "formal",
+     "glam"
+    ],
+    "license": "CC-BY",
+    "tags": [
+     "dress",
+     "ladiesware",
+     "female",
+     "halter",
+     "halter dress"
+    ],
+    "vertices": 20871,
+    "transparent": false
+   },
+   {
+    "id": "dress02_elvs_goddessdress7",
+    "name": "elvs goddessdress7",
+    "gender": "female",
+    "styles": [
+     "fantasy",
+     "formal",
+     "glam"
+    ],
+    "license": "CC-BY",
+    "tags": [
+     "female",
+     "fantasy",
+     "festive",
+     "vintage",
+     "dress",
+     "goddess"
+    ],
+    "vertices": 12995,
+    "transparent": true
+   },
+   {
+    "id": "dress02_elv_simple_fashiondress1a",
+    "name": "elv simple fashiondress1a",
+    "gender": "any",
+    "styles": [
+     "formal",
+     "glam"
+    ],
+    "license": "CC-BY",
+    "tags": [
+     "dress",
+     "ladies ware",
+     "fashion"
+    ],
+    "vertices": 1119,
+    "transparent": false
+   },
+   {
+    "id": "dress02_elvs_lady_apron1",
+    "name": "elvs lady apron1",
+    "gender": "any",
+    "styles": [],
+    "license": "CC-BY",
+    "tags": [],
+    "vertices": 37994,
+    "transparent": false
+   },
+   {
+    "id": "dress02_babydoll_elvruff1a",
+    "name": "babydoll elvruff1a",
+    "gender": "any",
+    "styles": [
+     "formal",
+     "glam"
+    ],
+    "license": "CC-BY",
+    "tags": [
+     "dress",
+     "babydoll",
+     "ruffle",
+     "ladies ware",
+     "mini dress"
+    ],
+    "vertices": 40604,
+    "transparent": true
+   },
+   {
+    "id": "dress02_elvs_long_halterdress1",
+    "name": "elvs long halterdress1",
+    "gender": "female",
+    "styles": [
+     "formal",
+     "glam"
+    ],
+    "license": "CC-BY",
+    "tags": [
+     "dress",
+     "ladiesware",
+     "female",
+     "halter",
+     "halter dress"
+    ],
+    "vertices": 15755,
+    "transparent": false
+   },
+   {
+    "id": "dress02_elvs_goddessdress1",
+    "name": "elvs goddessdress1",
+    "gender": "female",
+    "styles": [
+     "fantasy",
+     "formal",
+     "glam"
+    ],
+    "license": "CC-BY",
+    "tags": [
+     "female",
+     "fantasy",
+     "play",
+     "dress"
+    ],
+    "vertices": 9576,
+    "transparent": true
+   },
+   {
+    "id": "dress02_sarong_coverup1",
+    "name": "sarong coverup1",
+    "gender": "any",
+    "styles": [],
+    "license": "CC-BY",
+    "tags": [
+     "sarong",
+     "wrap",
+     "ladies wear",
+     "summer",
+     "cover up"
+    ],
+    "vertices": 2152,
+    "transparent": true
+   },
+   {
+    "id": "dress02_doublechiefhalterdress1",
+    "name": "doublechiefhalterdress1",
+    "gender": "female",
+    "styles": [
+     "formal",
+     "glam"
+    ],
+    "license": "CC-BY",
+    "tags": [
+     "dress",
+     "ladiesware",
+     "female",
+     "halter",
+     "halter dress"
+    ],
+    "vertices": 21648,
+    "transparent": false
+   },
+   {
+    "id": "dress02_elvs_mini_halterdress",
+    "name": "elvs mini halterdress",
+    "gender": "female",
+    "styles": [
+     "formal",
+     "glam"
+    ],
+    "license": "CC-BY",
+    "tags": [
+     "dress",
+     "ladiesware",
+     "female",
+     "halter",
+     "halter dress"
+    ],
+    "vertices": 15240,
+    "transparent": false
+   },
+   {
+    "id": "dress02_elv_simple_fashiondressd",
+    "name": "elv simple fashiondressd",
+    "gender": "any",
+    "styles": [
+     "formal",
+     "glam"
+    ],
+    "license": "CC-BY",
+    "tags": [
+     "dress",
+     "ladies ware",
+     "fashion",
+     "hippy"
+    ],
+    "vertices": 1188,
+    "transparent": true
+   },
+   {
+    "id": "makehuman_system_assets_male_casualsuit04",
+    "name": "male casualsuit04",
+    "gender": "male",
+    "styles": [
+     "casual",
+     "formal"
+    ],
+    "license": "CC0",
+    "tags": [
+     "MakeHuman\u2122",
+     "Male",
+     "Casual"
+    ],
+    "vertices": 1887,
+    "transparent": false
+   },
+   {
+    "id": "makehuman_system_assets_male_casualsuit02",
+    "name": "male casualsuit02",
+    "gender": "male",
+    "styles": [
+     "casual",
+     "formal"
+    ],
+    "license": "CC0",
+    "tags": [
+     "MakeHuman\u2122",
+     "Male",
+     "Casual"
+    ],
+    "vertices": 2349,
+    "transparent": false
+   },
+   {
+    "id": "makehuman_system_assets_female_casualsuit02",
+    "name": "female casualsuit02",
+    "gender": "female",
+    "styles": [
+     "casual",
+     "formal"
+    ],
+    "license": "CC0",
+    "tags": [
+     "MakeHuman\u2122",
+     "Female",
+     "Casual"
+    ],
+    "vertices": 3204,
+    "transparent": false
+   },
+   {
+    "id": "makehuman_system_assets_male_casualsuit05",
+    "name": "male casualsuit05",
+    "gender": "male",
+    "styles": [
+     "casual",
+     "formal"
+    ],
+    "license": "CC0",
+    "tags": [
+     "MakeHuman\u2122",
+     "Male",
+     "Casual"
+    ],
+    "vertices": 3871,
+    "transparent": false
+   },
+   {
+    "id": "makehuman_system_assets_male_worksuit01",
+    "name": "male worksuit01",
+    "gender": "male",
+    "styles": [
+     "formal"
+    ],
+    "license": "CC0",
+    "tags": [
+     "MakeHuman\u2122"
+    ],
+    "vertices": 4166,
+    "transparent": false
+   },
+   {
+    "id": "makehuman_system_assets_male_casualsuit03",
+    "name": "male casualsuit03",
+    "gender": "male",
+    "styles": [
+     "casual",
+     "formal"
+    ],
+    "license": "CC0",
+    "tags": [
+     "MakeHuman\u2122",
+     "Male",
+     "Casual"
+    ],
+    "vertices": 2796,
+    "transparent": false
+   },
+   {
+    "id": "makehuman_system_assets_male_casualsuit06",
+    "name": "male casualsuit06",
+    "gender": "male",
+    "styles": [
+     "casual",
+     "formal"
+    ],
+    "license": "CC0",
+    "tags": [
+     "MakeHuman\u2122",
+     "Male",
+     "Casual"
+    ],
+    "vertices": 4035,
+    "transparent": false
+   },
+   {
+    "id": "makehuman_system_assets_female_sportsuit01",
+    "name": "female sportsuit01",
+    "gender": "female",
+    "styles": [
+     "formal",
+     "sport"
+    ],
+    "license": "CC0",
+    "tags": [
+     "MakeHuman\u2122",
+     "Female",
+     "Sport"
+    ],
+    "vertices": 1986,
+    "transparent": false
+   },
+   {
+    "id": "makehuman_system_assets_female_casualsuit01",
+    "name": "female casualsuit01",
+    "gender": "female",
+    "styles": [
+     "casual",
+     "formal"
+    ],
+    "license": "CC0",
+    "tags": [
+     "MakeHuman\u2122",
+     "Female",
+     "Casual"
+    ],
+    "vertices": 2406,
+    "transparent": false
+   },
+   {
+    "id": "makehuman_system_assets_male_elegantsuit01",
+    "name": "male elegantsuit01",
+    "gender": "male",
+    "styles": [
+     "formal"
+    ],
+    "license": "CC0",
+    "tags": [
+     "MakeHuman\u2122",
+     "Male",
+     "Elegant"
+    ],
+    "vertices": 8522,
+    "transparent": false
+   },
+   {
+    "id": "makehuman_system_assets_male_casualsuit01",
+    "name": "male casualsuit01",
+    "gender": "male",
+    "styles": [
+     "casual",
+     "formal"
+    ],
+    "license": "CC0",
+    "tags": [
+     "MakeHuman\u2122",
+     "Casual",
+     "Male"
+    ],
+    "vertices": 8984,
+    "transparent": false
+   },
+   {
+    "id": "makehuman_system_assets_female_elegantsuit01",
+    "name": "female elegantsuit01",
+    "gender": "female",
+    "styles": [
+     "formal"
+    ],
+    "license": "CC0",
+    "tags": [
+     "MakeHuman\u2122",
+     "Female",
+     "Elegant"
+    ],
+    "vertices": 2446,
+    "transparent": false
+   },
+   {
+    "id": "suits01_fem_suit",
+    "name": "Fem Suit",
+    "gender": "female",
+    "styles": [
+     "formal"
+    ],
+    "license": "CC0",
+    "tags": [
+     "suit",
+     "female"
+    ],
+    "vertices": 15758,
+    "transparent": false
+   },
+   {
+    "id": "suits01_fem_suit_double_breasted",
+    "name": "Fem Suit Double Breasted",
+    "gender": "any",
+    "styles": [
+     "formal"
+    ],
+    "license": "CC0",
+    "tags": [],
+    "vertices": 6021,
+    "transparent": false
+   },
+   {
+    "id": "suits01_fem_suit2",
+    "name": "Fem Suit2",
+    "gender": "any",
+    "styles": [
+     "formal"
+    ],
+    "license": "CC0",
+    "tags": [],
+    "vertices": 9781,
+    "transparent": false
+   },
+   {
+    "id": "suits01_suit_double_breasted",
+    "name": "Suit Double Breasted",
+    "gender": "any",
+    "styles": [
+     "formal"
+    ],
+    "license": "CC0",
+    "tags": [],
+    "vertices": 6021,
+    "transparent": false
+   },
+   {
+    "id": "suits01_suit3",
+    "name": "Suit3",
+    "gender": "any",
+    "styles": [
+     "formal"
+    ],
+    "license": "CC0",
+    "tags": [],
+    "vertices": 9795,
+    "transparent": false
+   },
+   {
+    "id": "suits02_glactic_warrior_02",
+    "name": "Glactic Warrior 02",
+    "gender": "female",
+    "styles": [
+     "fantasy",
+     "formal",
+     "glam"
+    ],
+    "license": "CC0",
+    "tags": [
+     "female",
+     "fantasy",
+     "profession",
+     "future",
+     "dress",
+     "Uniform"
+    ],
+    "vertices": 12435,
+    "transparent": false
+   },
+   {
+    "id": "suits02_mc_scifi_armor_guardian",
+    "name": "MC-SciFi-Armor Guardian",
+    "gender": "any",
+    "styles": [
+     "fantasy"
+    ],
+    "license": "CC0",
+    "tags": [],
+    "vertices": 10731,
+    "transparent": false
+   },
+   {
+    "id": "suits02_hero_suit_2",
+    "name": "hero suit 2",
+    "gender": "any",
+    "styles": [
+     "formal"
+    ],
+    "license": "CC0",
+    "tags": [],
+    "vertices": 6208,
+    "transparent": false
+   },
+   {
+    "id": "suits02_mc_skinsuit_2022",
+    "name": "MC-SkinSuit 2022",
+    "gender": "any",
+    "styles": [
+     "fantasy",
+     "formal"
+    ],
+    "license": "CC0",
+    "tags": [
+     "unisex",
+     "fantasy",
+     "profession",
+     "future",
+     "pants",
+     "bodysuit"
+    ],
+    "vertices": 11448,
+    "transparent": false
+   },
+   {
+    "id": "suits02_hero_suit_3",
+    "name": "hero suit 3",
+    "gender": "any",
+    "styles": [
+     "formal"
+    ],
+    "license": "CC0",
+    "tags": [],
+    "vertices": 16679,
+    "transparent": false
+   },
+   {
+    "id": "suits02_cyborg_suit",
+    "name": "Cyborg suit",
+    "gender": "any",
+    "styles": [
+     "fantasy",
+     "formal",
+     "glam"
+    ],
+    "license": "CC0",
+    "tags": [
+     "unisex",
+     "fantasy",
+     "profession",
+     "future",
+     "dress"
+    ],
+    "vertices": 4164,
+    "transparent": false
+   },
+   {
+    "id": "suits02_rei_ayanami",
+    "name": "Rei Ayanami",
+    "gender": "female",
+    "styles": [
+     "fantasy",
+     "formal",
+     "glam"
+    ],
+    "license": "CC0",
+    "tags": [
+     "female",
+     "fantasy",
+     "profession",
+     "future",
+     "dress"
+    ],
+    "vertices": 6884,
+    "transparent": false
+   },
+   {
+    "id": "suits02_mc_bodysuit_2021",
+    "name": "MC-BodySuit-2021",
+    "gender": "male",
+    "styles": [
+     "casual",
+     "formal"
+    ],
+    "license": "CC0",
+    "tags": [
+     "male",
+     "casual",
+     "leisure",
+     "traditional",
+     "pants",
+     "bodysuit"
+    ],
+    "vertices": 32276,
+    "transparent": false
+   },
+   {
+    "id": "suits02_hero_suit_1",
+    "name": "hero suit 1",
+    "gender": "any",
+    "styles": [
+     "formal"
+    ],
+    "license": "CC0",
+    "tags": [],
+    "vertices": 8463,
+    "transparent": false
+   },
+   {
+    "id": "suits02_yoko_tsuno",
+    "name": "Yoko Tsuno",
+    "gender": "female",
+    "styles": [
+     "formal",
+     "glam"
+    ],
+    "license": "CC0",
+    "tags": [
+     "female",
+     "space",
+     "future",
+     "dress"
+    ],
+    "vertices": 3258,
+    "transparent": false
+   },
+   {
+    "id": "suits02_mc_scifi_armor_jupiter7",
+    "name": "MC-SciFi-Armor Jupiter7",
+    "gender": "any",
+    "styles": [
+     "fantasy"
+    ],
+    "license": "CC0",
+    "tags": [],
+    "vertices": 16060,
+    "transparent": false
+   },
+   {
+    "id": "suits02_monks_robe",
+    "name": "Monks Robe",
+    "gender": "male",
+    "styles": [
+     "casual",
+     "fantasy",
+     "formal",
+     "glam"
+    ],
+    "license": "CC0",
+    "tags": [
+     "male",
+     "casual",
+     "profession",
+     "vintage",
+     "dress",
+     "monk",
+     "robe",
+     "medieval"
+    ],
+    "vertices": 11271,
+    "transparent": false
+   },
+   {
+    "id": "suits02_spider_gwen",
+    "name": "Spider Gwen",
+    "gender": "any",
+    "styles": [],
+    "license": "CC0",
+    "tags": [],
+    "vertices": 33414,
+    "transparent": false
+   },
+   {
+    "id": "suits02_heroine_suit_2",
+    "name": "heroine suit 2",
+    "gender": "any",
+    "styles": [
+     "formal"
+    ],
+    "license": "CC0",
+    "tags": [],
+    "vertices": 7823,
+    "transparent": false
+   }
+  ],
+  "bottom": [
+   {
+    "id": "dress01_dress_camisole_full_skirt",
+    "name": "Dress Camisole Full Skirt",
+    "gender": "any",
+    "styles": [
+     "formal",
+     "glam"
+    ],
+    "license": "CC0",
+    "tags": [],
+    "vertices": 6467,
+    "transparent": false
+   },
+   {
+    "id": "dress01_dress_bodice_ruffle_skirt",
+    "name": "Dress Bodice Ruffle Skirt",
+    "gender": "any",
+    "styles": [
+     "formal",
+     "glam"
+    ],
+    "license": "CC0",
+    "tags": [],
+    "vertices": 5203,
+    "transparent": false
+   },
+   {
+    "id": "dress01_dress_long_fluted_skirt",
+    "name": "Dress Long Fluted Skirt",
+    "gender": "any",
+    "styles": [
+     "formal",
+     "glam"
+    ],
+    "license": "CC0",
+    "tags": [],
+    "vertices": 3589,
+    "transparent": false
+   },
+   {
+    "id": "dress01_dresstierskirt",
+    "name": "DressTierSkirt",
+    "gender": "any",
+    "styles": [
+     "formal",
+     "glam"
+    ],
+    "license": "CC0",
+    "tags": [
+     "dress"
+    ],
+    "vertices": 12409,
+    "transparent": false
+   },
+   {
+    "id": "dress02_elvs_short_halterdress1",
+    "name": "elvs short halterdress1",
+    "gender": "female",
+    "styles": [
+     "formal",
+     "glam"
+    ],
+    "license": "CC-BY",
+    "tags": [
+     "dress",
+     "ladiesware",
+     "female",
+     "halter",
+     "halter dress"
+    ],
+    "vertices": 9528,
+    "transparent": false
+   },
+   {
+    "id": "pants01_pants_wool",
+    "name": "Pants Wool",
+    "gender": "male",
+    "styles": [],
+    "license": "CC0",
+    "tags": [
+     "pants",
+     "male"
+    ],
+    "vertices": 1593,
+    "transparent": false
+   },
+   {
+    "id": "pants01_pants_harem",
+    "name": "Pants Harem",
+    "gender": "any",
+    "styles": [],
+    "license": "CC0",
+    "tags": [],
+    "vertices": 7030,
+    "transparent": false
+   },
+   {
+    "id": "pants01_cargo_pants",
+    "name": "cargo pants",
+    "gender": "any",
+    "styles": [],
+    "license": "CC0",
+    "tags": [],
+    "vertices": 255,
+    "transparent": false
+   },
+   {
+    "id": "pants01_jean_shorts",
+    "name": "jean shorts",
+    "gender": "any",
+    "styles": [
+     "casual"
+    ],
+    "license": "CC0",
+    "tags": [],
+    "vertices": 342,
+    "transparent": false
+   },
+   {
+    "id": "pants02_male_classic_jeans",
+    "name": "male-classic-jeans",
+    "gender": "male",
+    "styles": [
+     "casual"
+    ],
+    "license": "CC-BY",
+    "tags": [
+     "Jeans",
+     "Pants",
+     "male"
+    ],
+    "vertices": 2794,
+    "transparent": false
+   },
+   {
+    "id": "pants02_m_trousers_02",
+    "name": "M Trousers 02",
+    "gender": "male",
+    "styles": [],
+    "license": "CC-BY",
+    "tags": [
+     "Male",
+     "Trousers",
+     "Pants"
+    ],
+    "vertices": 7902,
+    "transparent": false
+   },
+   {
+    "id": "pants02_m_trousers_01",
+    "name": "M Trousers 01",
+    "gender": "male",
+    "styles": [
+     "casual"
+    ],
+    "license": "CC-BY",
+    "tags": [
+     "Male",
+     "Trousers",
+     "Jeans",
+     "Pants"
+    ],
+    "vertices": 1893,
+    "transparent": false
+   },
+   {
+    "id": "pants02_mens_elv_jeans1f",
+    "name": "mens elv jeans1f",
+    "gender": "any",
+    "styles": [
+     "casual"
+    ],
+    "license": "CC-BY",
+    "tags": [
+     "pant",
+     "menswear",
+     "fashion",
+     "traditional",
+     "jeans"
+    ],
+    "vertices": 3977,
+    "transparent": false
+   },
+   {
+    "id": "pants02_tightjeans",
+    "name": "Tightjeans",
+    "gender": "female",
+    "styles": [
+     "casual"
+    ],
+    "license": "CC-BY",
+    "tags": [
+     "Female",
+     "Pants",
+     "Jeans"
+    ],
+    "vertices": 2570,
+    "transparent": false
+   },
+   {
+    "id": "pants02_elvs_discopant_sruffle1",
+    "name": "elvs discopant sruffle1",
+    "gender": "female",
+    "styles": [
+     "casual"
+    ],
+    "license": "CC-BY",
+    "tags": [
+     "female",
+     "casual",
+     "festive",
+     "vintage",
+     "pants",
+     "disco"
+    ],
+    "vertices": 10312,
+    "transparent": true
+   },
+   {
+    "id": "pants02_mens_trouser_f_elv_chr",
+    "name": "mens trouser f elv chr",
+    "gender": "any",
+    "styles": [],
+    "license": "CC-BY",
+    "tags": [
+     "pant",
+     "menswear",
+     "fashion",
+     "traditional",
+     "trouser"
+    ],
+    "vertices": 13434,
+    "transparent": false
+   },
+   {
+    "id": "pants02_elvs_disco_pant_druffles",
+    "name": "elvs disco pant druffles",
+    "gender": "female",
+    "styles": [
+     "casual"
+    ],
+    "license": "CC-BY",
+    "tags": [
+     "female",
+     "casual",
+     "festive",
+     "vintage",
+     "pants",
+     "disco"
+    ],
+    "vertices": 14788,
+    "transparent": true
+   },
+   {
+    "id": "pants02_f_trousers_01",
+    "name": "F Trousers 01",
+    "gender": "female",
+    "styles": [
+     "casual"
+    ],
+    "license": "CC-BY",
+    "tags": [
+     "Female",
+     "Trousers",
+     "Jeans",
+     "Pants"
+    ],
+    "vertices": 2139,
+    "transparent": false
+   },
+   {
+    "id": "pants02_elvs_gored_elephantpant1",
+    "name": "elvs gored elephantpant1",
+    "gender": "female",
+    "styles": [
+     "fantasy"
+    ],
+    "license": "CC-BY",
+    "tags": [
+     "female",
+     "fantasy",
+     "festive",
+     "vintage",
+     "pants",
+     "disco"
+    ],
+    "vertices": 13556,
+    "transparent": true
+   },
+   {
+    "id": "pants02_mens_trouser_f_elv1",
+    "name": "mens trouser f elv1",
+    "gender": "any",
+    "styles": [],
+    "license": "CC-BY",
+    "tags": [
+     "pant",
+     "menswear",
+     "fashion",
+     "traditional",
+     "trouser"
+    ],
+    "vertices": 2471,
+    "transparent": false
+   },
+   {
+    "id": "pants02_mens_elv_jeans2slf",
+    "name": "mens elv jeans2slf",
+    "gender": "any",
+    "styles": [
+     "casual"
+    ],
+    "license": "CC-BY",
+    "tags": [
+     "jeans",
+     "menswear",
+     "fashion",
+     "traditional",
+     "casual"
+    ],
+    "vertices": 3977,
+    "transparent": false
+   },
+   {
+    "id": "pants02_elvs_disco_pant1",
+    "name": "elvs disco pant1",
+    "gender": "female",
+    "styles": [
+     "formal"
+    ],
+    "license": "CC-BY",
+    "tags": [
+     "female",
+     "formal",
+     "festive",
+     "vintage",
+     "pants",
+     "disco"
+    ],
+    "vertices": 6490,
+    "transparent": false
+   },
+   {
+    "id": "skirts01_skirt_full_long",
+    "name": "Skirt Full Long",
+    "gender": "any",
+    "styles": [],
+    "license": "CC0",
+    "tags": [],
+    "vertices": 3136,
+    "transparent": false
+   },
+   {
+    "id": "skirts01_skirt_full_lace_ruffle",
+    "name": "Skirt Full Lace Ruffle",
+    "gender": "any",
+    "styles": [],
+    "license": "CC0",
+    "tags": [],
+    "vertices": 3092,
+    "transparent": false
+   },
+   {
+    "id": "skirts01_mini_skirt_01",
+    "name": "Mini Skirt 01",
+    "gender": "any",
+    "styles": [],
+    "license": "CC0",
+    "tags": [],
+    "vertices": 1206,
+    "transparent": false
+   },
+   {
+    "id": "skirts01_tier_skirt_mini",
+    "name": "Tier Skirt Mini",
+    "gender": "any",
+    "styles": [],
+    "license": "CC0",
+    "tags": [],
+    "vertices": 7443,
+    "transparent": false
+   },
+   {
+    "id": "skirts01_tier_skirt",
+    "name": "Tier Skirt",
+    "gender": "any",
+    "styles": [
+     "formal",
+     "glam"
+    ],
+    "license": "CC0",
+    "tags": [
+     "dress"
+    ],
+    "vertices": 8686,
+    "transparent": false
+   },
+   {
+    "id": "skirts01_mini_skirt_02",
+    "name": "Mini Skirt 02",
+    "gender": "any",
+    "styles": [],
+    "license": "CC0",
+    "tags": [],
+    "vertices": 1984,
+    "transparent": false
+   },
+   {
+    "id": "suits01_jacket_bowtie_pants",
+    "name": "Jacket bowtie Pants",
+    "gender": "any",
+    "styles": [],
+    "license": "CC0",
+    "tags": [],
+    "vertices": 14115,
+    "transparent": false
+   },
+   {
+    "id": "suits01_jacket_tie_pants",
+    "name": "Jacket Tie Pants",
+    "gender": "any",
+    "styles": [],
+    "license": "CC0",
+    "tags": [
+     "pants"
+    ],
+    "vertices": 10982,
+    "transparent": false
+   },
+   {
+    "id": "suits02_pantsviking",
+    "name": "PantsViking",
+    "gender": "any",
+    "styles": [],
+    "license": "CC0",
+    "tags": [
+     "Pants",
+     "Viking"
+    ],
+    "vertices": 1410,
+    "transparent": false
+   }
+  ],
+  "top": [
+   {
+    "id": "dress01_dress_strapless_ruffle_top",
+    "name": "Dress Strapless Ruffle Top",
+    "gender": "any",
+    "styles": [
+     "formal",
+     "glam"
+    ],
+    "license": "CC0",
+    "tags": [],
+    "vertices": 5992,
+    "transparent": false
+   },
+   {
+    "id": "dress01_mycenaean_tunic",
+    "name": "Mycenaean Tunic",
+    "gender": "any",
+    "styles": [],
+    "license": "CC0",
+    "tags": [],
+    "vertices": 1558,
+    "transparent": false
+   },
+   {
+    "id": "shirts01_camisole_top",
+    "name": "Camisole Top",
+    "gender": "any",
+    "styles": [],
+    "license": "CC0",
+    "tags": [],
+    "vertices": 5096,
+    "transparent": false
+   },
+   {
+    "id": "shirts01_t_shirt_basic_tucked",
+    "name": "T-shirt basic tucked",
+    "gender": "any",
+    "styles": [
+     "casual"
+    ],
+    "license": "CC0",
+    "tags": [
+     "t-shirt",
+     "shirt",
+     "top",
+     "knit",
+     "casual"
+    ],
+    "vertices": 1644,
+    "transparent": false
+   },
+   {
+    "id": "shirts01_polo_t_shirt",
+    "name": "Polo t-shirt",
+    "gender": "male",
+    "styles": [
+     "casual"
+    ],
+    "license": "CC0",
+    "tags": [
+     "male",
+     "casual",
+     "profession",
+     "contemporary"
+    ],
+    "vertices": 2574,
+    "transparent": false
+   },
+   {
+    "id": "shirts01_crude_male_shirt",
+    "name": "crude male shirt",
+    "gender": "any",
+    "styles": [],
+    "license": "CC0",
+    "tags": [],
+    "vertices": 1150,
+    "transparent": false
+   },
+   {
+    "id": "shirts01_sweater_fisherman",
+    "name": "Sweater Fisherman",
+    "gender": "any",
+    "styles": [],
+    "license": "CC0",
+    "tags": [
+     "sweater",
+     "shirt",
+     "top",
+     "knit"
+    ],
+    "vertices": 2511,
+    "transparent": false
+   },
+   {
+    "id": "shirts01_tank_keyhole_neck",
+    "name": "Tank Keyhole Neck",
+    "gender": "any",
+    "styles": [],
+    "license": "CC0",
+    "tags": [],
+    "vertices": 823,
+    "transparent": false
+   },
+   {
+    "id": "shirts01_turtleneck_halter",
+    "name": "Turtleneck Halter",
+    "gender": "any",
+    "styles": [],
+    "license": "CC0",
+    "tags": [],
+    "vertices": 3504,
+    "transparent": false
+   },
+   {
+    "id": "shirts01_tube_top",
+    "name": "tube top",
+    "gender": "any",
+    "styles": [],
+    "license": "CC0",
+    "tags": [
+     "top",
+     "egen"
+    ],
+    "vertices": 1700,
+    "transparent": false
+   },
+   {
+    "id": "shirts01_crudefemaletshirt",
+    "name": "CrudeFemaleTshirt",
+    "gender": "female",
+    "styles": [],
+    "license": "CC0",
+    "tags": [],
+    "vertices": 1152,
+    "transparent": false
+   },
+   {
+    "id": "shirts01_bodice_style_top",
+    "name": "Bodice style top",
+    "gender": "any",
+    "styles": [],
+    "license": "CC0",
+    "tags": [],
+    "vertices": 1152,
+    "transparent": false
+   },
+   {
+    "id": "shirts02_mens_shirt_untuck_elvbhp1f",
+    "name": "mens shirt untuck elvbhp1f",
+    "gender": "any",
+    "styles": [],
+    "license": "CC-BY",
+    "tags": [
+     "shirt",
+     "menswear",
+     "fashion",
+     "traditional",
+     "untucked"
+    ],
+    "vertices": 5140,
+    "transparent": false
+   },
+   {
+    "id": "shirts02_deathnote",
+    "name": "Deathnote",
+    "gender": "any",
+    "styles": [],
+    "license": "CC-BY",
+    "tags": [
+     "shirt"
+    ],
+    "vertices": 14627,
+    "transparent": false
+   },
+   {
+    "id": "shirts02_offshoulder_top",
+    "name": "offshoulder top",
+    "gender": "female",
+    "styles": [],
+    "license": "CC-BY",
+    "tags": [
+     "Female",
+     "Shirt"
+    ],
+    "vertices": 2730,
+    "transparent": true
+   },
+   {
+    "id": "shirts02_knitted_sweater_02",
+    "name": "Knitted Sweater 02",
+    "gender": "any",
+    "styles": [],
+    "license": "CC-BY",
+    "tags": [
+     "Sweater"
+    ],
+    "vertices": 1527,
+    "transparent": false
+   },
+   {
+    "id": "shirts02_ladieshoodiedown1",
+    "name": "ladieshoodiedown1",
+    "gender": "any",
+    "styles": [
+     "casual"
+    ],
+    "license": "CC-BY",
+    "tags": [],
+    "vertices": 16615,
+    "transparent": false
+   },
+   {
+    "id": "shirts02_f_cardigan_long_open_front",
+    "name": "F Cardigan Long Open Front",
+    "gender": "female",
+    "styles": [],
+    "license": "CC-BY",
+    "tags": [
+     "Female",
+     "Sweater",
+     "Cardigan"
+    ],
+    "vertices": 6030,
+    "transparent": false
+   },
+   {
+    "id": "shirts02_worn_out_sweater",
+    "name": "Worn out sweater",
+    "gender": "female",
+    "styles": [
+     "casual"
+    ],
+    "license": "CC-BY",
+    "tags": [
+     "female",
+     "casual",
+     "leisure",
+     "contemporary",
+     "shirt",
+     "swater",
+     "pullover"
+    ],
+    "vertices": 1750,
+    "transparent": false
+   },
+   {
+    "id": "shirts02_mens_boho_top1elv",
+    "name": "mens boho top1elv",
+    "gender": "any",
+    "styles": [],
+    "license": "CC-BY",
+    "tags": [
+     "shirt",
+     "menswear",
+     "fashion",
+     "bohemian",
+     "loose fit"
+    ],
+    "vertices": 2178,
+    "transparent": false
+   },
+   {
+    "id": "shirts02_mens_shirt_tie_tuck_elv1f",
+    "name": "mens shirt tie tuck elv1f",
+    "gender": "any",
+    "styles": [],
+    "license": "CC-BY",
+    "tags": [
+     "shirt",
+     "menswear",
+     "fashion",
+     "traditional",
+     "tie"
+    ],
+    "vertices": 2915,
+    "transparent": false
+   },
+   {
+    "id": "shirts02_striped_shirt",
+    "name": "Striped Shirt",
+    "gender": "female",
+    "styles": [],
+    "license": "CC-BY",
+    "tags": [
+     "Striped",
+     "Shirt",
+     "Long Sleeve",
+     "Crop Top",
+     "Female"
+    ],
+    "vertices": 4701,
+    "transparent": false
+   },
+   {
+    "id": "shirts02_f_lusekofta",
+    "name": "F Lusekofta",
+    "gender": "female",
+    "styles": [],
+    "license": "CC-BY",
+    "tags": [
+     "Female",
+     "Sweater",
+     "Cardigan"
+    ],
+    "vertices": 1645,
+    "transparent": false
+   },
+   {
+    "id": "shirts02_knitted_sweater_01",
+    "name": "Knitted Sweater 01",
+    "gender": "any",
+    "styles": [],
+    "license": "CC-BY",
+    "tags": [
+     "Sweater"
+    ],
+    "vertices": 1583,
+    "transparent": false
+   },
+   {
+    "id": "suits01_suit_dinner_jacket",
+    "name": "Suit Dinner Jacket",
+    "gender": "any",
+    "styles": [
+     "formal"
+    ],
+    "license": "CC0",
+    "tags": [],
+    "vertices": 9363,
+    "transparent": false
+   },
+   {
+    "id": "suits02_tunicviking",
+    "name": "TunicViking",
+    "gender": "any",
+    "styles": [],
+    "license": "CC0",
+    "tags": [
+     "Tunic",
+     "Viking"
+    ],
+    "vertices": 3917,
+    "transparent": false
+   }
+  ],
   "eyebrows": [
    {
     "id": "eyebrows01_mind_eyebrows_11",
@@ -445,6 +2326,242 @@
     "transparent": true
    }
   ],
+  "glasses": [
+   {
+    "id": "glasses01_sagerfrog_s_glasses_01",
+    "name": "Sagerfrog's Glasses 01",
+    "gender": "any",
+    "styles": [],
+    "license": "CC0",
+    "tags": [
+     "unisex",
+     "contemporary",
+     "glasses"
+    ],
+    "vertices": 2278,
+    "transparent": false
+   },
+   {
+    "id": "glasses01_tbm_glasses_frames_01",
+    "name": "TBM Glasses Frames 01",
+    "gender": "any",
+    "styles": [
+     "formal"
+    ],
+    "license": "CC0",
+    "tags": [
+     "unisex",
+     "formal",
+     "contemporary",
+     "glasses"
+    ],
+    "vertices": 723,
+    "transparent": false
+   },
+   {
+    "id": "glasses01_sagerfrog_s_glasses_03",
+    "name": "Sagerfrog's Glasses 03",
+    "gender": "any",
+    "styles": [],
+    "license": "CC0",
+    "tags": [
+     "unisex",
+     "contemporary",
+     "glasses"
+    ],
+    "vertices": 5797,
+    "transparent": false
+   },
+   {
+    "id": "glasses01_doc_ock_glasses",
+    "name": "doc ock glasses",
+    "gender": "any",
+    "styles": [],
+    "license": "CC0",
+    "tags": [],
+    "vertices": 10522,
+    "transparent": false
+   },
+   {
+    "id": "glasses01_roundglasses_leopard",
+    "name": "RoundGlasses leopard",
+    "gender": "any",
+    "styles": [],
+    "license": "CC0",
+    "tags": [
+     "glasses"
+    ],
+    "vertices": 4030,
+    "transparent": false
+   },
+   {
+    "id": "glasses01_m_opticals01",
+    "name": "m opticals01",
+    "gender": "male",
+    "styles": [],
+    "license": "CC0",
+    "tags": [
+     "Glasses",
+     "Male",
+     "Accessory"
+    ],
+    "vertices": 3671,
+    "transparent": false
+   },
+   {
+    "id": "glasses01_3dglasses",
+    "name": "3dglasses",
+    "gender": "any",
+    "styles": [],
+    "license": "CC0",
+    "tags": [
+     "Glasses",
+     "Accessory"
+    ],
+    "vertices": 108,
+    "transparent": false
+   },
+   {
+    "id": "glasses01_sagerfrog_s_glasses_04",
+    "name": "Sagerfrog's Glasses 04",
+    "gender": "any",
+    "styles": [],
+    "license": "CC0",
+    "tags": [
+     "unisex",
+     "contemporary",
+     "glasses"
+    ],
+    "vertices": 2315,
+    "transparent": false
+   },
+   {
+    "id": "glasses01_glasses_library_male",
+    "name": "Glasses Library Male",
+    "gender": "any",
+    "styles": [],
+    "license": "CC0",
+    "tags": [],
+    "vertices": 1377,
+    "transparent": false
+   },
+   {
+    "id": "glasses01_sagerfrog_s_glasses_02",
+    "name": "Sagerfrog's Glasses 02",
+    "gender": "any",
+    "styles": [],
+    "license": "CC0",
+    "tags": [
+     "unisex",
+     "contemporary",
+     "glasses"
+    ],
+    "vertices": 2530,
+    "transparent": false
+   }
+  ],
+  "gloves": [
+   {
+    "id": "gloves01_hero_heroine_gloves_2",
+    "name": "hero-heroine gloves 2",
+    "gender": "any",
+    "styles": [],
+    "license": "CC0",
+    "tags": [
+     "hero",
+     "superhero"
+    ],
+    "vertices": 8898,
+    "transparent": false
+   },
+   {
+    "id": "gloves01_hero_heroine_gloves_1",
+    "name": "hero-heroine gloves 1",
+    "gender": "any",
+    "styles": [],
+    "license": "CC0",
+    "tags": [],
+    "vertices": 2762,
+    "transparent": false
+   },
+   {
+    "id": "gloves01_gloves_hand",
+    "name": "Gloves Hand",
+    "gender": "any",
+    "styles": [],
+    "license": "CC0",
+    "tags": [],
+    "vertices": 2954,
+    "transparent": false
+   },
+   {
+    "id": "gloves01_gloves_long",
+    "name": "Gloves Long",
+    "gender": "any",
+    "styles": [],
+    "license": "CC0",
+    "tags": [],
+    "vertices": 4302,
+    "transparent": false
+   },
+   {
+    "id": "gloves01_hero_heroine_gloves_5",
+    "name": "hero-heroine gloves 5",
+    "gender": "any",
+    "styles": [],
+    "license": "CC0",
+    "tags": [],
+    "vertices": 3128,
+    "transparent": false
+   },
+   {
+    "id": "gloves01_gloves_medium",
+    "name": "Gloves Medium",
+    "gender": "any",
+    "styles": [],
+    "license": "CC0",
+    "tags": [],
+    "vertices": 3692,
+    "transparent": false
+   },
+   {
+    "id": "gloves01_hero_heroine_gloves_3",
+    "name": "hero-heroine gloves 3",
+    "gender": "any",
+    "styles": [],
+    "license": "CC0",
+    "tags": [
+     "superhero",
+     "hero"
+    ],
+    "vertices": 18913,
+    "transparent": false
+   },
+   {
+    "id": "gloves01_hero_heroine_gloves_4",
+    "name": "hero-heroine gloves 4",
+    "gender": "any",
+    "styles": [],
+    "license": "CC0",
+    "tags": [
+     "hero",
+     "superhero",
+     "gloves"
+    ],
+    "vertices": 9710,
+    "transparent": false
+   },
+   {
+    "id": "gloves01_mma_gloves",
+    "name": "mma gloves",
+    "gender": "any",
+    "styles": [],
+    "license": "CC0",
+    "tags": [],
+    "vertices": 3092,
+    "transparent": false
+   }
+  ],
   "hair": [
    {
     "id": "hair01_blondwithheadband",
@@ -843,6 +2960,72 @@
   ],
   "hat": [
    {
+    "id": "hats01_xmascap",
+    "name": "xmascap",
+    "gender": "any",
+    "styles": [],
+    "license": "CC0",
+    "tags": [],
+    "vertices": 1154,
+    "transparent": false
+   },
+   {
+    "id": "hats01_cloche_hat",
+    "name": "Cloche Hat",
+    "gender": "female",
+    "styles": [],
+    "license": "CC0",
+    "tags": [
+     "Female",
+     "Hats",
+     "Historical"
+    ],
+    "vertices": 556,
+    "transparent": false
+   },
+   {
+    "id": "hats01_maga_hat",
+    "name": "MAGA-Hat",
+    "gender": "any",
+    "styles": [],
+    "license": "CC0",
+    "tags": [],
+    "vertices": 3264,
+    "transparent": false
+   },
+   {
+    "id": "hats01_newsboy_cap",
+    "name": "newsboy cap",
+    "gender": "any",
+    "styles": [],
+    "license": "CC0",
+    "tags": [],
+    "vertices": 572,
+    "transparent": false
+   },
+   {
+    "id": "hats01_pillow_man",
+    "name": "pillow man",
+    "gender": "any",
+    "styles": [],
+    "license": "CC0",
+    "tags": [],
+    "vertices": 5874,
+    "transparent": false
+   },
+   {
+    "id": "hats01_uncle_joshi_s_hat",
+    "name": "Uncle Joshi's hat",
+    "gender": "any",
+    "styles": [],
+    "license": "CC0",
+    "tags": [
+     "Hats"
+    ],
+    "vertices": 7930,
+    "transparent": false
+   },
+   {
     "id": "makehuman_system_assets_fedora_cocked",
     "name": "fedora cocked",
     "gender": "any",
@@ -866,6 +3049,71 @@
      "Hats"
     ],
     "vertices": 702,
+    "transparent": false
+   },
+   {
+    "id": "suits02_monks_hood",
+    "name": "Monks Hood",
+    "gender": "male",
+    "styles": [
+     "casual",
+     "fantasy"
+    ],
+    "license": "CC0",
+    "tags": [
+     "male",
+     "casual",
+     "profession",
+     "vintage",
+     "hat",
+     "monk",
+     "robe",
+     "medieval"
+    ],
+    "vertices": 5023,
+    "transparent": false
+   },
+   {
+    "id": "suits02_monks_hood_off",
+    "name": "Monks Hood Off",
+    "gender": "male",
+    "styles": [
+     "fantasy"
+    ],
+    "license": "CC0",
+    "tags": [
+     "male",
+     "fantasy",
+     "profession",
+     "vintage",
+     "hat",
+     "hood",
+     "medieval",
+     "monk"
+    ],
+    "vertices": 5022,
+    "transparent": false
+   },
+   {
+    "id": "suits02_monks_hood_down",
+    "name": "Monks Hood Down",
+    "gender": "male",
+    "styles": [
+     "casual",
+     "fantasy"
+    ],
+    "license": "CC0",
+    "tags": [
+     "male",
+     "casual",
+     "profession",
+     "vintage",
+     "hat",
+     "monk",
+     "robe",
+     "medieval"
+    ],
+    "vertices": 5025,
     "transparent": false
    }
   ],
@@ -1211,269 +3459,325 @@
     ],
     "vertices": 30724,
     "transparent": false
-   }
-  ],
-  "outfit": [
-   {
-    "id": "makehuman_system_assets_male_casualsuit04",
-    "name": "male casualsuit04",
-    "gender": "male",
-    "styles": [
-     "casual",
-     "formal"
-    ],
-    "license": "CC0",
-    "tags": [
-     "MakeHuman\u2122",
-     "Male",
-     "Casual"
-    ],
-    "vertices": 1887,
-    "transparent": false
    },
    {
-    "id": "makehuman_system_assets_male_casualsuit02",
-    "name": "male casualsuit02",
-    "gender": "male",
+    "id": "shoes02_runningshoes",
+    "name": "RunningShoes",
+    "gender": "any",
     "styles": [
-     "casual",
-     "formal"
-    ],
-    "license": "CC0",
-    "tags": [
-     "MakeHuman\u2122",
-     "Male",
-     "Casual"
-    ],
-    "vertices": 2349,
-    "transparent": false
-   },
-   {
-    "id": "makehuman_system_assets_female_casualsuit02",
-    "name": "female casualsuit02",
-    "gender": "female",
-    "styles": [
-     "casual",
-     "formal"
-    ],
-    "license": "CC0",
-    "tags": [
-     "MakeHuman\u2122",
-     "Female",
-     "Casual"
-    ],
-    "vertices": 3204,
-    "transparent": false
-   },
-   {
-    "id": "makehuman_system_assets_male_casualsuit05",
-    "name": "male casualsuit05",
-    "gender": "male",
-    "styles": [
-     "casual",
-     "formal"
-    ],
-    "license": "CC0",
-    "tags": [
-     "MakeHuman\u2122",
-     "Male",
-     "Casual"
-    ],
-    "vertices": 3871,
-    "transparent": false
-   },
-   {
-    "id": "makehuman_system_assets_male_worksuit01",
-    "name": "male worksuit01",
-    "gender": "male",
-    "styles": [
-     "formal"
-    ],
-    "license": "CC0",
-    "tags": [
-     "MakeHuman\u2122"
-    ],
-    "vertices": 4166,
-    "transparent": false
-   },
-   {
-    "id": "makehuman_system_assets_male_casualsuit03",
-    "name": "male casualsuit03",
-    "gender": "male",
-    "styles": [
-     "casual",
-     "formal"
-    ],
-    "license": "CC0",
-    "tags": [
-     "MakeHuman\u2122",
-     "Male",
-     "Casual"
-    ],
-    "vertices": 2796,
-    "transparent": false
-   },
-   {
-    "id": "makehuman_system_assets_male_casualsuit06",
-    "name": "male casualsuit06",
-    "gender": "male",
-    "styles": [
-     "casual",
-     "formal"
-    ],
-    "license": "CC0",
-    "tags": [
-     "MakeHuman\u2122",
-     "Male",
-     "Casual"
-    ],
-    "vertices": 4035,
-    "transparent": false
-   },
-   {
-    "id": "makehuman_system_assets_female_sportsuit01",
-    "name": "female sportsuit01",
-    "gender": "female",
-    "styles": [
-     "formal",
      "sport"
     ],
-    "license": "CC0",
+    "license": "CC-BY",
     "tags": [
-     "MakeHuman\u2122",
-     "Female",
+     "Shoes",
      "Sport"
     ],
-    "vertices": 1986,
+    "vertices": 1920,
     "transparent": false
    },
    {
-    "id": "makehuman_system_assets_female_casualsuit01",
-    "name": "female casualsuit01",
-    "gender": "female",
+    "id": "shoes02_martialartshoes",
+    "name": "martialartshoes",
+    "gender": "any",
     "styles": [
-     "casual",
-     "formal"
+     "sport"
     ],
-    "license": "CC0",
+    "license": "CC-BY",
     "tags": [
-     "MakeHuman\u2122",
-     "Female",
-     "Casual"
+     "Shoes",
+     "Sport"
     ],
-    "vertices": 2406,
+    "vertices": 1920,
     "transparent": false
    },
    {
-    "id": "makehuman_system_assets_male_elegantsuit01",
-    "name": "male elegantsuit01",
+    "id": "shoes02_elvs_basic_flatshoe2b",
+    "name": "elvs basic flatshoe2b",
+    "gender": "any",
+    "styles": [],
+    "license": "CC-BY",
+    "tags": [
+     "shoe",
+     "ladies ware",
+     "ladies shoes",
+     "fashion",
+     "flats"
+    ],
+    "vertices": 9990,
+    "transparent": false
+   },
+   {
+    "id": "shoes02_dudoc_domsjeans1",
+    "name": "DUDoc domsjeans1",
+    "gender": "any",
+    "styles": [
+     "casual"
+    ],
+    "license": "CC-BY",
+    "tags": [],
+    "vertices": 848,
+    "transparent": false
+   },
+   {
+    "id": "shoes02_shoes_monk_strap_male",
+    "name": "Shoes Monk Strap male",
     "gender": "male",
     "styles": [
      "formal"
     ],
-    "license": "CC0",
+    "license": "CC-BY",
     "tags": [
-     "MakeHuman\u2122",
+     "Shoes",
      "Male",
      "Elegant"
     ],
-    "vertices": 8522,
+    "vertices": 8089,
     "transparent": false
    },
    {
-    "id": "makehuman_system_assets_male_casualsuit01",
-    "name": "male casualsuit01",
-    "gender": "male",
+    "id": "shoes02_elvs_basic_flatshoe3c",
+    "name": "elvs basic flatshoe3c",
+    "gender": "any",
     "styles": [
-     "casual",
-     "formal"
+     "formal",
+     "glam"
     ],
-    "license": "CC0",
+    "license": "CC-BY",
     "tags": [
-     "MakeHuman\u2122",
-     "Casual",
-     "Male"
+     "shoe",
+     "flats",
+     "ladies ware",
+     "dress shoe",
+     "no sock"
     ],
-    "vertices": 8984,
+    "vertices": 11746,
     "transparent": false
    },
    {
-    "id": "makehuman_system_assets_female_elegantsuit01",
-    "name": "female elegantsuit01",
+    "id": "shoes02_shoes_oxford_female",
+    "name": "Shoes Oxford female",
     "gender": "female",
     "styles": [
      "formal"
     ],
-    "license": "CC0",
+    "license": "CC-BY",
     "tags": [
-     "MakeHuman\u2122",
+     "Shoes",
      "Female",
      "Elegant"
     ],
-    "vertices": 2446,
+    "vertices": 3487,
     "transparent": false
    },
    {
-    "id": "suits01_fem_suit",
-    "name": "Fem Suit",
+    "id": "shoes02_elvs_basic_elfshoe1",
+    "name": "elvs basic elfshoe1",
+    "gender": "any",
+    "styles": [
+     "fantasy"
+    ],
+    "license": "CC-BY",
+    "tags": [],
+    "vertices": 1502,
+    "transparent": false
+   },
+   {
+    "id": "shoes02_harvey_shoesaddle1",
+    "name": "Harvey ShoeSaddle1",
+    "gender": "any",
+    "styles": [],
+    "license": "CC-BY",
+    "tags": [],
+    "vertices": 1848,
+    "transparent": false
+   },
+   {
+    "id": "shoes02_maleflipflops1",
+    "name": "maleflipflops1",
+    "gender": "male",
+    "styles": [
+     "casual"
+    ],
+    "license": "CC-BY",
+    "tags": [
+     "casual",
+     "shoe",
+     "male"
+    ],
+    "vertices": 19343,
+    "transparent": false
+   },
+   {
+    "id": "shoes02_dudoc_maryjane1",
+    "name": "DUDoc maryjane1",
+    "gender": "any",
+    "styles": [],
+    "license": "CC-BY",
+    "tags": [],
+    "vertices": 848,
+    "transparent": false
+   },
+   {
+    "id": "shoes02_shoes_monk_strap_female",
+    "name": "Shoes Monk Strap female",
     "gender": "female",
     "styles": [
      "formal"
     ],
+    "license": "CC-BY",
+    "tags": [
+     "Shoes",
+     "Female",
+     "Elegant"
+    ],
+    "vertices": 8089,
+    "transparent": false
+   },
+   {
+    "id": "shoes02_elvs_basic_flatshoe2",
+    "name": "elvs basic flatshoe2",
+    "gender": "any",
+    "styles": [
+     "formal",
+     "glam"
+    ],
+    "license": "CC-BY",
+    "tags": [
+     "shoe",
+     "flats",
+     "ladies ware",
+     "dress shoe",
+     "no sock"
+    ],
+    "vertices": 9036,
+    "transparent": false
+   },
+   {
+    "id": "shoes02_dudoc_balletflat1",
+    "name": "DUDoc balletFlat1",
+    "gender": "any",
+    "styles": [],
+    "license": "CC-BY",
+    "tags": [],
+    "vertices": 848,
+    "transparent": false
+   },
+   {
+    "id": "shoes02_elvs_basicflatshoes4",
+    "name": "elvs basicflatshoes4",
+    "gender": "any",
+    "styles": [],
+    "license": "CC-BY",
+    "tags": [
+     "shoe",
+     "ladies ware",
+     "ladies shoes",
+     "fashion",
+     "flats"
+    ],
+    "vertices": 41760,
+    "transparent": false
+   },
+   {
+    "id": "shoes02_sneakers",
+    "name": "Sneakers",
+    "gender": "female",
+    "styles": [
+     "casual"
+    ],
+    "license": "CC-BY",
+    "tags": [
+     "Female",
+     "Shoes"
+    ],
+    "vertices": 1078,
+    "transparent": false
+   },
+   {
+    "id": "shoes02_dudoc_sandals1",
+    "name": "DUDoc sandals1",
+    "gender": "any",
+    "styles": [],
+    "license": "CC-BY",
+    "tags": [],
+    "vertices": 848,
+    "transparent": false
+   },
+   {
+    "id": "shoes02_cyclingshoes",
+    "name": "CyclingShoes",
+    "gender": "any",
+    "styles": [
+     "sport"
+    ],
+    "license": "CC-BY",
+    "tags": [
+     "Shoes",
+     "Sport"
+    ],
+    "vertices": 3242,
+    "transparent": false
+   },
+   {
+    "id": "shoes02_elvs_basic_flatshoe2a",
+    "name": "elvs basic flatshoe2a",
+    "gender": "any",
+    "styles": [],
+    "license": "CC-BY",
+    "tags": [
+     "shoe",
+     "ladies ware",
+     "ladies shoes",
+     "fashion",
+     "flats"
+    ],
+    "vertices": 8960,
+    "transparent": false
+   },
+   {
+    "id": "shoes02_shoes_oxford_male",
+    "name": "Shoes Oxford male",
+    "gender": "male",
+    "styles": [
+     "formal"
+    ],
+    "license": "CC-BY",
+    "tags": [
+     "Shoes",
+     "Male",
+     "Elegant"
+    ],
+    "vertices": 3487,
+    "transparent": false
+   },
+   {
+    "id": "shoes02_tennisshoes",
+    "name": "TennisShoes",
+    "gender": "any",
+    "styles": [
+     "sport"
+    ],
+    "license": "CC-BY",
+    "tags": [
+     "Shoes",
+     "Sport"
+    ],
+    "vertices": 2370,
+    "transparent": false
+   },
+   {
+    "id": "suits02_bootsviking",
+    "name": "BootsViking",
+    "gender": "any",
+    "styles": [
+     "rock"
+    ],
     "license": "CC0",
     "tags": [
-     "suit",
-     "female"
+     "Boots",
+     "Viking"
     ],
-    "vertices": 15758,
-    "transparent": false
-   },
-   {
-    "id": "suits01_fem_suit_double_breasted",
-    "name": "Fem Suit Double Breasted",
-    "gender": "any",
-    "styles": [
-     "formal"
-    ],
-    "license": "CC0",
-    "tags": [],
-    "vertices": 6021,
-    "transparent": false
-   },
-   {
-    "id": "suits01_fem_suit2",
-    "name": "Fem Suit2",
-    "gender": "any",
-    "styles": [
-     "formal"
-    ],
-    "license": "CC0",
-    "tags": [],
-    "vertices": 9781,
-    "transparent": false
-   },
-   {
-    "id": "suits01_suit_double_breasted",
-    "name": "Suit Double Breasted",
-    "gender": "any",
-    "styles": [
-     "formal"
-    ],
-    "license": "CC0",
-    "tags": [],
-    "vertices": 6021,
-    "transparent": false
-   },
-   {
-    "id": "suits01_suit3",
-    "name": "Suit3",
-    "gender": "any",
-    "styles": [
-     "formal"
-    ],
-    "license": "CC0",
-    "tags": [],
-    "vertices": 9795,
+    "vertices": 4108,
     "transparent": false
    }
   ],
@@ -1587,212 +3891,6 @@
     ],
     "vertices": 96,
     "transparent": true
-   }
-  ],
-  "bottom": [
-   {
-    "id": "pants01_pants_wool",
-    "name": "Pants Wool",
-    "gender": "male",
-    "styles": [],
-    "license": "CC0",
-    "tags": [
-     "pants",
-     "male"
-    ],
-    "vertices": 1593,
-    "transparent": false
-   },
-   {
-    "id": "pants01_pants_harem",
-    "name": "Pants Harem",
-    "gender": "any",
-    "styles": [],
-    "license": "CC0",
-    "tags": [],
-    "vertices": 7030,
-    "transparent": false
-   },
-   {
-    "id": "pants01_cargo_pants",
-    "name": "cargo pants",
-    "gender": "any",
-    "styles": [],
-    "license": "CC0",
-    "tags": [],
-    "vertices": 255,
-    "transparent": false
-   },
-   {
-    "id": "pants01_jean_shorts",
-    "name": "jean shorts",
-    "gender": "any",
-    "styles": [
-     "casual"
-    ],
-    "license": "CC0",
-    "tags": [],
-    "vertices": 342,
-    "transparent": false
-   },
-   {
-    "id": "suits01_jacket_bowtie_pants",
-    "name": "Jacket bowtie Pants",
-    "gender": "any",
-    "styles": [],
-    "license": "CC0",
-    "tags": [],
-    "vertices": 14115,
-    "transparent": false
-   },
-   {
-    "id": "suits01_jacket_tie_pants",
-    "name": "Jacket Tie Pants",
-    "gender": "any",
-    "styles": [],
-    "license": "CC0",
-    "tags": [
-     "pants"
-    ],
-    "vertices": 10982,
-    "transparent": false
-   }
-  ],
-  "top": [
-   {
-    "id": "shirts01_camisole_top",
-    "name": "Camisole Top",
-    "gender": "any",
-    "styles": [],
-    "license": "CC0",
-    "tags": [],
-    "vertices": 5096,
-    "transparent": false
-   },
-   {
-    "id": "shirts01_t_shirt_basic_tucked",
-    "name": "T-shirt basic tucked",
-    "gender": "any",
-    "styles": [
-     "casual"
-    ],
-    "license": "CC0",
-    "tags": [
-     "t-shirt",
-     "shirt",
-     "top",
-     "knit",
-     "casual"
-    ],
-    "vertices": 1644,
-    "transparent": false
-   },
-   {
-    "id": "shirts01_polo_t_shirt",
-    "name": "Polo t-shirt",
-    "gender": "male",
-    "styles": [
-     "casual"
-    ],
-    "license": "CC0",
-    "tags": [
-     "male",
-     "casual",
-     "profession",
-     "contemporary"
-    ],
-    "vertices": 2574,
-    "transparent": false
-   },
-   {
-    "id": "shirts01_crude_male_shirt",
-    "name": "crude male shirt",
-    "gender": "any",
-    "styles": [],
-    "license": "CC0",
-    "tags": [],
-    "vertices": 1150,
-    "transparent": false
-   },
-   {
-    "id": "shirts01_sweater_fisherman",
-    "name": "Sweater Fisherman",
-    "gender": "any",
-    "styles": [],
-    "license": "CC0",
-    "tags": [
-     "sweater",
-     "shirt",
-     "top",
-     "knit"
-    ],
-    "vertices": 2511,
-    "transparent": false
-   },
-   {
-    "id": "shirts01_tank_keyhole_neck",
-    "name": "Tank Keyhole Neck",
-    "gender": "any",
-    "styles": [],
-    "license": "CC0",
-    "tags": [],
-    "vertices": 823,
-    "transparent": false
-   },
-   {
-    "id": "shirts01_turtleneck_halter",
-    "name": "Turtleneck Halter",
-    "gender": "any",
-    "styles": [],
-    "license": "CC0",
-    "tags": [],
-    "vertices": 3504,
-    "transparent": false
-   },
-   {
-    "id": "shirts01_tube_top",
-    "name": "tube top",
-    "gender": "any",
-    "styles": [],
-    "license": "CC0",
-    "tags": [
-     "top",
-     "egen"
-    ],
-    "vertices": 1700,
-    "transparent": false
-   },
-   {
-    "id": "shirts01_crudefemaletshirt",
-    "name": "CrudeFemaleTshirt",
-    "gender": "female",
-    "styles": [],
-    "license": "CC0",
-    "tags": [],
-    "vertices": 1152,
-    "transparent": false
-   },
-   {
-    "id": "shirts01_bodice_style_top",
-    "name": "Bodice style top",
-    "gender": "any",
-    "styles": [],
-    "license": "CC0",
-    "tags": [],
-    "vertices": 1152,
-    "transparent": false
-   },
-   {
-    "id": "suits01_suit_dinner_jacket",
-    "name": "Suit Dinner Jacket",
-    "gender": "any",
-    "styles": [
-     "formal"
-    ],
-    "license": "CC0",
-    "tags": [],
-    "vertices": 9363,
-    "transparent": false
    }
   ],
   "socks": [
