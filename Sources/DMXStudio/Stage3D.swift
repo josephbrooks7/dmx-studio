@@ -1561,13 +1561,15 @@ struct CharacterModelPreview: NSViewRepresentable {
         camera.camera?.screenSpaceAmbientOcclusionIntensity = 0.55
         camera.camera?.screenSpaceAmbientOcclusionRadius = 0.12
         scene.lightingEnvironment.contents = Stage3DView.Coordinator.studioEnvironment
-        scene.lightingEnvironment.intensity = 0.25
+        // Softer than before: the MakeHuman skin, hair and fabric textures are bright and read white under
+        // strong reflections in HDR.
+        scene.lightingEnvironment.intensity = 0.12
         scene.rootNode.addChildNode(camera); view.pointOfView = camera
         context.coordinator.camera = camera
         let ambient = SCNNode(); ambient.light = SCNLight()
-        ambient.light?.type = .ambient; ambient.light?.intensity = 55
+        ambient.light?.type = .ambient; ambient.light?.intensity = 45
         scene.rootNode.addChildNode(ambient)
-        for (x,y,z,intensity) in [(CGFloat(2),CGFloat(3),CGFloat(4),CGFloat(220)),(-3,2,2,90),(1,3,-3,120)] {
+        for (x,y,z,intensity) in [(CGFloat(2),CGFloat(3),CGFloat(4),CGFloat(165)),(-3,2,2,70),(1,3,-3,95)] {
             let light = SCNNode(); light.light = SCNLight(); light.light?.type = .omni
             light.light?.intensity = intensity; light.position = SCNVector3(x,y,z)
             if x == 2 {

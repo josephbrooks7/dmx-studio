@@ -453,6 +453,11 @@ struct StageInspector: View {
                                                             ForEach(0..<6) { Text("Tone " + String($0 + 1)).tag($0) }
                                                         }
                                                         Text("Body shape, height and build reshape the character; clothes and hair refit automatically.").font(.caption).foregroundColor(Theme.subtle)
+                                                        if let credits = Bundle.main.resourceURL?.appendingPathComponent("Characters/MakeHuman/CREDITS.md"),
+                                                           FileManager.default.fileExists(atPath: credits.path) {
+                                                            Button("Character asset credits") { NSWorkspace.shared.open(credits) }
+                                                                .buttonStyle(.link).font(.caption)
+                                                        }
                                                     }
                                                     slider("Height", a.height, 1.4...2.1, "m") { v in model.updateStageItem(id) { var p = $0.performerAppearance ?? PerformerAppearance(); p.height = v; $0.performerAppearance = p } }
                                                     slider("Body build", a.build, 0.7...1.4, "×") { v in model.updateStageItem(id) { var p = $0.performerAppearance ?? PerformerAppearance(); p.build = v; $0.performerAppearance = p } }
@@ -523,7 +528,12 @@ struct StageInspector: View {
                                 }
                                 Divider()
                                 Button("Create from scratch") {
-                                    model.updateStageItem(id) { $0.performerAppearance = PerformerAppearance(); $0.performerName = "New Character" }
+                                    model.updateStageItem(id) {
+                                        // Truly from scratch: base body in a plain base layer, barefoot, no hair or accessories.
+                                        var blank = PerformerAppearance()
+                                        blank.clothingStyle = "Base"; blank.hair = .bald; blank.accessory = "None"
+                                        $0.performerAppearance = blank; $0.performerName = "New Character"
+                                    }
                                     characterNotice = ""
                                 }
                             }
@@ -640,7 +650,7 @@ struct StageInspector: View {
                             Divider()
                             Text("Wardrobe & accessories").font(.headline)
                             Picker("Clothing", selection: Binding(get: { appearance.clothingStyle ?? "Casual" }, set: { v in model.updateStageItem(id) { var a = $0.performerAppearance ?? PerformerAppearance(); a.clothingStyle = v; $0.performerAppearance = a } })) {
-                                ForEach(["Casual","Rock Jacket","Punk","Glam","Formal","Fantasy"], id: \.self) { Text($0).tag($0) }
+                                ForEach(["Base","Casual","Rock Jacket","Punk","Glam","Formal","Fantasy"], id: \.self) { Text($0).tag($0) }
                             }
                             Picker("Accessory", selection: Binding(get: { appearance.accessory ?? "None" }, set: { v in model.updateStageItem(id) { var a = $0.performerAppearance ?? PerformerAppearance(); a.accessory = v; $0.performerAppearance = a } })) {
                                 ForEach(["None","Top Hat","Glasses","Choker","Wings"], id: \.self) { Text($0).tag($0) }
