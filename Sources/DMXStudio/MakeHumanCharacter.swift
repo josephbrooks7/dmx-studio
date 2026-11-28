@@ -346,7 +346,7 @@ enum MHCharacter {
         "Rock Jacket": (["male casualsuit05"], ["male casualsuit05"]),
         "Punk": (["male casualsuit04"], ["female casualsuit02"]),
         "Glam": (["Suit Double Breasted", "male casualsuit03"], ["Fem Suit2"]),
-        "Formal": (["Suit3", "male elegantsuit01"], ["Fem Suit", "Fem Suit Double Breasted"]),
+        "Formal": (["Suit3", "male elegantsuit01"], ["Fem Suit Double Breasted", "Fem Suit"]),
         "Fantasy": (["male casualsuit06"], ["male casualsuit06"])]
     static let shoesByStyle: [String: (male: [String], female: [String])] = [
         "Casual": (["shoes05", "shoes03"], ["shoes05", "shoes03"]),
