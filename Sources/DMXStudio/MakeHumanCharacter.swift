@@ -157,6 +157,7 @@ final class MHLibrary {
         var itemList: [MHItem] = []
         for raw in (catalog["items"] as? [[String: Any]]) ?? [] {
             guard let id = raw["id"] as? String, let file = raw["file"] as? String, let slot = raw["slot"] as? String else { continue }
+            if MHLibrary.excluded(raw["name"] as? String ?? id) { continue }
             let name = raw["name"] as? String ?? id
             let tags = (raw["tags"] as? [String] ?? []).joined(separator: " ")
             let styles = (raw["styles"] as? [String] ?? []).joined(separator: " ")
@@ -175,6 +176,14 @@ final class MHLibrary {
             guard let t = s["texture"] as? String else { return nil }
             return MHSkin(name: s["name"] as? String ?? t, texture: t, sex: s["sex"] as? String ?? "", ancestry: s["ancestry"] as? String ?? "")
         }
+    }
+
+    /// Items never offered: copyrighted characters, political merchandise, anything made for children.
+    static func excluded(_ name: String) -> Bool {
+        let n = name.lowercased()
+        return ["ayanami", "spider gwen", "spider-gwen", "yoko tsuno", "deathnote", "death note", "maga", "child", "pillow man",
+                "scifi-armor guardian", "scifi-armor jupiter"]
+            .contains { n.contains($0) }
     }
 
     func hasTarget(_ name: String) -> Bool { targetRanges[name] != nil }
@@ -251,7 +260,8 @@ final class MHLibrary {
             // premultiplied average: divide by alpha to get the strands' own level
             if px[3] > 8 { level = Float(px[0]) / Float(px[3]) }
         }
-        let gain = CGFloat(min(4, max(0.8, 0.82 / max(level, 0.05))))
+        // Average strand brightness lifted to ~1.0 so the chosen color reads true on matte hair.
+        let gain = CGFloat(min(6, max(0.8, 1.0 / max(level, 0.05))))
         let lifted = gray.applyingFilter("CIColorMatrix", parameters: [
             "inputRVector": CIVector(x: gain, y: 0, z: 0, w: 0),
             "inputGVector": CIVector(x: 0, y: gain, z: 0, w: 0),
@@ -344,17 +354,18 @@ enum MHCharacter {
     static let outfitByStyle: [String: (male: [String], female: [String])] = [
         "Casual": (["male casualsuit01", "male casualsuit04"], ["female casualsuit01"]),
         "Rock Jacket": (["male casualsuit05"], ["male casualsuit05"]),
-        "Punk": (["male casualsuit04"], ["female casualsuit02"]),
-        "Glam": (["Suit Double Breasted", "male casualsuit03"], ["Fem Suit2"]),
-        "Formal": (["Suit3", "male elegantsuit01"], ["Fem Suit Double Breasted", "Fem Suit"]),
-        "Fantasy": (["male casualsuit06"], ["male casualsuit06"])]
+        "Punk": (["male casualsuit04"], ["Dress Shift", "female casualsuit02"]),
+        "Glam": (["Suit Double Breasted", "male casualsuit03"], ["frill partydress1", "elvs mini halterdress", "Fem Suit2"]),
+        "Formal": (["Suit3", "male elegantsuit01"], ["elvs long halterdress1", "Fem Suit Double Breasted"]),
+        "Fantasy": (["Monks Robe", "male casualsuit06"], ["elvs goddess dress4", "elvs goddess dress5", "male casualsuit06"]),
+        "Base": ([], ["female sportsuit01"])]
     static let shoesByStyle: [String: (male: [String], female: [String])] = [
         "Casual": (["shoes05", "shoes03"], ["shoes05", "shoes03"]),
         "Rock Jacket": (["Boots Ankle Male", "male boots"], ["Boots Ankle"]),
         "Punk": (["Boots Ankle Male", "male boots"], ["Boots Ankle"]),
-        "Glam": (["tbar", "MJ-Shoes"], ["Booties stiletto", "Flats"]),
-        "Formal": (["tbar", "MJ-Shoes"], ["Booties stiletto", "Flats"]),
-        "Fantasy": (["male boots", "Boots Ankle Male"], ["Boots Ankle"])]
+        "Glam": (["Shoes Oxford male", "tbar", "MJ-Shoes"], ["Booties stiletto", "Flats"]),
+        "Formal": (["Shoes Oxford male", "tbar", "MJ-Shoes"], ["Booties stiletto", "Flats"]),
+        "Fantasy": (["BootsViking", "male boots"], ["elvs basic elfshoe1", "Flats ballet"])]
 
     static func named(_ lib: MHLibrary, slot: String, _ names: [String]) -> MHItem? {
         for n in names {
@@ -368,7 +379,10 @@ enum MHCharacter {
         let style = outfitByStyle[a.clothingStyle ?? "Casual"] != nil ? (a.clothingStyle ?? "Casual") : "Casual"
         var picks: [MHItem?] = []
         let outfitNames = outfitByStyle[style].map { sex == "female" ? $0.female : $0.male } ?? []
-        if let outfit = named(lib, slot: "outfit", outfitNames) {
+        if style == "Base" {
+            // Base layer only: plain shorts (and a sports top for women), barefoot.
+            picks.append(named(lib, slot: "outfit", outfitNames) ?? named(lib, slot: "bottom", ["jean shorts", "cargo pants"]))
+        } else if let outfit = named(lib, slot: "outfit", outfitNames) {
             picks.append(outfit)
         } else {
             let avoid = ["tucked", "crop", "camisole", "tank", "tube", "bodice", "halter", "keyhole"]
@@ -376,9 +390,14 @@ enum MHCharacter {
             picks.append(best(lib, slot: "bottom", sex: sex, want: ["pants", "jean", "trouser", "cargo"], avoid: ["short", "harem", "jacket"]))
         }
         let shoeNames = shoesByStyle[style].map { sex == "female" ? $0.female : $0.male } ?? []
-        picks.append(named(lib, slot: "shoes", shoeNames)
-            ?? best(lib, slot: "shoes", sex: sex, want: ["shoes0"], avoid: ["hero", "gogo", "overknee", "botas", "leatherboots", "stiletto"]))
+        if style != "Base" { picks.append(named(lib, slot: "shoes", shoeNames)
+            ?? best(lib, slot: "shoes", sex: sex, want: ["shoes0"], avoid: ["hero", "gogo", "overknee", "botas", "leatherboots", "stiletto"])) }
         picks.append(hair(a.hair, sex: sex, lib: lib))
+        switch a.accessory ?? "None" {
+        case "Glasses": picks.append(best(lib, slot: "glasses", sex: sex, want: ["glasses", "round", "classic"], avoid: ["sun", "goggle", "visor"]))
+        case "Wings": picks.append(best(lib, slot: "wings", sex: sex, want: ["wing", "fairy", "butterfly", "angel"]))
+        default: break
+        }
         picks.append(best(lib, slot: "eyes", sex: sex, want: ["highpoly"]))
         picks.append(named(lib, slot: "eyebrows", ["eyebrow001"]) ?? best(lib, slot: "eyebrows", sex: sex, want: ["eyebrow"]))
         picks.append(named(lib, slot: "eyelashes", ["Eyelashes01"]) ?? best(lib, slot: "eyelashes", sex: sex, want: ["eyelash"]))
@@ -514,6 +533,7 @@ enum MHCharacter {
         let heads: [SIMD3<Float>]
         let tails: [SIMD3<Float>]
         let female: Float
+        var neck: (center: SIMD3<Float>, radius: Float) = (.zero, 0.055)
         init(parts: [Part], heads: [SIMD3<Float>], tails: [SIMD3<Float>], female: Float) {
             self.parts = parts; self.heads = heads; self.tails = tails; self.female = female
         }
@@ -525,7 +545,7 @@ enum MHCharacter {
     static func cacheKey(_ a: PerformerAppearance) -> String {
         let body = a.body.map { "\($0.heightCm)/\($0.weightKg ?? 0)" } ?? "-"
         return [a.bodyStyle ?? "", String(format: "%.3f", a.height), String(format: "%.3f", a.build), body,
-                a.clothingStyle ?? "", a.hair.rawValue, overrideItems.joined(separator: ",")].joined(separator: "|")
+                a.clothingStyle ?? "", a.hair.rawValue, a.accessory ?? "", overrideItems.joined(separator: ",")].joined(separator: "|")
     }
 
     // MARK: materials
@@ -585,6 +605,10 @@ enum MHCharacter {
         if let n = item.normal, let img = lib.image(n) {
             m.normal.contents = img
             m.normal.intensity = 0.6
+        }
+        if hairLike {
+            // Matte: hair cards seen edge-on catch bright reflections that the hair color can't tint.
+            m.lightingModel = .lambert
         }
         if hairLike || item.transparent {
             m.isDoubleSided = true
@@ -722,9 +746,41 @@ enum MHCharacter {
         let boneHeads = heads.map { $0 + shift }
         let boneTails = tails.map { $0 + shift }
 
+        // Under a top hat, hair above the brim would push through the crown: remove it, as a real hat flattens it.
+        var scalpTop: Float = -.greatestFiniteMagnitude
+        for p in bodyMesh.positions { scalpTop = max(scalpTop, p.y) }
+        if a.accessory == "Top Hat" {
+            let brim = scalpTop - 0.035 * shape.heightMeters / 1.75
+            for i in fitted.indices where fitted[i].0.slot == "hair" {
+                let m = fitted[i].1
+                var kept: [UInt32] = []; kept.reserveCapacity(m.triangles.count)
+                var t = 0
+                while t + 2 < m.triangles.count {
+                    let a0 = Int(m.triangles[t]), a1 = Int(m.triangles[t + 1]), a2 = Int(m.triangles[t + 2])
+                    t += 3
+                    guard a0 < m.positions.count, a1 < m.positions.count, a2 < m.positions.count else { continue }
+                    let cy = (m.positions[a0].y + m.positions[a1].y + m.positions[a2].y) / 3
+                    if cy > brim { continue }
+                    kept += [UInt32(a0), UInt32(a1), UInt32(a2)]
+                }
+                fitted[i].1.triangles = kept
+            }
+        }
         var parts = [part(bodyMesh, name: "mh_body", item: nil)]
         for (item, mesh) in fitted { parts.append(part(mesh, name: "mh_" + item.slot, item: item)) }
-        return Prepared(parts: parts, heads: boneHeads, tails: boneTails, female: shape.female)
+        let prepared = Prepared(parts: parts, heads: boneHeads, tails: boneTails, female: shape.female)
+        // Neck ring for a choker: a third of the way from the neck base to the head joint.
+        var bi: [String: Int] = [:]
+        for (i, b) in lib.bones.enumerated() { bi[b.name] = i }
+        if let n = bi["neck01"], let h = bi["head"] {
+            let center = boneHeads[n] + (boneHeads[h] - boneHeads[n]) * 0.35
+            var sum: Float = 0, count: Float = 0
+            for p in bodyMesh.positions where abs(p.y - center.y) < 0.008 && abs(p.x - center.x) < 0.09 && abs(p.z - center.z) < 0.09 {
+                sum += length(SIMD2(p.x - center.x, p.z - center.z)); count += 1
+            }
+            prepared.neck = (center, count > 0 ? sum / count : 0.055)
+        }
+        return prepared
     }
 
     static func assemble(_ p: Prepared, _ a: PerformerAppearance, lib: MHLibrary) -> SCNNode {
@@ -757,6 +813,17 @@ enum MHCharacter {
 
         var index: [String: Int] = [:]
         for (i, b) in lib.bones.enumerated() { index[b.name] = i }
+        if a.accessory == "Choker", let n = index["neck01"] {
+            let ring = SCNTorus(ringRadius: CGFloat(p.neck.radius + 0.006), pipeRadius: 0.0065)
+            let m = SCNMaterial(); m.lightingModel = .physicallyBased
+            m.diffuse.contents = NSColor(white: 0.03, alpha: 1); m.roughness.contents = 0.35; m.metalness.contents = 0.2
+            ring.materials = [m]
+            let node = SCNNode(geometry: ring)
+            node.name = "mh_choker"
+            node.simdPosition = p.neck.center - boneHeads[n]     // bone frame = world frame before posing
+            node.eulerAngles.x = -0.12                            // follows the neck's slight forward lean
+            boneNodes[n].addChildNode(node)
+        }
         MHPose.apply(a.pose ?? "Natural", bones: boneNodes, index: index, heads: boneHeads, tails: boneTails)
         MHPose.idle(bones: boneNodes, index: index, seed: a.hashValue)
 
@@ -976,10 +1043,10 @@ enum MHRenderCLI {
             camera.camera?.screenSpaceAmbientOcclusionIntensity = 0.55
             camera.camera?.screenSpaceAmbientOcclusionRadius = 0.12
             scene.lightingEnvironment.contents = Stage3DView.Coordinator.studioEnvironment
-            scene.lightingEnvironment.intensity = 0.25
-            let ambient = SCNNode(); ambient.light = SCNLight(); ambient.light?.type = .ambient; ambient.light?.intensity = 55
+            scene.lightingEnvironment.intensity = 0.12
+            let ambient = SCNNode(); ambient.light = SCNLight(); ambient.light?.type = .ambient; ambient.light?.intensity = 45
             scene.rootNode.addChildNode(ambient)
-            for (x, y, z, i) in [(CGFloat(2), CGFloat(3), CGFloat(4), CGFloat(220)), (-3, 2, 2, 90), (1, 3, -3, 120)] {
+            for (x, y, z, i) in [(CGFloat(2), CGFloat(3), CGFloat(4), CGFloat(165)), (-3, 2, 2, 70), (1, 3, -3, 95)] {
                 let l = SCNNode(); l.light = SCNLight(); l.light?.type = x == 2 ? .spot : .omni; l.light?.intensity = i
                 if x == 2 { l.light?.spotInnerAngle = 30; l.light?.spotOuterAngle = 65 }
                 l.position = SCNVector3(x, y, z); scene.rootNode.addChildNode(l)

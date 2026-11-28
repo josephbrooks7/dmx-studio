@@ -1,23 +1,28 @@
 {
-  "items": 148,
-  "skins": 42,
+  "items": 296,
+  "skins": 60,
   "targets": 1209,
   "slots": {
+    "wings": 7,
+    "tail": 4,
+    "outfit": 62,
+    "bottom": 31,
+    "top": 26,
     "eyebrows": 26,
     "eyelashes": 9,
+    "glasses": 10,
+    "gloves": 9,
     "hair": 35,
-    "hat": 2,
-    "shoes": 29,
-    "outfit": 17,
+    "hat": 11,
+    "shoes": 53,
     "teeth": 6,
     "tongue": 1,
     "eyes": 2,
-    "bottom": 6,
-    "top": 11,
     "socks": 4
   },
   "licenses": {
-    "CC0": 148
+    "CC-BY": 83,
+    "CC0": 213
   },
   "rig": {
     "file": "rig.json",

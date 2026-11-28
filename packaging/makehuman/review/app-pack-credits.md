@@ -2,3 +2,76 @@
 
 Bodies, skeleton and most assets: MakeHuman (CC0). The following are CC BY 4.0:
 
+- dragonfly wings1 by see pack bodyparts03_cc-by.zip (bodyparts03_cc-by.zip), CC BY 4.0, https://static.makehumancommunity.org/assets/assetpacks.html
+- elvs dragonwing1 by see pack bodyparts03_cc-by.zip (bodyparts03_cc-by.zip), CC BY 4.0, https://static.makehumancommunity.org/assets/assetpacks.html
+- bonewings1 by see pack bodyparts03_cc-by.zip (bodyparts03_cc-by.zip), CC BY 4.0, https://static.makehumancommunity.org/assets/assetpacks.html
+- fairy buttflywing2 by see pack bodyparts03_cc-by.zip (bodyparts03_cc-by.zip), CC BY 4.0, https://static.makehumancommunity.org/assets/assetpacks.html
+- dual fanned wings v by see pack bodyparts03_cc-by.zip (bodyparts03_cc-by.zip), CC BY 4.0, https://static.makehumancommunity.org/assets/assetpacks.html
+- elv butterflywing1 by see pack bodyparts03_cc-by.zip (bodyparts03_cc-by.zip), CC BY 4.0, https://static.makehumancommunity.org/assets/assetpacks.html
+- elvs goddess dress6 by see pack dress02_cc-by.zip (dress02_cc-by.zip), CC BY 4.0, https://static.makehumancommunity.org/assets/assetpacks.html
+- elvs offshoulder fringedress2 p by see pack dress02_cc-by.zip (dress02_cc-by.zip), CC BY 4.0, https://static.makehumancommunity.org/assets/assetpacks.html
+- elvs fringe dress1 by see pack dress02_cc-by.zip (dress02_cc-by.zip), CC BY 4.0, https://static.makehumancommunity.org/assets/assetpacks.html
+- elvs goddess dress4 by see pack dress02_cc-by.zip (dress02_cc-by.zip), CC BY 4.0, https://static.makehumancommunity.org/assets/assetpacks.html
+- elvs short halterdress1 by see pack dress02_cc-by.zip (dress02_cc-by.zip), CC BY 4.0, https://static.makehumancommunity.org/assets/assetpacks.html
+- elvs goddess dress5 by see pack dress02_cc-by.zip (dress02_cc-by.zip), CC BY 4.0, https://static.makehumancommunity.org/assets/assetpacks.html
+- elvs hippydress1 by see pack dress02_cc-by.zip (dress02_cc-by.zip), CC BY 4.0, https://static.makehumancommunity.org/assets/assetpacks.html
+- westernized quipoa by see pack dress02_cc-by.zip (dress02_cc-by.zip), CC BY 4.0, https://static.makehumancommunity.org/assets/assetpacks.html
+- elvs leather fringedress1 by see pack dress02_cc-by.zip (dress02_cc-by.zip), CC BY 4.0, https://static.makehumancommunity.org/assets/assetpacks.html
+- frill partydress1 by see pack dress02_cc-by.zip (dress02_cc-by.zip), CC BY 4.0, https://static.makehumancommunity.org/assets/assetpacks.html
+- elvs goddess dress2 by see pack dress02_cc-by.zip (dress02_cc-by.zip), CC BY 4.0, https://static.makehumancommunity.org/assets/assetpacks.html
+- tieredhalterdress1 by see pack dress02_cc-by.zip (dress02_cc-by.zip), CC BY 4.0, https://static.makehumancommunity.org/assets/assetpacks.html
+- elvs goddessdress7 by see pack dress02_cc-by.zip (dress02_cc-by.zip), CC BY 4.0, https://static.makehumancommunity.org/assets/assetpacks.html
+- elv simple fashiondress1a by see pack dress02_cc-by.zip (dress02_cc-by.zip), CC BY 4.0, https://static.makehumancommunity.org/assets/assetpacks.html
+- elvs lady apron1 by see pack dress02_cc-by.zip (dress02_cc-by.zip), CC BY 4.0, https://static.makehumancommunity.org/assets/assetpacks.html
+- babydoll elvruff1a by see pack dress02_cc-by.zip (dress02_cc-by.zip), CC BY 4.0, https://static.makehumancommunity.org/assets/assetpacks.html
+- elvs long halterdress1 by see pack dress02_cc-by.zip (dress02_cc-by.zip), CC BY 4.0, https://static.makehumancommunity.org/assets/assetpacks.html
+- elvs goddessdress1 by see pack dress02_cc-by.zip (dress02_cc-by.zip), CC BY 4.0, https://static.makehumancommunity.org/assets/assetpacks.html
+- sarong coverup1 by see pack dress02_cc-by.zip (dress02_cc-by.zip), CC BY 4.0, https://static.makehumancommunity.org/assets/assetpacks.html
+- doublechiefhalterdress1 by see pack dress02_cc-by.zip (dress02_cc-by.zip), CC BY 4.0, https://static.makehumancommunity.org/assets/assetpacks.html
+- elvs mini halterdress by see pack dress02_cc-by.zip (dress02_cc-by.zip), CC BY 4.0, https://static.makehumancommunity.org/assets/assetpacks.html
+- elv simple fashiondressd by see pack dress02_cc-by.zip (dress02_cc-by.zip), CC BY 4.0, https://static.makehumancommunity.org/assets/assetpacks.html
+- male-classic-jeans by see pack pants02_ccby.zip (pants02_ccby.zip), CC BY 4.0, https://static.makehumancommunity.org/assets/assetpacks.html
+- M Trousers 02 by see pack pants02_ccby.zip (pants02_ccby.zip), CC BY 4.0, https://static.makehumancommunity.org/assets/assetpacks.html
+- M Trousers 01 by see pack pants02_ccby.zip (pants02_ccby.zip), CC BY 4.0, https://static.makehumancommunity.org/assets/assetpacks.html
+- mens elv jeans1f by see pack pants02_ccby.zip (pants02_ccby.zip), CC BY 4.0, https://static.makehumancommunity.org/assets/assetpacks.html
+- Tightjeans by see pack pants02_ccby.zip (pants02_ccby.zip), CC BY 4.0, https://static.makehumancommunity.org/assets/assetpacks.html
+- elvs discopant sruffle1 by see pack pants02_ccby.zip (pants02_ccby.zip), CC BY 4.0, https://static.makehumancommunity.org/assets/assetpacks.html
+- mens trouser f elv chr by see pack pants02_ccby.zip (pants02_ccby.zip), CC BY 4.0, https://static.makehumancommunity.org/assets/assetpacks.html
+- elvs disco pant druffles by see pack pants02_ccby.zip (pants02_ccby.zip), CC BY 4.0, https://static.makehumancommunity.org/assets/assetpacks.html
+- F Trousers 01 by see pack pants02_ccby.zip (pants02_ccby.zip), CC BY 4.0, https://static.makehumancommunity.org/assets/assetpacks.html
+- elvs gored elephantpant1 by see pack pants02_ccby.zip (pants02_ccby.zip), CC BY 4.0, https://static.makehumancommunity.org/assets/assetpacks.html
+- mens trouser f elv1 by see pack pants02_ccby.zip (pants02_ccby.zip), CC BY 4.0, https://static.makehumancommunity.org/assets/assetpacks.html
+- mens elv jeans2slf by see pack pants02_ccby.zip (pants02_ccby.zip), CC BY 4.0, https://static.makehumancommunity.org/assets/assetpacks.html
+- elvs disco pant1 by see pack pants02_ccby.zip (pants02_ccby.zip), CC BY 4.0, https://static.makehumancommunity.org/assets/assetpacks.html
+- mens shirt untuck elvbhp1f by see pack shirts02_ccby.zip (shirts02_ccby.zip), CC BY 4.0, https://static.makehumancommunity.org/assets/assetpacks.html
+- offshoulder top by see pack shirts02_ccby.zip (shirts02_ccby.zip), CC BY 4.0, https://static.makehumancommunity.org/assets/assetpacks.html
+- Knitted Sweater 02 by see pack shirts02_ccby.zip (shirts02_ccby.zip), CC BY 4.0, https://static.makehumancommunity.org/assets/assetpacks.html
+- ladieshoodiedown1 by see pack shirts02_ccby.zip (shirts02_ccby.zip), CC BY 4.0, https://static.makehumancommunity.org/assets/assetpacks.html
+- F Cardigan Long Open Front by see pack shirts02_ccby.zip (shirts02_ccby.zip), CC BY 4.0, https://static.makehumancommunity.org/assets/assetpacks.html
+- Worn out sweater by janexx (shirts02_ccby.zip), CC BY 4.0, https://static.makehumancommunity.org/assets/assetpacks.html
+- mens boho top1elv by see pack shirts02_ccby.zip (shirts02_ccby.zip), CC BY 4.0, https://static.makehumancommunity.org/assets/assetpacks.html
+- mens shirt tie tuck elv1f by see pack shirts02_ccby.zip (shirts02_ccby.zip), CC BY 4.0, https://static.makehumancommunity.org/assets/assetpacks.html
+- Striped Shirt by see pack shirts02_ccby.zip (shirts02_ccby.zip), CC BY 4.0, https://static.makehumancommunity.org/assets/assetpacks.html
+- F Lusekofta by see pack shirts02_ccby.zip (shirts02_ccby.zip), CC BY 4.0, https://static.makehumancommunity.org/assets/assetpacks.html
+- Knitted Sweater 01 by see pack shirts02_ccby.zip (shirts02_ccby.zip), CC BY 4.0, https://static.makehumancommunity.org/assets/assetpacks.html
+- RunningShoes by see pack shoes02_ccby.zip (shoes02_ccby.zip), CC BY 4.0, https://static.makehumancommunity.org/assets/assetpacks.html
+- martialartshoes by see pack shoes02_ccby.zip (shoes02_ccby.zip), CC BY 4.0, https://static.makehumancommunity.org/assets/assetpacks.html
+- elvs basic flatshoe2b by see pack shoes02_ccby.zip (shoes02_ccby.zip), CC BY 4.0, https://static.makehumancommunity.org/assets/assetpacks.html
+- DUDoc domsjeans1 by see pack shoes02_ccby.zip (shoes02_ccby.zip), CC BY 4.0, https://static.makehumancommunity.org/assets/assetpacks.html
+- Shoes Monk Strap male by see pack shoes02_ccby.zip (shoes02_ccby.zip), CC BY 4.0, https://static.makehumancommunity.org/assets/assetpacks.html
+- elvs basic flatshoe3c by see pack shoes02_ccby.zip (shoes02_ccby.zip), CC BY 4.0, https://static.makehumancommunity.org/assets/assetpacks.html
+- Shoes Oxford female by see pack shoes02_ccby.zip (shoes02_ccby.zip), CC BY 4.0, https://static.makehumancommunity.org/assets/assetpacks.html
+- elvs basic elfshoe1 by see pack shoes02_ccby.zip (shoes02_ccby.zip), CC BY 4.0, https://static.makehumancommunity.org/assets/assetpacks.html
+- Harvey ShoeSaddle1 by see pack shoes02_ccby.zip (shoes02_ccby.zip), CC BY 4.0, https://static.makehumancommunity.org/assets/assetpacks.html
+- maleflipflops1 by see pack shoes02_ccby.zip (shoes02_ccby.zip), CC BY 4.0, https://static.makehumancommunity.org/assets/assetpacks.html
+- DUDoc maryjane1 by see pack shoes02_ccby.zip (shoes02_ccby.zip), CC BY 4.0, https://static.makehumancommunity.org/assets/assetpacks.html
+- Shoes Monk Strap female by see pack shoes02_ccby.zip (shoes02_ccby.zip), CC BY 4.0, https://static.makehumancommunity.org/assets/assetpacks.html
+- elvs basic flatshoe2 by see pack shoes02_ccby.zip (shoes02_ccby.zip), CC BY 4.0, https://static.makehumancommunity.org/assets/assetpacks.html
+- DUDoc balletFlat1 by see pack shoes02_ccby.zip (shoes02_ccby.zip), CC BY 4.0, https://static.makehumancommunity.org/assets/assetpacks.html
+- elvs basicflatshoes4 by see pack shoes02_ccby.zip (shoes02_ccby.zip), CC BY 4.0, https://static.makehumancommunity.org/assets/assetpacks.html
+- Sneakers by see pack shoes02_ccby.zip (shoes02_ccby.zip), CC BY 4.0, https://static.makehumancommunity.org/assets/assetpacks.html
+- DUDoc sandals1 by see pack shoes02_ccby.zip (shoes02_ccby.zip), CC BY 4.0, https://static.makehumancommunity.org/assets/assetpacks.html
+- CyclingShoes by see pack shoes02_ccby.zip (shoes02_ccby.zip), CC BY 4.0, https://static.makehumancommunity.org/assets/assetpacks.html
+- elvs basic flatshoe2a by see pack shoes02_ccby.zip (shoes02_ccby.zip), CC BY 4.0, https://static.makehumancommunity.org/assets/assetpacks.html
+- Shoes Oxford male by see pack shoes02_ccby.zip (shoes02_ccby.zip), CC BY 4.0, https://static.makehumancommunity.org/assets/assetpacks.html
+- TennisShoes by see pack shoes02_ccby.zip (shoes02_ccby.zip), CC BY 4.0, https://static.makehumancommunity.org/assets/assetpacks.html

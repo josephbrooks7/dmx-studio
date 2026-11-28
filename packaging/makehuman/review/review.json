@@ -1,7 +1,7 @@
 {
   "male": {
     "top": "Polo t-shirt",
-    "bottom": "Pants Wool",
+    "bottom": "male-classic-jeans",
     "shoes": "shoes04",
     "hair": "short messy",
     "eyebrows": "Mind Eyebrows 11",
@@ -11,8 +11,8 @@
   },
   "female": {
     "top": "CrudeFemaleTshirt",
-    "bottom": "Pants Harem",
-    "shoes": "shoes04",
+    "bottom": "mens elv jeans1f",
+    "shoes": "elvs zombiekiller sneakers1",
     "hair": "o4saken long01",
     "eyebrows": "Mind Eyebrows 11",
     "eyelashes": "Mind Eyelashes 02",
