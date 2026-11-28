@@ -30,6 +30,25 @@ Bodies, skeleton and most assets: MakeHuman (CC0). The following are CC BY 4.0:
 - doublechiefhalterdress1 by see pack dress02_cc-by.zip (dress02_cc-by.zip), CC BY 4.0, https://static.makehumancommunity.org/assets/assetpacks.html
 - elvs mini halterdress by see pack dress02_cc-by.zip (dress02_cc-by.zip), CC BY 4.0, https://static.makehumancommunity.org/assets/assetpacks.html
 - elv simple fashiondressd by see pack dress02_cc-by.zip (dress02_cc-by.zip), CC BY 4.0, https://static.makehumancommunity.org/assets/assetpacks.html
+- SunVisor by see pack hats03_cc-by.zip (hats03_cc-by.zip), CC BY 4.0, https://static.makehumancommunity.org/assets/assetpacks.html
+- tophat1 by see pack hats03_cc-by.zip (hats03_cc-by.zip), CC BY 4.0, https://static.makehumancommunity.org/assets/assetpacks.html
+- Sherpa Hat by see pack hats03_cc-by.zip (hats03_cc-by.zip), CC BY 4.0, https://static.makehumancommunity.org/assets/assetpacks.html
+- cl bowler hat by see pack hats03_cc-by.zip (hats03_cc-by.zip), CC BY 4.0, https://static.makehumancommunity.org/assets/assetpacks.html
+- elvs charity veil m1a over by see pack hats03_cc-by.zip (hats03_cc-by.zip), CC BY 4.0, https://static.makehumancommunity.org/assets/assetpacks.html
+- Knitted Hat 01 by see pack hats03_cc-by.zip (hats03_cc-by.zip), CC BY 4.0, https://static.makehumancommunity.org/assets/assetpacks.html
+- swim-cap by see pack hats03_cc-by.zip (hats03_cc-by.zip), CC BY 4.0, https://static.makehumancommunity.org/assets/assetpacks.html
+- m trilby hat by see pack hats03_cc-by.zip (hats03_cc-by.zip), CC BY 4.0, https://static.makehumancommunity.org/assets/assetpacks.html
+- wizard hat by see pack hats03_cc-by.zip (hats03_cc-by.zip), CC BY 4.0, https://static.makehumancommunity.org/assets/assetpacks.html
+- elvs male flat cap1 by see pack hats03_cc-by.zip (hats03_cc-by.zip), CC BY 4.0, https://static.makehumancommunity.org/assets/assetpacks.html
+- elvs beanie slouch by see pack hats03_cc-by.zip (hats03_cc-by.zip), CC BY 4.0, https://static.makehumancommunity.org/assets/assetpacks.html
+- witchy hat1 elv by see pack hats03_cc-by.zip (hats03_cc-by.zip), CC BY 4.0, https://static.makehumancommunity.org/assets/assetpacks.html
+- elv maidonnet1 by see pack hats03_cc-by.zip (hats03_cc-by.zip), CC BY 4.0, https://static.makehumancommunity.org/assets/assetpacks.html
+- brave feathers by see pack hats03_cc-by.zip (hats03_cc-by.zip), CC BY 4.0, https://static.makehumancommunity.org/assets/assetpacks.html
+- Patrol Cap by see pack hats03_cc-by.zip (hats03_cc-by.zip), CC BY 4.0, https://static.makehumancommunity.org/assets/assetpacks.html
+- elvs unisex chef hat1 by see pack hats03_cc-by.zip (hats03_cc-by.zip), CC BY 4.0, https://static.makehumancommunity.org/assets/assetpacks.html
+- cl don quixote hat by see pack hats03_cc-by.zip (hats03_cc-by.zip), CC BY 4.0, https://static.makehumancommunity.org/assets/assetpacks.html
+- elvs santa hat by see pack hats03_cc-by.zip (hats03_cc-by.zip), CC BY 4.0, https://static.makehumancommunity.org/assets/assetpacks.html
+- Fishing Hat 01 by see pack hats03_cc-by.zip (hats03_cc-by.zip), CC BY 4.0, https://static.makehumancommunity.org/assets/assetpacks.html
 - male-classic-jeans by see pack pants02_ccby.zip (pants02_ccby.zip), CC BY 4.0, https://static.makehumancommunity.org/assets/assetpacks.html
 - M Trousers 02 by see pack pants02_ccby.zip (pants02_ccby.zip), CC BY 4.0, https://static.makehumancommunity.org/assets/assetpacks.html
 - M Trousers 01 by see pack pants02_ccby.zip (pants02_ccby.zip), CC BY 4.0, https://static.makehumancommunity.org/assets/assetpacks.html

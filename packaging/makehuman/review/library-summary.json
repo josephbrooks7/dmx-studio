@@ -1,5 +1,5 @@
 {
-  "items": 296,
+  "items": 315,
   "skins": 60,
   "targets": 1209,
   "slots": {
@@ -13,7 +13,7 @@
     "glasses": 10,
     "gloves": 9,
     "hair": 35,
-    "hat": 11,
+    "hat": 30,
     "shoes": 53,
     "teeth": 6,
     "tongue": 1,
@@ -21,7 +21,7 @@
     "socks": 4
   },
   "licenses": {
-    "CC-BY": 83,
+    "CC-BY": 102,
     "CC0": 213
   },
   "rig": {

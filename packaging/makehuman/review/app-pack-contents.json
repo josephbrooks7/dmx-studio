@@ -2898,15 +2898,254 @@
     "transparent": false
    },
    {
-    "id": "hats01_uncle_joshi_s_hat",
-    "name": "Uncle Joshi's hat",
+    "id": "hats03_sunvisor",
+    "name": "SunVisor",
+    "gender": "any",
+    "styles": [
+     "sport"
+    ],
+    "license": "CC-BY",
+    "tags": [
+     "Sport"
+    ],
+    "vertices": 513,
+    "transparent": false
+   },
+   {
+    "id": "hats03_tophat1",
+    "name": "tophat1",
     "gender": "any",
     "styles": [],
-    "license": "CC0",
+    "license": "CC-BY",
+    "tags": [
+     "hat"
+    ],
+    "vertices": 1060,
+    "transparent": false
+   },
+   {
+    "id": "hats03_sherpa_hat",
+    "name": "Sherpa Hat",
+    "gender": "any",
+    "styles": [],
+    "license": "CC-BY",
     "tags": [
      "Hats"
     ],
-    "vertices": 7930,
+    "vertices": 1294,
+    "transparent": false
+   },
+   {
+    "id": "hats03_cl_bowler_hat",
+    "name": "cl bowler hat",
+    "gender": "any",
+    "styles": [],
+    "license": "CC-BY",
+    "tags": [
+     "hat"
+    ],
+    "vertices": 1704,
+    "transparent": false
+   },
+   {
+    "id": "hats03_elvs_charity_veil_m1a_over",
+    "name": "elvs charity veil m1a over",
+    "gender": "female",
+    "styles": [
+     "formal"
+    ],
+    "license": "CC-BY",
+    "tags": [
+     "female",
+     "formal",
+     "traditional",
+     "hat",
+     "veil"
+    ],
+    "vertices": 4309,
+    "transparent": false
+   },
+   {
+    "id": "hats03_knitted_hat_01",
+    "name": "Knitted Hat 01",
+    "gender": "any",
+    "styles": [],
+    "license": "CC-BY",
+    "tags": [
+     "Hats"
+    ],
+    "vertices": 237,
+    "transparent": false
+   },
+   {
+    "id": "hats03_swim_cap",
+    "name": "swim-cap",
+    "gender": "any",
+    "styles": [
+     "sport"
+    ],
+    "license": "CC-BY",
+    "tags": [
+     "sport",
+     "swimming",
+     "triathlon"
+    ],
+    "vertices": 560,
+    "transparent": false
+   },
+   {
+    "id": "hats03_m_trilby_hat",
+    "name": "m trilby hat",
+    "gender": "any",
+    "styles": [],
+    "license": "CC-BY",
+    "tags": [],
+    "vertices": 19682,
+    "transparent": false
+   },
+   {
+    "id": "hats03_wizard_hat",
+    "name": "wizard hat",
+    "gender": "any",
+    "styles": [
+     "fantasy"
+    ],
+    "license": "CC-BY",
+    "tags": [
+     "hats"
+    ],
+    "vertices": 319,
+    "transparent": false
+   },
+   {
+    "id": "hats03_elvs_male_flat_cap1",
+    "name": "elvs male flat cap1",
+    "gender": "any",
+    "styles": [],
+    "license": "CC-BY",
+    "tags": [
+     "cap",
+     "hat",
+     "mensware",
+     "flat_cap",
+     "traditional"
+    ],
+    "vertices": 2067,
+    "transparent": false
+   },
+   {
+    "id": "hats03_elvs_beanie_slouch",
+    "name": "elvs beanie slouch",
+    "gender": "any",
+    "styles": [
+     "casual"
+    ],
+    "license": "CC-BY",
+    "tags": [
+     "unisex",
+     "casual",
+     "leisure",
+     "contemporary",
+     "hat",
+     "beanie"
+    ],
+    "vertices": 684,
+    "transparent": true
+   },
+   {
+    "id": "hats03_witchy_hat1_elv",
+    "name": "witchy hat1 elv",
+    "gender": "any",
+    "styles": [],
+    "license": "CC-BY",
+    "tags": [],
+    "vertices": 1255,
+    "transparent": false
+   },
+   {
+    "id": "hats03_elv_maidonnet1",
+    "name": "elv maidonnet1",
+    "gender": "any",
+    "styles": [],
+    "license": "CC-BY",
+    "tags": [],
+    "vertices": 2329,
+    "transparent": true
+   },
+   {
+    "id": "hats03_brave_feathers",
+    "name": "brave feathers",
+    "gender": "any",
+    "styles": [],
+    "license": "CC-BY",
+    "tags": [],
+    "vertices": 4591,
+    "transparent": false
+   },
+   {
+    "id": "hats03_patrol_cap",
+    "name": "Patrol Cap",
+    "gender": "any",
+    "styles": [],
+    "license": "CC-BY",
+    "tags": [
+     "Hats",
+     "Cap"
+    ],
+    "vertices": 497,
+    "transparent": false
+   },
+   {
+    "id": "hats03_elvs_unisex_chef_hat1",
+    "name": "elvs unisex chef hat1",
+    "gender": "any",
+    "styles": [
+     "formal"
+    ],
+    "license": "CC-BY",
+    "tags": [
+     "unisex",
+     "formal",
+     "profession",
+     "traditional",
+     "hat",
+     "toque"
+    ],
+    "vertices": 4418,
+    "transparent": false
+   },
+   {
+    "id": "hats03_cl_don_quixote_hat",
+    "name": "cl don quixote hat",
+    "gender": "any",
+    "styles": [],
+    "license": "CC-BY",
+    "tags": [
+     "hat"
+    ],
+    "vertices": 4104,
+    "transparent": false
+   },
+   {
+    "id": "hats03_elvs_santa_hat",
+    "name": "elvs santa hat",
+    "gender": "any",
+    "styles": [],
+    "license": "CC-BY",
+    "tags": [],
+    "vertices": 2651,
+    "transparent": false
+   },
+   {
+    "id": "hats03_fishing_hat_01",
+    "name": "Fishing Hat 01",
+    "gender": "any",
+    "styles": [],
+    "license": "CC-BY",
+    "tags": [
+     "Hats"
+    ],
+    "vertices": 1459,
     "transparent": false
    },
    {
