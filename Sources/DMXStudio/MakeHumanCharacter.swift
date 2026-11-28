@@ -567,14 +567,14 @@ enum MHCharacter {
         let m = SCNMaterial()
         m.name = "mh_skin"
         m.lightingModel = .physicallyBased
-        m.roughness.contents = 0.62
+        m.roughness.contents = 0.74            // less sheen: skin read white under the studio key light
         m.metalness.contents = 0.0
         let tone = skinTones[min(max(a.skin, 0), skinTones.count - 1)]
         let sex = female >= 0.5 ? "female" : "male"
         let skin = lib.skins.first(where: { $0.sex == sex && $0.ancestry == tone.ancestry })
             ?? lib.skins.first(where: { $0.ancestry == tone.ancestry }) ?? lib.skins.first
         // Slightly below full albedo: skin textures are bright and read white under the studio reflections.
-        let level = tone.tint * 0.86
+        let level = tone.tint * 0.8
         if let s = skin, let img = lib.tinted(s.texture, r: level, g: level, b: level, neutral: false) {
             m.diffuse.contents = img
         } else {
@@ -1100,6 +1100,7 @@ enum MHRenderCLI {
         if studio {
             // Same lights as Character Studio's preview (StageView / Stage3D CharacterPreview).
             camera.camera?.wantsHDR = true
+            camera.camera?.exposureOffset = -0.6
             camera.camera?.wantsExposureAdaptation = false
             camera.camera?.screenSpaceAmbientOcclusionIntensity = 0.55
             camera.camera?.screenSpaceAmbientOcclusionRadius = 0.12
@@ -1107,7 +1108,7 @@ enum MHRenderCLI {
             scene.lightingEnvironment.intensity = 0.12
             let ambient = SCNNode(); ambient.light = SCNLight(); ambient.light?.type = .ambient; ambient.light?.intensity = 45
             scene.rootNode.addChildNode(ambient)
-            for (x, y, z, i) in [(CGFloat(2), CGFloat(3), CGFloat(4), CGFloat(165)), (-3, 2, 2, 70), (1, 3, -3, 95)] {
+            for (x, y, z, i) in [(CGFloat(2), CGFloat(3), CGFloat(4), CGFloat(135)), (-3, 2, 2, 70), (1, 3, -3, 95)] {
                 let l = SCNNode(); l.light = SCNLight(); l.light?.type = x == 2 ? .spot : .omni; l.light?.intensity = i
                 if x == 2 { l.light?.spotInnerAngle = 30; l.light?.spotOuterAngle = 65 }
                 l.position = SCNVector3(x, y, z); scene.rootNode.addChildNode(l)

@@ -1555,6 +1555,7 @@ struct CharacterModelPreview: NSViewRepresentable {
         camera.camera?.zFar = 60
         camera.camera?.wantsHDR = true
         camera.camera?.wantsExposureAdaptation = false
+        camera.camera?.exposureOffset = -0.6     // faces were overexposed: keep skin shading and highlights
         camera.camera?.screenSpaceAmbientOcclusionIntensity = 0.55
         camera.camera?.screenSpaceAmbientOcclusionRadius = 0.12
         scene.lightingEnvironment.contents = Stage3DView.Coordinator.studioEnvironment
@@ -1566,7 +1567,7 @@ struct CharacterModelPreview: NSViewRepresentable {
         let ambient = SCNNode(); ambient.light = SCNLight()
         ambient.light?.type = .ambient; ambient.light?.intensity = 45
         scene.rootNode.addChildNode(ambient)
-        for (x,y,z,intensity) in [(CGFloat(2),CGFloat(3),CGFloat(4),CGFloat(165)),(-3,2,2,70),(1,3,-3,95)] {
+        for (x,y,z,intensity) in [(CGFloat(2),CGFloat(3),CGFloat(4),CGFloat(135)),(-3,2,2,70),(1,3,-3,95)] {
             let light = SCNNode(); light.light = SCNLight(); light.light?.type = .omni
             light.light?.intensity = intensity; light.position = SCNVector3(x,y,z)
             if x == 2 {
