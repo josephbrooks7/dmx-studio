@@ -43,6 +43,7 @@ jobs:
           r h1-long-woman Body=Feminine Skin=2 Hair=Long HairColor=1 Clothing=Glam Lighting=studio
           r h2-long-man Body=Masculine Skin=0 Hair=Long HairColor=2 Clothing=Fantasy Lighting=studio
           r h3-face Body=Feminine Skin=2 Hair=Long HairColor=1 Clothing=Glam Lighting=studio Face=1
+          r h5-blonde Body=Feminine Skin=1 Hair=Ponytail HairColor=2 Clothing=Casual Lighting=studio
           r h4-base Body=Feminine Skin=4 Hair=Bald Clothing=Base Lighting=studio
           ls -la packaging/makehuman/app-review
       - name: Commit renders

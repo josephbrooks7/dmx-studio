@@ -260,7 +260,8 @@ final class MHLibrary {
             // premultiplied average: divide by alpha to get the strands' own level
             if px[3] > 8 { level = Float(px[0]) / Float(px[3]) }
         }
-        let gain = CGFloat(min(4, max(0.8, 0.82 / max(level, 0.05))))
+        // Average strand brightness lifted to ~1.0 so the chosen color reads true on matte hair.
+        let gain = CGFloat(min(6, max(0.8, 1.0 / max(level, 0.05))))
         let lifted = gray.applyingFilter("CIColorMatrix", parameters: [
             "inputRVector": CIVector(x: gain, y: 0, z: 0, w: 0),
             "inputGVector": CIVector(x: 0, y: gain, z: 0, w: 0),
