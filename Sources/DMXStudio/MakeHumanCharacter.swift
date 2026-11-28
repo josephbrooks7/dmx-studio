@@ -784,7 +784,7 @@ enum MHCharacter {
             let eyeY: Float
             if let l = bi["eye.L"], let r = bi["eye.R"] { eyeY = (boneHeads[l].y + boneHeads[r].y) / 2 } else { eyeY = top - 0.115 }
             headFit = HeadwearFitter.fit(scalp: bodyMesh.positions, eyeY: eyeY)
-            if a.accessory == "Top Hat", var f = headFit {
+            if a.accessory == "Top Hat" || (a.accessory ?? "").hasPrefix("Baseball Cap"), var f = headFit {
                 let hair = fitted.filter { $0.0.slot == "hair" }.map { $0.1.positions }
                 f.hairLayer = HeadwearFitter.hairLayer(hair, fit: f, curly: a.hair == .curly)
                 headFit = f
@@ -798,9 +798,12 @@ enum MHCharacter {
                     HeadwearFitter.tuckHair(&fitted[i].1.positions, fit: f, style: TopHatStyle())
                 }
             }
-            // Library headwear (caps, fedoras, hoods): press hair under each hat's own inner surface.
+            // Library headwear (caps, fedoras, hoods) and the fitted baseball cap: press hair under the hat's inner surface.
             if let f = headFit {
-                let hats = fitted.filter { $0.0.slot == "hat" }.map { $0.1.positions }
+                var hats = fitted.filter { $0.0.slot == "hat" }.map { $0.1.positions }
+                if (a.accessory ?? "").hasPrefix("Baseball Cap") {
+                    hats.append(HeadwearFitter.capShell(f, backwards: a.accessory == "Baseball Cap (backwards)"))
+                }
                 for hat in hats {
                     for i in fitted.indices where fitted[i].0.slot == "hair" {
                         HeadwearFitter.pressHair(&fitted[i].1.positions, under: hat, fit: f)
@@ -866,6 +869,12 @@ enum MHCharacter {
             node.simdPosition = p.neck.center - boneHeads[n]     // bone frame = world frame before posing
             node.eulerAngles.x = -0.12                            // follows the neck's slight forward lean
             boneNodes[n].addChildNode(node)
+        }
+        if (a.accessory ?? "").hasPrefix("Baseball Cap"), let fit = p.headFit, let h = index["head"] {
+            let cap = HeadwearFitter.baseballCap(fit, backwards: a.accessory == "Baseball Cap (backwards)",
+                                                 color: outfitColors[min(max(a.outfit, 0), outfitColors.count - 1)])
+            cap.simdPosition = fit.center - boneHeads[h]
+            boneNodes[h].addChildNode(cap)
         }
         if a.accessory == "Top Hat", let fit = p.headFit, let h = index["head"] {
             // Rigid hat on the head bone: follows yaw, pitch and roll exactly, no drift.

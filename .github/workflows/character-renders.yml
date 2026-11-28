@@ -41,8 +41,13 @@ jobs:
           r() { NAME=$1; shift; $BIN --character-render "packaging/makehuman/app-review/$NAME.png" "$@" 2>&1 | grep MH_ | tee -a packaging/makehuman/app-review/log.txt; }
           : > packaging/makehuman/app-review/log.txt
           rm -f packaging/makehuman/app-review/*.png packaging/makehuman/app-review/*.jpg
+          r cap1-man-short Body=Masculine Skin=1 Hair=Short HairColor=1 Clothing=Casual "Accessory=Baseball Cap" Outfit=0 Lighting=studio Face=1
+          r cap2-woman-ponytail Body=Feminine Skin=2 Hair=Ponytail HairColor=1 Clothing=Casual "Accessory=Baseball Cap" Outfit=2 Lighting=studio Face=1
+          r cap3-man-curly Body=Masculine Skin=4 Hair=Curly HairColor=0 Clothing=Casual "Accessory=Baseball Cap" Outfit=1 Lighting=studio Face=1
+          r cap4-woman-long Body=Feminine Skin=0 Hair=Long HairColor=2 Clothing=Casual "Accessory=Baseball Cap" Outfit=3 Lighting=studio Face=1
+          r cap5-backwards Body=Masculine Skin=3 Hair=Long HairColor=0 "Clothing=Rock Jacket" "Accessory=Baseball Cap (backwards)" Outfit=4 Lighting=studio Face=1
+          r cap6-full Body=Feminine Skin=2 Hair=Ponytail HairColor=1 Clothing=Casual "Accessory=Baseball Cap" Outfit=2 Lighting=studio
           $BIN --character-sheet packaging/makehuman/app-review/sheet-hats-curly.jpg Body=Masculine Skin=4 Hair=Curly HairColor=0 Clothing=Casual Slot=hat Lighting=studio Face=1 || echo "sheet failed"
-          $BIN --character-sheet packaging/makehuman/app-review/sheet-hats-man.jpg Body=Masculine Skin=1 Hair=Short HairColor=1 Clothing=Casual Slot=hat Lighting=studio Face=1 || echo "sheet failed"
           $BIN --character-sheet packaging/makehuman/app-review/sheet-hats-woman.jpg Body=Feminine Skin=2 Hair=Long HairColor=2 Clothing=Casual Slot=hat Lighting=studio Face=1 || echo "sheet failed"
           ls -la packaging/makehuman/app-review
       - name: Commit renders

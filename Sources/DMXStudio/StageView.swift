@@ -653,7 +653,7 @@ struct StageInspector: View {
                                 ForEach(["Base","Casual","Rock Jacket","Punk","Glam","Formal","Fantasy"], id: \.self) { Text($0).tag($0) }
                             }
                             Picker("Accessory", selection: Binding(get: { appearance.accessory ?? "None" }, set: { v in model.updateStageItem(id) { var a = $0.performerAppearance ?? PerformerAppearance(); a.accessory = v; $0.performerAppearance = a } })) {
-                                ForEach(["None","Top Hat","Glasses","Choker","Wings"], id: \.self) { Text($0).tag($0) }
+                                ForEach(["None","Top Hat","Baseball Cap","Baseball Cap (backwards)","Glasses","Choker","Wings"], id: \.self) { Text($0).tag($0) }
                             }
                             Picker("Stance", selection: Binding(get: { appearance.pose ?? "Natural" }, set: { v in model.updateStageItem(id) { var a = $0.performerAppearance ?? PerformerAppearance(); a.pose = v; $0.performerAppearance = a } })) {
                                 ForEach(["Natural","Wide","Performance"], id: \.self) { Text($0).tag($0) }
