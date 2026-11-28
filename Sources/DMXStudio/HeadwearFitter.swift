@@ -184,6 +184,49 @@ enum HeadwearFitter {
         }
     }
 
+    /// Hair under any fitted hat mesh (library caps, fedoras, hoods): the hat's own inner surface is the limit.
+    /// Hair inside the hat's footprint is pressed just under that surface; hair below its lower edge keeps its
+    /// shape, so it shows under the brim or band as in real life.
+    static func pressHair(_ hair: inout [SIMD3<Float>], under hat: [SIMD3<Float>], fit: HeadFit, clearance: Float = 0.003) {
+        guard !hat.isEmpty else { return }
+        let n = HeadFit.directions, slice: Float = 0.01
+        var low = Float.greatestFiniteMagnitude, high = -Float.greatestFiniteMagnitude
+        for p in hat { low = min(low, p.y); high = max(high, p.y) }
+        let rows = max(1, Int(((high - low) / slice).rounded(.up)) + 1)
+        // Innermost hat radius per direction and height slice, and each direction's lower edge.
+        var inner = [Float](repeating: .greatestFiniteMagnitude, count: n * rows)
+        var edge = [Float](repeating: .greatestFiniteMagnitude, count: n)
+        func dir(_ x: Float, _ z: Float) -> Int {
+            var a = atan2(x, z); if a < 0 { a += 2 * .pi }
+            return Int(a / (2 * .pi) * Float(n)) % n
+        }
+        for p in hat {
+            let dx = p.x - fit.center.x, dz = p.z - fit.center.z
+            let i = dir(dx, dz), row = min(rows - 1, Int((p.y - low) / slice))
+            let r = (dx * dx + dz * dz).squareRoot()
+            inner[i * rows + row] = min(inner[i * rows + row], r)
+            edge[i] = min(edge[i], p.y)
+        }
+        for k in hair.indices {
+            var p = hair[k]
+            let dx = p.x - fit.center.x, dz = p.z - fit.center.z
+            let i = dir(dx, dz)
+            guard edge[i] < .greatestFiniteMagnitude, p.y > edge[i] + 0.004, p.y <= high else { continue }
+            let row = min(rows - 1, Int((p.y - low) / slice))
+            var limit = inner[i * rows + row]
+            if limit == .greatestFiniteMagnitude {        // no hat surface sampled here: nearest slice below
+                var rr = row
+                while rr > 0 && inner[i * rows + rr] == .greatestFiniteMagnitude { rr -= 1 }
+                limit = inner[i * rows + rr]
+            }
+            guard limit < .greatestFiniteMagnitude else { continue }
+            limit = max(fit.radii[i] * 0.98, limit - clearance)
+            let r = (dx * dx + dz * dz).squareRoot()
+            if r > limit, r > 0 { p.x = fit.center.x + dx * limit / r; p.z = fit.center.z + dz * limit / r }
+            hair[k] = p
+        }
+    }
+
     // MARK: geometry
 
     private static func surface(_ positions: [SIMD3<Float>], _ normals: [SIMD3<Float>], _ triangles: [UInt32], _ material: SCNMaterial, name: String) -> SCNNode {

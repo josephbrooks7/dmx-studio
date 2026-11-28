@@ -182,7 +182,7 @@ final class MHLibrary {
     static func excluded(_ name: String) -> Bool {
         let n = name.lowercased()
         return ["ayanami", "spider gwen", "spider-gwen", "yoko tsuno", "deathnote", "death note", "maga", "child", "pillow man",
-                "scifi-armor guardian", "scifi-armor jupiter"]
+                "scifi-armor guardian", "scifi-armor jupiter", "uncle joshi"]
             .contains { n.contains($0) }
     }
 
@@ -796,6 +796,15 @@ enum MHCharacter {
             if a.accessory == "Top Hat", let f = headFit {
                 for i in fitted.indices where fitted[i].0.slot == "hair" {
                     HeadwearFitter.tuckHair(&fitted[i].1.positions, fit: f, style: TopHatStyle())
+                }
+            }
+            // Library headwear (caps, fedoras, hoods): press hair under each hat's own inner surface.
+            if let f = headFit {
+                let hats = fitted.filter { $0.0.slot == "hat" }.map { $0.1.positions }
+                for hat in hats {
+                    for i in fitted.indices where fitted[i].0.slot == "hair" {
+                        HeadwearFitter.pressHair(&fitted[i].1.positions, under: hat, fit: f)
+                    }
                 }
             }
         }

@@ -25,7 +25,7 @@ jobs:
         shoes01_cc0.zip suits01_cc0.zip hair01_cc0.zip eyebrows01_cc0.zip eyelashes01_cc0.zip
         underwear04_cc0.zip nose01_cc0.zip ears01_cc0.zip cheek01_cc0.zip arms01_cc0.zip hands01_cc0.zip
         dress01_cc0.zip skirts01_cc0.zip suits02_cc0.zip glasses01_cc0.zip hats01_cc0.zip gloves01_cc0.zip
-        skins03_cc0.zip shirts02_ccby.zip pants02_ccby.zip shoes02_ccby.zip dress02_cc-by.zip bodyparts03_cc-by.zip
+        skins03_cc0.zip hats03_cc-by.zip shirts02_ccby.zip pants02_ccby.zip shoes02_ccby.zip dress02_cc-by.zip bodyparts03_cc-by.zip
     steps:
       - uses: actions/checkout@v4
       - name: MakeHuman base data (CC0 assets only)
