@@ -60,11 +60,34 @@ for s in skins:
 print("skins:", [s["name"] for s in skins])
 
 # ---- wardrobe
-SLOTS = {"hair", "eyebrows", "eyelashes", "eyes", "teeth", "shoes", "top", "bottom", "outfit", "socks", "hat", "facialhair"}
-items = [i for i in cat["items"] if i["slot"] in SLOTS]
+SLOTS = {"hair", "eyebrows", "eyelashes", "eyes", "teeth", "shoes", "top", "bottom", "outfit", "socks", "hat", "facialhair",
+         "glasses", "gloves", "wings"}
+MAX_VERTICES = 60000      # very dense items cost too much per performer
+items = [i for i in cat["items"] if i["slot"] in SLOTS and i.get("vertices", 0) <= MAX_VERTICES]
 for i in items:
     src = lib / Path(i["file"]).parent
     shutil.copytree(src, out / Path(i["file"]).parent, dirs_exist_ok=True)
+
+# Keep the download reasonable: color maps up to 1024 px, normal maps up to 512 px.
+from PIL import Image
+Image.MAX_IMAGE_PIXELS = None
+shrunk = 0
+for img in list(out.rglob("*.png")) + list(out.rglob("*.jpg")) + list(out.rglob("*.jpeg")):
+    try:
+        with Image.open(img) as im:
+            limit = 512 if "normal" in img.name.lower() else 1024
+            if max(im.size) <= limit:
+                continue
+            scale = limit / max(im.size)
+            small = im.resize((max(1, int(im.width * scale)), max(1, int(im.height * scale))), Image.LANCZOS)
+            if img.suffix.lower() in (".jpg", ".jpeg"):
+                small.convert("RGB").save(img, quality=88)
+            else:
+                small.save(img, optimize=True)
+            shrunk += 1
+    except Exception as e:
+        print("texture skipped", img, e)
+print("textures shrunk:", shrunk)
 
 app = {"version": 1, "basemesh": cat["basemesh"], "rig": cat.get("rig"), "targets": "targets.bin",
        "skins": skins, "items": items, "licenses": cat["licenses"],
