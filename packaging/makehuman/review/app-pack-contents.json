@@ -884,18 +884,6 @@
     "transparent": false
    },
    {
-    "id": "suits02_mc_scifi_armor_guardian",
-    "name": "MC-SciFi-Armor Guardian",
-    "gender": "any",
-    "styles": [
-     "fantasy"
-    ],
-    "license": "CC0",
-    "tags": [],
-    "vertices": 10731,
-    "transparent": false
-   },
-   {
     "id": "suits02_hero_suit_2",
     "name": "hero suit 2",
     "gender": "any",
@@ -989,18 +977,6 @@
     "license": "CC0",
     "tags": [],
     "vertices": 8463,
-    "transparent": false
-   },
-   {
-    "id": "suits02_mc_scifi_armor_jupiter7",
-    "name": "MC-SciFi-Armor Jupiter7",
-    "gender": "any",
-    "styles": [
-     "fantasy"
-    ],
-    "license": "CC0",
-    "tags": [],
-    "vertices": 16060,
     "transparent": false
    },
    {
