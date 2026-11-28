@@ -20,6 +20,8 @@ struct HeadFit {
     var warning: String?
     /// Compressed hair between scalp and band (meters): the hat sits on the hair, not on bare scalp.
     var hairLayer: Float = 0
+    /// Height of the skull's top above the wearing plane (meters).
+    var crownTop: Float = 0.1
 
     static let directions = 72
     func angle(_ i: Int) -> Float { Float(i) / Float(HeadFit.directions) * 2 * .pi }
@@ -120,6 +122,7 @@ enum HeadwearFitter {
             }
         }
         var fit = HeadFit(center: SIMD3(cx, centerY, cz), pitch: pitch, radii: radii, circumference: 0, width: 0, length: 0, warning: nil)
+        for p in scalp where abs(p.x - cx) < 0.12 && abs(p.z - cz) < 0.14 { fit.crownTop = max(fit.crownTop, p.y - planeY(p.z)) }
         var perimeter: Float = 0, minX: Float = 0, maxX: Float = 0, minZ: Float = 0, maxZ: Float = 0
         for i in 0..<HeadFit.directions {
             let p = fit.point(i), q = fit.point(i + 1)
@@ -297,9 +300,11 @@ enum HeadwearFitter {
         /// Worn backwards the cap tips back: forehead edge (the strap side) rides higher, hairline showing.
         var backwardsTilt: Float = 0.14
         func pitch(_ fit: HeadFit, backwards: Bool) -> Float { fit.pitch + (backwards ? backwardsTilt : 0) }
-        func dome(_ r: Float, _ R: Float) -> Float {
+        /// Crown tall enough for this head: skull top above the seat, plus pressed hair and clearance.
+        func height(_ fit: HeadFit) -> Float { max(crownHeight, fit.crownTop + seatDrop + fit.hairLayer * 0.6 + 0.008) }
+        func dome(_ r: Float, _ R: Float, _ H: Float) -> Float {
             guard r < R else { return 0 }
-            return crownHeight * pow(max(0, 1 - pow(r / R, roundness)), 1 / roundness)
+            return H * pow(max(0, 1 - pow(r / R, roundness)), 1 / roundness)
         }
     }
 
@@ -315,13 +320,14 @@ enum HeadwearFitter {
         let front: Float = backwards ? .pi : 0
         func angleDist(_ a: Float, _ b: Float) -> Float { var d = abs(a - b).truncatingRemainder(dividingBy: 2 * .pi); if d > .pi { d = 2 * .pi - d }; return d }
         let e = 2 / shape.roundness
+        let H = shape.height(fit)
         var pos: [SIMD3<Float>] = [], nor: [SIMD3<Float>] = []
         for r in 0...rows {
             let phi = Float(r) / Float(rows) * (.pi / 2)
             let c = pow(cos(phi), e), sn = pow(sin(phi), e)
             for i in 0..<n {
                 let a = fit.angle(i), R = fit.radii[i] + grow
-                pos.append(SIMD3(sin(a) * R * c, shape.crownHeight * sn, cos(a) * R * c))
+                pos.append(SIMD3(sin(a) * R * c, H * sn, cos(a) * R * c))
                 let radialN = cos(phi), upN = sin(phi)
                 nor.append(normalize(SIMD3(sin(a) * radialN, upN * 1.2, cos(a) * radialN)))
             }
@@ -330,7 +336,7 @@ enum HeadwearFitter {
         for r in 0..<rows {
             for i in 0..<n {
                 let a = fit.angle(i)
-                let y0 = shape.crownHeight * pow(sin(Float(r) / Float(rows) * (.pi / 2)), e)
+                let y0 = H * pow(sin(Float(r) / Float(rows) * (.pi / 2)), e)
                 if y0 > 0.009 && y0 < shape.openingHeight && angleDist(a, front + .pi) < shape.openingHalfAngle { continue }
                 let j = (i + 1) % n
                 let a0 = UInt32(r * n + i), a1 = UInt32(r * n + j), b0 = UInt32((r + 1) * n + i), b1 = UInt32((r + 1) * n + j)
@@ -357,7 +363,7 @@ enum HeadwearFitter {
             cap.addChildNode(surface(bot + top, out + out, t, strapMat, name: "cap_strap"))
         }
         let button = SCNCylinder(radius: 0.008, height: 0.005); button.materials = [cloth]
-        let b = SCNNode(geometry: button); b.position.y = CGFloat(shape.crownHeight + 0.0015); cap.addChildNode(b)
+        let b = SCNNode(geometry: button); b.position.y = CGFloat(H + 0.0015); cap.addChildNode(b)
         // Bill: rooted on the band across the front, projecting straight forward, arched side to side.
         let steps = 20
         let fwd = SIMD3<Float>(sin(front), 0, cos(front)), side = SIMD3<Float>(cos(front), 0, -sin(front))
@@ -395,7 +401,7 @@ enum HeadwearFitter {
         let toCap = simd_quatf(angle: shape.pitch(fit, backwards: backwards), axis: SIMD3(1, 0, 0)), toWorld = toCap.inverse
         let origin = fit.center - SIMD3(0, shape.seatDrop, 0)
         let grow = capRing(fit), back: Float = backwards ? 0 : .pi
-        let n = shape.roundness, H = shape.crownHeight - 0.005
+        let n = shape.roundness, H = shape.height(fit) - 0.005
         func angleDist(_ a: Float, _ b: Float) -> Float { var d = abs(a - b).truncatingRemainder(dividingBy: 2 * .pi); if d > .pi { d = 2 * .pi - d }; return d }
         for i in positions.indices {
             var q = toCap.act(positions[i] - origin)
