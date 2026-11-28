@@ -4,7 +4,6 @@ Bodies, skeleton and most assets: MakeHuman (CC0). The following are CC BY 4.0:
 
 - dragonfly wings1 by see pack bodyparts03_cc-by.zip (bodyparts03_cc-by.zip), CC BY 4.0, https://static.makehumancommunity.org/assets/assetpacks.html
 - elvs dragonwing1 by see pack bodyparts03_cc-by.zip (bodyparts03_cc-by.zip), CC BY 4.0, https://static.makehumancommunity.org/assets/assetpacks.html
-- wingcostume child1 by see pack bodyparts03_cc-by.zip (bodyparts03_cc-by.zip), CC BY 4.0, https://static.makehumancommunity.org/assets/assetpacks.html
 - bonewings1 by see pack bodyparts03_cc-by.zip (bodyparts03_cc-by.zip), CC BY 4.0, https://static.makehumancommunity.org/assets/assetpacks.html
 - fairy buttflywing2 by see pack bodyparts03_cc-by.zip (bodyparts03_cc-by.zip), CC BY 4.0, https://static.makehumancommunity.org/assets/assetpacks.html
 - dual fanned wings v by see pack bodyparts03_cc-by.zip (bodyparts03_cc-by.zip), CC BY 4.0, https://static.makehumancommunity.org/assets/assetpacks.html
@@ -45,7 +44,6 @@ Bodies, skeleton and most assets: MakeHuman (CC0). The following are CC BY 4.0:
 - mens elv jeans2slf by see pack pants02_ccby.zip (pants02_ccby.zip), CC BY 4.0, https://static.makehumancommunity.org/assets/assetpacks.html
 - elvs disco pant1 by see pack pants02_ccby.zip (pants02_ccby.zip), CC BY 4.0, https://static.makehumancommunity.org/assets/assetpacks.html
 - mens shirt untuck elvbhp1f by see pack shirts02_ccby.zip (shirts02_ccby.zip), CC BY 4.0, https://static.makehumancommunity.org/assets/assetpacks.html
-- Deathnote by see pack shirts02_ccby.zip (shirts02_ccby.zip), CC BY 4.0, https://static.makehumancommunity.org/assets/assetpacks.html
 - offshoulder top by see pack shirts02_ccby.zip (shirts02_ccby.zip), CC BY 4.0, https://static.makehumancommunity.org/assets/assetpacks.html
 - Knitted Sweater 02 by see pack shirts02_ccby.zip (shirts02_ccby.zip), CC BY 4.0, https://static.makehumancommunity.org/assets/assetpacks.html
 - ladieshoodiedown1 by see pack shirts02_ccby.zip (shirts02_ccby.zip), CC BY 4.0, https://static.makehumancommunity.org/assets/assetpacks.html

@@ -45,18 +45,6 @@
     "transparent": true
    },
    {
-    "id": "bodyparts03_wingcostume_child1",
-    "name": "wingcostume child1",
-    "gender": "any",
-    "styles": [
-     "fantasy"
-    ],
-    "license": "CC-BY",
-    "tags": [],
-    "vertices": 18157,
-    "transparent": true
-   },
-   {
     "id": "bodyparts03_bonewings1",
     "name": "bonewings1",
     "gender": "any",
@@ -972,26 +960,6 @@
     "transparent": false
    },
    {
-    "id": "suits02_rei_ayanami",
-    "name": "Rei Ayanami",
-    "gender": "female",
-    "styles": [
-     "fantasy",
-     "formal",
-     "glam"
-    ],
-    "license": "CC0",
-    "tags": [
-     "female",
-     "fantasy",
-     "profession",
-     "future",
-     "dress"
-    ],
-    "vertices": 6884,
-    "transparent": false
-   },
-   {
     "id": "suits02_mc_bodysuit_2021",
     "name": "MC-BodySuit-2021",
     "gender": "male",
@@ -1021,24 +989,6 @@
     "license": "CC0",
     "tags": [],
     "vertices": 8463,
-    "transparent": false
-   },
-   {
-    "id": "suits02_yoko_tsuno",
-    "name": "Yoko Tsuno",
-    "gender": "female",
-    "styles": [
-     "formal",
-     "glam"
-    ],
-    "license": "CC0",
-    "tags": [
-     "female",
-     "space",
-     "future",
-     "dress"
-    ],
-    "vertices": 3258,
     "transparent": false
    },
    {
@@ -1075,16 +1025,6 @@
      "medieval"
     ],
     "vertices": 11271,
-    "transparent": false
-   },
-   {
-    "id": "suits02_spider_gwen",
-    "name": "Spider Gwen",
-    "gender": "any",
-    "styles": [],
-    "license": "CC0",
-    "tags": [],
-    "vertices": 33414,
     "transparent": false
    },
    {
@@ -1705,18 +1645,6 @@
      "untucked"
     ],
     "vertices": 5140,
-    "transparent": false
-   },
-   {
-    "id": "shirts02_deathnote",
-    "name": "Deathnote",
-    "gender": "any",
-    "styles": [],
-    "license": "CC-BY",
-    "tags": [
-     "shirt"
-    ],
-    "vertices": 14627,
     "transparent": false
    },
    {
@@ -2984,16 +2912,6 @@
     "transparent": false
    },
    {
-    "id": "hats01_maga_hat",
-    "name": "MAGA-Hat",
-    "gender": "any",
-    "styles": [],
-    "license": "CC0",
-    "tags": [],
-    "vertices": 3264,
-    "transparent": false
-   },
-   {
     "id": "hats01_newsboy_cap",
     "name": "newsboy cap",
     "gender": "any",
@@ -3001,16 +2919,6 @@
     "license": "CC0",
     "tags": [],
     "vertices": 572,
-    "transparent": false
-   },
-   {
-    "id": "hats01_pillow_man",
-    "name": "pillow man",
-    "gender": "any",
-    "styles": [],
-    "license": "CC0",
-    "tags": [],
-    "vertices": 5874,
     "transparent": false
    },
    {
