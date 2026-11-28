@@ -875,7 +875,7 @@ enum MHCharacter {
         if (a.accessory ?? "").hasPrefix("Baseball Cap"), let fit = p.headFit, let h = index["head"] {
             let cap = HeadwearFitter.baseballCap(fit, backwards: a.accessory == "Baseball Cap (backwards)",
                                                  color: outfitColors[min(max(a.outfit, 0), outfitColors.count - 1)])
-            cap.simdPosition = fit.center - boneHeads[h]
+            cap.simdPosition = fit.center - SIMD3(0, HeadwearFitter.CapShape().seatDrop, 0) - boneHeads[h]
             boneNodes[h].addChildNode(cap)
         }
         if a.accessory == "Top Hat", let fit = p.headFit, let h = index["head"] {

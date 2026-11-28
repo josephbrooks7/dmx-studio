@@ -292,6 +292,8 @@ enum HeadwearFitter {
         var billDepth: Float = 0.072
         var openingHalfAngle: Float = 0.42
         var openingHeight: Float = 0.032
+        /// Caps sit lower than a firm hat's band: front about 1.5 cm above the brows.
+        var seatDrop: Float = 0.012
         func dome(_ r: Float, _ R: Float) -> Float {
             guard r < R else { return 0 }
             return crownHeight * pow(max(0, 1 - pow(r / R, roundness)), 1 / roundness)
@@ -303,7 +305,8 @@ enum HeadwearFitter {
     static func baseballCap(_ fit: HeadFit, backwards: Bool = false, color: NSColor = NSColor(calibratedRed: 0.08, green: 0.1, blue: 0.16, alpha: 1),
                             shape: CapShape = CapShape()) -> SCNNode {
         let cloth = SCNMaterial(); cloth.lightingModel = .physicallyBased
-        cloth.diffuse.contents = color; cloth.roughness.contents = 0.9; cloth.metalness.contents = 0.0; cloth.isDoubleSided = true
+        cloth.lightingModel = .lambert                      // matte cotton twill, no studio reflections
+        cloth.diffuse.contents = color; cloth.isDoubleSided = true
         let n = HeadFit.directions, rows = 14
         let grow = capRing(fit)
         let front: Float = backwards ? .pi : 0
@@ -346,7 +349,7 @@ enum HeadwearFitter {
             let base = SIMD3(sin(a) * R, Float(0.003), cos(a) * R)
             let reach = shape.billDepth * (1 - 0.42 * t * t)
             var end = base + fwd * reach + side * (t * 0.012)
-            end.y = 0.003 - 0.010 - 0.016 * t * t
+            end.y = 0.003 - 0.022 - 0.014 * t * t              // bill dips over the eyes and curves at the sides
             root.append(base); tip.append(end)
         }
         let thick = SIMD3<Float>(0, -0.0035, 0)
@@ -370,29 +373,30 @@ enum HeadwearFitter {
     /// it is pressed in and fans back out; through the rear opening it passes freely (ponytails, buns).
     static func pressHairUnderCap(_ positions: inout [SIMD3<Float>], fit: HeadFit, backwards: Bool, shape: CapShape = CapShape()) {
         let toCap = simd_quatf(angle: fit.pitch, axis: SIMD3(1, 0, 0)), toWorld = toCap.inverse
+        let origin = fit.center - SIMD3(0, shape.seatDrop, 0)
         let grow = capRing(fit), back: Float = backwards ? 0 : .pi
+        let n = shape.roundness, H = shape.crownHeight - 0.005
         func angleDist(_ a: Float, _ b: Float) -> Float { var d = abs(a - b).truncatingRemainder(dividingBy: 2 * .pi); if d > .pi { d = 2 * .pi - d }; return d }
         for i in positions.indices {
-            var q = toCap.act(positions[i] - fit.center)
-            guard q.y > -0.03 else { continue }
+            var q = toCap.act(positions[i] - origin)
+            guard q.y > -0.035 else { continue }
             var a = atan2(q.x, q.z); if a < 0 { a += 2 * .pi }
-            let R = fit.radius(atAngle: a) + grow
-            let inner = R - 0.004
+            let R = fit.radius(atAngle: a) + grow - 0.005
             let r = (q.x * q.x + q.z * q.z).squareRoot()
-            let inOpening = angleDist(a, back) < shape.openingHalfAngle && q.y > -0.005 && q.y < shape.openingHeight
-            if q.y >= 0 && !inOpening {
-                var rr = min(r, inner)
-                let top = shape.dome(rr, R) - 0.004
-                if q.y > top {
-                    if r > inner * 0.6 { rr = min(rr, inner * 0.97) }
-                    q.y = max(0, shape.dome(rr, R) - 0.004)
+            let throughOpening = angleDist(a, back) < shape.openingHalfAngle && q.y < shape.openingHeight && r > R * 0.85
+            if q.y >= 0 {
+                // Inside the crown: scale toward the center until the point lies within the dome (superellipse).
+                let sCap = pow(pow(r / R, n) + pow(max(0, q.y) / H, n), 1 / n)
+                if sCap > 0.97 && !throughOpening {
+                    let k = 0.97 / sCap
+                    q.x *= k; q.z *= k; q.y *= k
                 }
-                if r > 0, rr < r { q.x *= rr / r; q.z *= rr / r }
-            } else if q.y < 0 && !inOpening {
-                let limit = R + 0.001 + (-q.y) * 1.3
+            } else if !throughOpening {
+                // Under the band: pressed to the band, fanning back out lower down.
+                let limit = R + 0.006 + (-q.y) * 1.3
                 if r > limit, r > 0 { q.x *= limit / r; q.z *= limit / r }
             }
-            positions[i] = fit.center + toWorld.act(q)
+            positions[i] = origin + toWorld.act(q)
         }
     }
 
