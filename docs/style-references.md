@@ -55,6 +55,8 @@ Existing performance gestures (mic hold, peace sign, rock horns, arms up, crouch
 
 ## Facial expressions (face units: ARKit-style faceunits01 pack, CC0)
 
+Stored for the app in `packaging/character-reference/expressions.json` (bundled into the app); add new ones there.
+
 | Expression | Face units |
 |---|---|
 | Joyful shout | jawOpen high, mouthSmile both, eyeSquint light, browInnerUp |
