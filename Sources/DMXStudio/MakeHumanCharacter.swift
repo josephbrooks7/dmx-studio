@@ -605,6 +605,10 @@ enum MHCharacter {
             m.normal.contents = img
             m.normal.intensity = 0.6
         }
+        if hairLike {
+            // Matte: hair cards seen edge-on catch bright reflections that the hair color can't tint.
+            m.lightingModel = .lambert
+        }
         if hairLike || item.transparent {
             m.isDoubleSided = true
             m.transparencyMode = .aOne

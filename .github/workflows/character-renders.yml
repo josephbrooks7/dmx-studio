@@ -40,20 +40,10 @@ jobs:
           r() { NAME=$1; shift; $BIN --character-render "packaging/makehuman/app-review/$NAME.png" "$@" 2>&1 | grep MH_ | tee -a packaging/makehuman/app-review/log.txt; }
           : > packaging/makehuman/app-review/log.txt
           rm -f packaging/makehuman/app-review/*.png packaging/makehuman/app-review/*.jpg
-          r s1-studio-man Body=Masculine Skin=0 Hair=Short Clothing=Formal HairColor=4 Lighting=studio
-          r s2-studio-woman Body=Feminine Skin=0 Hair=Ponytail Clothing=Glam HairColor=3 Outfit=4 Lighting=studio "Accessory=Choker"
-          r s3-studio-face Body=Feminine Skin=0 Hair=Ponytail Clothing=Glam HairColor=3 Lighting=studio Face=1
-          r b1-base-man Body=Masculine Skin=2 Hair=Bald Clothing=Base Lighting=studio
-          r b2-base-woman Body=Feminine Skin=1 Hair=Bald Clothing=Base Lighting=studio
-          r a1-tophat-curly Body=Masculine Skin=2 Hair=Curly "Clothing=Rock Jacket" Lighting=studio "Accessory=Top Hat"
-          r a2-glasses Body=Masculine Skin=4 Hair=Short Clothing=Casual Lighting=studio Accessory=Glasses
-          r a3-wings Body=Feminine Skin=1 Hair=Long Clothing=Fantasy Lighting=studio Accessory=Wings
-          for SEX in Masculine Feminine; do
-            for C in Casual "Rock Jacket" Punk Glam Formal Fantasy; do
-              F=$(echo "$C" | tr -d ' ')
-              r "style-$SEX-$F" Body=$SEX Skin=2 Hair=Long HairColor=1 "Clothing=$C" Lighting=studio
-            done
-          done
+          r h1-long-woman Body=Feminine Skin=2 Hair=Long HairColor=1 Clothing=Glam Lighting=studio
+          r h2-long-man Body=Masculine Skin=0 Hair=Long HairColor=2 Clothing=Fantasy Lighting=studio
+          r h3-face Body=Feminine Skin=2 Hair=Long HairColor=1 Clothing=Glam Lighting=studio Face=1
+          r h4-base Body=Feminine Skin=4 Hair=Bald Clothing=Base Lighting=studio
           ls -la packaging/makehuman/app-review
       - name: Commit renders
         if: always()
