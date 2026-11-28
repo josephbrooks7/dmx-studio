@@ -534,8 +534,8 @@ enum MHCharacter {
         let tails: [SIMD3<Float>]
         let female: Float
         var neck: (center: SIMD3<Float>, radius: Float) = (.zero, 0.055)
-        /// Hat line (mid-forehead, just above the ears): center, tilt (radians, front higher), half width/depth.
-        var hatLine: (center: SIMD3<Float>, tilt: Float, halfWidth: Float, halfDepth: Float)? = nil
+        /// Scalp ring at the hat wearing line (HeadwearFitter).
+        var headFit: HeadFit? = nil
         init(parts: [Part], heads: [SIMD3<Float>], tails: [SIMD3<Float>], female: Float) {
             self.parts = parts; self.heads = heads; self.tails = tails; self.female = female
         }
@@ -774,65 +774,30 @@ enum MHCharacter {
         let boneHeads = heads.map { $0 + shift }
         let boneTails = tails.map { $0 + shift }
 
-        // Hat line, as hatters measure it: around the middle of the forehead and just above the ears, dropping
-        // toward the back of the head. Measured on this head so a hat fits every body.
-        var scalpTop: Float = -.greatestFiniteMagnitude
-        for p in bodyMesh.positions { scalpTop = max(scalpTop, p.y) }
-        var hatLine: (center: SIMD3<Float>, tilt: Float, halfWidth: Float, halfDepth: Float)? = nil
+        // Hat wearing ring measured on this head (mid-forehead, just above the ears); hair tucked under a hat.
+        var headFit: HeadFit? = nil
         do {
             var bi: [String: Int] = [:]
             for (i, b) in lib.bones.enumerated() { bi[b.name] = i }
-            let s = shape.heightMeters / 1.75
+            var top: Float = -.greatestFiniteMagnitude
+            for p in bodyMesh.positions { top = max(top, p.y) }
             let eyeY: Float
-            if let l = bi["eye.L"], let r = bi["eye.R"] { eyeY = (boneHeads[l].y + boneHeads[r].y) / 2 } else { eyeY = scalpTop - 0.115 * s }
-            // Head center from the skull above the eyes.
-            var cx: Float = 0, cz: Float = 0, cn: Float = 0, front: Float = -.greatestFiniteMagnitude, back: Float = .greatestFiniteMagnitude
-            for p in bodyMesh.positions where p.y > eyeY + 0.02 * s {
-                cx += p.x; cz += p.z; cn += 1; front = max(front, p.z); back = min(back, p.z)
+            if let l = bi["eye.L"], let r = bi["eye.R"] { eyeY = (boneHeads[l].y + boneHeads[r].y) / 2 } else { eyeY = top - 0.115 }
+            headFit = HeadwearFitter.fit(scalp: bodyMesh.positions, eyeY: eyeY)
+            if debugLog, let f = headFit {
+                print("MH_HAT ring", String(format: "%.0f mm, width %.0f mm, length %.0f mm, oval %.2f, US %@", f.circumference * 1000,
+                                             f.width * 1000, f.length * 1000, f.length / max(f.width, 0.001), f.usSize), f.warning ?? "")
             }
-            if cn > 0 {
-                cx /= cn; cz /= cn
-                let halfDepthGuess = max(0.05, (front - back) / 2)
-                let zc = (front + back) / 2
-                let yAtCenter = eyeY + 0.035 * s            // just above the ears at the sides
-                let tilt = atan(0.03 * s / halfDepthGuess)   // mid-forehead in front, lower over the back
-                func lineY(_ z: Float) -> Float { yAtCenter + tan(tilt) * (z - zc) }
-                var halfW: Float = 0, halfD: Float = 0
-                for p in bodyMesh.positions where abs(p.y - lineY(p.z)) < 0.006 && abs(p.x - cx) < 0.13 && abs(p.z - zc) < 0.14 {
-                    halfW = max(halfW, abs(p.x - cx)); halfD = max(halfD, abs(p.z - zc))
-                }
-                if halfW > 0.04 && halfD > 0.05 {
-                    hatLine = (SIMD3(cx, yAtCenter, zc), tilt, halfW, halfD)
-                    if debugLog {
-                        let a = halfW, b = halfD
-                        let h = pow(a - b, 2) / pow(a + b, 2)
-                        let circumference = Float.pi * (a + b) * (1 + 3 * h / (10 + sqrt(4 - 3 * h)))
-                        print("MH_HAT head circumference at hat line cm", String(format: "%.1f", circumference * 100))
-                    }
-                }
-                if a.accessory == "Top Hat", let line = hatLine {
-                    // Hair inside the hat would push through it: keep only hair below the hat line.
-                    for i in fitted.indices where fitted[i].0.slot == "hair" {
-                        let m = fitted[i].1
-                        var kept: [UInt32] = []; kept.reserveCapacity(m.triangles.count)
-                        var t = 0
-                        while t + 2 < m.triangles.count {
-                            let a0 = Int(m.triangles[t]), a1 = Int(m.triangles[t + 1]), a2 = Int(m.triangles[t + 2])
-                            t += 3
-                            guard a0 < m.positions.count, a1 < m.positions.count, a2 < m.positions.count else { continue }
-                            let c = (m.positions[a0] + m.positions[a1] + m.positions[a2]) / 3
-                            if c.y > line.center.y + tan(line.tilt) * (c.z - line.center.z) - 0.004 { continue }
-                            kept += [UInt32(a0), UInt32(a1), UInt32(a2)]
-                        }
-                        fitted[i].1.triangles = kept
-                    }
+            if a.accessory == "Top Hat", let f = headFit {
+                for i in fitted.indices where fitted[i].0.slot == "hair" {
+                    HeadwearFitter.tuckHair(&fitted[i].1.positions, fit: f, style: TopHatStyle())
                 }
             }
         }
         var parts = [part(bodyMesh, name: "mh_body", item: nil)]
         for (item, mesh) in fitted { parts.append(part(mesh, name: "mh_" + item.slot, item: item)) }
         let prepared = Prepared(parts: parts, heads: boneHeads, tails: boneTails, female: shape.female)
-        prepared.hatLine = hatLine
+        prepared.headFit = headFit
         // Neck ring for a choker: a third of the way from the neck base to the head joint.
         var bi: [String: Int] = [:]
         for (i, b) in lib.bones.enumerated() { bi[b.name] = i }
@@ -845,36 +810,6 @@ enum MHCharacter {
             prepared.neck = (center, count > 0 ? sum / count : 0.055)
         }
         return prepared
-    }
-
-    /// Top hat sized from the measured hat line: the crown's opening matches the head there (plus felt
-    /// thickness), the underside is closed, the band sits on the line, tilted as the line runs.
-    static func topHat(line: (center: SIMD3<Float>, tilt: Float, halfWidth: Float, halfDepth: Float), heightMeters: Float) -> SCNNode {
-        let s = CGFloat(max(1.4, heightMeters) / 1.75)
-        let felt = SCNMaterial(); felt.lightingModel = .physicallyBased
-        felt.diffuse.contents = NSColor(white: 0.05, alpha: 1); felt.roughness.contents = 0.85; felt.metalness.contents = 0.0
-        let satin = SCNMaterial(); satin.lightingModel = .physicallyBased
-        satin.diffuse.contents = NSColor(white: 0.015, alpha: 1); satin.roughness.contents = 0.35; satin.metalness.contents = 0.0
-        let rx = CGFloat(line.halfWidth) + 0.006, rz = CGFloat(line.halfDepth) + 0.006
-        let r = max(rx, rz)
-        let hat = SCNNode(); hat.name = "mh_top_hat"
-        let shell = SCNNode(); hat.addChildNode(shell)
-        shell.scale = SCNVector3(rx / r, 1, rz / r)                // oval like the head
-        let crownHeight = 0.15 * s
-        let crown = SCNCylinder(radius: r, height: crownHeight)    // capped: closed top and underside
-        crown.materials = [felt]
-        let crownNode = SCNNode(geometry: crown); crownNode.position.y = crownHeight / 2
-        shell.addChildNode(crownNode)
-        let band = SCNCylinder(radius: r + 0.002, height: 0.028 * s)
-        band.materials = [satin]
-        let bandNode = SCNNode(geometry: band); bandNode.position.y = 0.014 * s + 0.004
-        shell.addChildNode(bandNode)
-        let brim = SCNCylinder(radius: r + 0.05 * s, height: 0.008 * s)
-        brim.materials = [felt]
-        let brimNode = SCNNode(geometry: brim); brimNode.position.y = 0.004 * s
-        shell.addChildNode(brimNode)
-        hat.eulerAngles.x = CGFloat(-line.tilt)                   // follow the hat line: front up, back down
-        return hat
     }
 
     static func assemble(_ p: Prepared, _ a: PerformerAppearance, lib: MHLibrary) -> SCNNode {
@@ -918,9 +853,10 @@ enum MHCharacter {
             node.eulerAngles.x = -0.12                            // follows the neck's slight forward lean
             boneNodes[n].addChildNode(node)
         }
-        if a.accessory == "Top Hat", let line = p.hatLine, let h = index["head"] {
-            let hat = topHat(line: line, heightMeters: Float(a.height))
-            hat.simdPosition = line.center - boneHeads[h]      // bone frame = world frame before posing
+        if a.accessory == "Top Hat", let fit = p.headFit, let h = index["head"] {
+            // Rigid hat on the head bone: follows yaw, pitch and roll exactly, no drift.
+            let hat = HeadwearFitter.topHat(fit)
+            hat.simdPosition = fit.center - boneHeads[h]        // bone frame = world frame before posing
             boneNodes[h].addChildNode(hat)
         }
         MHPose.apply(a.pose ?? "Natural", bones: boneNodes, index: index, heads: boneHeads, tails: boneTails)
