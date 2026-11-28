@@ -1,0 +1,20 @@
+{
+  "schemaVersion": 1,
+  "about": "US fitted hat sizes vs head circumference with ANSUR II-based frequency (4,082 men, 1,986 women), from Joseph's reference (toggle9.com analysis). Estimated head-size frequency, not retail sales. Letter sizes vary by manufacturer.",
+  "sizes": [
+    {"us": "6 5/8 or smaller", "cm": 53.0, "men": 0.3,  "women": 4.2},
+    {"us": "6 3/4",  "cm": 54.0, "men": 1.1,  "women": 9.4},
+    {"us": "6 7/8",  "cm": 55.0, "men": 5.3,  "women": 16.5},
+    {"us": "7",      "cm": 55.8, "men": 13.1, "women": 23.3},
+    {"us": "7 1/8",  "cm": 56.8, "men": 21.3, "women": 18.4},
+    {"us": "7 1/4",  "cm": 57.7, "men": 25.1, "women": 13.7},
+    {"us": "7 3/8",  "cm": 58.7, "men": 18.9, "women": 6.9},
+    {"us": "7 1/2",  "cm": 59.6, "men": 9.8,  "women": 4.2},
+    {"us": "7 5/8",  "cm": 60.6, "men": 3.5,  "women": 2.3},
+    {"us": "7 3/4 or larger", "cm": 61.5, "men": 1.7, "women": 1.1}
+  ],
+  "letters": {"XS": [52, 53], "S": [54, 55], "M": [56, 57], "L": [58, 59], "XL": [60, 61], "XXL": [62, 63], "XXXL": [64, 65]},
+  "defaults": {"masculineCm": 57.7, "feminineCm": 55.8},
+  "range": {"normalCm": [52, 64], "extendedCm": [48, 68], "cmPerEighth": 1.0},
+  "fitStyles": ["tight", "standard", "loose", "oversized"]
+}
