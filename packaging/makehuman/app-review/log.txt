@@ -1,59 +1,59 @@
-MH_RENDER Body=Masculine Skin=0 Hair=Short Clothing=Formal HairColor=4 Lighting=studio -> outfit=Suit3, shoes=tbar, hair=short01, eyes=HighPolyEyes, eyebrows=eyebrow001, eyelashes=Eyelashes01
+MH_RENDER Body=Masculine Skin=0 Hair=Short Clothing=Formal HairColor=4 Lighting=studio -> outfit=Suit3, shoes=Shoes Oxford male, hair=short01, eyes=HighPolyEyes, eyebrows=eyebrow001, eyelashes=Eyelashes01
 MH_ITEM outfit Suit3 vertices 9795 hides 3848
-MH_ITEM shoes tbar vertices 566 hides 2160
+MH_ITEM shoes Shoes Oxford male vertices 3487 hides 2286
 MH_ITEM hair short01 vertices 3177 hides 0
 MH_ITEM eyes HighPolyEyes vertices 1076 hides 0
 MH_ITEM eyebrows eyebrow001 vertices 126 hides 0
 MH_ITEM eyelashes Eyelashes01 vertices 250 hides 0
-MH_BODY triangles kept 15196 of 26756 height m 1.75
-MH_TIME build seconds 1.113
-MH_TIME rebuild after color change seconds 0.025
+MH_BODY triangles kept 14724 of 26756 height m 1.75
+MH_TIME build seconds 1.344
+MH_TIME rebuild after color change seconds 0.030
 MH_ITEM outfit Suit3 vertices 9795 hides 3848
-MH_ITEM shoes tbar vertices 566 hides 2160
+MH_ITEM shoes Shoes Oxford male vertices 3487 hides 2286
 MH_ITEM hair short01 vertices 3177 hides 0
 MH_ITEM eyes HighPolyEyes vertices 1076 hides 0
 MH_ITEM eyebrows eyebrow001 vertices 126 hides 0
 MH_ITEM eyelashes Eyelashes01 vertices 250 hides 0
-MH_BODY triangles kept 15196 of 26756 height m 1.78
-MH_TIME rebuild after height change seconds 0.257
+MH_BODY triangles kept 14724 of 26756 height m 1.78
+MH_TIME rebuild after height change seconds 0.357
 MH_RENDER wrote packaging/makehuman/app-review/s1-studio-man.png
-MH_RENDER Body=Feminine Skin=0 Hair=Ponytail Clothing=Glam HairColor=3 Outfit=4 Lighting=studio Accessory=Choker -> outfit=Fem Suit2, shoes=Booties stiletto, hair=ponytail01, eyes=HighPolyEyes, eyebrows=eyebrow001, eyelashes=Eyelashes01
-MH_ITEM outfit Fem Suit2 vertices 9781 hides 3854
+MH_RENDER Body=Feminine Skin=0 Hair=Ponytail Clothing=Glam HairColor=3 Outfit=4 Lighting=studio Accessory=Choker -> outfit=frill partydress1, shoes=Booties stiletto, hair=ponytail01, eyes=HighPolyEyes, eyebrows=eyebrow001, eyelashes=Eyelashes01
+MH_ITEM outfit frill partydress1 vertices 16698 hides 197
 MH_ITEM shoes Booties stiletto vertices 27870 hides 2206
 MH_ITEM hair ponytail01 vertices 4049 hides 0
 MH_ITEM eyes HighPolyEyes vertices 1076 hides 0
 MH_ITEM eyebrows eyebrow001 vertices 126 hides 0
 MH_ITEM eyelashes Eyelashes01 vertices 250 hides 0
-MH_BODY triangles kept 14836 of 26756 height m 1.75
-MH_TIME build seconds 1.079
-MH_TIME rebuild after color change seconds 0.025
-MH_ITEM outfit Fem Suit2 vertices 9781 hides 3854
+MH_BODY triangles kept 21877 of 26756 height m 1.75
+MH_TIME build seconds 1.317
+MH_TIME rebuild after color change seconds 0.049
+MH_ITEM outfit frill partydress1 vertices 16698 hides 197
 MH_ITEM shoes Booties stiletto vertices 27870 hides 2206
 MH_ITEM hair ponytail01 vertices 4049 hides 0
 MH_ITEM eyes HighPolyEyes vertices 1076 hides 0
 MH_ITEM eyebrows eyebrow001 vertices 126 hides 0
 MH_ITEM eyelashes Eyelashes01 vertices 250 hides 0
-MH_BODY triangles kept 14836 of 26756 height m 1.78
-MH_TIME rebuild after height change seconds 0.530
+MH_BODY triangles kept 21877 of 26756 height m 1.78
+MH_TIME rebuild after height change seconds 0.821
 MH_RENDER wrote packaging/makehuman/app-review/s2-studio-woman.png
-MH_RENDER Body=Feminine Skin=0 Hair=Ponytail Clothing=Glam HairColor=3 Lighting=studio Face=1 -> outfit=Fem Suit2, shoes=Booties stiletto, hair=ponytail01, eyes=HighPolyEyes, eyebrows=eyebrow001, eyelashes=Eyelashes01
-MH_ITEM outfit Fem Suit2 vertices 9781 hides 3854
+MH_RENDER Body=Feminine Skin=0 Hair=Ponytail Clothing=Glam HairColor=3 Lighting=studio Face=1 -> outfit=frill partydress1, shoes=Booties stiletto, hair=ponytail01, eyes=HighPolyEyes, eyebrows=eyebrow001, eyelashes=Eyelashes01
+MH_ITEM outfit frill partydress1 vertices 16698 hides 197
 MH_ITEM shoes Booties stiletto vertices 27870 hides 2206
 MH_ITEM hair ponytail01 vertices 4049 hides 0
 MH_ITEM eyes HighPolyEyes vertices 1076 hides 0
 MH_ITEM eyebrows eyebrow001 vertices 126 hides 0
 MH_ITEM eyelashes Eyelashes01 vertices 250 hides 0
-MH_BODY triangles kept 14836 of 26756 height m 1.75
-MH_TIME build seconds 0.843
-MH_TIME rebuild after color change seconds 0.020
-MH_ITEM outfit Fem Suit2 vertices 9781 hides 3854
+MH_BODY triangles kept 21877 of 26756 height m 1.75
+MH_TIME build seconds 1.193
+MH_TIME rebuild after color change seconds 0.034
+MH_ITEM outfit frill partydress1 vertices 16698 hides 197
 MH_ITEM shoes Booties stiletto vertices 27870 hides 2206
 MH_ITEM hair ponytail01 vertices 4049 hides 0
 MH_ITEM eyes HighPolyEyes vertices 1076 hides 0
 MH_ITEM eyebrows eyebrow001 vertices 126 hides 0
 MH_ITEM eyelashes Eyelashes01 vertices 250 hides 0
-MH_BODY triangles kept 14836 of 26756 height m 1.78
-MH_TIME rebuild after height change seconds 0.479
+MH_BODY triangles kept 21877 of 26756 height m 1.78
+MH_TIME rebuild after height change seconds 0.778
 MH_RENDER wrote packaging/makehuman/app-review/s3-studio-face.png
 MH_RENDER Body=Masculine Skin=2 Hair=Bald Clothing=Base Lighting=studio -> bottom=jean shorts, eyes=HighPolyEyes, eyebrows=eyebrow001, eyelashes=Eyelashes01
 MH_ITEM bottom jean shorts vertices 342 hides 277
@@ -61,14 +61,14 @@ MH_ITEM eyes HighPolyEyes vertices 1076 hides 0
 MH_ITEM eyebrows eyebrow001 vertices 126 hides 0
 MH_ITEM eyelashes Eyelashes01 vertices 250 hides 0
 MH_BODY triangles kept 26158 of 26756 height m 1.75
-MH_TIME build seconds 0.270
-MH_TIME rebuild after color change seconds 0.020
+MH_TIME build seconds 0.353
+MH_TIME rebuild after color change seconds 0.027
 MH_ITEM bottom jean shorts vertices 342 hides 277
 MH_ITEM eyes HighPolyEyes vertices 1076 hides 0
 MH_ITEM eyebrows eyebrow001 vertices 126 hides 0
 MH_ITEM eyelashes Eyelashes01 vertices 250 hides 0
 MH_BODY triangles kept 26158 of 26756 height m 1.78
-MH_TIME rebuild after height change seconds 0.104
+MH_TIME rebuild after height change seconds 0.139
 MH_RENDER wrote packaging/makehuman/app-review/b1-base-man.png
 MH_RENDER Body=Feminine Skin=1 Hair=Bald Clothing=Base Lighting=studio -> outfit=female sportsuit01, eyes=HighPolyEyes, eyebrows=eyebrow001, eyelashes=Eyelashes01
 MH_ITEM outfit female sportsuit01 vertices 1986 hides 4678
@@ -76,14 +76,14 @@ MH_ITEM eyes HighPolyEyes vertices 1076 hides 0
 MH_ITEM eyebrows eyebrow001 vertices 126 hides 0
 MH_ITEM eyelashes Eyelashes01 vertices 250 hides 0
 MH_BODY triangles kept 22410 of 26756 height m 1.75
-MH_TIME build seconds 0.280
-MH_TIME rebuild after color change seconds 0.026
+MH_TIME build seconds 0.350
+MH_TIME rebuild after color change seconds 0.035
 MH_ITEM outfit female sportsuit01 vertices 1986 hides 4678
 MH_ITEM eyes HighPolyEyes vertices 1076 hides 0
 MH_ITEM eyebrows eyebrow001 vertices 126 hides 0
 MH_ITEM eyelashes Eyelashes01 vertices 250 hides 0
 MH_BODY triangles kept 22410 of 26756 height m 1.78
-MH_TIME rebuild after height change seconds 0.132
+MH_TIME rebuild after height change seconds 0.138
 MH_RENDER wrote packaging/makehuman/app-review/b2-base-woman.png
 MH_RENDER Body=Masculine Skin=2 Hair=Curly Clothing=Rock Jacket Lighting=studio Accessory=Top Hat -> outfit=male casualsuit05, shoes=Boots Ankle Male, hair=afro01, eyes=HighPolyEyes, eyebrows=eyebrow001, eyelashes=Eyelashes01
 MH_ITEM outfit male casualsuit05 vertices 3871 hides 6058
@@ -93,8 +93,8 @@ MH_ITEM eyes HighPolyEyes vertices 1076 hides 0
 MH_ITEM eyebrows eyebrow001 vertices 126 hides 0
 MH_ITEM eyelashes Eyelashes01 vertices 250 hides 0
 MH_BODY triangles kept 15572 of 26756 height m 1.75
-MH_TIME build seconds 0.435
-MH_TIME rebuild after color change seconds 0.019
+MH_TIME build seconds 0.688
+MH_TIME rebuild after color change seconds 0.032
 MH_ITEM outfit male casualsuit05 vertices 3871 hides 6058
 MH_ITEM shoes Boots Ankle Male vertices 2530 hides 2246
 MH_ITEM hair afro01 vertices 2276 hides 0
@@ -102,7 +102,7 @@ MH_ITEM eyes HighPolyEyes vertices 1076 hides 0
 MH_ITEM eyebrows eyebrow001 vertices 126 hides 0
 MH_ITEM eyelashes Eyelashes01 vertices 250 hides 0
 MH_BODY triangles kept 15572 of 26756 height m 1.78
-MH_TIME rebuild after height change seconds 0.178
+MH_TIME rebuild after height change seconds 0.240
 MH_RENDER wrote packaging/makehuman/app-review/a1-tophat-curly.png
 MH_RENDER Body=Masculine Skin=4 Hair=Short Clothing=Casual Lighting=studio Accessory=Glasses -> outfit=male casualsuit01, shoes=shoes05, hair=short01, glasses=Glasses Library Male, eyes=HighPolyEyes, eyebrows=eyebrow001, eyelashes=Eyelashes01
 MH_ITEM outfit male casualsuit01 vertices 8984 hides 8430
@@ -113,8 +113,8 @@ MH_ITEM eyes HighPolyEyes vertices 1076 hides 0
 MH_ITEM eyebrows eyebrow001 vertices 126 hides 0
 MH_ITEM eyelashes Eyelashes01 vertices 250 hides 0
 MH_BODY triangles kept 15318 of 26756 height m 1.75
-MH_TIME build seconds 0.586
-MH_TIME rebuild after color change seconds 0.020
+MH_TIME build seconds 0.740
+MH_TIME rebuild after color change seconds 0.027
 MH_ITEM outfit male casualsuit01 vertices 8984 hides 8430
 MH_ITEM shoes shoes05 vertices 1744 hides 3206
 MH_ITEM hair short01 vertices 3177 hides 0
@@ -123,26 +123,254 @@ MH_ITEM eyes HighPolyEyes vertices 1076 hides 0
 MH_ITEM eyebrows eyebrow001 vertices 126 hides 0
 MH_ITEM eyelashes Eyelashes01 vertices 250 hides 0
 MH_BODY triangles kept 15318 of 26756 height m 1.78
-MH_TIME rebuild after height change seconds 0.277
+MH_TIME rebuild after height change seconds 0.359
 MH_RENDER wrote packaging/makehuman/app-review/a2-glasses.png
-MH_RENDER Body=Feminine Skin=1 Hair=Long Clothing=Fantasy Lighting=studio Accessory=Wings -> outfit=male casualsuit06, shoes=Boots Ankle, hair=o4saken long01, wings=elv butterflywing1, eyes=HighPolyEyes, eyebrows=eyebrow001, eyelashes=Eyelashes01
-MH_ITEM outfit male casualsuit06 vertices 4035 hides 5026
-MH_ITEM shoes Boots Ankle vertices 2530 hides 2206
+MH_RENDER Body=Feminine Skin=1 Hair=Long Clothing=Fantasy Lighting=studio Accessory=Wings -> outfit=elvs goddess dress4, shoes=elvs basic elfshoe1, hair=o4saken long01, wings=elv butterflywing1, eyes=HighPolyEyes, eyebrows=eyebrow001, eyelashes=Eyelashes01
+MH_ITEM outfit elvs goddess dress4 vertices 35916 hides 0
+MH_ITEM shoes elvs basic elfshoe1 vertices 1502 hides 2226
 MH_ITEM hair o4saken long01 vertices 15033 hides 0
 MH_ITEM wings elv butterflywing1 vertices 7472 hides 0
 MH_ITEM eyes HighPolyEyes vertices 1076 hides 0
 MH_ITEM eyebrows eyebrow001 vertices 126 hides 0
 MH_ITEM eyelashes Eyelashes01 vertices 250 hides 0
-MH_BODY triangles kept 17092 of 26756 height m 1.75
-MH_TIME build seconds 0.875
-MH_TIME rebuild after color change seconds 0.020
-MH_ITEM outfit male casualsuit06 vertices 4035 hides 5026
-MH_ITEM shoes Boots Ankle vertices 2530 hides 2206
+MH_BODY triangles kept 22213 of 26756 height m 1.75
+MH_TIME build seconds 1.602
+MH_TIME rebuild after color change seconds 0.029
+MH_ITEM outfit elvs goddess dress4 vertices 35916 hides 0
+MH_ITEM shoes elvs basic elfshoe1 vertices 1502 hides 2226
 MH_ITEM hair o4saken long01 vertices 15033 hides 0
 MH_ITEM wings elv butterflywing1 vertices 7472 hides 0
 MH_ITEM eyes HighPolyEyes vertices 1076 hides 0
 MH_ITEM eyebrows eyebrow001 vertices 126 hides 0
 MH_ITEM eyelashes Eyelashes01 vertices 250 hides 0
-MH_BODY triangles kept 17092 of 26756 height m 1.78
-MH_TIME rebuild after height change seconds 0.521
+MH_BODY triangles kept 22213 of 26756 height m 1.78
+MH_TIME rebuild after height change seconds 1.226
 MH_RENDER wrote packaging/makehuman/app-review/a3-wings.png
+MH_RENDER Body=Masculine Skin=2 Hair=Long HairColor=1 Clothing=Casual Lighting=studio -> outfit=male casualsuit01, shoes=shoes05, hair=o4saken long01, eyes=HighPolyEyes, eyebrows=eyebrow001, eyelashes=Eyelashes01
+MH_ITEM outfit male casualsuit01 vertices 8984 hides 8430
+MH_ITEM shoes shoes05 vertices 1744 hides 3206
+MH_ITEM hair o4saken long01 vertices 15033 hides 0
+MH_ITEM eyes HighPolyEyes vertices 1076 hides 0
+MH_ITEM eyebrows eyebrow001 vertices 126 hides 0
+MH_ITEM eyelashes Eyelashes01 vertices 250 hides 0
+MH_BODY triangles kept 15318 of 26756 height m 1.75
+MH_TIME build seconds 0.901
+MH_TIME rebuild after color change seconds 0.035
+MH_ITEM outfit male casualsuit01 vertices 8984 hides 8430
+MH_ITEM shoes shoes05 vertices 1744 hides 3206
+MH_ITEM hair o4saken long01 vertices 15033 hides 0
+MH_ITEM eyes HighPolyEyes vertices 1076 hides 0
+MH_ITEM eyebrows eyebrow001 vertices 126 hides 0
+MH_ITEM eyelashes Eyelashes01 vertices 250 hides 0
+MH_BODY triangles kept 15318 of 26756 height m 1.78
+MH_TIME rebuild after height change seconds 0.439
+MH_RENDER wrote packaging/makehuman/app-review/style-Masculine-Casual.png
+MH_RENDER Body=Masculine Skin=2 Hair=Long HairColor=1 Clothing=Rock Jacket Lighting=studio -> outfit=male casualsuit05, shoes=Boots Ankle Male, hair=o4saken long01, eyes=HighPolyEyes, eyebrows=eyebrow001, eyelashes=Eyelashes01
+MH_ITEM outfit male casualsuit05 vertices 3871 hides 6058
+MH_ITEM shoes Boots Ankle Male vertices 2530 hides 2246
+MH_ITEM hair o4saken long01 vertices 15033 hides 0
+MH_ITEM eyes HighPolyEyes vertices 1076 hides 0
+MH_ITEM eyebrows eyebrow001 vertices 126 hides 0
+MH_ITEM eyelashes Eyelashes01 vertices 250 hides 0
+MH_BODY triangles kept 15572 of 26756 height m 1.75
+MH_TIME build seconds 0.924
+MH_TIME rebuild after color change seconds 0.027
+MH_ITEM outfit male casualsuit05 vertices 3871 hides 6058
+MH_ITEM shoes Boots Ankle Male vertices 2530 hides 2246
+MH_ITEM hair o4saken long01 vertices 15033 hides 0
+MH_ITEM eyes HighPolyEyes vertices 1076 hides 0
+MH_ITEM eyebrows eyebrow001 vertices 126 hides 0
+MH_ITEM eyelashes Eyelashes01 vertices 250 hides 0
+MH_BODY triangles kept 15572 of 26756 height m 1.78
+MH_TIME rebuild after height change seconds 0.453
+MH_RENDER wrote packaging/makehuman/app-review/style-Masculine-RockJacket.png
+MH_RENDER Body=Masculine Skin=2 Hair=Long HairColor=1 Clothing=Punk Lighting=studio -> outfit=male casualsuit04, shoes=Boots Ankle Male, hair=o4saken long01, eyes=HighPolyEyes, eyebrows=eyebrow001, eyelashes=Eyelashes01
+MH_ITEM outfit male casualsuit04 vertices 1887 hides 5026
+MH_ITEM shoes Boots Ankle Male vertices 2530 hides 2246
+MH_ITEM hair o4saken long01 vertices 15033 hides 0
+MH_ITEM eyes HighPolyEyes vertices 1076 hides 0
+MH_ITEM eyebrows eyebrow001 vertices 126 hides 0
+MH_ITEM eyelashes Eyelashes01 vertices 250 hides 0
+MH_BODY triangles kept 17012 of 26756 height m 1.75
+MH_TIME build seconds 0.846
+MH_TIME rebuild after color change seconds 0.034
+MH_ITEM outfit male casualsuit04 vertices 1887 hides 5026
+MH_ITEM shoes Boots Ankle Male vertices 2530 hides 2246
+MH_ITEM hair o4saken long01 vertices 15033 hides 0
+MH_ITEM eyes HighPolyEyes vertices 1076 hides 0
+MH_ITEM eyebrows eyebrow001 vertices 126 hides 0
+MH_ITEM eyelashes Eyelashes01 vertices 250 hides 0
+MH_BODY triangles kept 17012 of 26756 height m 1.78
+MH_TIME rebuild after height change seconds 0.493
+MH_RENDER wrote packaging/makehuman/app-review/style-Masculine-Punk.png
+MH_RENDER Body=Masculine Skin=2 Hair=Long HairColor=1 Clothing=Glam Lighting=studio -> outfit=Suit Double Breasted, shoes=Shoes Oxford male, hair=o4saken long01, eyes=HighPolyEyes, eyebrows=eyebrow001, eyelashes=Eyelashes01
+MH_ITEM outfit Suit Double Breasted vertices 6021 hides 3596
+MH_ITEM shoes Shoes Oxford male vertices 3487 hides 2286
+MH_ITEM hair o4saken long01 vertices 15033 hides 0
+MH_ITEM eyes HighPolyEyes vertices 1076 hides 0
+MH_ITEM eyebrows eyebrow001 vertices 126 hides 0
+MH_ITEM eyelashes Eyelashes01 vertices 250 hides 0
+MH_BODY triangles kept 15106 of 26756 height m 1.75
+MH_TIME build seconds 1.437
+MH_TIME rebuild after color change seconds 0.065
+MH_ITEM outfit Suit Double Breasted vertices 6021 hides 3596
+MH_ITEM shoes Shoes Oxford male vertices 3487 hides 2286
+MH_ITEM hair o4saken long01 vertices 15033 hides 0
+MH_ITEM eyes HighPolyEyes vertices 1076 hides 0
+MH_ITEM eyebrows eyebrow001 vertices 126 hides 0
+MH_ITEM eyelashes Eyelashes01 vertices 250 hides 0
+MH_BODY triangles kept 15106 of 26756 height m 1.78
+MH_TIME rebuild after height change seconds 0.520
+MH_RENDER wrote packaging/makehuman/app-review/style-Masculine-Glam.png
+MH_RENDER Body=Masculine Skin=2 Hair=Long HairColor=1 Clothing=Formal Lighting=studio -> outfit=Suit3, shoes=Shoes Oxford male, hair=o4saken long01, eyes=HighPolyEyes, eyebrows=eyebrow001, eyelashes=Eyelashes01
+MH_ITEM outfit Suit3 vertices 9795 hides 3848
+MH_ITEM shoes Shoes Oxford male vertices 3487 hides 2286
+MH_ITEM hair o4saken long01 vertices 15033 hides 0
+MH_ITEM eyes HighPolyEyes vertices 1076 hides 0
+MH_ITEM eyebrows eyebrow001 vertices 126 hides 0
+MH_ITEM eyelashes Eyelashes01 vertices 250 hides 0
+MH_BODY triangles kept 14724 of 26756 height m 1.75
+MH_TIME build seconds 0.922
+MH_TIME rebuild after color change seconds 0.026
+MH_ITEM outfit Suit3 vertices 9795 hides 3848
+MH_ITEM shoes Shoes Oxford male vertices 3487 hides 2286
+MH_ITEM hair o4saken long01 vertices 15033 hides 0
+MH_ITEM eyes HighPolyEyes vertices 1076 hides 0
+MH_ITEM eyebrows eyebrow001 vertices 126 hides 0
+MH_ITEM eyelashes Eyelashes01 vertices 250 hides 0
+MH_BODY triangles kept 14724 of 26756 height m 1.78
+MH_TIME rebuild after height change seconds 0.516
+MH_RENDER wrote packaging/makehuman/app-review/style-Masculine-Formal.png
+MH_RENDER Body=Masculine Skin=2 Hair=Long HairColor=1 Clothing=Fantasy Lighting=studio -> outfit=Monks Robe, shoes=BootsViking, hair=o4saken long01, eyes=HighPolyEyes, eyebrows=eyebrow001, eyelashes=Eyelashes01
+MH_ITEM outfit Monks Robe vertices 11271 hides 2590
+MH_ITEM shoes BootsViking vertices 4108 hides 0
+MH_ITEM hair o4saken long01 vertices 15033 hides 0
+MH_ITEM eyes HighPolyEyes vertices 1076 hides 0
+MH_ITEM eyebrows eyebrow001 vertices 126 hides 0
+MH_ITEM eyelashes Eyelashes01 vertices 250 hides 0
+MH_BODY triangles kept 21448 of 26756 height m 1.75
+MH_TIME build seconds 0.949
+MH_TIME rebuild after color change seconds 0.035
+MH_ITEM outfit Monks Robe vertices 11271 hides 2590
+MH_ITEM shoes BootsViking vertices 4108 hides 0
+MH_ITEM hair o4saken long01 vertices 15033 hides 0
+MH_ITEM eyes HighPolyEyes vertices 1076 hides 0
+MH_ITEM eyebrows eyebrow001 vertices 126 hides 0
+MH_ITEM eyelashes Eyelashes01 vertices 250 hides 0
+MH_BODY triangles kept 21448 of 26756 height m 1.78
+MH_TIME rebuild after height change seconds 0.577
+MH_RENDER wrote packaging/makehuman/app-review/style-Masculine-Fantasy.png
+MH_RENDER Body=Feminine Skin=2 Hair=Long HairColor=1 Clothing=Casual Lighting=studio -> outfit=female casualsuit01, shoes=shoes05, hair=o4saken long01, eyes=HighPolyEyes, eyebrows=eyebrow001, eyelashes=Eyelashes01
+MH_ITEM outfit female casualsuit01 vertices 2406 hides 5372
+MH_ITEM shoes shoes05 vertices 1744 hides 3206
+MH_ITEM hair o4saken long01 vertices 15033 hides 0
+MH_ITEM eyes HighPolyEyes vertices 1076 hides 0
+MH_ITEM eyebrows eyebrow001 vertices 126 hides 0
+MH_ITEM eyelashes Eyelashes01 vertices 250 hides 0
+MH_BODY triangles kept 16848 of 26756 height m 1.75
+MH_TIME build seconds 0.774
+MH_TIME rebuild after color change seconds 0.031
+MH_ITEM outfit female casualsuit01 vertices 2406 hides 5372
+MH_ITEM shoes shoes05 vertices 1744 hides 3206
+MH_ITEM hair o4saken long01 vertices 15033 hides 0
+MH_ITEM eyes HighPolyEyes vertices 1076 hides 0
+MH_ITEM eyebrows eyebrow001 vertices 126 hides 0
+MH_ITEM eyelashes Eyelashes01 vertices 250 hides 0
+MH_BODY triangles kept 16848 of 26756 height m 1.78
+MH_TIME rebuild after height change seconds 0.439
+MH_RENDER wrote packaging/makehuman/app-review/style-Feminine-Casual.png
+MH_RENDER Body=Feminine Skin=2 Hair=Long HairColor=1 Clothing=Rock Jacket Lighting=studio -> outfit=male casualsuit05, shoes=Boots Ankle, hair=o4saken long01, eyes=HighPolyEyes, eyebrows=eyebrow001, eyelashes=Eyelashes01
+MH_ITEM outfit male casualsuit05 vertices 3871 hides 6058
+MH_ITEM shoes Boots Ankle vertices 2530 hides 2206
+MH_ITEM hair o4saken long01 vertices 15033 hides 0
+MH_ITEM eyes HighPolyEyes vertices 1076 hides 0
+MH_ITEM eyebrows eyebrow001 vertices 126 hides 0
+MH_ITEM eyelashes Eyelashes01 vertices 250 hides 0
+MH_BODY triangles kept 15652 of 26756 height m 1.75
+MH_TIME build seconds 0.875
+MH_TIME rebuild after color change seconds 0.038
+MH_ITEM outfit male casualsuit05 vertices 3871 hides 6058
+MH_ITEM shoes Boots Ankle vertices 2530 hides 2206
+MH_ITEM hair o4saken long01 vertices 15033 hides 0
+MH_ITEM eyes HighPolyEyes vertices 1076 hides 0
+MH_ITEM eyebrows eyebrow001 vertices 126 hides 0
+MH_ITEM eyelashes Eyelashes01 vertices 250 hides 0
+MH_BODY triangles kept 15652 of 26756 height m 1.78
+MH_TIME rebuild after height change seconds 0.409
+MH_RENDER wrote packaging/makehuman/app-review/style-Feminine-RockJacket.png
+MH_RENDER Body=Feminine Skin=2 Hair=Long HairColor=1 Clothing=Punk Lighting=studio -> outfit=Dress Shift, shoes=Boots Ankle, hair=o4saken long01, eyes=HighPolyEyes, eyebrows=eyebrow001, eyelashes=Eyelashes01
+MH_ITEM outfit Dress Shift vertices 7814 hides 1513
+MH_ITEM shoes Boots Ankle vertices 2530 hides 2206
+MH_ITEM hair o4saken long01 vertices 15033 hides 0
+MH_ITEM eyes HighPolyEyes vertices 1076 hides 0
+MH_ITEM eyebrows eyebrow001 vertices 126 hides 0
+MH_ITEM eyelashes Eyelashes01 vertices 250 hides 0
+MH_BODY triangles kept 19150 of 26756 height m 1.75
+MH_TIME build seconds 0.894
+MH_TIME rebuild after color change seconds 0.032
+MH_ITEM outfit Dress Shift vertices 7814 hides 1513
+MH_ITEM shoes Boots Ankle vertices 2530 hides 2206
+MH_ITEM hair o4saken long01 vertices 15033 hides 0
+MH_ITEM eyes HighPolyEyes vertices 1076 hides 0
+MH_ITEM eyebrows eyebrow001 vertices 126 hides 0
+MH_ITEM eyelashes Eyelashes01 vertices 250 hides 0
+MH_BODY triangles kept 19150 of 26756 height m 1.78
+MH_TIME rebuild after height change seconds 0.523
+MH_RENDER wrote packaging/makehuman/app-review/style-Feminine-Punk.png
+MH_RENDER Body=Feminine Skin=2 Hair=Long HairColor=1 Clothing=Glam Lighting=studio -> outfit=frill partydress1, shoes=Booties stiletto, hair=o4saken long01, eyes=HighPolyEyes, eyebrows=eyebrow001, eyelashes=Eyelashes01
+MH_ITEM outfit frill partydress1 vertices 16698 hides 197
+MH_ITEM shoes Booties stiletto vertices 27870 hides 2206
+MH_ITEM hair o4saken long01 vertices 15033 hides 0
+MH_ITEM eyes HighPolyEyes vertices 1076 hides 0
+MH_ITEM eyebrows eyebrow001 vertices 126 hides 0
+MH_ITEM eyelashes Eyelashes01 vertices 250 hides 0
+MH_BODY triangles kept 21877 of 26756 height m 1.75
+MH_TIME build seconds 1.702
+MH_TIME rebuild after color change seconds 0.035
+MH_ITEM outfit frill partydress1 vertices 16698 hides 197
+MH_ITEM shoes Booties stiletto vertices 27870 hides 2206
+MH_ITEM hair o4saken long01 vertices 15033 hides 0
+MH_ITEM eyes HighPolyEyes vertices 1076 hides 0
+MH_ITEM eyebrows eyebrow001 vertices 126 hides 0
+MH_ITEM eyelashes Eyelashes01 vertices 250 hides 0
+MH_BODY triangles kept 21877 of 26756 height m 1.78
+MH_TIME rebuild after height change seconds 1.167
+MH_RENDER wrote packaging/makehuman/app-review/style-Feminine-Glam.png
+MH_RENDER Body=Feminine Skin=2 Hair=Long HairColor=1 Clothing=Formal Lighting=studio -> outfit=elvs long halterdress1, shoes=Booties stiletto, hair=o4saken long01, eyes=HighPolyEyes, eyebrows=eyebrow001, eyelashes=Eyelashes01
+MH_ITEM outfit elvs long halterdress1 vertices 15755 hides 451
+MH_ITEM shoes Booties stiletto vertices 27870 hides 2206
+MH_ITEM hair o4saken long01 vertices 15033 hides 0
+MH_ITEM eyes HighPolyEyes vertices 1076 hides 0
+MH_ITEM eyebrows eyebrow001 vertices 126 hides 0
+MH_ITEM eyelashes Eyelashes01 vertices 250 hides 0
+MH_BODY triangles kept 21363 of 26756 height m 1.75
+MH_TIME build seconds 1.606
+MH_TIME rebuild after color change seconds 0.032
+MH_ITEM outfit elvs long halterdress1 vertices 15755 hides 451
+MH_ITEM shoes Booties stiletto vertices 27870 hides 2206
+MH_ITEM hair o4saken long01 vertices 15033 hides 0
+MH_ITEM eyes HighPolyEyes vertices 1076 hides 0
+MH_ITEM eyebrows eyebrow001 vertices 126 hides 0
+MH_ITEM eyelashes Eyelashes01 vertices 250 hides 0
+MH_BODY triangles kept 21363 of 26756 height m 1.78
+MH_TIME rebuild after height change seconds 1.018
+MH_RENDER wrote packaging/makehuman/app-review/style-Feminine-Formal.png
+MH_RENDER Body=Feminine Skin=2 Hair=Long HairColor=1 Clothing=Fantasy Lighting=studio -> outfit=elvs goddess dress4, shoes=elvs basic elfshoe1, hair=o4saken long01, eyes=HighPolyEyes, eyebrows=eyebrow001, eyelashes=Eyelashes01
+MH_ITEM outfit elvs goddess dress4 vertices 35916 hides 0
+MH_ITEM shoes elvs basic elfshoe1 vertices 1502 hides 2226
+MH_ITEM hair o4saken long01 vertices 15033 hides 0
+MH_ITEM eyes HighPolyEyes vertices 1076 hides 0
+MH_ITEM eyebrows eyebrow001 vertices 126 hides 0
+MH_ITEM eyelashes Eyelashes01 vertices 250 hides 0
+MH_BODY triangles kept 22213 of 26756 height m 1.75
+MH_TIME build seconds 1.382
+MH_TIME rebuild after color change seconds 0.036
+MH_ITEM outfit elvs goddess dress4 vertices 35916 hides 0
+MH_ITEM shoes elvs basic elfshoe1 vertices 1502 hides 2226
+MH_ITEM hair o4saken long01 vertices 15033 hides 0
+MH_ITEM eyes HighPolyEyes vertices 1076 hides 0
+MH_ITEM eyebrows eyebrow001 vertices 126 hides 0
+MH_ITEM eyelashes Eyelashes01 vertices 250 hides 0
+MH_BODY triangles kept 22213 of 26756 height m 1.78
+MH_TIME rebuild after height change seconds 0.993
+MH_RENDER wrote packaging/makehuman/app-review/style-Feminine-Fantasy.png
