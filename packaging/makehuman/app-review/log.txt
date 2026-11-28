@@ -7,8 +7,8 @@ MH_ITEM eyebrows eyebrow001 vertices 126 hides 0
 MH_ITEM eyelashes Eyelashes01 vertices 250 hides 0
 MH_BODY triangles kept 15755 of 26756 height m 1.75
 MH_HAT ring 568 mm, width 148 mm, length 204 mm, oval 1.38, US 7 1/8, hair under band 1.9 mm 
-MH_TIME build seconds 2.410
-MH_TIME rebuild after color change seconds 0.094
+MH_TIME build seconds 1.113
+MH_TIME rebuild after color change seconds 0.027
 MH_ITEM outfit male casualsuit01 vertices 8984 hides 8430
 MH_ITEM shoes shoes05 vertices 1744 hides 3206
 MH_ITEM hair short01 vertices 3177 hides 0
@@ -17,7 +17,7 @@ MH_ITEM eyebrows eyebrow001 vertices 126 hides 0
 MH_ITEM eyelashes Eyelashes01 vertices 250 hides 0
 MH_BODY triangles kept 15788 of 26756 height m 1.78
 MH_HAT ring 565 mm, width 148 mm, length 204 mm, oval 1.38, US 7 1/8, hair under band 1.9 mm 
-MH_TIME rebuild after height change seconds 0.568
+MH_TIME rebuild after height change seconds 0.329
 MH_RENDER wrote packaging/makehuman/app-review/cap1-man-short.png
 MH_RENDER Body=Feminine Skin=2 Hair=Ponytail HairColor=1 Clothing=Casual Accessory=Baseball Cap Outfit=2 Lighting=studio Face=1 -> outfit=female casualsuit01, shoes=shoes05, hair=ponytail01, eyes=HighPolyEyes, eyebrows=eyebrow001, eyelashes=Eyelashes01
 MH_ITEM outfit female casualsuit01 vertices 2406 hides 5372
@@ -28,8 +28,8 @@ MH_ITEM eyebrows eyebrow001 vertices 126 hides 0
 MH_ITEM eyelashes Eyelashes01 vertices 250 hides 0
 MH_BODY triangles kept 16850 of 26756 height m 1.75
 MH_HAT ring 523 mm, width 141 mm, length 184 mm, oval 1.30, US 6 1/2, hair under band 1.4 mm 
-MH_TIME build seconds 1.164
-MH_TIME rebuild after color change seconds 0.053
+MH_TIME build seconds 0.533
+MH_TIME rebuild after color change seconds 0.026
 MH_ITEM outfit female casualsuit01 vertices 2406 hides 5372
 MH_ITEM shoes shoes05 vertices 1744 hides 3206
 MH_ITEM hair ponytail01 vertices 4049 hides 0
@@ -38,7 +38,7 @@ MH_ITEM eyebrows eyebrow001 vertices 126 hides 0
 MH_ITEM eyelashes Eyelashes01 vertices 250 hides 0
 MH_BODY triangles kept 16855 of 26756 height m 1.78
 MH_HAT ring 525 mm, width 142 mm, length 184 mm, oval 1.30, US 6 5/8, hair under band 1.4 mm 
-MH_TIME rebuild after height change seconds 0.356
+MH_TIME rebuild after height change seconds 0.226
 MH_RENDER wrote packaging/makehuman/app-review/cap2-woman-ponytail.png
 MH_RENDER Body=Masculine Skin=4 Hair=Curly HairColor=0 Clothing=Casual Accessory=Baseball Cap Outfit=1 Lighting=studio Face=1 -> outfit=male casualsuit01, shoes=shoes05, hair=afro01, eyes=HighPolyEyes, eyebrows=eyebrow001, eyelashes=Eyelashes01
 MH_ITEM outfit male casualsuit01 vertices 8984 hides 8430
@@ -49,8 +49,8 @@ MH_ITEM eyebrows eyebrow001 vertices 126 hides 0
 MH_ITEM eyelashes Eyelashes01 vertices 250 hides 0
 MH_BODY triangles kept 15755 of 26756 height m 1.75
 MH_HAT ring 568 mm, width 148 mm, length 204 mm, oval 1.38, US 7 1/8, hair under band 7.4 mm 
-MH_TIME build seconds 1.037
-MH_TIME rebuild after color change seconds 0.036
+MH_TIME build seconds 0.616
+MH_TIME rebuild after color change seconds 0.026
 MH_ITEM outfit male casualsuit01 vertices 8984 hides 8430
 MH_ITEM shoes shoes05 vertices 1744 hides 3206
 MH_ITEM hair afro01 vertices 2276 hides 0
@@ -59,7 +59,7 @@ MH_ITEM eyebrows eyebrow001 vertices 126 hides 0
 MH_ITEM eyelashes Eyelashes01 vertices 250 hides 0
 MH_BODY triangles kept 15788 of 26756 height m 1.78
 MH_HAT ring 565 mm, width 148 mm, length 204 mm, oval 1.38, US 7 1/8, hair under band 7.4 mm 
-MH_TIME rebuild after height change seconds 0.485
+MH_TIME rebuild after height change seconds 0.313
 MH_RENDER wrote packaging/makehuman/app-review/cap3-man-curly.png
 MH_RENDER Body=Feminine Skin=0 Hair=Long HairColor=2 Clothing=Casual Accessory=Baseball Cap Outfit=3 Lighting=studio Face=1 -> outfit=female casualsuit01, shoes=shoes05, hair=o4saken long01, eyes=HighPolyEyes, eyebrows=eyebrow001, eyelashes=Eyelashes01
 MH_ITEM outfit female casualsuit01 vertices 2406 hides 5372
@@ -70,8 +70,8 @@ MH_ITEM eyebrows eyebrow001 vertices 126 hides 0
 MH_ITEM eyelashes Eyelashes01 vertices 250 hides 0
 MH_BODY triangles kept 16850 of 26756 height m 1.75
 MH_HAT ring 523 mm, width 141 mm, length 184 mm, oval 1.30, US 6 1/2, hair under band 12.8 mm 
-MH_TIME build seconds 1.179
-MH_TIME rebuild after color change seconds 0.069
+MH_TIME build seconds 0.675
+MH_TIME rebuild after color change seconds 0.024
 MH_ITEM outfit female casualsuit01 vertices 2406 hides 5372
 MH_ITEM shoes shoes05 vertices 1744 hides 3206
 MH_ITEM hair o4saken long01 vertices 15033 hides 0
@@ -80,7 +80,7 @@ MH_ITEM eyebrows eyebrow001 vertices 126 hides 0
 MH_ITEM eyelashes Eyelashes01 vertices 250 hides 0
 MH_BODY triangles kept 16855 of 26756 height m 1.78
 MH_HAT ring 525 mm, width 142 mm, length 184 mm, oval 1.30, US 6 5/8, hair under band 12.9 mm 
-MH_TIME rebuild after height change seconds 0.729
+MH_TIME rebuild after height change seconds 0.356
 MH_RENDER wrote packaging/makehuman/app-review/cap4-woman-long.png
 MH_RENDER Body=Masculine Skin=3 Hair=Long HairColor=0 Clothing=Rock Jacket Accessory=Baseball Cap (backwards) Outfit=4 Lighting=studio Face=1 -> outfit=male casualsuit05, shoes=Boots Ankle Male, hair=o4saken long01, eyes=HighPolyEyes, eyebrows=eyebrow001, eyelashes=Eyelashes01
 MH_ITEM outfit male casualsuit05 vertices 3871 hides 6058
@@ -91,8 +91,8 @@ MH_ITEM eyebrows eyebrow001 vertices 126 hides 0
 MH_ITEM eyelashes Eyelashes01 vertices 250 hides 0
 MH_BODY triangles kept 16835 of 26756 height m 1.75
 MH_HAT ring 568 mm, width 148 mm, length 204 mm, oval 1.38, US 7 1/8, hair under band 14.0 mm 
-MH_TIME build seconds 1.106
-MH_TIME rebuild after color change seconds 0.044
+MH_TIME build seconds 0.764
+MH_TIME rebuild after color change seconds 0.028
 MH_ITEM outfit male casualsuit05 vertices 3871 hides 6058
 MH_ITEM shoes Boots Ankle Male vertices 2530 hides 2246
 MH_ITEM hair o4saken long01 vertices 15033 hides 0
@@ -101,7 +101,7 @@ MH_ITEM eyebrows eyebrow001 vertices 126 hides 0
 MH_ITEM eyelashes Eyelashes01 vertices 250 hides 0
 MH_BODY triangles kept 16899 of 26756 height m 1.78
 MH_HAT ring 565 mm, width 148 mm, length 204 mm, oval 1.38, US 7 1/8, hair under band 14.0 mm 
-MH_TIME rebuild after height change seconds 0.550
+MH_TIME rebuild after height change seconds 0.408
 MH_RENDER wrote packaging/makehuman/app-review/cap5-backwards.png
 MH_RENDER Body=Feminine Skin=2 Hair=Ponytail HairColor=1 Clothing=Casual Accessory=Baseball Cap Outfit=2 Lighting=studio -> outfit=female casualsuit01, shoes=shoes05, hair=ponytail01, eyes=HighPolyEyes, eyebrows=eyebrow001, eyelashes=Eyelashes01
 MH_ITEM outfit female casualsuit01 vertices 2406 hides 5372
@@ -112,8 +112,8 @@ MH_ITEM eyebrows eyebrow001 vertices 126 hides 0
 MH_ITEM eyelashes Eyelashes01 vertices 250 hides 0
 MH_BODY triangles kept 16850 of 26756 height m 1.75
 MH_HAT ring 523 mm, width 141 mm, length 184 mm, oval 1.30, US 6 1/2, hair under band 1.4 mm 
-MH_TIME build seconds 1.021
-MH_TIME rebuild after color change seconds 0.064
+MH_TIME build seconds 0.522
+MH_TIME rebuild after color change seconds 0.041
 MH_ITEM outfit female casualsuit01 vertices 2406 hides 5372
 MH_ITEM shoes shoes05 vertices 1744 hides 3206
 MH_ITEM hair ponytail01 vertices 4049 hides 0
@@ -122,5 +122,5 @@ MH_ITEM eyebrows eyebrow001 vertices 126 hides 0
 MH_ITEM eyelashes Eyelashes01 vertices 250 hides 0
 MH_BODY triangles kept 16855 of 26756 height m 1.78
 MH_HAT ring 525 mm, width 142 mm, length 184 mm, oval 1.30, US 6 5/8, hair under band 1.4 mm 
-MH_TIME rebuild after height change seconds 0.364
+MH_TIME rebuild after height change seconds 0.333
 MH_RENDER wrote packaging/makehuman/app-review/cap6-full.png
