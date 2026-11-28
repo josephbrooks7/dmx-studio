@@ -52,7 +52,9 @@ struct TopHatStyle {
     var shell: Float = 0.003
     /// Interior ring = scalp ring + this much circumference (firm band allowance, 2–6 mm).
     var allowance: Float = 0.004
-    var sideCurl: Float = 0.012
+    var sideCurl: Float = 0.02
+    /// Crown widens slightly toward the roof, like a classic top hat's bell.
+    var crownFlare: Float = 0.004
     var ribbonHeight: Float = 0.030
 }
 
@@ -69,8 +71,10 @@ enum HeadwearFitter {
         let half = max(0.05, (front - back) / 2)
         // Eye centers sit ~2 cm below the brows; mid-forehead is ~4 cm above the eyes, the top of the ear
         // attachment about level with the brows. Sides of the ring just above the ears, front at mid-forehead.
-        let centerY = eyeY + 0.022
-        let pitch = atan(0.018 / half)                  // ≈10°: front at mid-forehead, lower over the occiput
+        // Worn as in reference photos of men and women in top hats: the brim a finger's width above the
+        // brows, the band nearly level (a few degrees higher in front), resting just above the ears.
+        let centerY = eyeY + 0.02
+        let pitch = atan(0.012 / half)                  // ≈7°
         func planeY(_ z: Float) -> Float { centerY + tan(pitch) * (z - cz) }
 
         var radii = [Float](repeating: 0, count: HeadFit.directions)
@@ -235,8 +239,8 @@ enum HeadwearFitter {
         func ring(_ extra: Float, y: Float) -> [SIMD3<Float>] { (0..<n).map { let p = fit.point($0, grow: grow + extra); return SIMD3(p.x, y, p.y) } }
         func radial(_ sign: Float) -> [SIMD3<Float>] { (0..<n).map { let a = fit.angle($0); return SIMD3(sin(a) * sign, 0, cos(a) * sign) } }
         let H = style.crownHeight, t = style.shell
-        let inner0 = ring(0, y: 0), innerTop = ring(0, y: H - t)
-        let outer0 = ring(t, y: 0), outerTop = ring(t, y: H)
+        let inner0 = ring(0, y: 0), innerTop = ring(style.crownFlare, y: H - t)
+        let outer0 = ring(t, y: 0), outerTop = ring(t + style.crownFlare, y: H)
         let hat = SCNNode(); hat.name = "mh_top_hat"
         hat.addChildNode(band(outer0, outerTop, na: radial(1), nb: radial(1), felt, name: "crown_outer"))
         hat.addChildNode(band(inner0, innerTop, na: radial(-1), nb: radial(-1), lining, name: "crown_lining"))
