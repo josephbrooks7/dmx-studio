@@ -717,8 +717,26 @@ enum MHCharacter {
                 if total == 0 { weights[0] = 1 }
                 mesh.influences.append((bones, weights))
             }
+            // Hide skin only where this garment really covers it. MakeHuman's lists are written for its default
+            // proportions and can reach past a garment's edge (e.g. above a shoe), which leaves a see-through gap.
             let removes = bin.uints("deleteVerts")
-            for d in removes { deleted.insert(Int(d)) }
+            let cell: Float = 0.015
+            var occupied = Set<SIMD3<Int32>>()
+            occupied.reserveCapacity(mesh.positions.count)
+            for q in mesh.positions {
+                occupied.insert(SIMD3<Int32>(Int32((q.x / cell).rounded(.down)), Int32((q.y / cell).rounded(.down)), Int32((q.z / cell).rounded(.down))))
+            }
+            for d in removes {
+                let vi = Int(d)
+                guard vi < body.count else { continue }
+                let q = body[vi] * k
+                let c = SIMD3<Int32>(Int32((q.x / cell).rounded(.down)), Int32((q.y / cell).rounded(.down)), Int32((q.z / cell).rounded(.down)))
+                var covered = false
+                search: for dx in Int32(-1)...1 { for dy in Int32(-1)...1 { for dz in Int32(-1)...1 {
+                    if occupied.contains(c &+ SIMD3(dx, dy, dz)) { covered = true; break search }
+                } } }
+                if covered { deleted.insert(vi) }
+            }
             if debugLog { print("MH_ITEM", item.slot, item.name, "vertices", n, "hides", removes.count) }
             fitted.append((item, mesh))
         }

@@ -40,8 +40,10 @@ jobs:
           r() { NAME=$1; shift; $BIN --character-render "packaging/makehuman/app-review/$NAME.png" "$@" 2>&1 | grep MH_ | tee -a packaging/makehuman/app-review/log.txt; }
           : > packaging/makehuman/app-review/log.txt
           rm -f packaging/makehuman/app-review/*.png packaging/makehuman/app-review/*.jpg
+          r full-woman-glam Body=Feminine Skin=2 Clothing=Glam Lighting=studio
+          r full-man-formal Body=Masculine Skin=2 Clothing=Formal Lighting=studio
           for SEX in Masculine Feminine; do
-            for C in Casual "Rock Jacket" Punk Glam Formal Fantasy Base; do
+            for C in Casual Punk Glam Formal; do
               F=$(echo "$C" | tr -d ' ')
               r "feet-$SEX-$F" Body=$SEX Skin=2 "Clothing=$C" Lighting=studio Feet=1
             done
