@@ -968,6 +968,7 @@ enum MHSheetCLI {
 enum MHRenderCLI {
     static var studio = false
     static var face = false
+    static var feet = false
     static func appearance(_ args: [String]) -> PerformerAppearance {
         var a = PerformerAppearance()
         a.pose = "Natural"
@@ -990,6 +991,7 @@ enum MHRenderCLI {
             case "Curl": MHPose.fingerCurl = Float(v) ?? -20
             case "Lighting": MHCharacter.unlit = v == "unlit"; MHRenderCLI.studio = v == "studio"
             case "Face": MHRenderCLI.face = v == "1"
+            case "Feet": MHRenderCLI.feet = v == "1"
             default: break
             }
         }
@@ -1062,14 +1064,14 @@ enum MHRenderCLI {
         }
         let h = max(height, 1.4) * 1.08
         camera.camera?.usesOrthographicProjection = true
-        camera.camera?.orthographicScale = Double(face ? h * 0.09 : h * 0.55)
+        camera.camera?.orthographicScale = Double(face ? h * 0.09 : (feet ? h * 0.1 : h * 0.55))
         camera.camera?.zNear = 0.01; camera.camera?.zFar = 50
         scene.rootNode.addChildNode(camera)
         let renderer = SCNRenderer(device: MTLCreateSystemDefaultDevice(), options: nil)
         renderer.scene = scene
         renderer.pointOfView = camera
         let r = angle * Double.pi / 180
-        let target: CGFloat = face ? max(height, 1.4) * 0.93 : h * 0.5
+        let target: CGFloat = face ? max(height, 1.4) * 0.93 : (feet ? 0.1 : h * 0.5)
         camera.position = SCNVector3(CGFloat(sin(r)) * 6, target, CGFloat(cos(r)) * 6)
         camera.look(at: SCNVector3(0, target, 0))
         let image = renderer.snapshot(atTime: 1, with: size, antialiasingMode: .multisampling4X)
